@@ -35,6 +35,9 @@ import com.calypsan.listenup.client.localization.SystemStringsHolder
 import com.calypsan.listenup.client.voice.VoiceIntentResolver
 import com.calypsan.listenup.core.BookId
 import com.google.common.util.concurrent.ListenableFuture
+import com.google.common.util.concurrent.Uninterruptibles
+import java.util.concurrent.ExecutionException
+import java.util.concurrent.TimeUnit
 import dev.mokkery.answering.calls
 import dev.mokkery.answering.returns
 import dev.mokkery.every
@@ -110,6 +113,17 @@ class ListenUpSessionCallbackTest {
 
         outcome.isFailure shouldBe true
         prepared.shouldBeEmpty()
+    }
+
+    // Offline or signed out, prepare is refused with a typed failure. A headset press that cold-starts
+    // the service must then get a failed future, never one that hangs past the foreground deadline.
+    @Test
+    fun `when the loaded book cannot be prepared, resumption fails instead of hanging`() {
+        val callback = resumptionCallback(loadedBookId = BookId("loaded"), prepared = mutableListOf())
+
+        val outcome = runCatching { callback.resume() }
+
+        (outcome.exceptionOrNull() is ExecutionException) shouldBe true
     }
 
     // ── A start from the car, the Assistant or the resume card switches books cleanly ──
@@ -850,11 +864,19 @@ class ListenUpSessionCallbackTest {
         )
     }
 
-    /** Asks for playback resumption the way the system's resume card does, blocking on the answer. */
+    /**
+     * Asks for playback resumption the way the system's resume card does, blocking on the answer —
+     * bounded, because a cold start from a media button runs under the foreground-start deadline, so
+     * a future that never completes is a failure in its own right.
+     */
     private fun ListenUpSessionCallback.resume(): MediaSession.MediaItemsWithStartPosition {
         val session = MediaSession.Builder(context, sessionPlayer).build()
         try {
-            return onPlaybackResumption(session, testControllerInfo(), true).get()
+            return Uninterruptibles.getUninterruptibly(
+                onPlaybackResumption(session, testControllerInfo(), true),
+                5,
+                TimeUnit.SECONDS,
+            )
         } finally {
             session.release()
         }

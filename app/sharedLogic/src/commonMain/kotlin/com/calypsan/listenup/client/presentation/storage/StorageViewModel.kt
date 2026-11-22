@@ -90,7 +90,8 @@ class StorageViewModel(
             // stat per file, with zero suspension points — and getAvailableSpace() is a blocking
             // statvfs. This transform runs on the collector's context, i.e. Main
             // (viewModelScope is Dispatchers.Main.immediate), and re-runs on every
-            // observeDownloadedBooks() emission, so every download add/delete re-walks the tree.
+            // observeDownloadedBooks() emission: a file finishing or a download being deleted, or a
+            // downloaded book's title or cover changing — not the progress ticks of one in flight.
             // On a large offline library that is an ANR candidate, not merely jank.
             //
             // Moved with withContext rather than flowOn deliberately: flowOn would shift the whole

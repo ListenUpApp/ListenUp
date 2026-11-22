@@ -6,6 +6,8 @@ import androidx.navigation3.runtime.NavKey
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
+import androidx.compose.ui.platform.LocalContext
+import com.calypsan.listenup.client.design.theme.supportsDynamicColor
 import com.calypsan.listenup.client.features.settings.HardcoverKeptOffScreen
 import com.calypsan.listenup.client.features.settings.HardcoverMatchScreen
 import com.calypsan.listenup.client.features.settings.HardcoverSettingsScreen
@@ -33,7 +35,7 @@ internal fun EntryProviderScope<NavKey>.settingsEntries(
 ) {
     entry<Settings> {
         SettingsScreen(
-            showDynamicColors = true,
+            showDynamicColors = LocalContext.current.supportsDynamicColor(),
             onNavigateToCategories = { backStack.add(AdminCategories) },
             onNavigateBack = {
                 backStack.popFrom(Settings)

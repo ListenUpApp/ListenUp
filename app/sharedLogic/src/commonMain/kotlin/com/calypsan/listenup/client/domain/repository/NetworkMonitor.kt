@@ -45,4 +45,14 @@ interface NetworkMonitor {
      * WiFi-only downloads is enabled but device is on cellular.
      */
     val onUnmeteredNetworkFlow: StateFlow<Boolean>
+
+    /**
+     * Observable "on a local network" state.
+     *
+     * Emits true while any connected network is Wi-Fi or Ethernet — whichever network the system
+     * routes traffic over. A phone on home Wi-Fi without internet usually has cellular as its
+     * active network, yet it is still on the server's LAN; a metered Wi-Fi is still a LAN. Used to
+     * decide whether searching the LAN for a moved server can help.
+     */
+    val onLocalNetworkFlow: StateFlow<Boolean>
 }

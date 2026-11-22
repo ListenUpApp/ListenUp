@@ -256,6 +256,40 @@ class ImageDownloaderTest :
             }
         }
 
+        // Two rows asking for the same uncached cover: the second waits for the first and finds the
+        // file, instead of downloading and saving the same cover over it at the same moment.
+        test("concurrent downloadCover calls for one book coalesce into a single download + save") {
+            runTest {
+                val fixture = createFixture()
+                val bookId = BookId("book-1")
+                val gate = CompletableDeferred<Unit>()
+                var apiCalls = 0
+                var saveCalls = 0
+                var coverSaved = false
+                every { fixture.imageStorage.exists(bookId) } calls { coverSaved }
+                everySuspend { fixture.imageApi.downloadCover(bookId) } calls {
+                    apiCalls++
+                    gate.await()
+                    AppResult.Success(ByteArray(10))
+                }
+                everySuspend { fixture.imageStorage.saveCover(bookId, any()) } calls {
+                    saveCalls++
+                    coverSaved = true
+                    AppResult.Success(Unit)
+                }
+                val imageDownloader = fixture.build()
+
+                val first = launch { imageDownloader.downloadCover(bookId) }
+                val second = launch { imageDownloader.downloadCover(bookId) }
+                runCurrent()
+                gate.complete(Unit)
+                joinAll(first, second)
+
+                apiCalls shouldBe 1
+                saveCalls shouldBe 1
+            }
+        }
+
         // ========== User Avatar Dedup + Negative-Cache Tests ==========
 
         test("concurrent downloadUserAvatar calls coalesce into a single download + save") {

@@ -5,6 +5,7 @@ import android.content.Context
 import com.calypsan.listenup.api.result.getOrNull
 import com.calypsan.listenup.client.composeapp.R
 import android.content.Intent
+import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.calypsan.listenup.api.push.PushPayload
@@ -165,9 +166,13 @@ class PushNotificationRenderer(
      * THE per-type action seam. Registration approvals carry Approve/Deny; everything else is
      * tap-only. The Campfire arc adds its "Join" deep-link here rather than at a call site — an
      * `if` while exactly one type has actions, a `when` the moment a second does.
+     *
+     * Approve/Deny exist only from API 31, where the OS honours [decisionAction]'s unlock
+     * requirement. Below it the notification is tap-only: the tap opens the app, which needs an
+     * unlock, so an Android 11 admin decides in the app rather than from the lock screen.
      */
     private suspend fun actionsFor(payload: PushPayload?): List<NotificationCompat.Action> =
-        if (payload is PushPayload.RegistrationApproval) {
+        if (payload is PushPayload.RegistrationApproval && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             listOf(
                 decisionAction(
                     payload.userId,
@@ -192,8 +197,9 @@ class PushNotificationRenderer(
      * private server is a privileged mutation, and without this it could be performed from the
      * lock screen of an unattended phone by whoever picked it up — no app open, no unlock, no
      * trace until an admin noticed a stranger in the roster. The OS demands a device unlock before
-     * it will fire the intent, which is the same bar the in-app path effectively has. minSdk is 33,
-     * so this is always available; there is no older path to fall back to.
+     * it will fire the intent, which is the same bar the in-app path effectively has. The flag is
+     * honoured only from API 31 (androidx drops it below), so [actionsFor] leaves the buttons off
+     * on older devices rather than ship ones a locked phone could fire.
      *
      * `requestCode` mixes the user id with the decision so Approve and Deny cannot collide into one
      * PendingIntent — `FLAG_UPDATE_CURRENT` on a shared request code would quietly make both

@@ -14,8 +14,10 @@ import androidx.compose.runtime.Composable
  * screen can only promise what the OS will let it deliver, so it has to ask the OS.
  *
  * - **Android (API 33+):** launches the system dialog via `rememberLauncherForActivityResult` and
- *   returns the live grant state, updating when the dialog resolves. minSdk is 33, so
- *   `POST_NOTIFICATIONS` is always a runtime grant — never implicitly held.
+ *   returns the live grant state, updating when the dialog resolves — from 33 on
+ *   `POST_NOTIFICATIONS` is a runtime grant, never implicitly held.
+ * - **Android 11–12 (API 30–32):** the permission does not exist; notifications are allowed, so
+ *   this returns `true` without asking.
  * - **Desktop:** no permission model; always `true`.
  *
  * Fire-and-forget: never blocks navigation, never requires a grant.

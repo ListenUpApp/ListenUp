@@ -79,6 +79,20 @@
         </service>
 
         <!--
+            Starts PlaybackService for a media button pressed while the process is dead (a headset
+            or car "play"), so ListenUpSessionCallback.onPlaybackResumption can pick the loaded book
+            back up. Media3 also keys playback resumption on this receiver being declared: without
+            it the system's resume card is refused. Exactly one MEDIA_BUTTON receiver may exist.
+        -->
+        <receiver
+            android:name="androidx.media3.session.MediaButtonReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MEDIA_BUTTON" />
+            </intent-filter>
+        </receiver>
+
+        <!--
             Book cover art for Android Auto. Auto rejects file:// artwork URIs, so covers are
             served as content://. NOT exported: reachable only via the URI-permission grant
             ListenUpSessionCallback issues to trusted media controllers on connect, so no other

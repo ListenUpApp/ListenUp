@@ -20,7 +20,12 @@ import com.calypsan.listenup.client.domain.model.DownloadedBookSummary
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.download.DownloadEnqueuer
+import com.calypsan.listenup.client.domain.model.BookListItem
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 
 /** SQLite binds one host parameter per `IN (:list)` element; chunk below the ~999 ceiling. */
@@ -53,34 +58,60 @@ internal class DownloadRepositoryImpl(
                 .mapValues { (bookId, files) -> aggregate(bookId, files) }
         }
 
+    /**
+     * The downloads table is written every 256 KB or 500 ms per file while anything downloads, and
+     * the Storage screen walks the whole downloads tree per emission — so the table is reduced to
+     * its finished files first and only a change there passes. The books are observed, not read
+     * once, so a title or cover that syncs in later shows without waiting for the next download.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
     override fun observeDownloadedBooks(): Flow<List<DownloadedBookSummary>> =
-        downloadDao.observeAll().map { downloads ->
-            val completedByBook =
-                downloads
-                    .filter { it.state == DownloadState.COMPLETED }
-                    .groupBy { it.bookId }
+        downloadDao
+            .observeAll()
+            .map(::completedFilesByBook)
+            .distinctUntilChanged()
+            .flatMapLatest { completedByBook ->
+                if (completedByBook.isEmpty()) {
+                    flowOf(emptyList())
+                } else {
+                    bookRepository.observeBookListItems(completedByBook.keys.toList()).map { books ->
+                        summarize(completedByBook, books)
+                    }
+                }
+            }.distinctUntilChanged()
 
-            if (completedByBook.isEmpty()) return@map emptyList()
+    /** Finished files per book: what [observeDownloadedBooks] shows, and nothing a progress write moves. */
+    private fun completedFilesByBook(downloads: List<DownloadEntity>): Map<String, CompletedFiles> =
+        downloads
+            .filter { it.state == DownloadState.COMPLETED }
+            .groupBy { it.bookId }
+            .mapValues { (_, files) -> CompletedFiles(count = files.size, bytes = files.sumOf { it.downloadedBytes }) }
 
-            val books =
-                bookRepository
-                    .getBookListItems(completedByBook.keys.toList())
-                    .associateBy { it.id.value }
+    private fun summarize(
+        completedByBook: Map<String, CompletedFiles>,
+        books: List<BookListItem>,
+    ): List<DownloadedBookSummary> {
+        val booksById = books.associateBy { it.id.value }
+        return completedByBook
+            .mapNotNull { (bookId, files) ->
+                val book = booksById[bookId] ?: return@mapNotNull null
+                DownloadedBookSummary(
+                    bookId = bookId,
+                    title = book.title,
+                    authorNames = book.authorNames,
+                    sizeBytes = files.bytes,
+                    fileCount = files.count,
+                    coverPath = book.coverPath,
+                    coverHash = book.coverHash,
+                )
+            }.sortedByDescending { it.sizeBytes }
+    }
 
-            completedByBook
-                .mapNotNull { (bookId, files) ->
-                    val book = books[bookId] ?: return@mapNotNull null
-                    DownloadedBookSummary(
-                        bookId = bookId,
-                        title = book.title,
-                        authorNames = book.authorNames,
-                        sizeBytes = files.sumOf { it.downloadedBytes },
-                        fileCount = files.size,
-                        coverPath = book.coverPath,
-                        coverHash = book.coverHash,
-                    )
-                }.sortedByDescending { it.sizeBytes }
-        }
+    /** A book's finished downloads, reduced to what the Storage list shows. */
+    private data class CompletedFiles(
+        val count: Int,
+        val bytes: Long,
+    )
 
     override suspend fun getLocalPath(audioFileId: String): String? = downloadDao.getLocalPath(audioFileId)
 

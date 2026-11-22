@@ -24,8 +24,13 @@ import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
 
 class DownloadRepositoryImplTest :
     FunSpec({
@@ -433,6 +438,74 @@ class DownloadRepositoryImplTest :
             }
         }
 
+        // The Storage screen walks the whole downloads tree per emission, and progress is written
+        // every 256 KB or 500 ms while anything downloads; only a finished file changes the list.
+        test("progress on an in-flight file does not re-emit; finishing it does, once") {
+            val db = createInMemoryTestDatabase()
+            val downloadDao = db.downloadDao()
+            try {
+                runTest {
+                    val bookRepository = FakeBookRepository()
+                    val sut =
+                        DownloadRepositoryImpl(
+                            downloadDao = downloadDao,
+                            bookRepository = bookRepository,
+                            enqueuer = FakeDownloadEnqueuer(),
+                        )
+                    bookRepository.books = listOf(fakeBook(id = "b1", title = "Dune", authors = listOf("Frank Herbert")))
+                    downloadDao.insert(makeDownload(id = "f1", bookId = "b1", state = DownloadState.COMPLETED, bytes = 1_000L))
+                    downloadDao.insert(makeDownload(id = "f2", bookId = "b1", state = DownloadState.DOWNLOADING, bytes = 0L))
+
+                    sut.observeDownloadedBooks().test {
+                        awaitItem().single().fileCount shouldBe 1
+
+                        repeat(5) { tick ->
+                            downloadDao.updateProgress("f2", downloaded = (tick + 1) * 100L, total = 2_000L)
+                            withContext(Dispatchers.Default) { delay(50) }
+                        }
+                        val _ = downloadDao.markCompleted("f2", localPath = "/audio/f2.mp3", completedAt = 1L)
+
+                        awaitItem().single().fileCount shouldBe 2
+                        cancelAndIgnoreRemainingEvents()
+                    }
+                }
+            } finally {
+                db.close()
+            }
+        }
+
+        // The book side is observed too: a title or cover that syncs in later shows without waiting
+        // for the downloads table to change.
+        test("a downloaded book's new title re-emits") {
+            val db = createInMemoryTestDatabase()
+            val downloadDao = db.downloadDao()
+            try {
+                runTest {
+                    val bookRepository = FakeBookRepository()
+                    val sut =
+                        DownloadRepositoryImpl(
+                            downloadDao = downloadDao,
+                            bookRepository = bookRepository,
+                            enqueuer = FakeDownloadEnqueuer(),
+                        )
+                    bookRepository.books = listOf(fakeBook(id = "b1", title = "Dune", authors = listOf("Frank Herbert")))
+                    downloadDao.insert(makeDownload(id = "f1", bookId = "b1", state = DownloadState.COMPLETED, bytes = 1_000L))
+
+                    sut.observeDownloadedBooks().test {
+                        awaitItem().single().title shouldBe "Dune"
+
+                        bookRepository.books =
+                            listOf(fakeBook(id = "b1", title = "Dune Messiah", authors = listOf("Frank Herbert")))
+
+                        awaitItem().single().title shouldBe "Dune Messiah"
+                        cancelAndIgnoreRemainingEvents()
+                    }
+                }
+            } finally {
+                db.close()
+            }
+        }
+
         test("downloads whose book is missing from repository are silently dropped") {
             val db = createInMemoryTestDatabase()
             val downloadDao = db.downloadDao()
@@ -551,7 +624,14 @@ private class FakeDownloadEnqueuer : DownloadEnqueuer {
 }
 
 private class FakeBookRepository : BookRepository {
-    var books: List<BookListItem> = emptyList()
+    /** Observed like Room: a write to [books] re-emits every [observeBookListItems] collector. */
+    private val booksFlow = MutableStateFlow<List<BookListItem>>(emptyList())
+
+    var books: List<BookListItem>
+        get() = booksFlow.value
+        set(value) {
+            booksFlow.value = value
+        }
 
     override suspend fun refreshBooks(): AppResult<Unit> = AppResult.Success(Unit)
 
@@ -571,7 +651,8 @@ private class FakeBookRepository : BookRepository {
 
     override fun observeBookListItems(): Flow<List<BookListItem>> = flowOf(books)
 
-    override fun observeBookListItems(ids: List<String>): Flow<List<BookListItem>> = flowOf(books.filter { it.id.value in ids })
+    override fun observeBookListItems(ids: List<String>): Flow<List<BookListItem>> =
+        booksFlow.map { all -> all.filter { it.id.value in ids } }
 
     override suspend fun getBookListItem(id: String): BookListItem? = books.firstOrNull { it.id.value == id }
 

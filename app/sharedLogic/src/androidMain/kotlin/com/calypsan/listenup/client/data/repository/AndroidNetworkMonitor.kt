@@ -11,7 +11,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
 /**
- * The connectivity facts [AndroidNetworkMonitor] reads off the system's **active** network.
+ * The connectivity facts [AndroidNetworkMonitor] reads off one network: the system's **active**
+ * network for [NetworkStatusPolicy.isOnline] and [NetworkStatusPolicy.isUnmetered], every connected
+ * network for [NetworkStatusPolicy.isOnLocalNetwork].
  *
  * [isValidated] is recorded but deliberately NOT used by [NetworkStatusPolicy] — see its KDoc.
  * Carrying it keeps the omission explicit rather than invisible.
@@ -20,15 +22,18 @@ internal data class NetworkFacts(
     val hasInternetRoute: Boolean,
     val isValidated: Boolean,
     val isUnmetered: Boolean,
+    /** Wi-Fi or Ethernet: a transport that puts the device on a local network. */
+    val isLocalTransport: Boolean,
 ) {
     companion object {
         /** No active network at all. */
-        val NONE = NetworkFacts(hasInternetRoute = false, isValidated = false, isUnmetered = false)
+        val NONE =
+            NetworkFacts(hasInternetRoute = false, isValidated = false, isUnmetered = false, isLocalTransport = false)
     }
 }
 
 /**
- * Turns [NetworkFacts] into the two booleans [NetworkMonitor] exposes. Pure, so the decision is
+ * Turns [NetworkFacts] into the booleans [NetworkMonitor] exposes. Pure, so the decision is
  * testable without a `ConnectivityManager` (`:app:sharedLogic`'s androidHostTest lane has no
  * Robolectric).
  *
@@ -49,6 +54,13 @@ internal object NetworkStatusPolicy {
     fun isOnline(facts: NetworkFacts): Boolean = facts.hasInternetRoute
 
     fun isUnmetered(facts: NetworkFacts): Boolean = facts.hasInternetRoute && facts.isUnmetered
+
+    /**
+     * On a local network when ANY connected network is Wi-Fi or Ethernet, not only the active one:
+     * with home Wi-Fi up but its internet down, Android routes over cellular, yet the server is
+     * still on the Wi-Fi. Metering and validation are irrelevant to whether there is a LAN.
+     */
+    fun isOnLocalNetwork(connected: List<NetworkFacts>): Boolean = connected.any { it.isLocalTransport }
 }
 
 /**
@@ -79,6 +91,9 @@ class AndroidNetworkMonitor(
     override val onUnmeteredNetworkFlow: StateFlow<Boolean>
         field = MutableStateFlow(NetworkStatusPolicy.isUnmetered(activeNetworkFacts()))
 
+    override val onLocalNetworkFlow: StateFlow<Boolean>
+        field = MutableStateFlow(NetworkStatusPolicy.isOnLocalNetwork(connectedNetworkFacts()))
+
     init {
         val networkCallback =
             object : ConnectivityManager.NetworkCallback() {
@@ -107,21 +122,35 @@ class AndroidNetworkMonitor(
 
     override fun isOnline(): Boolean = onlineFlow.value
 
-    /** Re-derive both flows from the system's currently active network. */
+    /** Re-derive the flows: online and unmetered from the active network, local from every network. */
     private fun refresh() {
         val facts = activeNetworkFacts()
         onlineFlow.value = NetworkStatusPolicy.isOnline(facts)
         onUnmeteredNetworkFlow.value = NetworkStatusPolicy.isUnmetered(facts)
+        onLocalNetworkFlow.value = NetworkStatusPolicy.isOnLocalNetwork(connectedNetworkFacts())
     }
 
     /** The [NetworkFacts] of the system's active network, or [NetworkFacts.NONE] if there is none. */
-    private fun activeNetworkFacts(): NetworkFacts {
-        val network = connectivityManager.activeNetwork ?: return NetworkFacts.NONE
-        val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return NetworkFacts.NONE
+    private fun activeNetworkFacts(): NetworkFacts =
+        connectivityManager.activeNetwork?.let(::factsOf) ?: NetworkFacts.NONE
+
+    /**
+     * The [NetworkFacts] of every connected network. `allNetworks` is deprecated from API 31 in
+     * favour of tracking callbacks, but it is still answered, and it is the one call that works the
+     * same on the API 30 floor and today.
+     */
+    @Suppress("DEPRECATION")
+    private fun connectedNetworkFacts(): List<NetworkFacts> = connectivityManager.allNetworks.mapNotNull(::factsOf)
+
+    private fun factsOf(network: Network): NetworkFacts? {
+        val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return null
         return NetworkFacts(
             hasInternetRoute = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET),
             isValidated = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED),
             isUnmetered = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED),
+            isLocalTransport =
+                capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
+                    capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET),
         )
     }
 }

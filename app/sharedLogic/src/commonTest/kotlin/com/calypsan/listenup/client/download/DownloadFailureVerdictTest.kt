@@ -83,12 +83,37 @@ class DownloadFailureVerdictTest :
                     settle(
                         repository,
                         errorBus,
-                        TransportError.NetworkUnavailable(debugInfo = "write failed: ENOSPC (No space left on device)"),
+                        DownloadError.InsufficientStorage(debugInfo = "write failed: ENOSPC (No space left on device)"),
                     ) shouldBe DownloadFailureVerdict.GIVE_UP
                     awaitItem().shouldBeInstanceOf<DownloadError.InsufficientStorage>()
                 }
 
                 repository.entities.single().state shouldBe DownloadState.FAILED
+            }
+        }
+
+        // A full disk is told by its type, never by the text: a lost connection's message names the
+        // host, and a self-hosted box is plausibly called storage.lan.
+        listOf(
+            "Failed to connect to storage.lan/192.168.1.10:8080",
+            "No space left on device",
+        ).forEach { detail ->
+            test("a lost connection whose message reads \"$detail\" pauses, and is not taken for a full disk") {
+                runTest {
+                    val repository = FakeDownloadRepository(initial = listOf(row()))
+                    val errorBus = ErrorBus()
+
+                    errorBus.errors.test {
+                        settle(repository, errorBus, TransportError.NetworkUnavailable(debugInfo = detail)) shouldBe
+                            DownloadFailureVerdict.RETRY_LATER
+                        expectNoEvents()
+                    }
+
+                    val settled = repository.entities.single()
+                    settled.state shouldBe DownloadState.PAUSED
+                    settled.pauseReason shouldBe DownloadPauseReason.NETWORK_LOST
+                    settled.retryCount shouldBe 0
+                }
             }
         }
 

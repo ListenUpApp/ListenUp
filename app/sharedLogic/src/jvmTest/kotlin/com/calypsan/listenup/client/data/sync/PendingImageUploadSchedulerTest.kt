@@ -37,6 +37,7 @@ private class SwitchableNetwork(
 ) : NetworkMonitor {
     override val onlineFlow: MutableStateFlow<Boolean> = MutableStateFlow(online)
     override val onUnmeteredNetworkFlow: StateFlow<Boolean> = MutableStateFlow(true)
+    override val onLocalNetworkFlow: StateFlow<Boolean> = MutableStateFlow(true)
 
     override fun isOnline(): Boolean = onlineFlow.value
 }

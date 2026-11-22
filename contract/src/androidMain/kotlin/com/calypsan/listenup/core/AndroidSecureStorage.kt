@@ -64,7 +64,8 @@ class AndroidSecureStorage(
             )
 
         // Always try StrongBox (enhanced hardware security), fall back to regular if unavailable
-        // Note: StrongBox available on Android P+ (API 28+), minSdk is 34
+        // Note: StrongBox exists from Android P (API 28), below the API 30 floor, so the request is
+        // always valid; a device without the hardware falls back below.
         val useStrongBox = true
 
         return try {

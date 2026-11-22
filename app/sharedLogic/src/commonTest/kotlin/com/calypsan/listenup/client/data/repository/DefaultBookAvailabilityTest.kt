@@ -53,6 +53,7 @@ class DefaultBookAvailabilityTest :
                     override val onlineFlow: StateFlow<Boolean> = MutableStateFlow(true)
 
                     override val onUnmeteredNetworkFlow: StateFlow<Boolean> = MutableStateFlow(unmetered)
+                    override val onLocalNetworkFlow: StateFlow<Boolean> = MutableStateFlow(unmetered)
                 }
 
             return DefaultBookAvailability(
