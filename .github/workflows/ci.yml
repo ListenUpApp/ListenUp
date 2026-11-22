@@ -366,15 +366,18 @@ jobs:
 
       # xHE-AAC decodes through Fraunhofer FDK (GStreamer's fdkaacdec), never FFmpeg, so the
       # transcoder's xHE gate needs that decoder too. Ubuntu ships none, so the one plugin is built
-      # here exactly as server/Dockerfile.native builds it. Like the FFmpeg gate above, the spec
+      # here exactly as server/Dockerfile.native builds it — against the image's own FDK library version,
+      # built from Debian's source, because the runner's packaged libfdk-aac refuses USAC configs the
+      # image's decodes (see the script). Like the FFmpeg gate above, the spec
       # SKIPS without it, so the verify step below is what keeps the skip from passing silently.
       - name: Install GStreamer and FDK build dependencies (xHE-AAC transcode gate)
         timeout-minutes: 18
         uses: ./.github/actions/apt-install
         with:
           packages: >-
-            libfdk-aac-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
+            libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
             gstreamer1.0-tools gstreamer1.0-plugins-base gstreamer1.0-plugins-good meson ninja-build
+            autoconf automake libtool
 
       - name: Build GStreamer fdkaacdec (xHE-AAC transcode gate)
         run: |
@@ -385,17 +388,8 @@ jobs:
         run: |
           gst-inspect-1.0 fdkaacdec | head -3
           gst-inspect-1.0 matroskademux | head -3
-
-      - name: TEMP diagnose FDK pipeline
-        continue-on-error: true
-        run: |
-          F=server/src/jvmTest/resources/transcode/xhe-aac-3465ms.m4a
-          ffprobe -v error -show_streams $F | head -40
-          ffmpeg -nostdin -v warning -i $F -vn -map 0:a:0 -c:a copy -f matroska /tmp/s1.mkv
-          ffprobe -v error -show_streams /tmp/s1.mkv | head -40
-          GST_DEBUG=3,matroskademux:5,fdkaacdec:6 gst-launch-1.0 -v filesrc location=/tmp/s1.mkv ! matroskademux ! queue ! fdkaacdec ! audioconvert ! audio/x-raw,format=S16LE,rate=44100,channels=2 ! fakesink 2>&1 | grep -iE 'caps|negotiat|error|warn|fdk|codec' | head -80
-          gst-inspect-1.0 fdkaacdec | sed -n '/SINK template/,/SRC template/p'
-          dpkg -l | grep -i fdk
+          # The plugin must run on the FDK built beside it, not on whatever the runner packages.
+          ldd "$RUNNER_TEMP/gst-plugins/libgstfdkaac.so" | grep "$RUNNER_TEMP/gst-plugins/fdk-aac/lib/libfdk-aac"
 
       # Kotest across the contract DTOs, the shared client core (every client consumes
       # :app:sharedLogic), and the server. :app:sharedUI host tests are Robolectric (JVM, no
