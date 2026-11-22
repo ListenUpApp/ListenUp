@@ -155,25 +155,6 @@ SELECT ended_at FROM listening_events
 WHERE user_id = :userId AND deleted_at IS NULL AND ended_at >= :cutoffMs
 ORDER BY ended_at ASC;
 
--- Presence fill: every OTHER user's closed listens, ending at/after :endedSince, on books they have not
--- finished. Feeds the recent half of "What Others Are Listening To" beneath the live sessions. A closed
--- listen is the same evidence the Activity feed's LISTENING_SESSION row is written from, and the caller
--- groups these into sittings by the same shared rule the feed uses (RealListen / groupIntoSittings), so
--- Discover and Activity can never disagree about who was listening: opening a book or scrubbing moves a
--- position but closes no listen, and so puts nobody here. The :endedSince line keeps a book abandoned
--- months ago from describing what anyone is up to. Callers still ACL-filter every returned book_id; this
--- query is viewer-agnostic.
-selectUnfinishedListensExcluding:
-SELECT e.user_id, e.book_id, e.started_at, e.ended_at
-FROM listening_events e
-WHERE e.user_id != :excludeUserId
-  AND e.deleted_at IS NULL
-  AND e.ended_at >= :endedSince
-  AND NOT EXISTS (
-      SELECT 1 FROM playback_positions p
-      WHERE p.user_id = e.user_id AND p.book_id = e.book_id AND p.finished = 1 AND p.deleted_at IS NULL
-  );
-
 -- True iff the user has at least one live (non-deleted) listening event — drives
 -- ListeningEventDomainSeeder.isAlreadySeeded.
 hasAnyLiveForUser:

@@ -119,6 +119,7 @@ private val SQ_TABLES =
         "public_profiles",
         "admin_user_roster",
         "activities",
+        "sittings",
         "book_reads",
         "users",
         "sessions",

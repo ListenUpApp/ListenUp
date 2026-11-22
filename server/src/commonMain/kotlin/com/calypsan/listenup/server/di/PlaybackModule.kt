@@ -34,6 +34,9 @@ import com.calypsan.listenup.server.services.FinishAnnouncementSweep
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ListeningEventRepository
 import com.calypsan.listenup.server.services.PlaybackPositionRepository
+import com.calypsan.listenup.server.services.SittingReconciler
+import com.calypsan.listenup.server.services.SittingRepository
+import com.calypsan.listenup.server.services.SittingsBackfill
 import com.calypsan.listenup.server.services.StatsRecorder
 import com.calypsan.listenup.server.services.UserStatsBackfillService
 import com.calypsan.listenup.server.services.UserStatsRepository
@@ -67,6 +70,10 @@ import org.koin.dsl.module
  *    The provider is only invoked at runtime inside `pullSince`, by which time both singletons resolve.
  *  - [ListeningEventRepository] — per-user listening spans; `createdAtStart = true`; fires
  *    `statsRecorder.record(StatsEvent.ListeningSessionClosed(...))` atomically on every upsert.
+ *  - [SittingRepository] — the `sittings` sync domain (one row per sitting, the Activity feed's listening
+ *    row); `createdAtStart = true` so it registers with the sync registry at bootstrap. [SittingReconciler]
+ *    rebuilds it from the evidence and is [StatsRecorder]'s sittings hook; [SittingsBackfill] rebuilds every
+ *    user's history once per boot.
  *  - [UserStatsBackfillService] — admin-only service that rebuilds the materialized `user_stats`
  *    row from scratch; surfaced via `POST /api/v1/admin/stats/backfill`, and called by [StatsRecorder]
  *    to service `StatsEvent.BulkRecompute`.
@@ -109,6 +116,7 @@ fun playbackModule(
         }
         single { ActivityRepository(db = get<ListenUpDatabase>()) }
         single { ActivityRecorder(syncRepo = get()) }
+        sittingBindings()
         single { BookReadsRepository(db = get<ListenUpDatabase>(), clock = get()) }
         single { FinishAnnouncementSweep(sql = get<ListenUpDatabase>(), activities = get(), reads = get()) }
         single {
@@ -120,6 +128,7 @@ fun playbackModule(
                 activityRecorder = get(),
                 statsBackfill = get(),
                 hardcoverPush = get(),
+                sittings = get<SittingReconciler>(),
             )
         }
         single(createdAtStart = true) {
@@ -201,7 +210,7 @@ fun playbackModule(
                 bookAccessPolicy = get(),
                 publicProfiles = get(),
                 playbackPositions = get(),
-                listeningEvents = get(),
+                sittings = get(),
                 bookReads = get(),
                 books = get(),
                 sql = get(),
@@ -219,6 +228,19 @@ fun playbackModule(
  */
 private fun unscopedSocialPlaceholder(): PrincipalProvider =
     PrincipalProvider { error("Unscoped SocialService — call copyWith(PrincipalProvider) at the route") }
+
+/**
+ * The sittings slice of [playbackModule], split out to keep that function within its length budget: the
+ * `sittings` sync domain (registered at bootstrap, hence `createdAtStart`), the reconciler that rebuilds it
+ * and is [StatsRecorder]'s sittings hook, and the boot backfill.
+ */
+private fun Module.sittingBindings() {
+    single(createdAtStart = true) {
+        SittingRepository(db = get(), bus = get(), registry = get(), driver = get())
+    }
+    single { SittingReconciler(db = get<ListenUpDatabase>(), sittings = get(), bus = get()) }
+    single { SittingsBackfill(db = get<ListenUpDatabase>(), reconciler = get()) }
+}
 
 /**
  * The transcoding slice of [playbackModule], split out to keep that function within its length

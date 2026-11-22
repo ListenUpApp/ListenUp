@@ -66,7 +66,8 @@ class SyncDomainCompletenessSpec :
                 val catalogNames = catalog.mirrored.map { it.key.name }
 
                 catalogNames.toSet() shouldHaveSize catalogNames.size
-                catalogNames.toSet() shouldBe SyncDomains.all.map { it.name }.toSet()
+                catalogNames.toSet() shouldBe
+                    SyncDomains.all.map { it.name }.toSet() - AccessGateParityGuard.SERVED_BEFORE_MIRRORED
             } finally {
                 db.close()
             }

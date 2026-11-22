@@ -39,6 +39,7 @@ internal val BOOK_ID_MATCH_DOMAINS =
         // world_events' own book_id is only the anchor; WorldEventRepository.pullByIds resolves homes too.
         WORLD_EVENTS_DOMAIN,
         READING_ORDER_BOOKS_DOMAIN,
+        SITTINGS_DOMAIN,
     )
 
 // Domains whose rows carry a `collection_id` column, so [TargetedMatch.COLLECTION_ID] (the
@@ -145,6 +146,8 @@ internal val ACCESS_FILTERS: Map<String, AccessFilterSpec> =
             AccessFilterSpec.PerRow { policy, userId, role -> policy.accessibleWorldEventIdsSql(userId, role) },
         READING_ORDER_BOOKS_DOMAIN to
             AccessFilterSpec.PerRow { policy, userId, role -> policy.accessibleReadingOrderBookIdsSql(userId, role) },
+        SITTINGS_DOMAIN to
+            AccessFilterSpec.PerRow { policy, userId, role -> policy.accessibleSittingIdsSql(userId, role) },
         LIBRARY_FOLDERS_DOMAIN to AccessFilterSpec.RoleGatedHide(LIBRARY_FOLDERS_HIDDEN),
         ADMIN_USER_ROSTER_DOMAIN to AccessFilterSpec.RoleGatedHide(ADMIN_USER_ROSTER_HIDDEN),
     )

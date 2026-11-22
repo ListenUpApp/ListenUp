@@ -101,6 +101,13 @@ object SyncDomains {
      */
     val ACTIVITIES = SyncDomainKey("activities", ActivitySyncPayload.serializer())
 
+    /**
+     * Sittings: one row per person's unbroken time with one book, the Activity feed's listening row.
+     * Server-authored and rewritten in place as the sitting grows (server wins, tombstoned when two
+     * merge), book-gated like [ACTIVITIES].
+     */
+    val SITTINGS = SyncDomainKey("sittings", SittingSyncPayload.serializer())
+
     /** Per-user notification inbox rows — the in-app notification surface. */
     val NOTIFICATIONS = SyncDomainKey("notifications", NotificationSyncPayload.serializer())
 
@@ -139,6 +146,7 @@ object SyncDomains {
             READING_ORDER_FOLLOWS,
             PUBLIC_PROFILES,
             ACTIVITIES,
+            SITTINGS,
             NOTIFICATIONS,
             ENTITIES,
             WORLD_EVENTS,

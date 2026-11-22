@@ -34,6 +34,11 @@ private val log = loggerFor<StatsRecorder>()
  * and [PublicProfileMaintainer.refresh] — the importer ends with one [StatsEvent.BulkRecompute] per
  * affected user instead.
  *
+ * Every step that changes what a sitting is built from — a span closing, a start or finish announced —
+ * ends by asking [sittings] to rebuild that book's sittings, last, so the rebuild sees the announcement.
+ * Under [StatsCascadeDeferred] the per-row rebuild is skipped too, and [StatsEvent.BulkRecompute] rebuilds
+ * the user's sittings once.
+ *
  * `UserStatsRepository.upsert` and `BookReadsRepository.recordRead` are restricted to this class
  * (plus [UserStatsBackfillService], which this class calls for [StatsEvent.BulkRecompute], and
  * [UserStatsUpdater], whose surviving lazy window-decay self-heal is a separate idempotent
@@ -48,6 +53,7 @@ class StatsRecorder(
     private val statsBackfill: UserStatsBackfillService,
     private val clock: Clock = Clock.System,
     private val hardcoverPush: HardcoverPushHook = HardcoverPushHook.None,
+    private val sittings: SittingsHook = SittingsHook.None,
 ) {
     /**
      * Serializes [record] per user id: without this, two concurrent cascades for the same user
@@ -122,6 +128,7 @@ class StatsRecorder(
                 occurredAt = finishedAtMs,
             )
         }
+        reconcileSittings(event.userId, event.bookId)
     }
 
     /**
@@ -157,7 +164,7 @@ class StatsRecorder(
                     book_id = event.bookId,
                 )
             }
-            announceRealStartIfCrossed(event.userId, event.bookId)
+            if (announceRealStartIfCrossed(event.userId, event.bookId)) reconcileSittings(event.userId, event.bookId)
         }.onFailure {
             log.warn(it) { "listen-through bookkeeping failed on restart user=${event.userId} book=${event.bookId}" }
         }
@@ -170,6 +177,8 @@ class StatsRecorder(
     private suspend fun recordBulkRecompute(event: StatsEvent.BulkRecompute) {
         statsBackfill.backfillFor(event.userId)
         publicProfileMaintainer.refresh(event.userId)
+        runCatchingCancellable { sittings.reconcileUser(event.userId) }
+            .onFailure { log.warn(it) { "sittings rebuild failed on bulk recompute user=${event.userId}" } }
     }
 
     /**
@@ -212,6 +221,23 @@ class StatsRecorder(
             }
         // After the real-start check, so a session that crosses the line queues START before its PROGRESS.
         pushToHardcover(userId, "progress") { onSessionClosed(userId, span.bookId, span.endPositionMs) }
+        // Last, so the rebuilt sitting carries a start the check above just announced.
+        reconcileSittings(userId, span.bookId)
+    }
+
+    /**
+     * Rebuilds [userId]'s sittings of [bookId] from the evidence just committed. Skipped under
+     * [StatsCascadeDeferred] — a bulk import rebuilds each user's sittings once, at its
+     * [StatsEvent.BulkRecompute]. Best-effort: the sittings are a projection that the next rebuild (or the
+     * boot backfill) heals, so a failure here must never fail the write that triggered it.
+     */
+    private suspend fun reconcileSittings(
+        userId: String,
+        bookId: String,
+    ) {
+        if (currentCoroutineContext()[StatsCascadeDeferred.Key] != null) return
+        runCatchingCancellable { sittings.reconcile(userId, bookId) }
+            .onFailure { log.warn(it) { "sittings rebuild failed user=$userId book=$bookId" } }
     }
 
     /**
@@ -222,13 +248,15 @@ class StatsRecorder(
      * Announces at most once per listen-through: `markRealStarted` only updates a row still awaiting
      * its real start, and the announcement fires only when it changed one. A book with no
      * listen-through row (already in progress before listen-throughs existed) never announces again.
+     * Returns whether it announced.
      */
     private suspend fun announceRealStartIfCrossed(
         userId: String,
         bookId: String,
-    ) {
+    ): Boolean {
         val crossed =
-            suspendTransaction<SelectAwaitingRealStart?>(sql) { claimRealStartIfCrossed(userId, bookId) } ?: return
+            suspendTransaction<SelectAwaitingRealStart?>(sql) { claimRealStartIfCrossed(userId, bookId) }
+                ?: return false
         activityRecorder.record(
             userId = userId,
             type = ActivityType.STARTED_BOOK,
@@ -244,6 +272,7 @@ class StatsRecorder(
                 isReread = crossed.is_reread == 1L,
             )
         }
+        return true
     }
 
     /**

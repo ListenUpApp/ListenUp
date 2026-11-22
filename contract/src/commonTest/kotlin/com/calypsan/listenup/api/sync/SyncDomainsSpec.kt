@@ -8,7 +8,7 @@ class SyncDomainsSpec :
     FunSpec({
         test("the catalog holds every wire domain exactly once") {
             val names = SyncDomains.all.map { it.name }
-            names shouldHaveSize 29
+            names shouldHaveSize 30
             names.toSet() shouldBe
                 setOf(
                     "books",
@@ -24,6 +24,7 @@ class SyncDomainsSpec :
                     "playback_positions",
                     "listening_events",
                     "activities",
+                    "sittings",
                     "user_stats",
                     "libraries",
                     "library_folders",

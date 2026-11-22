@@ -1,0 +1,117 @@
+-- sittings: syncable, soft-deletable, revision-tracked, book-gated but GLOBAL (not per-user) — one row per
+-- person's unbroken time with one book, written only by SittingReconciler as a projection of that listening.
+-- Column set matches V102__sittings.sql exactly. The DEFAULTs on began_read / finished_read are omitted here:
+-- the generated insert binds every column explicitly.
+CREATE TABLE sittings (
+    id            TEXT    NOT NULL PRIMARY KEY,
+    user_id       TEXT    NOT NULL,
+    book_id       TEXT    NOT NULL,
+    started_at    INTEGER NOT NULL,
+    ended_at      INTEGER NOT NULL,
+    listened_ms   INTEGER NOT NULL,
+    began_read    TEXT    NOT NULL,
+    finished_read INTEGER NOT NULL,
+    created_at    INTEGER NOT NULL,
+    updated_at    INTEGER NOT NULL,
+    revision      INTEGER NOT NULL,
+    deleted_at    INTEGER,
+    client_op_id  TEXT
+);
+
+CREATE INDEX idx_sittings_user_book ON sittings(user_id, book_id);
+CREATE INDEX idx_sittings_ended_at ON sittings(ended_at);
+CREATE INDEX idx_sittings_revision ON sittings(revision);
+
+-- ---------------------------------------------------------------------------------------------
+-- Sync substrate. Global (not userScoped): pullSince/digest route through the access-filtered driver
+-- reads, never a *ForUser path — the books-axis shape activities and book_external_ratings use.
+-- ---------------------------------------------------------------------------------------------
+
+existsById:
+SELECT EXISTS(SELECT 1 FROM sittings WHERE id = :id);
+
+-- `AND deleted_at IS NULL` so tombstoning an already-tombstoned row matches nothing and burns no revision.
+softDeleteById:
+UPDATE sittings
+SET revision = :revision, updated_at = :updated_at, deleted_at = :deleted_at, client_op_id = :client_op_id
+WHERE id = :id AND deleted_at IS NULL;
+
+selectIdsAboveRevision:
+SELECT id, revision FROM sittings WHERE revision > :cursor ORDER BY revision ASC LIMIT :limit;
+
+selectIdRevAtMost:
+SELECT id, revision FROM sittings WHERE deleted_at IS NULL AND revision <= :cursor;
+
+selectById:
+SELECT * FROM sittings WHERE id = :id;
+
+selectByIds:
+SELECT * FROM sittings WHERE id IN :ids;
+
+insert:
+INSERT INTO sittings (
+    id, user_id, book_id, started_at, ended_at, listened_ms, began_read, finished_read,
+    created_at, updated_at, revision, deleted_at, client_op_id
+) VALUES (
+    :id, :user_id, :book_id, :started_at, :ended_at, :listened_ms, :began_read, :finished_read,
+    :created_at, :updated_at, :revision, NULL, :client_op_id
+);
+
+update:
+UPDATE sittings
+SET started_at = :started_at, ended_at = :ended_at, listened_ms = :listened_ms, began_read = :began_read,
+    finished_read = :finished_read, updated_at = :updated_at, revision = :revision, client_op_id = :client_op_id
+WHERE id = :id;
+
+-- ---------------------------------------------------------------------------------------------
+-- Reconcile. A sitting is a pure function of the evidence for one (user, book), so the reconciler reads the
+-- whole of it — every live span and every start/finish announcement — and the live rows it currently has.
+-- ---------------------------------------------------------------------------------------------
+
+selectLiveForUserBook:
+SELECT * FROM sittings WHERE user_id = :user_id AND book_id = :book_id AND deleted_at IS NULL;
+
+-- The closed spans a sitting is built from. Soft-deleted spans are not evidence.
+selectSpanEvidence:
+SELECT started_at, ended_at FROM listening_events
+WHERE user_id = :user_id AND book_id = :book_id AND deleted_at IS NULL;
+
+-- The started / finished announcements a sitting can carry. Tombstoned announcements (a merged re-read's
+-- duplicate finish) are not.
+selectReadAnnouncements:
+SELECT type, is_reread, occurred_at FROM activities
+WHERE user_id = :user_id AND book_id = :book_id AND type IN ('started_book', 'finished_book') AND deleted_at IS NULL;
+
+-- Every book a user has evidence or a live sitting for — the set a full rebuild of their sittings walks.
+selectBooksForUser:
+SELECT book_id FROM listening_events WHERE user_id = :user_id
+UNION
+SELECT book_id FROM sittings WHERE user_id = :user_id AND deleted_at IS NULL;
+
+-- Every user with evidence or a live sitting, in id order after :after — the backfill's queue, walked a page
+-- at a time so a large history is never held in memory at once.
+selectUsersAfter:
+SELECT user_id FROM (
+    SELECT user_id FROM listening_events
+    UNION
+    SELECT user_id FROM sittings WHERE deleted_at IS NULL
+)
+WHERE user_id > :after
+ORDER BY user_id ASC
+LIMIT :limit;
+
+-- ---------------------------------------------------------------------------------------------
+-- Discover's "recently listened" half: every OTHER user's sittings that ended at/after :ended_since, newest
+-- first, on books they have not finished. Viewer-agnostic: the caller ACL-filters every book_id.
+-- ---------------------------------------------------------------------------------------------
+
+selectRecentUnfinishedExcluding:
+SELECT s.user_id, s.book_id, s.ended_at FROM sittings s
+WHERE s.user_id != :exclude_user_id
+  AND s.deleted_at IS NULL
+  AND s.ended_at >= :ended_since
+  AND NOT EXISTS (
+      SELECT 1 FROM playback_positions p
+      WHERE p.user_id = s.user_id AND p.book_id = s.book_id AND p.finished = 1 AND p.deleted_at IS NULL
+  )
+ORDER BY s.ended_at DESC, s.id ASC;
