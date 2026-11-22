@@ -150,7 +150,9 @@ internal class SyncReconciler(
      * the digest would detect drift on EVERY pass and never converge. Route these through the same
      * transient catch-up + prune sequence as [SyncEngine.handleAccessChanged], giving `AccessChanged`
      * its lifecycle backstop: a dropped access frame heals on the next reconcile edge. Every other
-     * domain re-pulls from zero (upsert is sufficient — no rows to evict).
+     * domain re-pulls from zero and, through [UnreturnedRowPruner], removes the rows the pull did not
+     * return: the server no longer has them (a restore to an older backup), and kept they would hold
+     * the digest apart forever.
      */
     private suspend fun <T : Any> repairDrift(handler: SyncDomainHandler<T>) {
         if (handler is AccessFilteredSyncHandler) {
@@ -162,6 +164,18 @@ internal class SyncReconciler(
 
                 is AppResult.Failure -> {
                     logger.warn { "Access-gated re-derive failed for ${handler.domainName}: ${ids.error.code}" }
+                }
+            }
+        } else if (handler is UnreturnedRowPruner) {
+            logger.info { "Digest drift on ${handler.domainName}; re-pulling from 0" }
+            when (val pulled = catchUp.catchUpFromZeroReporting(handler)) {
+                is AppResult.Success -> {
+                    val complete = pulled.data as? FromZeroPull.Complete
+                    if (complete != null) handler.pruneUnreturned(complete, currentEpochMilliseconds())
+                }
+
+                is AppResult.Failure -> {
+                    logger.warn { "Re-pull failed for ${handler.domainName}: ${pulled.error.code}" }
                 }
             }
         } else {

@@ -98,6 +98,55 @@ class SyncCatchUpFromZeroTest :
                 store.getCursor("tags") shouldBe 2L
             }
         }
+
+        /** A service whose `tags` pull serves [pages] in order, one per request. */
+        fun pagedService(pages: List<SyncPage>) =
+            object : FakeSyncStreamService() {
+                private var next = 0
+
+                override suspend fun pullDomain(
+                    domain: String,
+                    since: Long,
+                    limit: Int,
+                ): AppResult<SyncPage> = AppResult.Success(pages[next++])
+            }
+
+        fun reportingClient(pages: List<SyncPage>) =
+            SyncCatchUpClient(
+                channel = RpcChannel.forTest(pagedService(pages)),
+                store = SyncCursorStore(InMemoryDao()),
+                transactionRunner = passThroughTransactionRunner(),
+            )
+
+        test("a complete from-zero pull reports every live id it returned and the revision it reached") {
+            runTest {
+                val pages =
+                    listOf(
+                        syncPageOf("tags", Tag.serializer(), listOf(Tag("x", "ex", "ex", 1L, 10L)), 1L, hasMore = true),
+                        syncPageOf(
+                            "tags",
+                            Tag.serializer(),
+                            listOf(Tag("gone", "gone", "gone", 2L, 20L, deletedAt = 20L), Tag("y", "why", "why", 3L, 30L)),
+                            3L,
+                            hasMore = false,
+                        ),
+                    )
+
+                reportingClient(pages).catchUpFromZeroReporting(tagHandler(mutableListOf())) shouldBe
+                    AppResult.Success(FromZeroPull.Complete(liveIds = setOf("x", "y"), throughRevision = 3L))
+            }
+        }
+
+        test("a from-zero pull that meets an undecodable row reports nothing it could prune by") {
+            runTest {
+                val page =
+                    syncPageOf("tags", Tag.serializer(), listOf(Tag("x", "ex", "ex", 1L, 10L)), 2L, hasMore = false)
+                val withUndecodable = page.copy(items = page.items + "{not a tag}")
+
+                reportingClient(listOf(withUndecodable)).catchUpFromZeroReporting(tagHandler(mutableListOf())) shouldBe
+                    AppResult.Success(FromZeroPull.Incomplete)
+            }
+        }
     })
 
 /** Minimal in-memory [SyncCursorDao] for this test — mirrors the one in [SyncCatchUpClientTest]. */

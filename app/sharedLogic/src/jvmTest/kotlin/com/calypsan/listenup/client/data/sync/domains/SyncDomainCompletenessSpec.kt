@@ -310,6 +310,12 @@ class SyncDomainCompletenessSpec :
                     .filter { it.digest is DigestParticipation.OptOut }
                     .map { it.key.name }
                     .toSet() shouldBe setOf("playback_positions")
+
+                // A digest repair removes the rows the server no longer has; an ungated domain that could
+                // not would keep them, drift on every connect, and be re-pulled forever.
+                catalog.mirrored
+                    .filter { it.accessGate == null && it.digest is DigestParticipation.Full && it.evictById == null }
+                    .map { it.key.name } shouldBe emptyList()
             } finally {
                 db.close()
             }

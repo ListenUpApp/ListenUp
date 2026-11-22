@@ -6,8 +6,10 @@ import com.calypsan.listenup.api.sync.SyncPayload
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import com.calypsan.listenup.client.data.sync.AccessFilteredSyncHandler
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
+import com.calypsan.listenup.client.data.sync.FromZeroPull
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.data.sync.TargetedFetch
+import com.calypsan.listenup.client.data.sync.UnreturnedRowPruner
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.serialization.KSerializer
 
@@ -27,7 +29,8 @@ internal open class ComposedSyncDomainHandler<T : SyncPayload>(
     private val transactionRunner: TransactionRunner,
     registry: ClientSyncDomainRegistry,
     private val inFlightOutbox: OutboxInFlightQuery = NoOutboxInFlight,
-) : SyncDomainHandler<T> {
+) : SyncDomainHandler<T>,
+    UnreturnedRowPruner {
     override val domainName: String = domain.key.name
     override val payloadSerializer: KSerializer<T> = domain.key.serializer
 
@@ -103,6 +106,29 @@ internal open class ComposedSyncDomainHandler<T : SyncPayload>(
             is DigestParticipation.Full -> digest.rows(maxRevision)
             is DigestParticipation.OptOut -> null
         }
+
+    override suspend fun pruneUnreturned(
+        pull: FromZeroPull.Complete,
+        now: Long,
+    ) {
+        val evict = domain.evictById
+        val digest = domain.digest
+        if (evict == null || digest !is DigestParticipation.Full) {
+            logger.warn { "[$domainName] cannot remove rows the server no longer has" }
+            return
+        }
+        // One transaction, so a local write queued between the check and the tombstone cannot slip through.
+        val evicted =
+            transactionRunner.atomically {
+                val doomed =
+                    digest.rows(pull.throughRevision).filter { (id, revision) ->
+                        revision > 0 && id !in pull.liveIds && !inFlightOutbox.isQueued(domainName, id)
+                    }
+                doomed.forEach { (id, revision) -> evict(id, now, revision) }
+                doomed.size
+            }
+        if (evicted > 0) logger.info { "[$domainName] removed $evicted rows the server no longer has" }
+    }
 
     /**
      * The single anti-flicker shield point for both firehose echoes and catch-up snapshots. When a local

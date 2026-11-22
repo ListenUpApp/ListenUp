@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.data.sync
 
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.result.map
 
 /**
  * Engine-facing seam for REST catch-up. Allows [SyncEngine] to be tested with
@@ -14,6 +15,15 @@ internal interface CatchUp {
      * persisted cursor. Used by the reconciler to repair a domain whose digest diverged.
      */
     suspend fun <T : Any> catchUpFromZero(handler: SyncDomainHandler<T>): AppResult<Unit>
+
+    /**
+     * [catchUpFromZero], also reporting what the server returned, so a digest repair can remove the
+     * rows the server no longer has. The default reports [FromZeroPull.Incomplete], from which nothing
+     * may be inferred: only the production [SyncCatchUpClient] accounts for the rows it pulled, and a
+     * test fake that does not drive pruning can leave this default.
+     */
+    suspend fun <T : Any> catchUpFromZeroReporting(handler: SyncDomainHandler<T>): AppResult<FromZeroPull> =
+        catchUpFromZero(handler).map { FromZeroPull.Incomplete }
 
     suspend fun catchUpAll(registry: ClientSyncDomainRegistry): AppResult<Unit>
 
@@ -48,6 +58,22 @@ internal interface CatchUp {
     ): AppResult<Set<String>> = AppResult.Success(emptySet())
 
     suspend fun domains(): AppResult<List<String>>
+}
+
+/** What a from-zero pull of one domain saw of the server's rows. */
+internal sealed interface FromZeroPull {
+    /**
+     * The pull read every page and decoded every row: [liveIds] is every live row the server holds with
+     * a revision up to [throughRevision]. A live local row in that range that is missing from it is a
+     * row the server no longer has.
+     */
+    data class Complete(
+        val liveIds: Set<String>,
+        val throughRevision: Long,
+    ) : FromZeroPull
+
+    /** The pull stopped early or met a row it could not decode, so a missing id proves nothing. */
+    data object Incomplete : FromZeroPull
 }
 
 /**
