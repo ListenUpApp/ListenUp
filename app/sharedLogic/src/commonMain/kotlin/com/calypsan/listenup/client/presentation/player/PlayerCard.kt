@@ -96,6 +96,12 @@ object PlayerCards {
             -> null
         }
 
+    /**
+     * Whether the playhead takes a seek: not under a problem card, where nothing can play and a drag would move the
+     * bar over silence. Every scrubber, on every platform, asks this. Pure.
+     */
+    fun allowsSeeking(state: PlayerUiState.Loaded): Boolean = of(state) !is PlayerCard.Problem
+
     /** True when Now Playing should close: nothing is loaded, or the loaded book was revoked. Pure. */
     fun closesNowPlaying(state: PlayerUiState): Boolean =
         when (state) {

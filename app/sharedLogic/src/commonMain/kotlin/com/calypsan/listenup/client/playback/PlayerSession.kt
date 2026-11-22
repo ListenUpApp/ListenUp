@@ -639,6 +639,10 @@ class PlayerSession(
      * Move the playhead. The engine seeks when it holds the book. A not-prepared book moves its pending start;
      * a book still preparing keeps it and seeks there when the load lands. A finished book plays
      * again from there, like Listen again.
+     *
+     * A failed book — failed, or halted by a failure the listener dismissed — moves its pending start too, on every
+     * platform: the engine has nothing playable behind the failure (the web tears hls.js down), so it is not asked to
+     * seek. Retry, or the Play that re-prepares a halted book, starts there ([retryStart]); the bar shows it (#1743).
      */
     fun seekTo(positionMs: Long) {
         onPlayer {
@@ -646,11 +650,15 @@ class PlayerSession(
             val target = positionMs.coerceAtLeast(0L)
             when {
                 loaded.phase is PlayerPhase.Finished -> startLoad(loaded.bookId, PlaybackStart.At(target))
-                loaded.isEngineBound -> seekEngineTo(target)
+                loaded.isEngineBound && !isStoppedByFailure(loaded) -> seekEngineTo(target)
                 else -> pendingStart.value = PlaybackStart.At(target)
             }
         }
     }
+
+    /** Whether a failure has stopped the engine-bound book: it shows the failure, or a dismissed one halted it. */
+    private fun isStoppedByFailure(loaded: PlayerSessionState.Loaded): Boolean =
+        loaded.phase is PlayerPhase.Failed || (stage.value as? SessionStage.Engine)?.halted == true
 
     /** Play at [speed], clamped to 0.5–3.0, as this book's own rate. Only while the engine holds the book. */
     fun setSpeed(speed: Float) {
@@ -717,14 +725,16 @@ class PlayerSession(
 
     /**
      * Where a Retry starts: the place the listener sees, including any move made while the book was failed. A
-     * failed engine may not hold that place itself (the web tears hls.js down) and the move was never saved, so
-     * a re-prepare at the saved position would throw it away. An engine-bound failure starts at the engine's
-     * position, unless that is 0 (a reset player, never a reason to lose the saved place); a failed prepare
-     * replays its pending start, like Play.
+     * failed engine does not hold that place itself ([seekTo] records it as the pending start) and the move was
+     * never saved, so a re-prepare at the saved position would throw it away. An engine-bound failure starts at a
+     * move made while failed, else at the engine's position, unless that is 0 (a reset player, never a reason to
+     * lose the saved place); a failed prepare replays its pending start, like Play.
      */
     private fun retryStart(loaded: PlayerSessionState.Loaded): PlaybackStart =
         if (loaded.isEngineBound) {
-            positionMs.value.takeIf { it > 0 }?.let(PlaybackStart::At) ?: PlaybackStart.Resume
+            pendingStart.value as? PlaybackStart.At
+                ?: positionMs.value.takeIf { it > 0 }?.let(PlaybackStart::At)
+                ?: PlaybackStart.Resume
         } else {
             pendingStart.value
         }

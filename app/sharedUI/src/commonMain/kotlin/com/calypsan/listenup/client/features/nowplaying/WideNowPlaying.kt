@@ -45,7 +45,6 @@ import com.calypsan.listenup.client.features.nowplaying.components.PlayerTranspo
 import com.calypsan.listenup.client.features.nowplaying.components.TitleArrangement
 import com.calypsan.listenup.client.foldable.LocalFold
 import com.calypsan.listenup.client.foldable.Posture
-import com.calypsan.listenup.client.presentation.player.PlayerCard
 import com.calypsan.listenup.client.presentation.player.PlayerCardAction
 import com.calypsan.listenup.client.presentation.player.PlayerCards
 import com.calypsan.listenup.client.presentation.player.PlayerMenuItem
@@ -419,7 +418,7 @@ private fun WideControls(
     PlayerScrubber(
         progress = progress,
         isPlaying = state.isAudible,
-        isBusy = state.isBusy || card is PlayerCard.Problem,
+        isBusy = state.isBusy || !PlayerCards.allowsSeeking(state),
         onSeek = onSeek,
         modifier = Modifier.fillMaxWidth(),
     )

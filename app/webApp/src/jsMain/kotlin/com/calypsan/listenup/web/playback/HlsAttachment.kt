@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.playback
 
+import com.calypsan.listenup.api.result.MediaFailure
 import kotlinx.coroutines.await
 import org.w3c.dom.HTMLMediaElement
 import kotlin.js.Promise
@@ -37,6 +38,9 @@ internal external interface HlsPlayer {
 internal external interface HlsClass {
     /** Whether this browser has the Media Source Extensions hls.js needs. */
     fun isSupported(): Boolean
+
+    /** The configuration every instance starts from; read, never written. */
+    val DefaultConfig: dynamic
 }
 
 /** What `import('hls.js')` resolves to. hls.js ships `export { …, Hls as default, … }`. */
@@ -57,10 +61,68 @@ internal class HlsLibrary(
     /** See [HlsClass.isSupported]. */
     fun isSupported(): Boolean = hlsClass.isSupported()
 
-    /** A fresh player instance. */
+    /**
+     * A fresh player instance, configured so a segment the server has refused for good fails at once
+     * rather than after hls.js's half-minute of retries — see [retriesSegmentAfter].
+     */
     fun create(): HlsPlayer {
         val constructor = hlsClass
-        return js("new constructor()").unsafeCast<HlsPlayer>()
+        val config = configFor(hlsClass)
+        return js("new constructor(config)").unsafeCast<HlsPlayer>()
+    }
+}
+
+/**
+ * Whether hls.js should re-request a media segment that failed with HTTP [status] (null when the
+ * request got no status at all). A server error retries only when [MediaFailure] says the same
+ * request can succeed (502, 503, 504); hls.js's own rules decide everything else.
+ *
+ * ⛔ hls.js retries a 500 six times over about thirty seconds by default, and the stall watch
+ * gives up at ten, so a segment the server could never produce surfaced as a dropped connection —
+ * with a Retry button that could only loop (#1742).
+ */
+internal fun retriesSegmentAfter(status: Int?): Boolean =
+    status == null || status < HTTP_SERVER_ERROR || MediaFailure.of(status, body = null) == MediaFailure.Transient
+
+private const val HTTP_SERVER_ERROR = 500
+
+/**
+ * hls.js's defaults with [retriesSegmentAfter] consulted before every media-segment retry. Copied
+ * rather than edited in place: hls.js merges a user config shallowly, so its default objects are
+ * shared by every instance, and writing into them would reconfigure each one made afterwards.
+ */
+private fun configFor(hlsClass: HlsClass): dynamic {
+    val defaults = hlsClass.DefaultConfig.fragLoadPolicy.default
+    val errorRetry = js("Object.assign({}, defaults.errorRetry)")
+    errorRetry.shouldRetry = { _: dynamic, _: dynamic, _: dynamic, response: dynamic, retry: Boolean ->
+        retry && retriesSegmentAfter(statusOf(response))
+    }
+    val policy = js("Object.assign({}, defaults)")
+    policy.errorRetry = errorRetry
+    val config = js("({})")
+    config.fragLoadPolicy = js("({})")
+    config.fragLoadPolicy.default = policy
+    return config
+}
+
+/** The HTTP status in an hls.js loader response, or null when there is none. */
+private fun statusOf(response: dynamic): Int? {
+    if (response == null || response == undefined) return null
+    val code = response.code
+    return if (jsTypeOf(code) == "number") code.unsafeCast<Int>() else null
+}
+
+/**
+ * The text of the body a failed request carried, when hls.js kept it. Media segments are fetched as
+ * array buffers, so a server's typed error arrives as bytes to decode; anything else is not read.
+ */
+private fun bodyOf(networkDetails: dynamic): String? {
+    if (networkDetails == null || networkDetails == undefined) return null
+    val response = networkDetails.response
+    return when {
+        jsTypeOf(response) == "string" -> response.unsafeCast<String>()
+        js("response instanceof ArrayBuffer").unsafeCast<Boolean>() -> js("new TextDecoder().decode(response)").unsafeCast<String>()
+        else -> null
     }
 }
 
@@ -101,7 +163,24 @@ internal external interface HlsErrorEvent {
 
     /** `true` when hls.js has given up and playback has stopped. */
     val fatal: Boolean
+
+    /** The failed request's `{ code, text }`, for a network error; absent otherwise. */
+    val response: dynamic
+
+    /** The loader's own request object (an `XMLHttpRequest`), whose `response` holds the reply body. */
+    val networkDetails: dynamic
 }
+
+/**
+ * A fatal hls.js failure: hls.js's own [type] and [details], and for a failed request the HTTP
+ * [status] and reply [body] — which is where the server says whether trying again can help.
+ */
+internal data class HlsFatalError(
+    val type: String,
+    val details: String,
+    val status: Int? = null,
+    val body: String? = null,
+)
 
 /** hls.js's own event name for a playback error. */
 private const val HLS_ERROR_EVENT = "hlsError"
@@ -162,7 +241,7 @@ private const val HLS_MIME = "application/vnd.apple.mpegurl"
  * awaits that before the first HLS segment, so attaching stays synchronous from then on (a segment
  * advance fires from a media event, where there is nothing to suspend).
  *
- * @param onFatalError invoked when hls.js gives up, with hls.js's error `type` and `details`.
+ * @param onFatalError invoked when hls.js gives up, with what it said and, for a request, what the server replied.
  * @param onFragmentLoaded invoked each time hls.js lands a media fragment, however slowly: the progress a
  *   [PlaybackStallWatch] needs to tell a slow stream from a dead one.
  * @throws IllegalStateException when the browser has neither MSE nor native HLS — a state the
@@ -172,14 +251,16 @@ internal fun attachHls(
     library: HlsLibrary?,
     element: HTMLMediaElement,
     url: String,
-    onFatalError: (type: String, details: String) -> Unit,
+    onFatalError: (HlsFatalError) -> Unit,
     onFragmentLoaded: () -> Unit = {},
 ): HlsHandle {
     if (library != null && library.isSupported()) {
         val hls = library.create()
         hls.on(HLS_ERROR_EVENT) { _, data ->
             val error = data.unsafeCast<HlsErrorEvent>()
-            if (error.fatal) onFatalError(error.type, error.details)
+            if (error.fatal) {
+                onFatalError(HlsFatalError(error.type, error.details, statusOf(error.response), bodyOf(error.networkDetails)))
+            }
         }
         hls.on(HLS_FRAG_LOADED_EVENT) { _, _ -> onFragmentLoaded() }
         hls.loadSource(url)

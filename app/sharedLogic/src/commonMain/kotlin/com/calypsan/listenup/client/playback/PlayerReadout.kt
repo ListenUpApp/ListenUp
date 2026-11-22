@@ -111,7 +111,11 @@ internal class PlayerReadout(
             }
         }.stateIn(scope, SharingStarted.Eagerly, null)
 
-    /** Book-relative playhead: the engine's while it holds the book, else the pending start or the saved position. Ticks. */
+    /**
+     * Book-relative playhead: the engine's while it holds the book, else the pending start or the saved position.
+     * Ticks. A pending start wins over the engine too: an engine-bound book has one only when a seek was made while
+     * a failure stopped the engine (see `PlayerSession.seekTo`), or briefly while a prepare's queued seek lands.
+     */
     val positionMs: StateFlow<Long> =
         combine(
             flow = engineBound,
@@ -119,7 +123,7 @@ internal class PlayerReadout(
             flow3 = pendingStartMs,
             flow4 = savedPosition,
         ) { bound, enginePosition, pending, saved ->
-            if (bound) enginePosition else pending ?: saved?.positionMs ?: 0L
+            if (bound) pending ?: enginePosition else pending ?: saved?.positionMs ?: 0L
         }.stateIn(scope, SharingStarted.Eagerly, 0L)
 
     /**

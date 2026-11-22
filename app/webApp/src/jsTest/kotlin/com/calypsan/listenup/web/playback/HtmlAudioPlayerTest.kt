@@ -79,11 +79,11 @@ class HtmlAudioPlayerTest :
         }
 
         test("an hls.js or element failure is typed by its cause, with the browser's words kept as debugInfo") {
-            hlsFailure("networkError", "fragLoadError") shouldBe
+            hlsFailure(HlsFatalError("networkError", "fragLoadError")) shouldBe
                 PlaybackError.ConnectionLost(debugInfo = "networkError: fragLoadError")
-            hlsFailure("mediaError", "bufferAppendError") shouldBe
+            hlsFailure(HlsFatalError("mediaError", "bufferAppendError")) shouldBe
                 PlaybackError.UnsupportedFormat(debugInfo = "mediaError: bufferAppendError")
-            hlsFailure("otherError", "internalException") shouldBe
+            hlsFailure(HlsFatalError("otherError", "internalException")) shouldBe
                 PlaybackError.CouldNotStart(debugInfo = "otherError: internalException")
 
             mediaElementFailure(MediaError.MEDIA_ERR_NETWORK, "dropped").shouldBeInstanceOf<PlaybackError.ConnectionLost>()
@@ -92,5 +92,31 @@ class HtmlAudioPlayerTest :
                 .shouldBeInstanceOf<PlaybackError.UnsupportedFormat>()
             mediaElementFailure(MediaError.MEDIA_ERR_ABORTED, "aborted").shouldBeInstanceOf<PlaybackError.CouldNotStart>()
             mediaElementFailure(null, "why") shouldBe PlaybackError.CouldNotStart(debugInfo = "why")
+        }
+    
+        // #1742: a segment the server said it can never produce is not a dropped connection, and
+        // its reference is what joins the card to the server's log line.
+        test("a segment the server refused for good fails as that refusal, carrying its reference") {
+            val body = """{"type":"Failure","error":{"type":"TranscodeError.TranscodeFailed","correlationId":"ref-1"}}"""
+
+            val failure = hlsFailure(HlsFatalError("networkError", "fragLoadError", status = 500, body = body))
+
+            failure.shouldBeInstanceOf<PlaybackError.CouldNotStart>()
+            failure.correlationId shouldBe "ref-1"
+        }
+
+        test("a segment failed by an overloaded server or a proxy is still a dropped connection") {
+            hlsFailure(HlsFatalError("networkError", "fragLoadError", status = 503))
+                .shouldBeInstanceOf<PlaybackError.ConnectionLost>()
+        }
+
+        test("hls.js retries a segment only when the server's failure can pass") {
+            retriesSegmentAfter(500) shouldBe false
+            retriesSegmentAfter(501) shouldBe false
+            retriesSegmentAfter(503) shouldBe true
+            retriesSegmentAfter(504) shouldBe true
+            // Everything else is hls.js's own call: it already declines 4xx and retries timeouts.
+            retriesSegmentAfter(null) shouldBe true
+            retriesSegmentAfter(404) shouldBe true
         }
     })

@@ -560,6 +560,15 @@ class TransportBarTest :
             host.querySelector(".tport-back")!!.classList.contains("off") shouldBe true
         }
 
+        // #1743: the bar's scrubber stayed live under a failure, so a drag moved the bar and nothing played.
+        test("under a problem card the scrubber takes no seek, the same rule as Now Playing") {
+            val failed =
+                bar(chaptered(phase = PlayerPhase.Failed(PlaybackError.ConnectionLost()), primary = PrimaryControl.Retry), CHAPTER_PROGRESS)
+            (failed.querySelector(".tport-scrub") as HTMLInputElement).disabled shouldBe true
+
+            (bar(chaptered(), CHAPTER_PROGRESS).querySelector(".tport-scrub") as HTMLInputElement).disabled shouldBe false
+        }
+
         test("an unreachable server is not tinted and still offers Retry (S6)") {
             val host =
                 bar(

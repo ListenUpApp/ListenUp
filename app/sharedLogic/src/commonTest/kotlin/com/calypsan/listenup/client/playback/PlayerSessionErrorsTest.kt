@@ -14,6 +14,7 @@ import com.calypsan.listenup.client.test.fake.FakePlaybackManager
 import com.calypsan.listenup.client.test.fake.FakePlaybackPositionRepository
 import com.calypsan.listenup.client.test.fake.prepareResultFor
 import com.calypsan.listenup.core.error.ErrorBus
+import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
@@ -295,6 +296,37 @@ class PlayerSessionErrorsTest :
                     runCurrent()
                     rig.engine.loads.last() shouldBe (BookId("b1") to PlaybackStart.At(200_000))
                     rig.session.positionMs.value shouldBe 200_000
+                } finally {
+                    rig.close()
+                }
+            }
+        }
+
+        // #1743: the web engine tore its source down on the failure, so a seek it was handed moved the
+        // bar over silence. One rule for every platform: a seek on a failed book is where Retry starts.
+        test("a seek on a failed book is where Retry starts, and the engine is not asked to seek") {
+            runTest {
+                val rig = PlayerSessionRig(this)
+                try {
+                    rig.withBook("b1")
+                    rig.engine.preparedPositionMs = 40_000
+                    runCurrent()
+                    rig.session.playBook(BookId("b1"), null)
+                    runCurrent()
+                    rig.session.playPause()
+                    runCurrent()
+                    rig.engine.error.value = PlaybackError.ConnectionLost()
+                    runCurrent()
+                    rig.loaded.phase shouldBe PlayerPhase.Failed(PlaybackError.ConnectionLost())
+
+                    rig.session.seekTo(150_000)
+                    runCurrent()
+
+                    rig.engine.calls.none { it.startsWith("seekTo") } shouldBe true
+                    withClue("the bar shows where Retry will start") { rig.session.positionMs.value shouldBe 150_000 }
+                    rig.session.retry()
+                    runCurrent()
+                    rig.engine.loads.last() shouldBe (BookId("b1") to PlaybackStart.At(150_000))
                 } finally {
                     rig.close()
                 }

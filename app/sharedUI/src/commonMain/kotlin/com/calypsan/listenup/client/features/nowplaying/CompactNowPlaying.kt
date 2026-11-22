@@ -31,7 +31,6 @@ import com.calypsan.listenup.client.features.nowplaying.components.PlayerStateCa
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerTopBar
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerTransport
 import com.calypsan.listenup.client.presentation.player.SleepCountdowns
-import com.calypsan.listenup.client.presentation.player.PlayerCard
 import com.calypsan.listenup.client.presentation.player.PlayerCardAction
 import com.calypsan.listenup.client.presentation.player.PlayerCards
 import com.calypsan.listenup.client.presentation.player.PlayerMenuItem
@@ -117,7 +116,7 @@ fun CompactNowPlaying(
             PlayerScrubber(
                 progress = progress,
                 isPlaying = state.isAudible,
-                isBusy = state.isBusy || card is PlayerCard.Problem,
+                isBusy = state.isBusy || !PlayerCards.allowsSeeking(state),
                 onSeek = onSeek,
                 modifier = Modifier.fillMaxWidth().morphReveal(MorphElement.Times),
             )
