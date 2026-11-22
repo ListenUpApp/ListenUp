@@ -1,9 +1,7 @@
 package com.calypsan.listenup.server.di
 
-import com.calypsan.listenup.api.PlaybackProgressService
 import com.calypsan.listenup.api.PlaybackService
 import com.calypsan.listenup.api.SocialService
-import com.calypsan.listenup.server.api.PlaybackProgressServiceImpl
 import com.calypsan.listenup.server.api.PlaybackServiceImpl
 import com.calypsan.listenup.server.api.SocialServiceImpl
 import com.calypsan.listenup.server.audio.AudioFileLocator
@@ -191,17 +189,6 @@ fun playbackModule(
                         )
                     },
                 sql = get<ListenUpDatabase>(),
-            )
-        }
-        single<PlaybackProgressService> {
-            PlaybackProgressServiceImpl(
-                repository = get(),
-                principal =
-                    PrincipalProvider {
-                        error(
-                            "Unscoped PlaybackProgressService — call copyWith(PrincipalProvider) at the route",
-                        )
-                    },
             )
         }
         single {

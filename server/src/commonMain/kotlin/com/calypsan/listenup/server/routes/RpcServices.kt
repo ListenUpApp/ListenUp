@@ -17,7 +17,6 @@ import com.calypsan.listenup.api.MatchingService
 import com.calypsan.listenup.api.MoodService
 import com.calypsan.listenup.api.NotificationService
 import com.calypsan.listenup.api.OrganizeService
-import com.calypsan.listenup.api.PlaybackProgressService
 import com.calypsan.listenup.api.PlaybackService
 import com.calypsan.listenup.api.ProfileService
 import com.calypsan.listenup.api.PushService
@@ -48,7 +47,6 @@ data class RpcServices(
     val contributorService: ContributorService,
     val seriesService: SeriesService,
     val playbackService: PlaybackService,
-    val playbackProgressService: PlaybackProgressService,
     /** Match details: find a book in every catalogue (review and apply join in later PRs). */
     val matchingService: MatchingService,
     val libraryAdminService: LibraryAdminService,
