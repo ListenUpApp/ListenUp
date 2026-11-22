@@ -218,7 +218,6 @@ class NoBridgedEnumCollectionsInUiStateRule :
                 "ImportDtos.kt:bookMatchCounts",
                 "AnalyzedBook.kt:fieldProvenance",
                 "SidecarCuration.kt:fieldProvenance",
-                "MetadataDtos.kt:fallbackFields",
                 "BookSyncPayload.kt:fieldProvenance",
                 "ContributorSyncPayload.kt:fieldProvenance",
                 "ReviewChoices.kt:toggleLabel",

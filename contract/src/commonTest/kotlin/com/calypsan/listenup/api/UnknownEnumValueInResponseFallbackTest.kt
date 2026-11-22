@@ -4,11 +4,8 @@ import com.calypsan.listenup.api.dto.AccessMode
 import com.calypsan.listenup.api.dto.CollectionShareDto
 import com.calypsan.listenup.api.dto.CollectionSummary
 import com.calypsan.listenup.api.dto.ContributorRole
-import com.calypsan.listenup.api.dto.CoverOption
-import com.calypsan.listenup.api.dto.CoverOptionSource
 import com.calypsan.listenup.api.dto.ExternalRatingsCheck
 import com.calypsan.listenup.api.dto.Library
-import com.calypsan.listenup.api.dto.MatchProvenance
 import com.calypsan.listenup.api.dto.SharePermission
 import com.calypsan.listenup.api.dto.auth.PasswordResetStatus
 import com.calypsan.listenup.api.dto.auth.PasswordResetStatusEvent
@@ -120,7 +117,6 @@ class UnknownEnumValueInResponseFallbackTest :
                 isOwner = false,
             )
         val share = CollectionShareDto("s1", CollectionId("c1"), UserId("u2"), SharePermission.Write)
-        val cover = CoverOption(CoverOptionSource.ITUNES, "https://example.test/c.jpg", 600, 600, "42")
         val analyzed =
             AnalyzedBook(
                 candidate = CandidateBook("Author/Book", false, emptyList()),
@@ -210,24 +206,6 @@ class UnknownEnumValueInResponseFallbackTest :
                     fallback = SharePermission.Read,
                     atFallback = share.copy(permission = SharePermission.Read),
                     key = "permission",
-                ),
-                FallbackProbe(
-                    field = "CoverOption.source",
-                    serializer = CoverOption.serializer(),
-                    known = cover,
-                    knownLiteral = "ITUNES",
-                    read = { it.source },
-                    fallback = CoverOptionSource.OTHER,
-                    atFallback = cover.copy(source = CoverOptionSource.OTHER),
-                    key = "source",
-                ),
-                FallbackProbe(
-                    field = "MatchProvenance.fallbackFields (the unknown key is dropped, the rest survive)",
-                    serializer = MatchProvenance.serializer(),
-                    known = MatchProvenance(fallbackFields = mapOf(title to "iTunes", BookField.SUBTITLE to "Audnexus")),
-                    knownLiteral = title.name,
-                    read = { it.fallbackFields },
-                    fallback = mapOf(BookField.SUBTITLE to "Audnexus"),
                 ),
                 FallbackProbe(
                     field = "AnalyzedBook.fieldProvenance (the unknown key is dropped, the rest survive)",

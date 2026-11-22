@@ -18,7 +18,6 @@ import com.calypsan.listenup.api.InviteServicePublic
 import com.calypsan.listenup.api.InstanceService
 import com.calypsan.listenup.api.LibraryAdminService
 import com.calypsan.listenup.api.MatchingService
-import com.calypsan.listenup.api.MetadataLookupService
 import com.calypsan.listenup.api.MoodService
 import com.calypsan.listenup.api.NotificationService
 import com.calypsan.listenup.api.OrganizeService
@@ -50,7 +49,6 @@ import com.calypsan.listenup.server.api.HardcoverServiceImpl
 import com.calypsan.listenup.server.api.ImportServiceImpl
 import com.calypsan.listenup.server.api.LibraryAdminServiceImpl
 import com.calypsan.listenup.server.api.MatchingServiceImpl
-import com.calypsan.listenup.server.api.MetadataLookupServiceImpl
 import com.calypsan.listenup.server.api.MoodServiceImpl
 import com.calypsan.listenup.server.api.NotificationServiceImpl
 import com.calypsan.listenup.server.api.OrganizeServiceImpl
@@ -141,9 +139,6 @@ private fun Route.authedRpc(services: RpcServices) {
         }
         registerScoped<PlaybackProgressService>(services.sessionLiveness) { provider, live ->
             guard((services.playbackProgressService as PlaybackProgressServiceImpl).copyWith(provider), live)
-        }
-        registerScoped<MetadataLookupService>(services.sessionLiveness) { provider, live ->
-            guard((services.metadataLookupService as MetadataLookupServiceImpl).copyWith(provider), live)
         }
         registerScoped<MatchingService>(services.sessionLiveness) { provider, live ->
             guard((services.matchingService as MatchingServiceImpl).copyWith(provider), live)

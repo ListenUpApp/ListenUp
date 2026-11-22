@@ -113,7 +113,7 @@ class ContributorRepositoryTest :
             withSqlDatabase {
                 val repo = ContributorRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 runTest {
-                    // Simulates BookServiceImpl / BookMetadataApplier (null sortName — repo derives)
+                    // Simulates BookServiceImpl (null sortName — repo derives)
                     val manual = repo.resolveOrCreate("Brandon Sanderson", sortName = null)
                     // Simulates the scanner (explicit derived sort name)
                     val scanner = repo.resolveOrCreate("Brandon Sanderson", sortName = "Sanderson, Brandon")

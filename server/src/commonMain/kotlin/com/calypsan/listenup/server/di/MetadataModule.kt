@@ -1,18 +1,13 @@
 package com.calypsan.listenup.server.di
 
 import com.calypsan.listenup.api.MatchingService
-import com.calypsan.listenup.api.MetadataLookupService
 import com.calypsan.listenup.api.sync.ExternalRatingSource
 import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.api.MatchDetails
 import com.calypsan.listenup.server.api.MatchingServiceImpl
-import com.calypsan.listenup.server.api.MetadataEnrichmentDeps
-import com.calypsan.listenup.server.api.MetadataImageDeps
-import com.calypsan.listenup.server.api.MetadataLookupServiceImpl
 import com.calypsan.listenup.server.auth.MetadataRateLimiter
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.PermissionPolicy
-import com.calypsan.listenup.server.cover.CoverImageStore
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.io.readEnv
 import com.calypsan.listenup.server.logging.loggerFor
@@ -54,19 +49,11 @@ import com.calypsan.listenup.server.ratings.localeFor
 import com.calypsan.listenup.server.scheduler.ExternalRatingsSweepTask
 import com.calypsan.listenup.server.scheduler.MetadataCacheCleanupTask
 import com.calypsan.listenup.server.scheduler.OrphanImageCleanupTask
-import com.calypsan.listenup.server.services.BookMoodWriter
 import com.calypsan.listenup.server.services.BookRepository
-import com.calypsan.listenup.server.services.BookSummary
-import com.calypsan.listenup.server.services.BookTagWriter
-import com.calypsan.listenup.server.services.CoverSearchService
-import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.LibraryRepository
 import com.calypsan.listenup.server.services.MetadataCacheRepository
 import com.calypsan.listenup.server.services.MetadataService
 import com.calypsan.listenup.server.sync.BookExternalRatingRepository
-import com.calypsan.listenup.server.sync.BookTagRepository
-import com.calypsan.listenup.server.sync.TagRepository
-import kotlin.time.Clock
 import io.ktor.client.HttpClient
 import io.ktor.client.HttpClientConfig
 import io.ktor.client.plugins.HttpTimeout
@@ -94,20 +81,18 @@ private const val METADATA_CONNECT_TIMEOUT_MS = 5_000L
  *  - [MetadataCacheRepository] — SQLite-backed TTL cache for API responses.
  *  - [MetadataService] — orchestrator with region-aware fallback.
  *  - [AudibleProvider] / [AudnexusProvider] / [ITunesProvider] — the capability-SPI providers,
- *    collected in a [MetadataProviderRegistry]; [CoverSearchService] fans cover lookups over the
- *    registry's [com.calypsan.listenup.server.metadata.spi.CoverSource]s. Audnexus is the contributor-
+ *    collected in a [MetadataProviderRegistry]. Audnexus is the contributor-
  *    profile, catalog-chapter, and genre/tag source. Any operator-declared
  *    [com.calypsan.listenup.server.metadata.custom.CustomHttpProvider]s (from `LISTENUP_CUSTOM_PROVIDERS`)
  *    join the same registry — the extensibility seam, and the only per-book character source.
  *  - [EnrichmentRoutes] / [EnrichmentCoordinator] — the operator-configured provider precedence
- *    and the composer that walks it per domain to build a book's metadata for the lookup service.
+ *    and the composer that walks it per domain to build a book's metadata.
  *  - [RemoteImageFetcher] — downloads cover/photo images to disk.
- *  - [MetadataLookupServiceImpl] — RPC implementation bound as [MetadataLookupService].
  *  - [BookFinder] / [PeopleFinder] / [MatchingServiceImpl] — Match details' Find for books and people, bound
  *    as [MatchingService].
  *
  * Installed only when the books slice is active (`booksModule` is installed),
- * because [MetadataLookupServiceImpl] depends on [BookRepository] and friends
+ * because [MatchingServiceImpl] depends on [BookRepository] and friends
  * from that module. The module is installed unconditionally alongside `booksModule`
  * in `Application.kt`.
  *
@@ -198,62 +183,9 @@ fun metadataModule(imageHome: Path): Module =
 
         single { enrichmentCoordinator() }
 
-        single {
-            val bookRepository = get<BookRepository>()
-            val probe = get<ImageDimensionProbe>()
-            CoverSearchService(
-                readBook = { id ->
-                    bookRepository.findById(id)?.let { b ->
-                        BookSummary(
-                            title = b.title,
-                            author =
-                                b.contributors.firstOrNull { it.role.equals("author", ignoreCase = true) }?.name
-                                    ?: b.contributors
-                                        .firstOrNull()
-                                        ?.name
-                                        .orEmpty(),
-                        )
-                    }
-                },
-                registry = get<MetadataProviderRegistry>(),
-                probeDimensions = { url -> probe.probe(url) },
-            )
-        }
-
-        metadataEnrichmentBindings()
-
         // Per-user throttle in front of the process-wide, *blocking* provider limiters above, so one
         // member's lookup burst cannot queue ahead of everyone else's metadata work.
         single { MetadataRateLimiter(clock = get()) }
-
-        single<MetadataLookupService> {
-            MetadataLookupServiceImpl(
-                metadataService = get(),
-                coordinator = get(),
-                coverSearchService = get(),
-                bookRepository = get(),
-                contributorRepository = get(),
-                seriesRepository = get(),
-                imageDeps =
-                    MetadataImageDeps(
-                        remoteImageFetcher = get(),
-                        coverImageStore = get<CoverImageStore>(),
-                        imageHome = imageHome,
-                    ),
-                enrichmentDeps = get<MetadataEnrichmentDeps>(),
-                permissionPolicy = get<PermissionPolicy>(),
-                bookAccessPolicy = get<BookAccessPolicy>(),
-                sqlDb = get<ListenUpDatabase>(),
-                genreRepository = get<GenreRepository>(),
-                probeDimensions = { url -> get<ImageDimensionProbe>().probe(url) },
-                principal =
-                    PrincipalProvider {
-                        error("Unscoped MetadataLookupService — call copyWith(PrincipalProvider) at the route")
-                    },
-                externalRatingsFetcher = get<ExternalRatingsFetcher>(),
-                rateLimiter = get<MetadataRateLimiter>(),
-            )
-        }
 
         matchingBindings(imageHome)
         metadataCleanupBindings(imageHome)
@@ -404,30 +336,6 @@ private fun Module.metadataCleanupBindings(imageHome: Path) {
         )
     }
     single { MatchReceiptSweepTask(receipts = get<MatchReceiptStore>(), settings = get()) }
-}
-
-/**
- * Mood/trope enrichment bindings for the metadata-apply path:
- *  - [MetadataEnrichmentDeps] — bundles the add-only [BookMoodWriter] / [BookTagWriter] junction
- *    writers that [com.calypsan.listenup.server.api.BookMetadataApplier] uses to reconcile a book's
- *    moods/tropes to the user's apply selection.
- *
- * [BookMoodWriter] is a shared single (it also backs the scanner); [BookTagWriter] is constructed
- * here from its repository deps, mirroring [BookRepository]'s inline construction. Split out of
- * [metadataModule] to keep that module body under the length budget.
- */
-private fun Module.metadataEnrichmentBindings() {
-    single {
-        MetadataEnrichmentDeps(
-            bookMoodWriter = get<BookMoodWriter>(),
-            bookTagWriter =
-                BookTagWriter(
-                    clock = get<Clock>(),
-                    tagRepository = get<TagRepository>(),
-                    bookTagRepository = get<BookTagRepository>(),
-                ),
-        )
-    }
 }
 
 /**

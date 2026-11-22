@@ -8,8 +8,7 @@ import io.ktor.http.Url
  * Validates that an image URL is safe for the server to fetch: HTTPS, and hosted at a public-
  * unicast destination rather than loopback, link-local, or private address space.
  *
- * Guards [com.calypsan.listenup.server.api.MetadataLookupServiceImpl.applyCover] — the one RPC
- * method that accepts a caller-supplied URL — and, through [BoundedImageFetch], every hop of every
+ * Guards, through [BoundedImageFetch], every hop of every
  * untrusted image fetch's redirect chain, so a public host that 302s to an internal one is rejected
  * exactly like a direct request to that internal host would be.
  *

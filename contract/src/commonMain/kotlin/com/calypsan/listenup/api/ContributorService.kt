@@ -18,7 +18,7 @@ import kotlinx.rpc.annotations.Rpc
  * - **Mutation** — [updateContributor], [deleteContributor] mutate server state;
  *   The sync firehose delivers the authoritative payload to all connected clients.
  *
- * External Audible/iTunes metadata lookups live on [MetadataLookupService] —
+ * External catalog lookups live on [MatchingService] —
  * separate service because local reads (fast, no external calls) and external
  * lookups (slow, rate-limited, fallible) have different transport semantics.
  */

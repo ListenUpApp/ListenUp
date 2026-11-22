@@ -164,9 +164,8 @@ internal suspend fun BookExternalRatingRepository.localeFor(
 ): MetadataLocale = regionForBook(bookId)?.let { MetadataLocale(it) } ?: default
 
 /**
- * Projects a persisted book onto the [RatingSource] lookup key — the same asin/isbn/title/primary-
- * author/duration shape [com.calypsan.listenup.server.api.MetadataLookupServiceImpl] builds for the
- * phase-1 match scorer.
+ * Projects a persisted book onto the [RatingSource] lookup key: its asin, isbn, title, primary
+ * author and duration.
  */
 internal fun BookSyncPayload.toIdentity(): BookIdentity =
     BookIdentity(

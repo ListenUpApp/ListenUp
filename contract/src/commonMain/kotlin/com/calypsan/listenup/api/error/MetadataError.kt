@@ -115,9 +115,8 @@ sealed interface MetadataError : AppError {
 
     /**
      * The supplied image URL was rejected before any fetch was attempted: not HTTPS, or hosted at
-     * a loopback/link-local/private destination rather than a public one. Raised by
-     * `applyCover` (`com.calypsan.listenup.api.MetadataLookupService`), the one RPC method that
-     * accepts a caller-supplied URL. Non-retryable — the same URL will always be rejected.
+     * a loopback/link-local/private destination rather than a public one. Raised by the
+     * server's image-fetch guard. Non-retryable — the same URL will always be rejected.
      */
     @Serializable
     @SerialName("MetadataError.UnsafeUrl")

@@ -22,7 +22,7 @@ import kotlinx.rpc.annotations.Rpc
  *   [reorderChildSeries] mutate server state; the sync firehose delivers the authoritative
  *   payload back to all connected clients.
  *
- * External metadata lookups live on [MetadataLookupService] — separate service
+ * External catalog lookups live on [MatchingService] — separate service
  * because local reads (fast, no external calls) and external lookups (slow,
  * rate-limited, fallible) have different transport semantics.
  */

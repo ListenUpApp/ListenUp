@@ -13,7 +13,6 @@ import com.calypsan.listenup.api.ImportService
 import com.calypsan.listenup.api.InstanceService
 import com.calypsan.listenup.api.LibraryAdminService
 import com.calypsan.listenup.api.MatchingService
-import com.calypsan.listenup.api.MetadataLookupService
 import com.calypsan.listenup.api.MoodService
 import com.calypsan.listenup.api.NotificationService
 import com.calypsan.listenup.api.PlaybackProgressService
@@ -197,7 +196,6 @@ private fun Application.rpcServiceBundle(): RpcServices =
         seriesService = koinGet<SeriesService>(),
         playbackService = koinGet<PlaybackService>(),
         playbackProgressService = koinGet<PlaybackProgressService>(),
-        metadataLookupService = koinGet<MetadataLookupService>(),
         matchingService = koinGet<MatchingService>(),
         libraryAdminService = koinGet<LibraryAdminService>(),
         tagService = koinGet<TagService>(),

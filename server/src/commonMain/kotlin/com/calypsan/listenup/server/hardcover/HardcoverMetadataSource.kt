@@ -36,7 +36,7 @@ private const val MAX_GENRES = 5
 /** The key a Hardcover author's profile is fetched by. */
 const val HARDCOVER_AUTHOR_KEY_PREFIX = "hardcover:author:"
 
-/** The selection key of a series only Hardcover knows (it rides `MetadataSeriesRef.asin`). */
+/** The selection key of a series only Hardcover knows (it rides `SeriesMeta.key`). */
 const val HARDCOVER_SERIES_KEY_PREFIX = "hardcover:series:"
 
 /**

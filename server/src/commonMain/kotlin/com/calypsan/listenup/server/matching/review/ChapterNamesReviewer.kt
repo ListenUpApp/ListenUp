@@ -14,7 +14,7 @@ internal data class ReviewedChapters(
 )
 
 /**
- * The chapter-names half of Review (spec, *Review*, step 5), read exactly as `ChapterNameApplier` reads it: both
+ * The chapter-names half of Review (spec, *Review*, step 5), read the way Apply writes them: both
  * lists in start-time order, aligned by ordinal only when the counts match. Only names that differ are listed.
  */
 internal object ChapterNamesReviewer {

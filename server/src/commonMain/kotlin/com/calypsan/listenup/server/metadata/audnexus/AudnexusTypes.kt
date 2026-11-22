@@ -6,8 +6,7 @@ import kotlinx.serialization.Serializable
 // ─── Audnexus API response types ──────────────────────────────────────────────
 //
 // These `@Serializable` types mirror the api.audnex.us JSON wire format. They are
-// server-internal — the raw Audnexus shape never crosses the RPC wire (the contract
-// carries its own projections in `MetadataDtos`). `@Serializable` also lets
+// server-internal — the raw Audnexus shape never crosses the RPC wire. `@Serializable` also lets
 // `AudnexusProvider` cache these values as JSON in `MetadataCacheRepository`.
 //
 // Every field is defaulted so a sparse Audnexus response (fields vary by region and
