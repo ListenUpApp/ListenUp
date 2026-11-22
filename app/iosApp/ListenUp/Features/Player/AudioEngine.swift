@@ -128,8 +128,9 @@ actor AudioEngine: PlaybackEngine {
     /// *before returning*. Does not start playback — the caller follows with `play()`.
     ///
     /// Returns `true` once the queue's first item is ready and positioned; `false` on a
-    /// configuration/queue failure or a readiness timeout (a `.failed` event is emitted
-    /// on the failure paths so the coordinator can surface an error state).
+    /// configuration/queue failure, a readiness timeout or a resume seek that never lands
+    /// (`resumeSeekTimeout`). A `.failed` event is emitted on the configuration/queue paths, and
+    /// the coordinator reports every `false` as could-not-start.
     ///
     /// The resume seek happens here — after awaiting readiness, before any rate is set —
     /// rather than being deferred to a KVO callback that fires *after* `play()` has already
@@ -180,17 +181,31 @@ actor AudioEngine: PlaybackEngine {
             return false
         }
         // Ready and playable — seek precisely, then hand back a silent, paused, correctly
-        // positioned player for the caller's `play()` to resume audibly.
+        // positioned player for the caller's `play()` to resume audibly. Bounded: AVFoundation can
+        // leave this seek pending forever, and an unbounded `load` never returns, so the book spins
+        // until the app is killed and a Play only queues behind it.
         if withinSegmentMs > 0 {
-            _ = await player.seek(
-                to: CMTime(value: withinSegmentMs, timescale: 1000),
-                toleranceBefore: .zero, toleranceAfter: .zero
-            )
+            let target = CMTime(value: withinSegmentMs, timescale: 1000)
+            let landed = await awaitCompletion(within: Self.resumeSeekTimeout) { done in
+                player.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero, completionHandler: done)
+            }
+            guard landed != nil else {
+                player.currentItem?.cancelPendingSeeks()
+                player.pause()
+                player.isMuted = false
+                Log.error("load: resume seek did not complete; aborting")
+                return false
+            }
         }
         player.pause()
         player.isMuted = false
         return true
     }
+
+    /// How long the resume seek in `load` may take. The item is already ready to play when it is
+    /// issued, so a seek that has not landed in half the readiness wait is not going to: the load
+    /// fails and the shared player shows that the book couldn't be started, with a working Retry.
+    static let resumeSeekTimeout: Duration = .seconds(10)
 
     /// Await the current item reaching `.readyToPlay` (`true`) or `.failed`/timeout
     /// (`false`). The status KVO installed by `observeCurrentItemTransitions` drives the

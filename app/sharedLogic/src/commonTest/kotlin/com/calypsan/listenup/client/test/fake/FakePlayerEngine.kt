@@ -35,6 +35,9 @@ class FakePlayerEngine : PlayerEngine {
     var loadResult: AppResult<Unit> = AppResult.Success(Unit)
     var loadSuspension: suspend () -> Unit = {}
 
+    /** The phase a successful [load] leaves the engine in: playing at once, unless a spec wants a stalled start. */
+    var phaseAfterLoad: EnginePhase = EnginePhase.PLAYING
+
     /** Chapters and duration a successful [load] installs (what a prepare would return). */
     var preparedChapters: List<Chapter> = emptyList()
     var preparedDurationMs: Long = 0L
@@ -78,7 +81,7 @@ class FakePlayerEngine : PlayerEngine {
                 },
             )
             loadedBookId.value = bookId
-            phase.value = EnginePhase.PLAYING
+            phase.value = phaseAfterLoad
         }
         return loadResult
     }
