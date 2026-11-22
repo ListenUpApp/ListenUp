@@ -7,11 +7,13 @@ import AVFoundation
 
 /// Pure decision for an audio-session interruption — testable without notifications.
 enum InterruptionPolicy {
-    enum Action: Equatable { case pause, resume, none }
+    /// `.declined` is an interruption that ended without the system's leave to resume: it is over, so the
+    /// pause it caused must stop waiting for a resume that will never be its own.
+    enum Action: Equatable { case pause, resume, declined, none }
     static func action(type: AVAudioSession.InterruptionType, shouldResume: Bool) -> Action {
         switch type {
         case .began: return .pause
-        case .ended: return shouldResume ? .resume : .none
+        case .ended: return shouldResume ? .resume : .declined
         @unknown default: return .none
         }
     }
