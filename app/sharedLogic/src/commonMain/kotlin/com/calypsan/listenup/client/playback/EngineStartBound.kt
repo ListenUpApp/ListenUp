@@ -1,6 +1,8 @@
 package com.calypsan.listenup.client.playback
 
+import com.calypsan.listenup.api.error.PlaybackError
 import com.calypsan.listenup.core.BookId
+import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collectLatest
@@ -8,6 +10,8 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
+
+private val logger = KotlinLogging.logger {}
 
 /**
  * How long an engine may buffer a start before the session says the book couldn't be started.
@@ -43,6 +47,20 @@ internal suspend fun reportStartsThatNeverSettle(
             delay(within)
             onNeverStarted(engineBound.bookId)
         }
+}
+
+/**
+ * This stage with [bookId]'s start failed as [PlaybackError.CouldNotStart]; unchanged when the stage no longer holds
+ * that start or already carries a failure. The failure is the session's own, so the session's halt stops the engine
+ * on it, and Play or Retry prepares the book again from where the listener sees it.
+ */
+internal fun SessionStage?.withStartThatNeverSettled(bookId: BookId): SessionStage? {
+    val current = this as? SessionStage.Engine ?: return this
+    if (current.bookId != bookId || current.failure != null) return this
+    logger.error { "Book ${bookId.value} did not start: still buffering $ENGINE_START_BOUND after it was handed over" }
+    return current.copy(
+        failure = PlaybackError.CouldNotStart(debugInfo = "still buffering $ENGINE_START_BOUND after the start"),
+    )
 }
 
 /** Audio was moving, or a drop that interrupted it is being recovered: a stall after this is not a start. */

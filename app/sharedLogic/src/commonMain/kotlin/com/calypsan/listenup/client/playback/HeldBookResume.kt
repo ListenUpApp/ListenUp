@@ -40,10 +40,12 @@ internal sealed interface ResumePlan {
  */
 internal class HeldBookResume(
     private val engine: PlayerEngine,
-    private val engineBound: StateFlow<Boolean>,
-    private val savedPosition: StateFlow<PlaybackPosition?>,
+    readout: PlayerReadout,
     private val nowMillis: () -> Long,
 ) {
+    private val engineBound: StateFlow<Boolean> = readout.engineBound
+    private val savedPosition: StateFlow<PlaybackPosition?> = readout.savedPosition
+
     /**
      * The newest position-row stamp this device accounts for on the engine-bound book: the row it bound with, then
      * its own saves. Null while the engine holds nothing for the stage.

@@ -33,6 +33,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 private val logger = KotlinLogging.logger {}
@@ -94,13 +95,7 @@ class PlayerSession(
             playbackPreferences = playbackPreferences,
             scope = scope,
         )
-    private val heldBookResume =
-        HeldBookResume(
-            engine = engine,
-            engineBound = readout.engineBound,
-            savedPosition = readout.savedPosition,
-            nowMillis = nowMillis,
-        )
+    private val heldBookResume = HeldBookResume(engine, readout, nowMillis)
     private val stageBookId: Flow<BookId?> get() = readout.stageBookId
     private val engineBound: StateFlow<Boolean> get() = readout.engineBound
 
@@ -173,7 +168,11 @@ class PlayerSession(
         scope.launch { engine.loadedBookId.collect(::onEngineBook) }
         scope.launch { watchLiveness() }
         scope.launch { haltSurfacedFailures() }
-        scope.launch { reportStartsThatNeverSettle(state, onNeverStarted = ::failStartThatNeverSettled) }
+        scope.launch {
+            reportStartsThatNeverSettle(
+                state,
+            ) { bookId -> stage.update { it.withStartThatNeverSettled(bookId) } }
+        }
         scope.launch { heldBookResume.accountForOwnPositionWrites() }
         sleep.start(loadedBookId = stageBookId)
     }
@@ -781,26 +780,6 @@ class PlayerSession(
                     stage.value = current.copy(halted = false, failure = null)
                 }
             }
-    }
-
-    /**
-     * The engine buffered [bookId]'s start for all of [ENGINE_START_BOUND] without playing or saying why: say it
-     * couldn't be started, rather than spin forever. The failure is the session's own, so [haltSurfacedFailures] stops
-     * the engine on it, and Play or Retry prepares the book again from where the listener sees it.
-     */
-    private fun failStartThatNeverSettled(bookId: BookId) {
-        val current = stage.value as? SessionStage.Engine ?: return
-        if (current.bookId != bookId || current.failure != null) return
-        logger.error {
-            "Book ${bookId.value} did not start: still buffering $ENGINE_START_BOUND after it was handed over"
-        }
-        stage.value =
-            current.copy(
-                failure =
-                    PlaybackError.CouldNotStart(
-                        debugInfo = "still buffering $ENGINE_START_BOUND after the start",
-                    ),
-            )
     }
 
     // ── Sleep ────────────────────────────────────────────────────────────────────────────────────────
