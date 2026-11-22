@@ -364,6 +364,28 @@ jobs:
           ffmpeg -version | head -1
           ffprobe -version | head -1
 
+      # xHE-AAC decodes through Fraunhofer FDK (GStreamer's fdkaacdec), never FFmpeg, so the
+      # transcoder's xHE gate needs that decoder too. Ubuntu ships none, so the one plugin is built
+      # here exactly as server/Dockerfile.native builds it. Like the FFmpeg gate above, the spec
+      # SKIPS without it, so the verify step below is what keeps the skip from passing silently.
+      - name: Install GStreamer and FDK build dependencies (xHE-AAC transcode gate)
+        timeout-minutes: 18
+        uses: ./.github/actions/apt-install
+        with:
+          packages: >-
+            libfdk-aac-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
+            gstreamer1.0-tools gstreamer1.0-plugins-base gstreamer1.0-plugins-good meson ninja-build
+
+      - name: Build GStreamer fdkaacdec (xHE-AAC transcode gate)
+        run: |
+          bash tools/scripts/build-gst-fdkaac.sh "$RUNNER_TEMP/gst-plugins"
+          echo "GST_PLUGIN_PATH=$RUNNER_TEMP/gst-plugins" >> "$GITHUB_ENV"
+
+      - name: Verify FDK decoding is usable (anti-fake-green)
+        run: |
+          gst-inspect-1.0 fdkaacdec | head -3
+          gst-inspect-1.0 matroskademux | head -3
+
       # Kotest across the contract DTOs, the shared client core (every client consumes
       # :app:sharedLogic), and the server. :app:sharedUI host tests are Robolectric (JVM, no
       # emulator) — included here so Compose-UI test rot can't land unnoticed.
