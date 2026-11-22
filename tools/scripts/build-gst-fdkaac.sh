@@ -17,7 +17,7 @@ version="$(pkg-config --modversion gstreamer-1.0)"
 
 # Published by gstreamer.freedesktop.org as gst-plugins-bad-<version>.tar.xz.sha256sum.
 case "$version" in
-  1.24.2) sha256=448e32787bc82b586c6cb2f81c9a8ef404fea4f77f25566fe06e597a3f59136b ;;
+  1.28.2) sha256=6467e3964828f4d7d08bfe1fbb4d76287a1c8fa76674e59e101a149c020fefd7 ;;
   *)
     echo "build-gst-fdkaac.sh: no pinned gst-plugins-bad checksum for GStreamer $version;" >&2
     echo "add the published sha256 for gst-plugins-bad-$version.tar.xz to this script." >&2
