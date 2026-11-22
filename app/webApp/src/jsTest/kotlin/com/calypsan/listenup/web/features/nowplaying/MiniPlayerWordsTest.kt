@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.error.PlaybackError
+import com.calypsan.listenup.api.error.TranscodeError
 import com.calypsan.listenup.client.presentation.player.MiniPlayerLine
 import com.calypsan.listenup.client.presentation.player.PlayerProgress
 import com.calypsan.listenup.client.presentation.player.SleepCountdowns
@@ -93,6 +94,7 @@ class MiniPlayerWordsTest :
             problem(BookError.HeldForReview()) shouldBe "Not playable"
             problem(PlaybackError.AutoplayBlocked()) shouldBe "Tap Play to start"
             problem(PlaybackError.BlockedInBackground()) shouldBe "Tap to keep listening"
+            problem(TranscodeError.TranscoderUnavailable()) shouldBe "Can't play here"
             problem(PlaybackError.ConnectionLost()) shouldBe "Couldn't play this book."
         }
 

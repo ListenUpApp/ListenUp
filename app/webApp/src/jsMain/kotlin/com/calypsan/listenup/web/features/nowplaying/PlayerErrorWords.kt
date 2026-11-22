@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.error.PlaybackError
+import com.calypsan.listenup.api.error.TranscodeError
 
 /**
  * The player card's title for this error, in the browser's words. Web keeps no string catalog;
@@ -20,6 +21,7 @@ internal fun AppError.playerTitle(): String =
         is BookError.HeldForReview -> "Waiting in the Inbox."
         is PlaybackError.BlockedInBackground -> "Tap to keep listening."
         is PlaybackError.AutoplayBlocked -> "Tap Play to start."
+        is TranscodeError.TranscoderUnavailable -> "Can't play this book here."
         else -> message
     }
 
@@ -34,5 +36,11 @@ internal fun AppError.playerCause(): String? =
         is PlaybackError.NoLongerAvailable -> "The book was removed, or your access changed."
         is BookError.HeldForReview -> "Release it from the Inbox before anyone can play it."
         is PlaybackError.AutoplayBlocked -> "Your browser needs a tap before it plays sound."
+        is TranscodeError.TranscoderUnavailable -> SERVER_CANNOT_CONVERT_CAUSE
         else -> null
     }
+
+/** Too long for one `when` line; the same sentence as `player.cause_transcode_unavailable` in `en.json`. */
+private const val SERVER_CANNOT_CONVERT_CAUSE =
+    "This device can't play its audio format, and your server can't convert it. Try another device, or ask " +
+        "whoever runs your server to set up audio conversion."

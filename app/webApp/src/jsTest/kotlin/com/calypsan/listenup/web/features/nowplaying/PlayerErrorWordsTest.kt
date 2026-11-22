@@ -3,6 +3,7 @@ package com.calypsan.listenup.web.features.nowplaying
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.error.PlaybackError
+import com.calypsan.listenup.api.error.TranscodeError
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 
@@ -22,6 +23,12 @@ class PlayerErrorWordsTest :
             PlaybackError.NoLongerAvailable().playerTitle() shouldBe "No longer in your library."
             AuthError.SessionExpired().playerTitle() shouldBe "Your session expired. Please sign in again."
             PlaybackError.AutoplayBlocked().playerTitle() shouldBe "Tap Play to start."
+        }
+        test("a server that can't convert the book says so, and what to try") {
+            TranscodeError.TranscoderUnavailable().playerTitle() shouldBe "Can't play this book here."
+            TranscodeError.TranscoderUnavailable().playerCause() shouldBe
+                "This device can't play its audio format, and your server can't convert it. Try another device, " +
+                "or ask whoever runs your server to set up audio conversion."
         }
         test("an error the player has no words for falls back to its own message") {
             AuthError.RateLimited(retryAfterSeconds = 3).playerTitle() shouldBe AuthError.RateLimited(retryAfterSeconds = 3).message

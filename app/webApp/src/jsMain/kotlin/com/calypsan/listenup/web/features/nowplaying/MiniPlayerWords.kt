@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.error.PlaybackError
+import com.calypsan.listenup.api.error.TranscodeError
 import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.client.presentation.player.ChapterName
 import com.calypsan.listenup.client.presentation.player.ChapterNaming
@@ -126,6 +127,7 @@ internal fun AppError.miniPlayerWords(): String =
         is BookError.HeldForReview -> "Not playable"
         is PlaybackError.AutoplayBlocked -> "Tap Play to start"
         is PlaybackError.BlockedInBackground -> "Tap to keep listening"
+        is TranscodeError.TranscoderUnavailable -> "Can't play here"
         else -> playerTitle()
     }
 
