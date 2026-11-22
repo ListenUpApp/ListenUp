@@ -220,7 +220,12 @@ class PlaybackErrorHandler(
                 // ExoPlayer's own load-error retries are already spent by the time onPlayerError
                 // fires — the player is IDLE and nothing is buffering. Re-preparing is the only
                 // thing that resumes playback; without it this branch is a silent no-op.
-                recoverOrGiveUp(player, bookPositionMs, onShowError, "network") { idle ->
+                recoverOrGiveUp(
+                    player = player,
+                    bookPositionMs = bookPositionMs,
+                    onShowError = onShowError,
+                    reason = "network",
+                ) { idle ->
                     idle.prepare()
                     idle.play()
                 }
@@ -246,7 +251,12 @@ class PlaybackErrorHandler(
                     // Budget-bounded even on success: a server that keeps issuing fresh tokens
                     // which are still rejected walks past the guard above on every attempt.
                     logger.info { "Token refreshed, retrying playback" }
-                    recoverOrGiveUp(player, bookPositionMs, onShowError, "auth") { authed ->
+                    recoverOrGiveUp(
+                        player = player,
+                        bookPositionMs = bookPositionMs,
+                        onShowError = onShowError,
+                        reason = "auth",
+                    ) { authed ->
                         authed.prepare()
                         authed.play()
                     }
@@ -275,7 +285,12 @@ class PlaybackErrorHandler(
                 // and each recovery here is a full stop/prepare/seek cycle.
                 logger.warn { "Stuck player detected: ${error.message}" }
 
-                recoverOrGiveUp(player, bookPositionMs, onShowError, "stuck") { stuck ->
+                recoverOrGiveUp(
+                    player = player,
+                    bookPositionMs = bookPositionMs,
+                    onShowError = onShowError,
+                    reason = "stuck",
+                ) { stuck ->
                     // Re-preparing resets the position, so capture it first and restore it after.
                     val currentPosition = stuck.currentPosition
                     val currentMediaItemIndex = stuck.currentMediaItemIndex
@@ -294,7 +309,7 @@ class PlaybackErrorHandler(
 
             is ClassifiedError.ServerRefused -> {
                 logger.error {
-                    "Server refused the audio: ${error.error.debugInfo} (reference ${error.error.correlationId})"
+                    "Server refused the audio: ${error.error.debugInfo.orEmpty()} (reference ${error.error.correlationId ?: "none"})"
                 }
                 onShowError(error.error)
                 player.pause()
