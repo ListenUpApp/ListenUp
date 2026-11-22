@@ -31,7 +31,8 @@ class NativePlayerEngineTest :
                     val prepared = preparedPlaybackFor("b1", durationMs = 200_000, chapters = chapters, resumePositionMs = 150_000)
                     val engine = NativePlayerEngine(prepare = { _, _ -> AppResult.Success(prepared) }, scope = scope)
                     engine.commands.test {
-                        engine.load(BookId("b1"), start = PlaybackStart.Resume) shouldBe AppResult.Success(Unit)
+                        engine.load(BookId("b1"), start = PlaybackStart.Resume) shouldBe
+                            AppResult.Success(EngineLoad(ServerConversion.COVERED))
                         awaitItem() shouldBe EngineCommand.Load(bookId = "b1", prepared = prepared, generation = 1)
                     }
                     runCurrent()
@@ -40,6 +41,20 @@ class NativePlayerEngineTest :
                     engine.positionMs.value shouldBe 150_000
                     engine.currentChapter.value!!.index shouldBe 1
                     engine.phase.value shouldBe EnginePhase.BUFFERING
+                } finally {
+                    scope.cancel()
+                }
+            }
+        }
+
+        test("a load passes on that the server can't convert the book, for the session to explain a decode failure") {
+            runTest {
+                val scope = CoroutineScope(StandardTestDispatcher(testScheduler))
+                try {
+                    val prepared = preparedPlaybackFor("b1").copy(serverConversion = ServerConversion.UNAVAILABLE)
+                    val engine = NativePlayerEngine(prepare = { _, _ -> AppResult.Success(prepared) }, scope = scope)
+                    engine.load(BookId("b1"), start = PlaybackStart.Resume) shouldBe
+                        AppResult.Success(EngineLoad(ServerConversion.UNAVAILABLE))
                 } finally {
                     scope.cancel()
                 }

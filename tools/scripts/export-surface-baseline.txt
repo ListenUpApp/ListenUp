@@ -379,6 +379,7 @@ EditableTag
 EditionFormat
 EngineCommand
 EngineCommand_SealedType
+EngineLoad
 EnginePhase
 EntityEdit
 EntityEditRepository
@@ -953,6 +954,7 @@ ServerConnectError_SealedType
 ServerConnectUiState
 ServerConnectUiState_SealedType
 ServerConnectViewModel
+ServerConversion
 ServerDiscoveryService
 ServerInfo
 ServerReachability

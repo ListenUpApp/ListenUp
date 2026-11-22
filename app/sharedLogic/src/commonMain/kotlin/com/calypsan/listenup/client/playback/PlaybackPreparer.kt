@@ -103,6 +103,8 @@ data class PreparedPlayback(
     // screen) content-address the cover and refresh it after a re-scrape instead of serving the
     // stale id-stable local file. Defaults for source-compat with existing constructors/fixtures.
     val coverHash: String? = null,
+    /** Whether the server could convert every file this device can't play; a downloaded book never asks it. */
+    val serverConversion: ServerConversion = ServerConversion.COVERED,
 )
 
 /**
@@ -373,6 +375,7 @@ class PlaybackPreparer internal constructor(
                 resumeBoostDb = resumeBoostDb,
                 measuredGainDb = savedPosition?.measuredGainDb,
                 normalizationGainDb = book.normalizationGainDb,
+                serverConversion = buildResult.serverConversion,
             ),
         )
     }
@@ -573,6 +576,12 @@ class PlaybackPreparer internal constructor(
                                     .mapNotNull { file -> file.hlsUrl?.let { file.fileId to serverUrl + it } }
                                     .toMap(),
                             expireAtMs = result.data.urlsExpireAt,
+                            serverConversion =
+                                if (result.data.transcodeUnavailable) {
+                                    ServerConversion.UNAVAILABLE
+                                } else {
+                                    ServerConversion.COVERED
+                                },
                         )
                     }
 
@@ -614,7 +623,13 @@ class PlaybackPreparer internal constructor(
                     },
                 urlsExpireAtMs = preparedUrls.expireAtMs,
             )
-        return AppResult.Success(TimelineBuildResult(timeline = timeline, serverResumePosition = serverResumePosition))
+        return AppResult.Success(
+            TimelineBuildResult(
+                timeline = timeline,
+                serverResumePosition = serverResumePosition,
+                serverConversion = preparedUrls.serverConversion,
+            ),
+        )
     }
 
     private fun couldNotStart(
@@ -744,6 +759,7 @@ class PlaybackPreparer internal constructor(
 private data class TimelineBuildResult(
     val timeline: PlaybackTimeline,
     val serverResumePosition: PlaybackPositionSyncPayload?,
+    val serverConversion: ServerConversion,
 )
 
 /**
@@ -761,6 +777,8 @@ private data class PreparedUrls(
     val hls: Map<String, String> = emptyMap(),
     /** When [direct] and [hls] stop working, epoch ms; null when nothing was signed or the server did not say. */
     val expireAtMs: Long? = null,
+    /** What the prepare said about converting this device's unplayable files; covered when it was never asked. */
+    val serverConversion: ServerConversion = ServerConversion.COVERED,
 )
 
 /**

@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.playback
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.error.PlaybackError
+import com.calypsan.listenup.api.error.TranscodeError
 import com.calypsan.listenup.core.BookId
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldBeNull
@@ -97,6 +98,31 @@ class PlayerPhaseDerivationTest :
                         unavailable = BookError.HeldForReview(),
                     ),
                 ) shouldBe PlayerPhase.Failed(PlaybackError.ConnectionLost())
+            }
+            context("a book whose prepare said the server can't convert it") {
+                val unconvertible = SessionStage.Engine(book, serverConversion = ServerConversion.UNAVAILABLE)
+
+                test("a decode failure is the server that can't convert it") {
+                    playerPhaseOf(
+                        unconvertible,
+                        inputs(EnginePhase.PAUSED, book, engineError = PlaybackError.UnsupportedFormat()),
+                    ) shouldBe PlayerPhase.Failed(TranscodeError.TranscoderUnavailable())
+                }
+                test("a decode failure without the flag stays a decode failure") {
+                    playerPhaseOf(
+                        SessionStage.Engine(book),
+                        inputs(EnginePhase.PAUSED, book, engineError = PlaybackError.UnsupportedFormat()),
+                    ) shouldBe PlayerPhase.Failed(PlaybackError.UnsupportedFormat())
+                }
+                test("a network failure stays a network failure") {
+                    playerPhaseOf(
+                        unconvertible,
+                        inputs(EnginePhase.PAUSED, book, engineError = PlaybackError.ConnectionLost()),
+                    ) shouldBe PlayerPhase.Failed(PlaybackError.ConnectionLost())
+                }
+                test("the flag alone shows nothing: the device may play the file after all") {
+                    playerPhaseOf(unconvertible, inputs(EnginePhase.PLAYING, book)) shouldBe PlayerPhase.Playing
+                }
             }
             test("a proactive reason does not interrupt a book the engine holds") {
                 playerPhaseOf(

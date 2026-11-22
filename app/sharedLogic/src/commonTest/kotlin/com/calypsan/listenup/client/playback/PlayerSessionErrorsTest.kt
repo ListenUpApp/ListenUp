@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.error.PlaybackError
+import com.calypsan.listenup.api.error.TranscodeError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
@@ -44,6 +45,38 @@ class PlayerSessionErrorsTest :
                     rig.loaded.phase shouldBe PlayerPhase.Paused
                 } finally {
                     rig.close()
+                }
+            }
+        }
+
+        context("a book the device can't decode") {
+            fun TestScope.phaseAfterDecodeFailure(conversion: ServerConversion): PlayerPhase {
+                val rig = PlayerSessionRig(this)
+                try {
+                    rig.withBook("b1")
+                    rig.engine.loadResult = AppResult.Success(EngineLoad(conversion))
+                    runCurrent()
+                    rig.session.playBook(BookId("b1"), null)
+                    runCurrent()
+                    rig.engine.phase.value = EnginePhase.IDLE
+                    rig.engine.error.value = PlaybackError.UnsupportedFormat()
+                    runCurrent()
+                    return rig.loaded.phase
+                } finally {
+                    rig.close()
+                }
+            }
+
+            test("says the server can't convert it when its prepare said so") {
+                runTest {
+                    phaseAfterDecodeFailure(ServerConversion.UNAVAILABLE) shouldBe
+                        PlayerPhase.Failed(TranscodeError.TranscoderUnavailable())
+                }
+            }
+            test("says the device can't decode it when the server never said it can't convert") {
+                runTest {
+                    phaseAfterDecodeFailure(ServerConversion.COVERED) shouldBe
+                        PlayerPhase.Failed(PlaybackError.UnsupportedFormat())
                 }
             }
         }
@@ -313,7 +346,7 @@ class PlayerSessionErrorsTest :
                     rig.loaded.phase shouldBe PlayerPhase.Failed(PlaybackError.CouldNotStart())
                     rig.session.seekTo(150_000)
                     runCurrent()
-                    rig.engine.loadResult = AppResult.Success(Unit)
+                    rig.engine.loadResult = AppResult.Success(EngineLoad(ServerConversion.COVERED))
                     rig.session.retry()
                     runCurrent()
                     rig.engine.loads.last() shouldBe (BookId("b1") to PlaybackStart.At(150_000))

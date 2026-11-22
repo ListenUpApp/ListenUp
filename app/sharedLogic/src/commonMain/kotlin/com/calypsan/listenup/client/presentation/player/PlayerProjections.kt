@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.error.PlaybackError
+import com.calypsan.listenup.api.error.TranscodeError
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.playback.ChapterInfo
 import com.calypsan.listenup.client.playback.PlayerPhase
@@ -29,7 +30,7 @@ private fun controlFor(
     when (error) {
         is AuthError.SessionExpired -> PrimaryControl.SignIn
         is BookError.HeldForReview -> if (isAdmin) PrimaryControl.OpenInbox else PrimaryControl.Close
-        is PlaybackError.NoLongerAvailable -> PrimaryControl.Close
+        is PlaybackError.NoLongerAvailable, is TranscodeError.TranscoderUnavailable -> PrimaryControl.Close
         is PlaybackError.AutoplayBlocked -> PrimaryControl.TapToPlay
         is PlaybackError.BlockedInBackground -> PrimaryControl.Play
         else -> PrimaryControl.Retry

@@ -188,5 +188,7 @@ interface PlaybackManager :
         val measuredGainDb: Float?,
         /** Server tag-read normalization gain (ReplayGain/iTunNORM), null when the file has no tag. */
         val normalizationGainDb: Float?,
+        /** Whether the server could convert every file this device can't play. */
+        val serverConversion: ServerConversion = ServerConversion.COVERED,
     )
 }

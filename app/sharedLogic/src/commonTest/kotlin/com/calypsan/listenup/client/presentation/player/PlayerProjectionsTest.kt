@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.presentation.player
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.error.PlaybackError
+import com.calypsan.listenup.api.error.TranscodeError
 import com.calypsan.listenup.client.playback.ChapterInfo
 import com.calypsan.listenup.client.playback.PlayerPhase
 import io.kotest.core.spec.style.FunSpec
@@ -25,6 +26,7 @@ class PlayerProjectionsTest :
                 Triple(PlayerPhase.Failed(PlaybackError.Stalled()), PrimaryControl.Retry, false),
                 Triple(PlayerPhase.Failed(PlaybackError.CouldNotStart()), PrimaryControl.Retry, false),
                 Triple(PlayerPhase.Failed(PlaybackError.UnsupportedFormat()), PrimaryControl.Retry, false),
+                Triple(PlayerPhase.Failed(TranscodeError.TranscoderUnavailable()), PrimaryControl.Close, false),
                 Triple(PlayerPhase.Failed(PlaybackError.BlockedInBackground()), PrimaryControl.Play, false),
                 Triple(PlayerPhase.Failed(PlaybackError.AutoplayBlocked()), PrimaryControl.TapToPlay, false),
                 Triple(PlayerPhase.Failed(AuthError.SessionExpired()), PrimaryControl.SignIn, false),

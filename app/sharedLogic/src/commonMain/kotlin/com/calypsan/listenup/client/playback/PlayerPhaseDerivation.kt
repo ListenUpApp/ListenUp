@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.error.PlaybackError
+import com.calypsan.listenup.api.error.TranscodeError
 import com.calypsan.listenup.core.BookId
 
 /** What the session knows about the loaded book apart from the engine. */
@@ -25,12 +26,14 @@ internal sealed interface SessionStage {
      * The engine holds it; the engine's facts decide the phase. [halted]: a surfaced failure stopped the engine, so
      * an engine left idle by it is waiting for Play, not preparing. [failure]: the failure the session surfaced and
      * halted on when the engine itself reported none (a drop that outlasted its grace while the server was known to
-     * be unreachable), kept so the halt goes on saying why until Retry or Dismiss.
+     * be unreachable), kept so the halt goes on saying why until Retry or Dismiss. [serverConversion]: what the load's
+     * prepare said about the server converting what this device can't play, to explain a decode failure.
      */
     data class Engine(
         override val bookId: BookId,
         val halted: Boolean = false,
         val failure: AppError? = null,
+        val serverConversion: ServerConversion = ServerConversion.COVERED,
     ) : SessionStage
 
     /** The prepare failed with [error]. */
@@ -104,7 +107,7 @@ private fun engineFailureOf(
             inputs.engineBookId != stage.bookId -> null
             inputs.engineError != null && !stage.halted && inputs.isRecoveredFrom(inputs.engineError) -> null
             inputs.engineError != null && inputs.drop.isInGrace -> null
-            inputs.engineError != null -> inputs.engineError.explainedBy(inputs.unavailable)
+            inputs.engineError != null -> inputs.engineError.explainedBy(inputs.unavailable, stage.serverConversion)
             inputs.enginePhase == EnginePhase.PLAYING -> null
             stage.failure != null -> stage.failure
             stalledOutOfReach -> inputs.unavailable
@@ -137,11 +140,29 @@ private fun enginePhaseOf(
 }
 
 /**
- * A stream that dropped while the book can't be reached for a known reason (the server is unreachable, the device
- * is offline) is that reason, as a failed prepare is: "Can't reach your server.", not "Couldn't play this book.".
+ * The engine's failure in the words that say why. A stream that dropped while the book can't be reached for a known
+ * reason (the server is unreachable, the device is offline) is that reason, as a failed prepare is: "Can't reach your
+ * server.", not "Couldn't play this book.". A file this device can't decode, in a book whose prepare said the server
+ * can't convert it, is that server: "Can't play this book here.", which says who can fix it. The prepare's flag alone
+ * never shows; it only explains a decode failure that happened.
  */
-private fun AppError.explainedBy(unavailable: AppError?): AppError =
-    if (isCurableByNetwork() && unavailable.isServerOutOfReach()) unavailable ?: this else this
+private fun AppError.explainedBy(
+    unavailable: AppError?,
+    serverConversion: ServerConversion,
+): AppError =
+    when {
+        isCurableByNetwork() && unavailable.isServerOutOfReach() -> {
+            unavailable ?: this
+        }
+
+        this is PlaybackError.UnsupportedFormat && serverConversion == ServerConversion.UNAVAILABLE -> {
+            TranscodeError.TranscoderUnavailable(debugInfo = debugInfo)
+        }
+
+        else -> {
+            this
+        }
+    }
 
 /** Why a not-prepared book can't play right now, or null. Pure. */
 internal fun unavailableReasonOf(

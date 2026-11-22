@@ -164,7 +164,8 @@ class ManagedPlayerEngineTest :
                     val rig = Rig(scope)
                     rig.manager.stubbedPrepareResult = prepareResultFor("b1")
                     rig.engine.beginLoad(BookId("b1"))
-                    rig.engine.load(BookId("b1"), start = PlaybackStart.At(5_000)) shouldBe AppResult.Success(Unit)
+                    rig.engine.load(BookId("b1"), start = PlaybackStart.At(5_000)) shouldBe
+                        AppResult.Success(EngineLoad(ServerConversion.COVERED))
                     rig.manager.prepareForPlaybackStarts shouldContainExactly listOf(PlaybackStart.At(5_000))
                     rig.manager.activatedBookIds shouldContainExactly listOf(BookId("b1"))
                     rig.controller.startPlaybackCalls.size shouldBe 1
@@ -219,8 +220,23 @@ class ManagedPlayerEngineTest :
                     val rig = Rig(scope)
                     rig.manager.stubbedPrepareResult = prepareResultFor("b1")
                     val moved = PlaybackStart.Moved(listOf(PlaybackMove.Skip(-10_000)))
-                    rig.engine.load(BookId("b1"), start = moved) shouldBe AppResult.Success(Unit)
+                    rig.engine.load(BookId("b1"), start = moved) shouldBe AppResult.Success(EngineLoad(ServerConversion.COVERED))
                     rig.manager.prepareForPlaybackStarts shouldContainExactly listOf(moved)
+                } finally {
+                    scope.cancel()
+                }
+            }
+        }
+
+        test("a load passes on that the server can't convert the book, for the session to explain a decode failure") {
+            runTest {
+                val scope = CoroutineScope(StandardTestDispatcher(testScheduler))
+                try {
+                    val rig = Rig(scope)
+                    rig.manager.stubbedPrepareResult =
+                        prepareResultFor("b1").copy(serverConversion = ServerConversion.UNAVAILABLE)
+                    rig.engine.load(BookId("b1"), start = PlaybackStart.Resume) shouldBe
+                        AppResult.Success(EngineLoad(ServerConversion.UNAVAILABLE))
                 } finally {
                     scope.cancel()
                 }

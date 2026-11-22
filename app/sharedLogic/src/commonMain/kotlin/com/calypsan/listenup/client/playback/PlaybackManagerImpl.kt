@@ -241,6 +241,7 @@ internal class PlaybackManagerImpl(
                 resumeBoostDb = prepared.resumeBoostDb,
                 measuredGainDb = prepared.measuredGainDb,
                 normalizationGainDb = prepared.normalizationGainDb,
+                serverConversion = prepared.serverConversion,
             ),
         )
     }

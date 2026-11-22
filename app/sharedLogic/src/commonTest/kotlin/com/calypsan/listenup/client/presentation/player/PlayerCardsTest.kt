@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.presentation.player
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.error.PlaybackError
+import com.calypsan.listenup.api.error.TranscodeError
 import com.calypsan.listenup.client.domain.model.NextInSeries
 import com.calypsan.listenup.client.playback.PlayerPhase
 import com.calypsan.listenup.client.playback.SleepTimerState
@@ -60,6 +61,14 @@ class PlayerCardsTest :
                 .secondaryAction shouldBe CloseBook
             problem(loaded(PlayerPhase.Failed(PlaybackError.UnsupportedFormat()), PrimaryControl.Retry)).let { card ->
                 card.secondaryAction shouldBe CloseBook
+                card.tone shouldBe PlayerCardTone.Error
+            }
+        }
+
+        test("a server that can't convert the book: Close book first, Retry only to pick up a fixed server") {
+            problem(loaded(PlayerPhase.Failed(TranscodeError.TranscoderUnavailable()), PrimaryControl.Close)).let { card ->
+                card.primaryAction shouldBe CloseBook
+                card.secondaryAction shouldBe Retry
                 card.tone shouldBe PlayerCardTone.Error
             }
         }

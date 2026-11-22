@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.error.PlaybackError
+import com.calypsan.listenup.api.error.TranscodeError
 import com.calypsan.listenup.client.playback.PlayerPhase
 
 /**
@@ -140,6 +141,8 @@ object PlayerCards {
                 }
             is PlaybackError.BlockedInBackground -> PlayerCardAction.Resume to null
             is PlaybackError.AutoplayBlocked -> PlayerCardAction.TapToPlay to null
+            // Retry changes nothing until the server can convert; it stays second, to pick up a fixed server.
+            is TranscodeError.TranscoderUnavailable -> PlayerCardAction.CloseBook to PlayerCardAction.Retry
             is PlaybackError.ServerUnreachable, is PlaybackError.OfflineNotDownloaded, is PlaybackError.UnsupportedFormat ->
                 PlayerCardAction.Retry to PlayerCardAction.CloseBook
             else -> PlayerCardAction.Retry to leaveIt

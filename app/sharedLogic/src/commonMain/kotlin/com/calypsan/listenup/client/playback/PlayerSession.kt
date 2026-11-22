@@ -367,7 +367,7 @@ class PlayerSession(
                             is AppResult.Success -> {
                                 handedOver = true
                                 applySeekQueuedWhilePreparing()
-                                SessionStage.Engine(bookId)
+                                SessionStage.Engine(bookId, serverConversion = result.data.serverConversion)
                             }
 
                             is AppResult.Failure -> {

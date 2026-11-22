@@ -199,6 +199,7 @@ class PlaybackPreparerHlsTest :
         fun preparedWith(
             hlsUrl1: String? = null,
             hlsUrl2: String? = null,
+            transcodeUnavailable: Boolean = false,
         ): PlaybackPrepareRepository =
             FakeHlsPlaybackPrepareRepository(
                 FakeHlsPlaybackService(
@@ -228,6 +229,7 @@ class PlaybackPreparerHlsTest :
                                         ),
                                     ),
                                 resumePosition = null,
+                                transcodeUnavailable = transcodeUnavailable,
                             ),
                         ),
                 ),
@@ -252,6 +254,31 @@ class PlaybackPreparerHlsTest :
                 result.timeline.files[1]
                     .hlsUrl
                     .shouldBeNull()
+            }
+        }
+
+        test("a server that can't convert a file this device can't play says so in the prepared book") {
+            runTest {
+                val preparer =
+                    buildPreparer(
+                        downloadService = streamingDownloadService(),
+                        prepareRepository = preparedWith(transcodeUnavailable = true),
+                    )
+
+                val result = preparer.prepare(bookId, start = PlaybackStart.Resume).getOrNull()
+
+                result.shouldNotBeNull().serverConversion shouldBe ServerConversion.UNAVAILABLE
+            }
+        }
+
+        test("a server that converts, or had nothing to convert, leaves the prepared book covered") {
+            runTest {
+                val preparer =
+                    buildPreparer(downloadService = streamingDownloadService(), prepareRepository = preparedWith())
+
+                val result = preparer.prepare(bookId, start = PlaybackStart.Resume).getOrNull()
+
+                result.shouldNotBeNull().serverConversion shouldBe ServerConversion.COVERED
             }
         }
 
