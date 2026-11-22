@@ -49,6 +49,25 @@ sealed interface SessionAdmission {
 }
 
 /**
+ * What [TranscodeSessionEngine.abandonBadSegment] decided about a segment that failed its frame
+ * check, and the last lines the encoder that wrote it had to say — empty when that run had already
+ * finished and been swept, as it has for a segment read back from the cache.
+ */
+data class BadSegmentOutcome(
+    val verdict: BadSegmentVerdict,
+    val encoderStderr: List<String>,
+)
+
+/** Whether a segment that failed its frame check is worth encoding again. */
+enum class BadSegmentVerdict {
+    /** Encode it again: the next request starts a fresh run at this segment. */
+    Retry,
+
+    /** It has failed every attempt. Refuse it outright rather than encode it again. */
+    GiveUp,
+}
+
+/**
  * The engine's seam over `ProcessRunner`, so its tests never spawn a real process.
  *
  * [start] returns once the child is **spawned**, not once it has finished — the encoder runs on
@@ -62,6 +81,12 @@ interface TranscodeSpawner {
      * yet hold, so an exited encoder is one that will never produce them.
      */
     val hasExited: Boolean
+
+    /**
+     * The last lines the child wrote to stderr, oldest first — what explains a segment that came out
+     * wrong. Bounded, so a chatty encoder cannot grow it. Empty for a spawner that keeps none.
+     */
+    val stderrTail: List<String> get() = emptyList()
 
     suspend fun start(commands: List<List<String>>)
 
@@ -124,23 +149,37 @@ class TranscodeSessionEngine(
     /**
      * Records that segment [index] came out wrong and drops the run that produced it, so the next
      * request starts an encoder at [index] rather than being admitted to one that has already
-     * passed it. Returns false once the same segment has failed [MAX_BAD_SEGMENT_RETRIES] times:
-     * a source that encodes short every time must not be re-encoded on every tap.
+     * passed it. The caller deletes the rejected file either way: a bad segment left on disk looks
+     * finished, and would be re-read and re-refused on every later request.
+     *
+     * The outcome is [BadSegmentVerdict.GiveUp] once the same segment has failed more than
+     * [MAX_BAD_SEGMENT_RETRIES] times — a source that encodes wrong every time must not be
+     * re-encoded on every tap. From then on [hasGivenUpOn] answers for it, until the server
+     * restarts.
      */
     suspend fun abandonBadSegment(
         bookId: String,
         fileId: String,
         index: Int,
-    ): Boolean =
+    ): BadSegmentOutcome =
         mutex.withLock {
-            val strikeKey = "${key(bookId, fileId)}/$index"
+            val strikeKey = strikeKey(bookId, fileId, index)
             val strikes = (badSegmentStrikes[strikeKey] ?: 0) + 1
-            if (strikes > MAX_BAD_SEGMENT_RETRIES) return@withLock false
             badSegmentStrikes[strikeKey] = strikes
-            val abandoned = running.remove(key(bookId, fileId))
-            if (abandoned != null) abandoned.spawner.stop()
-            true
+            val abandoned = running.remove(key(bookId, fileId))?.spawner
+            abandoned?.stop()
+            BadSegmentOutcome(
+                verdict = if (strikes > MAX_BAD_SEGMENT_RETRIES) BadSegmentVerdict.GiveUp else BadSegmentVerdict.Retry,
+                encoderStderr = abandoned?.stderrTail.orEmpty(),
+            )
         }
+
+    /** Whether segment [index] has failed verification too often to be encoded again. */
+    suspend fun hasGivenUpOn(
+        bookId: String,
+        fileId: String,
+        index: Int,
+    ): Boolean = mutex.withLock { (badSegmentStrikes[strikeKey(bookId, fileId, index)] ?: 0) > MAX_BAD_SEGMENT_RETRIES }
 
     /**
      * Drops every session whose encoder has exited, so it frees its slot, and stops every one whose
@@ -280,6 +319,12 @@ class TranscodeSessionEngine(
             bookId: String,
             fileId: String,
         ): String = "$bookId/$fileId"
+
+        fun strikeKey(
+            bookId: String,
+            fileId: String,
+            index: Int,
+        ): String = "${key(bookId, fileId)}/$index"
     }
 }
 

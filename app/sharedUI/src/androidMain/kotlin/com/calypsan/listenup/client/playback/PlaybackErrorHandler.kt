@@ -3,13 +3,16 @@ package com.calypsan.listenup.client.playback
 import com.calypsan.listenup.api.error.PlaybackError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.AppError
+import com.calypsan.listenup.api.result.MediaFailure
 import androidx.media3.common.PlaybackException
 import androidx.media3.datasource.HttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.domain.FinishedPolicy
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.delay
 import java.util.concurrent.atomic.AtomicInteger
+import kotlin.math.abs
 
 private val logger = KotlinLogging.logger {}
 
@@ -31,6 +34,13 @@ private val RECOVERY_BACKOFF_MS = listOf(1_000L, 2_000L, 4_000L, 8_000L, 16_000L
 internal val RECOVERY_ATTEMPT_BUDGET = RECOVERY_BACKOFF_MS.size
 
 /**
+ * How far from the last recovery a failure must be to count as a new incident with a full budget.
+ * Half a minute of listening is unmistakably real progress; the few seconds a re-prepared player plays
+ * from its buffer before failing at the same broken spot are not.
+ */
+private const val NEW_INCIDENT_DISTANCE_MS = 30_000L
+
+/**
  * Handles playback errors with the principle: "Position is sacred."
  *
  * Error handling strategy:
@@ -45,22 +55,24 @@ class PlaybackErrorHandler(
     private val tokenProvider: AudioTokenRecovery,
 ) {
     /**
-     * Recovery attempts spent since playback was last healthy.
+     * Recovery attempts spent on the current incident.
      *
-     * Atomic because it is read from the service's coroutine scope and reset from Media3's
-     * player callbacks on the main looper.
+     * Atomic because it is read from the service's coroutine scope while Media3 delivers errors on
+     * the main looper.
      */
     private val recoveryAttempts = AtomicInteger(0)
 
     /**
-     * Refills the recovery budget — call when playback is confirmed healthy again.
+     * Book position of the last recovery attempt, or null before any. The budget is spent per
+     * incident, and an incident is a place in the book, not a moment: a failure
+     * [NEW_INCIDENT_DISTANCE_MS] away from this one starts a fresh budget.
      *
-     * Without this the budget is per-session rather than per-incident: a dead spot on the morning
-     * walk would silently consume the retries needed by an unrelated stall that evening.
+     * ⛔ **Not refilled on READY.** It used to be, and a re-prepared player reaches READY at the
+     * spot that keeps failing before it fails there again — so a segment the server could never
+     * serve was retried every eight seconds, forever (#1742).
      */
-    fun onPlaybackHealthy() {
-        recoveryAttempts.set(0)
-    }
+    @Volatile
+    private var lastRecoveryPositionMs: Long? = null
 
     /**
      * Classifies errors into actionable categories.
@@ -91,6 +103,11 @@ class PlaybackErrorHandler(
             val message: String,
         ) : ClassifiedError
 
+        // Not retryable - the server said re-requesting cannot help (MediaFailure.Terminal)
+        data class ServerRefused(
+            val error: AppError,
+        ) : ClassifiedError
+
         data class Unknown(
             val cause: Throwable,
         ) : ClassifiedError
@@ -111,15 +128,18 @@ class PlaybackErrorHandler(
 
             // HTTP errors - check status code
             PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS -> {
-                val cause = error.cause
-                val statusCode = (cause as? HttpDataSource.InvalidResponseCodeException)?.responseCode
+                val http = error.cause as? HttpDataSource.InvalidResponseCodeException
 
-                when (statusCode) {
-                    HTTP_UNAUTHORIZED -> ClassifiedError.AuthExpired("Session expired")
-                    HTTP_FORBIDDEN -> ClassifiedError.AuthExpired("Access denied")
-                    HTTP_NOT_FOUND -> ClassifiedError.NotFound("Audio file not found")
-                    in 500..599 -> ClassifiedError.Network("Server error, retrying...")
-                    else -> ClassifiedError.Unknown(error)
+                if (http == null) {
+                    ClassifiedError.Unknown(error)
+                } else {
+                    when (http.responseCode) {
+                        HTTP_UNAUTHORIZED -> ClassifiedError.AuthExpired("Session expired")
+                        HTTP_FORBIDDEN -> ClassifiedError.AuthExpired("Access denied")
+                        HTTP_NOT_FOUND -> ClassifiedError.NotFound("Audio file not found")
+                        in 500..599 -> classifyServerError(http.responseCode, http.responseBody.decodeToString())
+                        else -> ClassifiedError.Unknown(error)
+                    }
                 }
             }
 
@@ -142,9 +162,22 @@ class PlaybackErrorHandler(
             }
         }
 
+    /** A 5xx decides by what the server said it means — see [MediaFailure]. */
+    private fun classifyServerError(
+        status: Int,
+        body: String,
+    ): ClassifiedError =
+        when (val failure = MediaFailure.of(status, body.ifEmpty { null })) {
+            MediaFailure.Transient -> ClassifiedError.Network("Server error $status, retrying...")
+            is MediaFailure.Terminal -> ClassifiedError.ServerRefused(failure.error)
+        }
+
     /**
      * Handle error based on classification.
      * Returns true if playback should continue (error was handled).
+     *
+     * [bookDurationMs] is the whole book's length, or 0 when unknown: a failure in the book's last
+     * second ([FinishedPolicy.failureEndsBook]) finishes it rather than surfacing an error.
      */
     @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
     suspend fun handle(
@@ -167,12 +200,32 @@ class PlaybackErrorHandler(
             logger.debug { "Position saved before error handling: $bookPositionMs" }
         }
 
+        // The last second of a book cannot fail: a transcoded book's final segment can be a
+        // fraction of a second, and when it will not load everything audible has played (#1742).
+        // Auth is the exception — a lapsed session is the listener's to fix whatever the position.
+        if (error !is ClassifiedError.AuthExpired &&
+            currentBookId != null &&
+            FinishedPolicy.failureEndsBook(bookPositionMs, bookDurationMs)
+        ) {
+            logger.info {
+                "Playback failed ${bookDurationMs - bookPositionMs}ms from the end ($error); finishing the book"
+            }
+            player.pause()
+            progressTracker.onBookFinished(currentBookId, positionMs = bookPositionMs, durationMs = bookDurationMs)
+            return false
+        }
+
         return when (error) {
             is ClassifiedError.Network -> {
                 // ExoPlayer's own load-error retries are already spent by the time onPlayerError
                 // fires — the player is IDLE and nothing is buffering. Re-preparing is the only
                 // thing that resumes playback; without it this branch is a silent no-op.
-                recoverOrGiveUp(player, onShowError, "network") { idle ->
+                recoverOrGiveUp(
+                    player = player,
+                    bookPositionMs = bookPositionMs,
+                    onShowError = onShowError,
+                    reason = "network",
+                ) { idle ->
                     idle.prepare()
                     idle.play()
                 }
@@ -198,7 +251,12 @@ class PlaybackErrorHandler(
                     // Budget-bounded even on success: a server that keeps issuing fresh tokens
                     // which are still rejected walks past the guard above on every attempt.
                     logger.info { "Token refreshed, retrying playback" }
-                    recoverOrGiveUp(player, onShowError, "auth") { authed ->
+                    recoverOrGiveUp(
+                        player = player,
+                        bookPositionMs = bookPositionMs,
+                        onShowError = onShowError,
+                        reason = "auth",
+                    ) { authed ->
                         authed.prepare()
                         authed.play()
                     }
@@ -227,7 +285,12 @@ class PlaybackErrorHandler(
                 // and each recovery here is a full stop/prepare/seek cycle.
                 logger.warn { "Stuck player detected: ${error.message}" }
 
-                recoverOrGiveUp(player, onShowError, "stuck") { stuck ->
+                recoverOrGiveUp(
+                    player = player,
+                    bookPositionMs = bookPositionMs,
+                    onShowError = onShowError,
+                    reason = "stuck",
+                ) { stuck ->
                     // Re-preparing resets the position, so capture it first and restore it after.
                     val currentPosition = stuck.currentPosition
                     val currentMediaItemIndex = stuck.currentMediaItemIndex
@@ -242,6 +305,15 @@ class PlaybackErrorHandler(
                     stuck.play()
                     logger.info { "Attempting recovery from stuck state at position $currentPosition" }
                 }
+            }
+
+            is ClassifiedError.ServerRefused -> {
+                logger.error {
+                    "Server refused the audio: ${error.error.debugInfo.orEmpty()} (reference ${error.error.correlationId ?: "none"})"
+                }
+                onShowError(error.error)
+                player.pause()
+                false
             }
 
             is ClassifiedError.Unknown -> {
@@ -267,10 +339,14 @@ class PlaybackErrorHandler(
      */
     private suspend fun recoverOrGiveUp(
         player: ExoPlayer,
+        bookPositionMs: Long,
         onShowError: (AppError) -> Unit,
         reason: String,
         recover: (ExoPlayer) -> Unit,
     ): Boolean {
+        val previous = lastRecoveryPositionMs
+        if (previous == null || abs(bookPositionMs - previous) >= NEW_INCIDENT_DISTANCE_MS) recoveryAttempts.set(0)
+        lastRecoveryPositionMs = bookPositionMs
         val attempt = recoveryAttempts.getAndIncrement()
 
         if (attempt >= RECOVERY_BACKOFF_MS.size) {
@@ -301,6 +377,7 @@ class PlaybackErrorHandler(
             is ClassifiedError.NotFound -> "File not available."
             is ClassifiedError.Codec -> "Cannot play this format."
             is ClassifiedError.Stuck -> "Playback stuck. Retrying..."
+            is ClassifiedError.ServerRefused -> "This book can't be played."
             is ClassifiedError.Unknown -> "Playback error."
         }
 }

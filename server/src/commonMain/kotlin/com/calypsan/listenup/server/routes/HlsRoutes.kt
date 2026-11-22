@@ -10,6 +10,7 @@ import com.calypsan.listenup.server.io.fileIoDispatcher
 import com.calypsan.listenup.server.io.readBytes
 import com.calypsan.listenup.server.io.respondSeekable
 import com.calypsan.listenup.server.transcode.AdtsFrames
+import com.calypsan.listenup.server.transcode.BadSegmentVerdict
 import com.calypsan.listenup.server.transcode.HlsPlaylist
 import com.calypsan.listenup.server.transcode.SegmentCache
 import com.calypsan.listenup.server.transcode.SessionAdmission
@@ -20,7 +21,9 @@ import com.calypsan.listenup.server.transcode.TranscodeSettings
 import com.calypsan.listenup.server.transcode.TranscoderAvailability
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
+import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.server.application.ApplicationCall
+import io.ktor.server.plugins.callid.callId
 import io.ktor.server.request.queryString
 import io.ktor.server.response.respond
 import io.ktor.server.response.respondText
@@ -28,6 +31,8 @@ import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.delay
+
+private val log = KotlinLogging.logger("com.calypsan.listenup.server.routes.HlsRoutes")
 
 /** `application/vnd.apple.mpegurl` — the type every HLS player expects for an `.m3u8`. */
 private val M3U8 = ContentType("application", "vnd.apple.mpegurl")
@@ -163,6 +168,21 @@ private suspend fun serveSegment(
     val info = locator.transcodeInfo(target.bookId, target.fileId) ?: return call.respond(HttpStatusCode.NotFound)
     val plan = HlsPlaylist.plan(info.durationMs, info.sampleRate, settings.targetSegmentSeconds)
 
+    // Given up on: every attempt at this segment came out wrong, so answer at once rather than
+    // encode it again — and rather than wait for a file that was deleted the last time it failed.
+    if (engine.hasGivenUpOn(target.bookId, target.fileId, index)) {
+        return respondAppResult<Unit>(
+            call,
+            AppResult.Failure(
+                TranscodeError.TranscodeFailed(
+                    debugInfo =
+                        "segment $index of ${target.bookId}/${target.fileId} failed verification on every attempt; " +
+                            "not encoded again until the server restarts",
+                ),
+            ),
+        )
+    }
+
     // Already encoded: serve it and never wake the encoder. This is the common case once a listener
     // is a few segments in, and it is what makes re-listening free. Completeness, not mere
     // existence — a segment FFmpeg is still writing exists, and serving it truncates the audio.
@@ -248,19 +268,20 @@ private suspend fun respondVerifiedSegment(
     val expected = plan.expectedFrames(index)
     if (frames == null || frames !in expected) {
         // Abandon first: it stops the encoder that produced this segment, so nothing is still
-        // writing next to the file about to be deleted.
-        if (engine.abandonBadSegment(target.bookId, target.fileId, index)) {
-            cache.evictSegment(target.bookId, target.fileId, index)
+        // writing next to the file about to be deleted. Then delete it whatever the verdict: a
+        // rejected file left in the cache looks finished, and every later request would re-read it
+        // and fail in a millisecond, forever (#1742). The verdict, not the file, answers from now on.
+        val outcome = engine.abandonBadSegment(target.bookId, target.fileId, index)
+        cache.evictSegment(target.bookId, target.fileId, index)
+        val detail =
+            "segment $index of ${target.bookId}/${target.fileId} holds ${frames ?: "no countable"} frames, expected $expected"
+        log.warn {
+            val next = if (outcome.verdict == BadSegmentVerdict.GiveUp) "giving up on it" else "will re-encode"
+            val stderr = outcome.encoderStderr.ifEmpty { listOf("(no running encoder to ask)") }
+            "transcoded $detail; $next. correlationId=${call.callId ?: "none"} encoder stderr tail:\n" +
+                stderr.joinToString("\n")
         }
-        return respondAppResult<Unit>(
-            call,
-            AppResult.Failure(
-                TranscodeError.TranscodeFailed(
-                    debugInfo =
-                        "segment $index of ${target.bookId}/${target.fileId} holds ${frames ?: "no countable"} frames, expected $expected",
-                ),
-            ),
-        )
+        return respondAppResult<Unit>(call, AppResult.Failure(TranscodeError.TranscodeFailed(debugInfo = detail)))
     }
     respondSeekable(call, path, AAC)
 }

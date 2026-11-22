@@ -24,6 +24,17 @@ class PlayerCardsTest :
     FunSpec({
         fun problem(state: PlayerUiState.Loaded): PlayerCard.Problem = PlayerCards.of(state).shouldBeInstanceOf<PlayerCard.Problem>()
 
+        // #1743: the web bar's scrubber stayed live under a problem card, so a drag moved the bar while
+        // nothing could play. Every scrubber on every platform asks this one question.
+        test("a book can be scrubbed except under a problem card") {
+            PlayerCards.allowsSeeking(loaded(PlayerPhase.Failed(PlaybackError.ConnectionLost()), PrimaryControl.Retry)) shouldBe false
+            PlayerCards.allowsSeeking(loaded(PlayerPhase.Unavailable(PlaybackError.ServerUnreachable()), PrimaryControl.Retry)) shouldBe
+                false
+            listOf(PlayerPhase.Playing, PlayerPhase.Paused, PlayerPhase.Buffering, PlayerPhase.SleepFading).forEach {
+                PlayerCards.allowsSeeking(loaded(it)) shouldBe true
+            }
+        }
+
         test("the sleep fade puts the gold card in the transport's place, with Keep listening alone") {
             PlayerCards.of(loaded(PlayerPhase.SleepFading)) shouldBe PlayerCard.SleepFading
         }

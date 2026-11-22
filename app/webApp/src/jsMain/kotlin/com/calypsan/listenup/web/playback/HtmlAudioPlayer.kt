@@ -2,10 +2,12 @@ package com.calypsan.listenup.web.playback
 
 import com.calypsan.listenup.api.error.PlaybackError
 import com.calypsan.listenup.api.error.AppError
+import com.calypsan.listenup.api.result.MediaFailure
 import com.calypsan.listenup.client.playback.AudioPlayer
 import com.calypsan.listenup.client.playback.AudioSegment
 import com.calypsan.listenup.client.playback.PLAYBACK_DROP_GRACE
 import com.calypsan.listenup.client.playback.PlaybackState
+import com.calypsan.listenup.domain.FinishedPolicy
 import kotlinx.browser.document
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.MainScope
@@ -85,18 +87,29 @@ internal fun playRefusal(errorName: String): AppError? =
         else -> PlaybackError.CouldNotStart(debugInfo = "play() refused: $errorName")
     }
 
-/** A fatal hls.js failure, typed by its [type] (spec §4.6); hls.js's own words go to `debugInfo`. */
-internal fun hlsFailure(
-    type: String,
-    details: String,
-): AppError {
-    val debugInfo = "$type: $details"
-    return when (type) {
+/**
+ * A fatal hls.js failure, typed by its type; hls.js's own words go to `debugInfo`. A request the
+ * server failed is typed by what the server said ([MediaFailure]): one it refused for good is not a
+ * dropped connection, and must not be offered a Retry that can only fail the same way.
+ */
+internal fun hlsFailure(fatal: HlsFatalError): AppError {
+    val debugInfo = "${fatal.type}: ${fatal.details}"
+    val status = fatal.status
+    if (fatal.type == "networkError" && status != null && status >= HTTP_SERVER_ERROR) {
+        val failure = MediaFailure.of(status, fatal.body)
+        if (failure is MediaFailure.Terminal) return failure.error
+    }
+    return when (fatal.type) {
         "networkError" -> PlaybackError.ConnectionLost(debugInfo = debugInfo)
         "mediaError" -> PlaybackError.UnsupportedFormat(debugInfo = debugInfo)
         else -> PlaybackError.CouldNotStart(debugInfo = debugInfo)
     }
 }
+
+private const val HTTP_SERVER_ERROR = 500
+
+/** Buffered audio shorter than this is not worth playing out before reporting a failure. */
+private const val PLAY_OUT_MIN_SECONDS = 0.25
 
 /** The element's `MediaError` [code] (null when it gave none), typed (spec §4.6). */
 internal fun mediaElementFailure(
@@ -211,6 +224,21 @@ internal class HtmlAudioPlayer(
     /** The element's playhead when progress was last noted, in seconds. */
     private var lastProgressTime: Double = 0.0
 
+    /**
+     * True once a failure has torn the current source down. hls.js detaches on destroy, which resets
+     * the element: its next `timeupdate` reads 0, and a `currentTime` written now positions nothing.
+     * Until the next [attach], the last real position stands and a seek is not this engine's to
+     * publish — the shared session records it as where a Retry starts (#1743).
+     */
+    private var detached: Boolean = false
+
+    /**
+     * A fatal failure hls.js reported while audio it had already fetched was still to play. hls.js
+     * prefetches, so a segment it cannot get fails tens of seconds before the listener reaches it;
+     * the buffered audio before it plays out, and the failure is reported when the element runs dry.
+     */
+    private var pendingFailure: AppError? = null
+
     private val stallWatch = PlaybackStallWatch(stallScope) { onNoProgress() }
 
     init {
@@ -304,7 +332,8 @@ internal class HtmlAudioPlayer(
     }
 
     override fun seekTo(positionMs: Long) {
-        if (segments.isEmpty()) return
+        // Nothing is loaded behind a failure: publishing the target would move the bar over silence.
+        if (segments.isEmpty() || detached) return
         val seek = resolveSegment(segments, positionMs)
         this.positionMs.value = segments[seek.index].offsetMs + seek.offsetInSegmentMs
         // Seeking out of a finished book un-finishes it. Leaving `Ended` standing would show a
@@ -439,7 +468,9 @@ internal class HtmlAudioPlayer(
         primedForNextLoad = false
         endListen()
         pendingOffsetMs = null
+        pendingFailure = null
         releaseHls()
+        detached = false
         element.pause()
         // `src = ""` would resolve against the document URL and fire a spurious error; removing the
         // attribute and re-loading is the spec's own "forget the current media" path.
@@ -468,6 +499,8 @@ internal class HtmlAudioPlayer(
         offsetInSegmentMs: Long,
     ) {
         releaseHls()
+        detached = false
+        pendingFailure = null
         currentIndex = index
         state.value = PlaybackState.Buffering
         // A segment change or a seek into another file mid-listen stalls the listen like any other wait.
@@ -569,11 +602,14 @@ internal class HtmlAudioPlayer(
     }
 
     private fun publishPosition() {
+        if (detached) return
         val segment = segments.getOrNull(currentIndex) ?: return
         positionMs.value = segment.offsetMs + (element.currentTime * MS_PER_SECOND).toLong()
     }
 
     private fun onWaiting() {
+        // The buffered audio before a failed segment has run out: now is when it fails.
+        pendingFailure?.let { return fail(it) }
         // A buffer draining after a fatal hls.js error must not be dressed up as ordinary
         // buffering: that swaps a real diagnosis for a spinner nothing will ever clear.
         if (state.value !is PlaybackState.Error) {
@@ -617,14 +653,43 @@ internal class HtmlAudioPlayer(
      */
     private fun onNoProgress() {
         if (released || state.value != PlaybackState.Buffering) return
+        fail(
+            pendingFailure
+                ?: PlaybackError.ConnectionLost(
+                    debugInfo = "No audio arrived for $PLAYBACK_DROP_GRACE while buffering.",
+                ),
+        )
+    }
+
+    /**
+     * Stop for good on [failure]: tear the source down and report it — or, a second from the end, finish the book.
+     *
+     * The position is published once more before the teardown and then held ([detached]): the reset element's next
+     * `timeupdate` would otherwise report 0, and a Retry would start from the saved place instead of this one.
+     *
+     * A failure inside the book's last second ([FinishedPolicy.failureEndsBook]) has played everything audible — a
+     * transcoded book's last segment can be a fraction of a second, and an error card there strands the listener a
+     * breath from the end (#1742). It reports [PlaybackState.Ended], as a book that played through does.
+     */
+    private fun fail(failure: AppError) {
+        pendingFailure = null
         resumeOnReady = false
-        listening = false
+        endListen()
+        publishPosition()
+        detached = true
+        // Fatal means hls.js has stopped; its buffers, timers and retry loop have not. Nothing else
+        // will destroy this instance — a fatal error is neither a segment change nor a teardown —
+        // so without this it runs until the tab closes. Destroying it makes hls.js detach the media,
+        // which strips `src` and reloads the element, so a later play() on this attachment waits on
+        // a promise that never settles: recovery is a fresh prepare, never a re-fire of this one.
         releaseHls()
-        state.value =
-            PlaybackState.Error(
-                PlaybackError.ConnectionLost(debugInfo = "No audio arrived for $PLAYBACK_DROP_GRACE while buffering."),
-            )
         element.pause()
+        state.value =
+            if (FinishedPolicy.failureEndsBook(positionMs.value, durationMs.value)) {
+                PlaybackState.Ended
+            } else {
+                PlaybackState.Error(failure)
+            }
     }
 
     /**
@@ -640,8 +705,9 @@ internal class HtmlAudioPlayer(
      * a [play] issued in the same breath, and by then the element is playing again.
      */
     private fun onPaused() {
-        // The element fires `pause` on its way to `ended` too; `ended` owns that transition.
-        if (!element.ended && state.value !is PlaybackState.Error) {
+        // The element fires `pause` on its way to `ended` too; `ended` owns that transition. A pause
+        // after a failure is the teardown's own, and the failure owns the state it left.
+        if (!element.ended && !detached && state.value !is PlaybackState.Error) {
             if (element.paused) resumeOnReady = false
             endListen()
             state.value = PlaybackState.Paused
@@ -659,24 +725,29 @@ internal class HtmlAudioPlayer(
         attach(index = next, offsetInSegmentMs = 0)
     }
 
-    private fun reportHlsError(
-        type: String,
-        details: String,
-    ) {
+    private fun reportHlsError(fatal: HlsFatalError) {
         if (released) return
-        endListen()
-        // Fatal means hls.js has stopped; its buffers, timers and retry loop have not. Nothing else
-        // will destroy this instance — a fatal error is neither a segment change nor a teardown —
-        // so without this it runs until the tab closes.
-        releaseHls()
-        // Destroying the instance above makes hls.js detach the media, which strips `src` and
-        // reloads the element, so a later play() on this attachment waits on a promise that never
-        // settles: recovery is a fresh prepare, never a re-fire of this one.
-        state.value = PlaybackState.Error(hlsFailure(type, details))
+        val failure = hlsFailure(fatal)
+        // Audio already fetched still plays; the failure is reported when it runs out (see [pendingFailure]).
+        if (hasBufferedAhead()) {
+            pendingFailure = failure
+            return
+        }
+        fail(failure)
+    }
+
+    /** Whether the element holds more than [PLAY_OUT_MIN_SECONDS] of audio past its playhead. */
+    private fun hasBufferedAhead(): Boolean {
+        val now = element.currentTime
+        val buffered = element.buffered
+        return (0 until buffered.length).any { range ->
+            buffered.start(range) <= now && buffered.end(range) - now > PLAY_OUT_MIN_SECONDS
+        }
     }
 
     private fun reportElementError() {
-        if (released) return
+        // After a failure the element is reset on purpose; anything it reports now is about that.
+        if (released || detached) return
         endListen()
         val error = element.error
         // Only a network stall is typed retryable; a codec the browser cannot decode will fail

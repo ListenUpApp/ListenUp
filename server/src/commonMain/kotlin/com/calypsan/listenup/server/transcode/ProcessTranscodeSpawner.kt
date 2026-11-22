@@ -2,6 +2,8 @@ package com.calypsan.listenup.server.transcode
 
 import com.calypsan.listenup.server.process.ProcessRunner
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.atomicfu.locks.SynchronizedObject
+import kotlinx.atomicfu.locks.synchronized
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlin.concurrent.Volatile
@@ -30,13 +32,25 @@ class ProcessTranscodeSpawner(
 
     override val hasExited: Boolean get() = exited
 
+    private val tailLock = SynchronizedObject()
+    private val tail = ArrayDeque<String>(STDERR_TAIL_LINES)
+
+    override val stderrTail: List<String> get() = synchronized(tailLock) { tail.toList() }
+
     override suspend fun start(commands: List<List<String>>) {
         scope.launch {
             try {
-                // FFmpeg writes progress and warnings to stderr; only the tail matters, and only when
-                // something went wrong, so it goes to debug rather than being accumulated in memory.
-                val exit = runner.runPipeline(commands) { line -> log.debug { line } }
-                if (exit != 0) log.warn { "transcode pipeline exited $exit: ${commands.map { it.firstOrNull() }}" }
+                // Every line goes to debug; only the last few are kept, because only they explain a
+                // segment that came out wrong — and the engine hands them to whoever reports one.
+                // Every stage writes here, possibly from its own reader thread, hence the lock.
+                val exit = runner.runPipeline(commands) { line -> remember(line) }
+                if (exit != 0) {
+                    log.warn {
+                        "transcode pipeline exited $exit: ${commands.map {
+                            it.firstOrNull()
+                        }}; stderr tail: $stderrTail"
+                    }
+                }
             } finally {
                 // A failed spawn and a cancelled scope are exits too: the engine must never wait on a
                 // child that is not there.
@@ -48,5 +62,18 @@ class ProcessTranscodeSpawner(
 
     override fun stop() {
         runner.kill()
+    }
+
+    private fun remember(line: String) {
+        log.debug { line }
+        synchronized(tailLock) {
+            if (tail.size == STDERR_TAIL_LINES) tail.removeFirst()
+            tail.addLast(line)
+        }
+    }
+
+    internal companion object {
+        /** Enough for FFmpeg's or GStreamer's closing complaint, not a log's worth of progress. */
+        const val STDERR_TAIL_LINES = 20
     }
 }

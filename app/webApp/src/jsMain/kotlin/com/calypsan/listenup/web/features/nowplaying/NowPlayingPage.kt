@@ -607,7 +607,7 @@ private fun PhoneControls(
                 label = NowPlayingWords.CHAPTER_POSITION,
                 showsRemaining = true,
                 onSeek = actions.onSeek,
-                enabled = card !is PlayerCard.Problem,
+                enabled = PlayerCards.allowsSeeking(state),
             )
         }
         // The card takes the transport's place, and only the transport's: the book and the settings stay.

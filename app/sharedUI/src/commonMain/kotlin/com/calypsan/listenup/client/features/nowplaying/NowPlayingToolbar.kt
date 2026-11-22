@@ -55,6 +55,7 @@ import com.calypsan.listenup.client.presentation.player.SleepCountdowns
 import com.calypsan.listenup.client.presentation.player.MiniPlayerLine
 import com.calypsan.listenup.client.presentation.player.MiniPlayerLines
 import com.calypsan.listenup.client.presentation.player.PlayerProgress
+import com.calypsan.listenup.client.presentation.player.PlayerCards
 import com.calypsan.listenup.client.presentation.player.PlayerUiState
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.player_chapters
@@ -240,6 +241,7 @@ private fun RowScope.ToolbarContent(
         ToolbarScrubber(
             progress = progress,
             isPlaying = state.isAudible,
+            enabled = PlayerCards.allowsSeeking(state),
             onSeek = actions.onSeek,
             modifier = Modifier.weight(1f),
         )
@@ -309,11 +311,15 @@ private fun ToolbarBody(
     }
 }
 
-/** The one playback slider (chapter-scoped), elapsed and −remaining beside it. Holds its drag; seeks on release. */
+/**
+ * The one playback slider (chapter-scoped), elapsed and −remaining beside it. Holds its drag; seeks on release.
+ * Takes no seek when [enabled] is false: under a problem card nothing can play ([PlayerCards.allowsSeeking]).
+ */
 @Composable
 private fun ToolbarScrubber(
     progress: () -> PlayerProgress,
     isPlaying: Boolean,
+    enabled: Boolean,
     onSeek: (Float) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -324,6 +330,7 @@ private fun ToolbarScrubber(
         durationMs = current.chapterDurationMs,
         isPlaying = isPlaying,
         onSeek = onSeek,
+        enabled = enabled,
         modifier = modifier,
         timesBeside = true,
     )

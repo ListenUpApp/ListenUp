@@ -56,7 +56,7 @@ private const val SAMPLE_RATE = 44_100
 private const val DURATION_MS = 600_000L
 private const val SEGMENT_SECONDS = 10
 
-private val COMPONENT_KINDS = listOf("encoder", "muxer", "demuxer", "protocol")
+private val COMPONENT_KINDS = listOf("encoder", "muxer", "demuxer", "protocol", "filter")
 
 /** FFmpeg's `-f` names for formats whose configure component is named differently. */
 private val CONFIGURE_NAME = mapOf("s16le" to "pcm_s16le")
@@ -92,6 +92,10 @@ private fun missingComponents(
     enabled: Map<String, Set<String>>,
 ): List<String> {
     val lastInput = command.lastIndexOf("-i")
+    val filters =
+        command.zipWithNext().filter { (option, _) -> option == "-af" }.flatMap { (_, graph) ->
+            graph.split(',').map { "filter" to it.substringBefore('=') }
+        }
     val needed =
         command.zipWithNext().withIndex().mapNotNull { (index, pair) ->
             val (option, value) = pair
@@ -102,7 +106,7 @@ private fun missingComponents(
                 option == "-i" -> "protocol" to protocolOf(value)
                 else -> null
             }
-        } + ("protocol" to protocolOf(command.last()))
+        } + filters + ("protocol" to protocolOf(command.last()))
     return needed
         .map { (kind, name) -> kind to (CONFIGURE_NAME[name] ?: name) }
         .filterNot { (kind, name) -> name in enabled[kind].orEmpty() }

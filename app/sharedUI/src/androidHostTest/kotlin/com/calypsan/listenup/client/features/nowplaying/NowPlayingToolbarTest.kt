@@ -31,6 +31,8 @@ import androidx.compose.ui.text.style.TextDirection
 import com.calypsan.listenup.client.design.text.ThemedFor
 import com.calypsan.listenup.client.design.text.textDirection
 import org.junit.Rule
+import com.calypsan.listenup.api.error.PlaybackError
+import androidx.compose.ui.test.assertIsNotEnabled
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -150,6 +152,14 @@ class NowPlayingToolbarTest {
         toolbar()
         composeRule.onNodeWithContentDescription("Chapter position").performSemanticsAction(SemanticsActions.SetProgress) { it(0.5f) }
         seeks shouldBe listOf(0.5f)
+    }
+
+    // #1743's parity half: the web bar's scrubber stayed live under a failure, and so did this one.
+    @Test
+    @Config(qualifiers = "w1280dp-h800dp")
+    fun `under a problem card the scrubber takes no seek, the same rule as Now Playing`() {
+        toolbar(loadedPlayerState(phase = PlayerPhase.Failed(PlaybackError.ConnectionLost()), primary = PrimaryControl.Retry))
+        composeRule.onNodeWithContentDescription("Chapter position").assertIsNotEnabled()
     }
 
     @Test

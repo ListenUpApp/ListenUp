@@ -12,6 +12,7 @@ import com.calypsan.listenup.client.playback.PlayerPhase
 import com.calypsan.listenup.client.playback.SleepTimerMode
 import com.calypsan.listenup.client.playback.SleepTimerState
 import com.calypsan.listenup.client.presentation.player.PlayerProgress
+import com.calypsan.listenup.client.presentation.player.PlayerCards
 import com.calypsan.listenup.client.presentation.player.PlayerUiState
 import com.calypsan.listenup.client.presentation.player.SleepCountdowns
 import com.calypsan.listenup.client.presentation.player.PrimaryControl
@@ -387,6 +388,7 @@ private fun BarTransport(
                 label = "Chapter position",
                 showsRemaining = true,
                 onSeek = onSeek,
+                enabled = PlayerCards.allowsSeeking(state),
             )
         }
     }

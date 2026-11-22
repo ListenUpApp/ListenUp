@@ -34,6 +34,8 @@ class TranscodeIntegrationTest :
         val sourceDir = lazy { Files.createTempDirectory("listenup-transcode-src-") }
         val shortSource = lazy { FfmpegTestSupport.generateSine(sourceDir.value.resolve("short.m4a"), SOURCE_SECONDS) }
         val longSource = lazy { FfmpegTestSupport.generateSine(sourceDir.value.resolve("long.m4a"), LONG_SOURCE_SECONDS) }
+        val shortTailSource =
+            lazy { FfmpegTestSupport.generateSine(sourceDir.value.resolve("tail.m4a"), SHORT_TAIL_MS / 1000.0) }
 
         afterSpec {
             if (sourceDir.isInitialized()) sourceDir.value.toFile().deleteRecursively()
@@ -94,7 +96,87 @@ class TranscodeIntegrationTest :
                     ) shouldBe FRAMES_PER_SEGMENT
                 }
             }
+
+        // #1742: a book whose last segment is a fraction of a second. The route refuses any segment
+        // whose frame count differs from the playlist's promise, so every one — the short tail most
+        // of all — must come out exactly as declared, from a run at the start and one seeked to the end.
+        test("an AAC-LC book's sub-second final segment holds exactly the remainder the playlist declares")
+            .config(enabled = FfmpegTestSupport.isAvailable) {
+                assertEverySegmentAsDeclared(
+                    session = shortTailSession(shortTailSource.value),
+                    decoderPath = null,
+                )
+            }
+
+        // The same book as xHE-AAC, which decodes through FDK — the path that failed on every
+        // request for the last segment. Fixture: exhale 1.2.2 preset `b` (USAC + eSBR, 44.1 kHz
+        // stereo) over 3.465 s of 440 Hz tone; FDK decodes it as 2048-sample frames behind 2048
+        // samples of priming and a 220-sample limiter delay, all of which used to reach the tail.
+        test("an xHE-AAC book's sub-second final segment holds exactly the remainder the playlist declares")
+            .config(enabled = FfmpegTestSupport.isFdkAvailable) {
+                assertEverySegmentAsDeclared(
+                    session = shortTailSession(xheFixture(sourceDir.value), codecProfile = "xhe"),
+                    decoderPath = FfmpegTestSupport.fdkDecoder,
+                )
+            }
     })
+
+/** Encodes [session] from the start and from its second-to-last segment, checking every segment. */
+private suspend fun assertEverySegmentAsDeclared(
+    session: TranscodeSession,
+    decoderPath: String?,
+) {
+    val plan = HlsPlaylist.plan(session.durationMs, session.sampleRate, SHORT_TAIL_TARGET_SECONDS)
+    val last = plan.segmentDurations.lastIndex
+    withClue("the fixture must end in a sub-second segment for this test to mean anything") {
+        plan.segmentDurations.last() shouldBeLessThan 1.0
+    }
+    for (fromSegment in listOf(0, last - 1)) {
+        val spawners = mutableListOf<ProcessTranscodeSpawner>()
+        withEngine(targetSeconds = SHORT_TAIL_TARGET_SECONDS, decoderPath = decoderPath, onSpawn = spawners::add) { engine, cache ->
+            engine.ensureRunning(session, fromSegment) shouldBe SessionAdmission.Admitted
+            // A pipeline that never finishes says why in its stderr; without it a timeout explains nothing.
+            withClue({
+                "run from segment $fromSegment never finished; exited=${spawners.map { it.hasExited }}, stderr:\n" +
+                    spawners.flatMap { it.stderrTail }.joinToString("\n")
+            }) {
+                awaitComplete(cache, last, SHORT_TAIL_AWAIT_MILLIS) shouldBe true
+            }
+
+            val frames =
+                (fromSegment..last).associateWith { index ->
+                    AdtsFrames.countFrames(java.io.File(cache.segmentPath(BOOK_ID, FILE_ID, index).toString()).readBytes())
+                }
+            withClue("run from segment $fromSegment: frames $frames, expected ${(fromSegment..last).map(plan::expectedFrames)}") {
+                frames.all { (index, count) -> count != null && count in plan.expectedFrames(index) } shouldBe true
+            }
+        }
+    }
+}
+
+private fun shortTailSession(
+    source: java.nio.file.Path,
+    codecProfile: String? = null,
+): TranscodeSession =
+    TranscodeSession(
+        bookId = BOOK_ID,
+        fileId = FILE_ID,
+        sourcePath = source.absolutePathString(),
+        sampleRate = FfmpegTestSupport.SAMPLE_RATE,
+        durationMs = SHORT_TAIL_MS,
+        codec = "aac",
+        codecProfile = codecProfile,
+    )
+
+/** Copies the committed xHE-AAC fixture out of the test classpath, where FFmpeg can open it by path. */
+private fun xheFixture(dir: java.nio.file.Path): java.nio.file.Path {
+    val dest = dir.resolve("xhe.m4a")
+    if (!Files.exists(dest)) {
+        val bytes = checkNotNull(TranscodeIntegrationTest::class.java.getResource(XHE_FIXTURE)) { "missing $XHE_FIXTURE" }.readBytes()
+        Files.write(dest, bytes)
+    }
+    return dest
+}
 
 private const val BOOK_ID = "book-under-test"
 private const val FILE_ID = "file-under-test"
@@ -121,6 +203,17 @@ private const val DRIFT_SEGMENTS = 10
 /** Two milliseconds across ten segments. Widening this defeats the purpose of the file. */
 private const val DRIFT_TOLERANCE_SECONDS = 0.002
 
+/**
+ * One-second segments are 44 frames (1.021678 s) at 44.1 kHz, so 3.465 s is three whole segments and
+ * a 0.400 s tail: the shape of the book in #1742, whose last segment held 0.40 s.
+ */
+private const val SHORT_TAIL_TARGET_SECONDS = 1
+private const val SHORT_TAIL_MS = 3_465L
+private const val XHE_FIXTURE = "/transcode/xhe-aac-3465ms.m4a"
+
+/** Each of the two runs a short-tail case makes must fit, with room to spare, inside the project's per-test timeout. */
+private const val SHORT_TAIL_AWAIT_MILLIS = 40_000L
+
 private const val AWAIT_TIMEOUT_MILLIS = 120_000L
 private const val POLL_MILLIS = 100L
 
@@ -146,16 +239,22 @@ private fun session(
  * The engine is built exactly as DI builds it — a real [ProcessTranscodeSpawner] over a real
  * `ProcessRunner` — because a fake anywhere in this chain would defeat the test.
  */
-private suspend fun withEngine(block: suspend (TranscodeSessionEngine, SegmentCache) -> Unit) {
+private suspend fun withEngine(
+    targetSeconds: Int = TARGET_SEGMENT_SECONDS,
+    decoderPath: String? = null,
+    onSpawn: (ProcessTranscodeSpawner) -> Unit = {},
+    block: suspend (TranscodeSessionEngine, SegmentCache) -> Unit,
+) {
     val home = Files.createTempDirectory("listenup-transcode-cache-")
     val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     val cache = SegmentCache(Path(home.absolutePathString()))
     val engine =
         TranscodeSessionEngine(
             ffmpegPath = { FfmpegTestSupport.ffmpeg!! },
+            decoderPath = { decoderPath },
             cache = cache,
-            settings = TranscodeSettings(targetSegmentSeconds = TARGET_SEGMENT_SECONDS),
-            newSpawner = { ProcessTranscodeSpawner(scope) },
+            settings = TranscodeSettings(targetSegmentSeconds = targetSeconds),
+            newSpawner = { ProcessTranscodeSpawner(scope).also(onSpawn) },
         )
     try {
         block(engine, cache)
@@ -173,6 +272,21 @@ private suspend fun awaitSegment(
     var waited = 0L
     while (waited < AWAIT_TIMEOUT_MILLIS) {
         if (cache.has(BOOK_ID, FILE_ID, index)) return true
+        delay(POLL_MILLIS)
+        waited += POLL_MILLIS
+    }
+    return false
+}
+
+/** Waits until segment [index] is not just present but finished — the last one has no successor to prove it. */
+private suspend fun awaitComplete(
+    cache: SegmentCache,
+    index: Int,
+    timeoutMillis: Long,
+): Boolean {
+    var waited = 0L
+    while (waited < timeoutMillis) {
+        if (cache.isComplete(BOOK_ID, FILE_ID, index)) return true
         delay(POLL_MILLIS)
         waited += POLL_MILLIS
     }

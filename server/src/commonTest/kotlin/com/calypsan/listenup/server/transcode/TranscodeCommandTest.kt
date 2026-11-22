@@ -76,6 +76,22 @@ class TranscodeCommandTest :
             }
         }
 
+        // #1742. Fraunhofer FDK trims nothing: its output runs 5 ms late (the limiter's look-ahead,
+        // `pcmLimiter_SetAttack(.., 5)` for USAC in fdk-aac's libAACdec/src/aacdecoder.cpp) and
+        // carries every padded sample of the final frame. Uncapped, that surplus lands in the last
+        // segment and fails its frame count on every request.
+        test("the FDK path drops the decoder's look-ahead and stops at exactly the planned end") {
+            val encode = commandsFor(codec = "aac", profile = "xhe")!![2]
+            val delay = 44_100 * 5 / 1000
+            val planned = 600L * 44_100 - 7L * 431 * 1024
+
+            encode.shouldContainInOrder("-i", "pipe:", "-af", "atrim=start_sample=$delay:end_sample=${delay + planned}")
+        }
+
+        test("the native path is left to FFmpeg, which already trims exactly") {
+            commandsFor(codec = "aac", profile = "lc")!!.single().contains("-af") shouldBe false
+        }
+
         test("a mono source is decoded as mono rather than assumed stereo") {
             val stages = commandsFor(codec = "aac", profile = "xhe", channels = 1)!!
 

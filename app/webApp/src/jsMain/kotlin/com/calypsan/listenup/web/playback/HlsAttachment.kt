@@ -1,6 +1,11 @@
 package com.calypsan.listenup.web.playback
 
+import com.calypsan.listenup.api.result.MediaFailure
 import kotlinx.coroutines.await
+import org.khronos.webgl.ArrayBuffer
+import org.khronos.webgl.Int8Array
+import kotlin.js.Json
+import kotlin.js.json
 import org.w3c.dom.HTMLMediaElement
 import kotlin.js.Promise
 
@@ -37,6 +42,45 @@ internal external interface HlsPlayer {
 internal external interface HlsClass {
     /** Whether this browser has the Media Source Extensions hls.js needs. */
     fun isSupported(): Boolean
+
+    /** The configuration every instance starts from (`Hls.DefaultConfig`); read, never written. */
+    @JsName("DefaultConfig")
+    val defaultConfig: HlsDefaultConfig
+}
+
+/** The slice of `Hls.DefaultConfig` this player reads. */
+internal external interface HlsDefaultConfig {
+    val fragLoadPolicy: HlsLoadPolicies
+}
+
+/** hls.js's `{ default: LoadPolicy }` wrapper. */
+internal external interface HlsLoadPolicies {
+    val default: HlsLoadPolicy
+}
+
+/** How hls.js loads one kind of request: its time limits, and when it retries. */
+internal external interface HlsLoadPolicy {
+    val maxTimeToFirstByteMs: Int
+    val maxLoadTimeMs: Int
+    val timeoutRetry: HlsRetryConfig?
+    val errorRetry: HlsRetryConfig
+}
+
+/** hls.js's retry settings for one kind of failure. */
+internal external interface HlsRetryConfig {
+    val maxNumRetry: Int
+    val retryDelayMs: Int
+    val maxRetryDelayMs: Int
+}
+
+/** What a hls.js loader reports about a response: its HTTP status, absent when there was none. */
+internal external interface HlsLoaderResponse {
+    val code: Int?
+}
+
+/** The loader's request object for a failed load — an `XMLHttpRequest`, whose `response` is the reply body. */
+internal external interface HlsNetworkDetails {
+    val response: Any?
 }
 
 /** What `import('hls.js')` resolves to. hls.js ships `export { …, Hls as default, … }`. */
@@ -57,12 +101,76 @@ internal class HlsLibrary(
     /** See [HlsClass.isSupported]. */
     fun isSupported(): Boolean = hlsClass.isSupported()
 
-    /** A fresh player instance. */
+    /**
+     * A fresh player instance, configured so a segment the server has refused for good fails at once
+     * rather than after hls.js's half-minute of retries — see [retriesSegmentAfter].
+     */
     fun create(): HlsPlayer {
         val constructor = hlsClass
-        return js("new constructor()").unsafeCast<HlsPlayer>()
+        val config = configFor(hlsClass)
+        return js("new constructor(config)").unsafeCast<HlsPlayer>()
     }
 }
+
+/**
+ * Whether hls.js should re-request a media segment that failed with HTTP [status] (null when the
+ * request got no status at all). A server error retries only when [MediaFailure] says the same
+ * request can succeed (502, 503, 504); hls.js's own rules decide everything else.
+ *
+ * ⛔ hls.js retries a 500 without end on a single-rendition stream, and the stall watch gives up at
+ * ten seconds, so a segment the server could never produce surfaced as a dropped connection — with
+ * a Retry button that could only loop (#1742). Consulted twice: as hls.js's retry hook, so the
+ * refused request is not re-fired at once, and by [attachHls], which makes the refusal fatal.
+ */
+internal fun retriesSegmentAfter(status: Int?): Boolean =
+    status == null || status < HTTP_SERVER_ERROR || MediaFailure.of(status, body = null) == MediaFailure.Transient
+
+private const val HTTP_SERVER_ERROR = 500
+
+/** hls.js's `type` for a failed request. */
+private const val NETWORK_ERROR = "networkError"
+
+/**
+ * hls.js's defaults with [retriesSegmentAfter] consulted before every media-segment retry. Copied
+ * rather than edited in place: hls.js merges a user config shallowly, so its default objects are
+ * shared by every instance, and writing into them would reconfigure each one made afterwards.
+ */
+private fun configFor(hlsClass: HlsClass): Json {
+    val defaults = hlsClass.defaultConfig.fragLoadPolicy.default
+    val errorRetry = defaults.errorRetry
+    val shouldRetry = { _: HlsRetryConfig, _: Int, _: Boolean, response: HlsLoaderResponse?, retry: Boolean ->
+        retry && retriesSegmentAfter(response?.code)
+    }
+    return json(
+        "fragLoadPolicy" to
+            json(
+                "default" to
+                    json(
+                        "maxTimeToFirstByteMs" to defaults.maxTimeToFirstByteMs,
+                        "maxLoadTimeMs" to defaults.maxLoadTimeMs,
+                        "timeoutRetry" to defaults.timeoutRetry,
+                        "errorRetry" to
+                            json(
+                                "maxNumRetry" to errorRetry.maxNumRetry,
+                                "retryDelayMs" to errorRetry.retryDelayMs,
+                                "maxRetryDelayMs" to errorRetry.maxRetryDelayMs,
+                                "shouldRetry" to shouldRetry,
+                            ),
+                    ),
+            ),
+    )
+}
+
+/**
+ * The text of the body a failed request carried, when hls.js kept it. Media segments are fetched as
+ * array buffers, so a server's typed error arrives as bytes to decode; anything else is not read.
+ */
+private fun bodyOf(details: HlsNetworkDetails?): String? =
+    when (val response = details?.response) {
+        is String -> response
+        is ArrayBuffer -> Int8Array(response).unsafeCast<ByteArray>().decodeToString()
+        else -> null
+    }
 
 /** The one in-flight or finished import, so every attachment after the first is free. */
 private var hlsLibrary: Promise<HlsLibrary?>? = null
@@ -101,7 +209,24 @@ internal external interface HlsErrorEvent {
 
     /** `true` when hls.js has given up and playback has stopped. */
     val fatal: Boolean
+
+    /** The failed request's `{ code, text }`, for a network error; absent otherwise. */
+    val response: HlsLoaderResponse?
+
+    /** The loader's own request object (an `XMLHttpRequest`), whose `response` holds the reply body. */
+    val networkDetails: HlsNetworkDetails?
 }
+
+/**
+ * A fatal hls.js failure: hls.js's own [type] and [details], and for a failed request the HTTP
+ * [status] and reply [body] — which is where the server says whether trying again can help.
+ */
+internal data class HlsFatalError(
+    val type: String,
+    val details: String,
+    val status: Int? = null,
+    val body: String? = null,
+)
 
 /** hls.js's own event name for a playback error. */
 private const val HLS_ERROR_EVENT = "hlsError"
@@ -162,7 +287,8 @@ private const val HLS_MIME = "application/vnd.apple.mpegurl"
  * awaits that before the first HLS segment, so attaching stays synchronous from then on (a segment
  * advance fires from a media event, where there is nothing to suspend).
  *
- * @param onFatalError invoked when hls.js gives up, with hls.js's error `type` and `details`.
+ * @param onFatalError invoked when hls.js gives up, or when the server refused a segment for good
+ *   ([retriesSegmentAfter]), with what hls.js said and, for a request, what the server replied.
  * @param onFragmentLoaded invoked each time hls.js lands a media fragment, however slowly: the progress a
  *   [PlaybackStallWatch] needs to tell a slow stream from a dead one.
  * @throws IllegalStateException when the browser has neither MSE nor native HLS — a state the
@@ -172,14 +298,21 @@ internal fun attachHls(
     library: HlsLibrary?,
     element: HTMLMediaElement,
     url: String,
-    onFatalError: (type: String, details: String) -> Unit,
+    onFatalError: (HlsFatalError) -> Unit,
     onFragmentLoaded: () -> Unit = {},
 ): HlsHandle {
     if (library != null && library.isSupported()) {
         val hls = library.create()
         hls.on(HLS_ERROR_EVENT) { _, data ->
             val error = data.unsafeCast<HlsErrorEvent>()
-            if (error.fatal) onFatalError(error.type, error.details)
+            val status = error.response?.code
+            // hls.js never gives up on a segment of a single-rendition stream: declining its retry
+            // only parks the error as "resolved" and it re-requests on its own clock, forever. So a
+            // segment the server refused for good is fatal by our own decision, not hls.js's.
+            val refused = error.type == NETWORK_ERROR && status != null && !retriesSegmentAfter(status)
+            if (error.fatal || refused) {
+                onFatalError(HlsFatalError(error.type, error.details, status, bodyOf(error.networkDetails)))
+            }
         }
         hls.on(HLS_FRAG_LOADED_EVENT) { _, _ -> onFragmentLoaded() }
         hls.loadSource(url)

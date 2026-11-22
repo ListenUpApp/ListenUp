@@ -35,6 +35,24 @@ class ProcessTranscodeSpawnerTest :
                 spawner.hasExited shouldBe true
             }
         }
+
+        // Every stage's stderr, not just the last one's: in the xHE-AAC pipeline the stage that
+        // explains a bad segment is as likely to be GStreamer in the middle as FFmpeg at the end.
+        test("the last stderr lines of the pipeline are kept, and only the last few") {
+            withSpawner { spawner ->
+                spawner.start(
+                    listOf(
+                        listOf("/bin/sh", "-c", "echo decoder-said >&2; cat"),
+                        listOf("/bin/sh", "-c", "cat >/dev/null; seq -f 'line-%g' 1 100 >&2"),
+                    ),
+                )
+
+                spawner.awaitExit()
+
+                spawner.stderrTail.size shouldBe ProcessTranscodeSpawner.STDERR_TAIL_LINES
+                spawner.stderrTail.last() shouldBe "line-100"
+            }
+        }
     })
 
 private suspend fun withSpawner(block: suspend (ProcessTranscodeSpawner) -> Unit) {

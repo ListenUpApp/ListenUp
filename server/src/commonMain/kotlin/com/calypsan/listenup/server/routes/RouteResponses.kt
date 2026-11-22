@@ -51,12 +51,29 @@ internal fun logAppErrorResponse(
     status: HttpStatusCode,
     path: String,
 ) {
-    val msg = "domain error: code=${error.code} status=${status.value} path=$path correlationId=${error.correlationId ?: "none"}"
-    if (status.value >= HTTP_SERVER_ERROR_FLOOR) {
+    val msg = appErrorLogLine(error, status, path)
+    if (status.isServerError()) {
         logger.error { msg }
     } else {
         logger.debug { msg }
     }
 }
+
+/**
+ * The line [logAppErrorResponse] writes. A 5xx carries the error's `debugInfo`, because a server
+ * fault the log cannot explain is one the operator cannot fix. Nothing new is exposed by it: the
+ * same `debugInfo` is already in the response body this line describes.
+ */
+internal fun appErrorLogLine(
+    error: AppError,
+    status: HttpStatusCode,
+    path: String,
+): String {
+    val base = "domain error: code=${error.code} status=${status.value} path=$path correlationId=${error.correlationId ?: "none"}"
+    val detail = error.debugInfo?.takeIf { status.isServerError() } ?: return base
+    return "$base debugInfo=$detail"
+}
+
+private fun HttpStatusCode.isServerError(): Boolean = value >= HTTP_SERVER_ERROR_FLOOR
 
 private const val HTTP_SERVER_ERROR_FLOOR = 500
