@@ -386,6 +386,17 @@ jobs:
           gst-inspect-1.0 fdkaacdec | head -3
           gst-inspect-1.0 matroskademux | head -3
 
+      - name: TEMP diagnose FDK pipeline
+        continue-on-error: true
+        run: |
+          F=server/src/jvmTest/resources/transcode/xhe-aac-3465ms.m4a
+          ffprobe -v error -show_streams $F | head -40
+          ffmpeg -nostdin -v warning -i $F -vn -map 0:a:0 -c:a copy -f matroska /tmp/s1.mkv
+          ffprobe -v error -show_streams /tmp/s1.mkv | head -40
+          GST_DEBUG=3,matroskademux:5,fdkaacdec:6 gst-launch-1.0 -v filesrc location=/tmp/s1.mkv ! matroskademux ! queue ! fdkaacdec ! audioconvert ! audio/x-raw,format=S16LE,rate=44100,channels=2 ! fakesink 2>&1 | grep -iE 'caps|negotiat|error|warn|fdk|codec' | head -80
+          gst-inspect-1.0 fdkaacdec | sed -n '/SINK template/,/SRC template/p'
+          dpkg -l | grep -i fdk
+
       # Kotest across the contract DTOs, the shared client core (every client consumes
       # :app:sharedLogic), and the server. :app:sharedUI host tests are Robolectric (JVM, no
       # emulator) — included here so Compose-UI test rot can't land unnoticed.
