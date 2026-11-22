@@ -25,8 +25,8 @@ import kotlinx.coroutines.test.runTest
 /**
  * Tests for [BookMoodRepository] and the batched [MoodRepository.findByIds] read —
  * the composite-key twin of `BookTagRepositoryTest`. Covers upsert/softDelete,
- * bulk cascade variants, query helpers, sync-event publication, the batched read
- * that fixes the `listMoodsForBook` N+1, and pullSince tombstone inclusion.
+ * bulk cascade variants, query helpers, sync-event publication, the batched read,
+ * and pullSince tombstone inclusion.
  *
  * All tests use a real migrated database with fully-satisfied FK constraints:
  * library + folder rows are seeded via [seedTestLibraryAndFolder], book rows via

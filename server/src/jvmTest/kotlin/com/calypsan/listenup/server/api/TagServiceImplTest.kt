@@ -13,12 +13,13 @@ import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
+import com.calypsan.listenup.server.testing.tagsOnBook
+import com.calypsan.listenup.server.testing.liveTagBySlug
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import com.calypsan.listenup.server.testing.rootPrincipal
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldHaveSize
-import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlin.time.Instant
@@ -48,69 +49,6 @@ class TagServiceImplTest :
                 clock = fixedClock,
                 principal = rootPrincipal(),
             )
-        }
-
-        // ── listTags ─────────────────────────────────────────────────────────
-
-        test("listTags returns empty list when no tags exist") {
-            withSqlDatabase {
-                runTest {
-                    val service = makeService(this@withSqlDatabase)
-                    val result = service.listTags()
-                    result shouldBe AppResult.Success(emptyList())
-                }
-            }
-        }
-
-        test("listTags returns tags with correct bookCount") {
-            withSqlDatabase {
-                val db = this
-                sql.seedTestLibraryAndFolder()
-                sql.seedTestBook("book1")
-                sql.seedTestBook("book2")
-                runTest {
-                    val service = makeService(db)
-                    // Add tag to two books.
-                    service.addTagToBook(BookId("book1"), "Sci-Fi")
-                    service.addTagToBook(BookId("book2"), "Sci-Fi")
-
-                    val result = service.listTags()
-                    require(result is AppResult.Success)
-                    result.data shouldHaveSize 1
-                    result.data.first().name shouldBe "Sci-Fi"
-                    result.data.first().bookCount shouldBe 2L
-                }
-            }
-        }
-
-        // ── getTagBySlug ─────────────────────────────────────────────────────
-
-        test("getTagBySlug returns null for nonexistent slug") {
-            withSqlDatabase {
-                runTest {
-                    val service = makeService(this@withSqlDatabase)
-                    val result = service.getTagBySlug("nonexistent")
-                    result shouldBe AppResult.Success(null)
-                }
-            }
-        }
-
-        test("getTagBySlug returns tag with bookCount when slug matches") {
-            withSqlDatabase {
-                val db = this
-                sql.seedTestLibraryAndFolder()
-                sql.seedTestBook("book1")
-                runTest {
-                    val service = makeService(db)
-                    service.addTagToBook(BookId("book1"), "Sci-Fi")
-
-                    val result = service.getTagBySlug("sci-fi")
-                    require(result is AppResult.Success)
-                    result.data.shouldNotBeNull()
-                    result.data!!.name shouldBe "Sci-Fi"
-                    result.data!!.bookCount shouldBe 1L
-                }
-            }
         }
 
         // ── getTagStats ──────────────────────────────────────────────────────
@@ -250,9 +188,8 @@ class TagServiceImplTest :
                     service.addTagToBook(BookId("book1"), "Sci-Fi")
                     service.addTagToBook(BookId("book1"), "Sci-Fi")
 
-                    val tags = service.listTagsForBook(BookId("book1"))
-                    require(tags is AppResult.Success)
-                    tags.data shouldHaveSize 1
+                    val tags = db.tagsOnBook("book1")
+                    tags shouldHaveSize 1
                 }
             }
         }
@@ -292,10 +229,9 @@ class TagServiceImplTest :
                     val removeResult = service.removeTagFromBook(BookId("book1"), tagId)
                     removeResult shouldBe AppResult.Success(Unit)
 
-                    // Junction should be gone from listTagsForBook.
-                    val tags = service.listTagsForBook(BookId("book1"))
-                    require(tags is AppResult.Success)
-                    tags.data.shouldBeEmpty()
+                    // Junction should be gone from the book.
+                    val tags = db.tagsOnBook("book1")
+                    tags.shouldBeEmpty()
                 }
             }
         }
@@ -365,26 +301,20 @@ class TagServiceImplTest :
                     service.addTagToBook(BookId("book2"), "Sci-Fi")
 
                     val tagId =
-                        run {
-                            val r = service.getTagBySlug("sci-fi")
-                            require(r is AppResult.Success)
-                            TagId(r.data!!.id.value)
-                        }
+                        TagId(db.liveTagBySlug("sci-fi")!!.id)
 
                     val deleteResult = service.deleteTag(tagId)
                     deleteResult shouldBe AppResult.Success(Unit)
 
                     // Tag no longer visible via slug.
-                    service.getTagBySlug("sci-fi") shouldBe AppResult.Success(null)
+                    db.liveTagBySlug("sci-fi") shouldBe null
 
                     // Junctions tombstoned — both books have no tags.
-                    val book1Tags = service.listTagsForBook(BookId("book1"))
-                    require(book1Tags is AppResult.Success)
-                    book1Tags.data.shouldBeEmpty()
+                    val book1Tags = db.tagsOnBook("book1")
+                    book1Tags.shouldBeEmpty()
 
-                    val book2Tags = service.listTagsForBook(BookId("book2"))
-                    require(book2Tags is AppResult.Success)
-                    book2Tags.data.shouldBeEmpty()
+                    val book2Tags = db.tagsOnBook("book2")
+                    book2Tags.shouldBeEmpty()
                 }
             }
         }
@@ -397,34 +327,6 @@ class TagServiceImplTest :
 
                     require(result is AppResult.Failure)
                     result.error.shouldBeInstanceOf<TagError.NotFound>()
-                }
-            }
-        }
-
-        // ── listTagsForBook ───────────────────────────────────────────────────
-
-        test("listTagsForBook returns BookNotFound for missing book") {
-            withSqlDatabase {
-                runTest {
-                    val service = makeService(this@withSqlDatabase)
-                    val result = service.listTagsForBook(BookId("no-such-book"))
-
-                    require(result is AppResult.Failure)
-                    result.error.shouldBeInstanceOf<TagError.BookNotFound>()
-                }
-            }
-        }
-
-        test("listTagsForBook returns empty list when book has no tags") {
-            withSqlDatabase {
-                val db = this
-                sql.seedTestLibraryAndFolder()
-                sql.seedTestBook("book1")
-                runTest {
-                    val service = makeService(db)
-                    val result = service.listTagsForBook(BookId("book1"))
-
-                    result shouldBe AppResult.Success(emptyList())
                 }
             }
         }

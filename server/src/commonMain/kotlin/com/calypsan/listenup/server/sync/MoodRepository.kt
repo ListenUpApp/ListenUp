@@ -26,7 +26,7 @@ import kotlin.time.Clock
  *
  * Service-layer helpers beyond the base substrate:
  *  - [findById] — fetch one non-deleted mood by id
- *  - [findByIds] — batch fetch non-deleted moods by id (the N+1 fix for `listMoodsForBook`)
+ *  - [findByIds] — batch fetch non-deleted moods by id
  *  - [findBySlug] — fetch one non-deleted mood by slug (the stable URL identity)
  *  - [listAll] — fetch all non-deleted moods, ordered by name
  *  - [updateName] — rename a mood (updates [Mood.name] only; slug is preserved)
@@ -146,9 +146,7 @@ class MoodRepository(
      * Returns the non-deleted moods whose ids appear in [ids], in the same order as
      * [ids] and skipping ids that are absent or tombstoned.
      *
-     * This is the batched read that replaces the per-id `findById` loop in
-     * `MoodServiceImpl.listMoodsForBook` — one round-trip (per 900-id chunk) instead of
-     * one per junction row.
+     * One round-trip (per 900-id chunk) instead of one `findById` per id.
      */
     suspend fun findByIds(ids: List<String>): List<Mood> {
         if (ids.isEmpty()) return emptyList()

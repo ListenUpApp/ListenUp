@@ -1,7 +1,6 @@
 package com.calypsan.listenup.api
 
 import com.calypsan.listenup.api.dto.FacetStats
-import com.calypsan.listenup.api.dto.MoodSummary
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.Mood
 import com.calypsan.listenup.core.BookId
@@ -17,8 +16,8 @@ import kotlinx.rpc.annotations.Rpc
  * creation time; the slug is the stable URL identity — it never changes on rename.
  *
  * Two surface categories:
- * - **Observation** — [listMoods], [getMoodBySlug], [listBooksForMood],
- *   [listMoodsForBook] are safe to call repeatedly; they read state only.
+ * - **Observation** — [getMoodStats] is safe to call repeatedly; it reads state only. Clients
+ *   read moods and their books from their local mirror.
  * - **Mutation** — [addMoodToBook], [removeMoodFromBook], [renameMood],
  *   [deleteMood] mutate server state and should be called once per user intent.
  *
@@ -34,41 +33,6 @@ import kotlinx.rpc.annotations.Rpc
 @Rpc
 interface MoodService {
     // ── Observation ──────────────────────────────────────────────────────────
-
-    /**
-     * Returns all non-deleted moods ordered by book count descending, then name
-     * ascending, each annotated with its live [MoodSummary.bookCount].
-     */
-    suspend fun listMoods(): AppResult<List<MoodSummary>>
-
-    /**
-     * Returns the mood with the given [slug], or `null` inside [AppResult.Success]
-     * when no non-deleted mood with that slug exists.
-     *
-     * Slug lookups are case-insensitive by construction because slugs are
-     * normalized to lowercase at creation time.
-     */
-    suspend fun getMoodBySlug(slug: String): AppResult<MoodSummary?>
-
-    /**
-     * Returns up to [limit] book IDs tagged with [moodId], excluding any books
-     * whose junction row has been soft-deleted. [limit] is clamped server-side
-     * to `1..1000`. Default 100.
-     */
-    suspend fun listBooksForMood(
-        moodId: MoodId,
-        limit: Int = 100,
-    ): AppResult<List<BookId>>
-
-    /**
-     * Returns all moods currently applied to the book identified by [bookId],
-     * excluding any junction rows that have been soft-deleted.
-     *
-     * Returns an empty list when the book exists but has no moods. Returns
-     * [com.calypsan.listenup.api.error.MoodError.BookNotFound] when no book
-     * with the given id exists on the server.
-     */
-    suspend fun listMoodsForBook(bookId: BookId): AppResult<List<Mood>>
 
     /** Aggregate book count + total length for [moodId] over live books. */
     suspend fun getMoodStats(moodId: MoodId): AppResult<FacetStats>

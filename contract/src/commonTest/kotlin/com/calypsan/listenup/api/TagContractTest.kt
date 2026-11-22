@@ -1,10 +1,8 @@
 package com.calypsan.listenup.api
 
-import com.calypsan.listenup.api.dto.TagSummary
 import com.calypsan.listenup.api.error.TagError
 import com.calypsan.listenup.api.sync.BookTagSyncPayload
 import com.calypsan.listenup.api.sync.Tag
-import com.calypsan.listenup.core.TagId
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 
@@ -72,30 +70,6 @@ class TagContractTest :
                 )
             roundTrip<BookTagSyncPayload>(original) shouldBe original
             original.id shouldBe "b2c3d4e5f60718293a4b5c6d7e8f9001"
-        }
-
-        // ── TagSummary ────────────────────────────────────────────────────────
-
-        test("TagSummary round-trips") {
-            val original =
-                TagSummary(
-                    id = TagId("tag-abc123"),
-                    slug = "sci-fi",
-                    name = "Sci-Fi",
-                    bookCount = 42L,
-                )
-            roundTrip<TagSummary>(original) shouldBe original
-        }
-
-        test("TagSummary with zero bookCount round-trips") {
-            val original =
-                TagSummary(
-                    id = TagId("tag-empty"),
-                    slug = "empty-tag",
-                    name = "Empty Tag",
-                    bookCount = 0L,
-                )
-            roundTrip<TagSummary>(original) shouldBe original
         }
 
         // ── TagError subtypes ─────────────────────────────────────────────────

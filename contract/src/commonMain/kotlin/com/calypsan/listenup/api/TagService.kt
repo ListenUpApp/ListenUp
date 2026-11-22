@@ -1,7 +1,6 @@
 package com.calypsan.listenup.api
 
 import com.calypsan.listenup.api.dto.FacetStats
-import com.calypsan.listenup.api.dto.TagSummary
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.Tag
 import com.calypsan.listenup.core.BookId
@@ -16,8 +15,8 @@ import kotlinx.rpc.annotations.Rpc
  * the slug is the stable URL identity — it never changes on rename.
  *
  * Two surface categories:
- * - **Observation** — [listTags], [getTagBySlug], [listBooksForTag],
- *   [listTagsForBook] are safe to call repeatedly; they read state only.
+ * - **Observation** — [getTagStats] is safe to call repeatedly; it reads state only. Clients
+ *   read tags and their books from their local mirror.
  * - **Mutation** — [addTagToBook], [removeTagFromBook], [renameTag],
  *   [deleteTag] mutate server state and should be called once per user intent.
  *
@@ -34,64 +33,6 @@ import kotlinx.rpc.annotations.Rpc
 @Rpc
 interface TagService {
     // ── Observation ──────────────────────────────────────────────────────────
-
-    /**
-     * Returns all non-deleted tags ordered by book count descending, then name
-     * ascending, each annotated with its live [TagSummary.bookCount].
-     *
-     * Book counts are computed via `LEFT JOIN COUNT(*)` on read — no
-     * denormalization column; drift is impossible by construction.
-     *
-     * Book-scoped to the caller: results are filtered through `BookAccessPolicy`, the single
-     * definition of book visibility, so this never surfaces a book in a collection the caller
-     * cannot reach. ROOT/ADMIN see everything.
-     */
-    suspend fun listTags(): AppResult<List<TagSummary>>
-
-    /**
-     * Returns the tag with the given [slug], or `null` inside [AppResult.Success]
-     * when no non-deleted tag with that slug exists.
-     *
-     * Slug lookups are case-insensitive by construction because slugs are
-     * normalized to lowercase at creation time.
-     *
-     * Book-scoped to the caller: results are filtered through `BookAccessPolicy`, the single
-     * definition of book visibility, so this never surfaces a book in a collection the caller
-     * cannot reach. ROOT/ADMIN see everything.
-     */
-    suspend fun getTagBySlug(slug: String): AppResult<TagSummary?>
-
-    /**
-     * Returns up to [limit] book IDs tagged with [tagId], excluding any books
-     * whose junction row has been soft-deleted.
-     *
-     * [limit] is clamped server-side to `1..1000`. Default 100.
-     *
-     * Callers hydrate book detail from Room for IDs already cached and call
-     * `BookService.getBook` for any cache misses.
-     *
-     * Book-scoped to the caller: results are filtered through `BookAccessPolicy`, the single
-     * definition of book visibility, so this never surfaces a book in a collection the caller
-     * cannot reach. ROOT/ADMIN see everything.
-     */
-    suspend fun listBooksForTag(
-        tagId: TagId,
-        limit: Int = 100,
-    ): AppResult<List<BookId>>
-
-    /**
-     * Returns all tags currently applied to the book identified by [bookId],
-     * excluding any junction rows that have been soft-deleted.
-     *
-     * Returns an empty list when the book exists but has no tags. Returns
-     * [com.calypsan.listenup.api.error.TagError.BookNotFound] when no book
-     * with the given id exists on the server.
-     *
-     * Book-scoped to the caller: results are filtered through `BookAccessPolicy`, the single
-     * definition of book visibility, so this never surfaces a book in a collection the caller
-     * cannot reach. ROOT/ADMIN see everything.
-     */
-    suspend fun listTagsForBook(bookId: BookId): AppResult<List<Tag>>
 
     /**
      * Aggregate book count + total length for [tagId] over live books.

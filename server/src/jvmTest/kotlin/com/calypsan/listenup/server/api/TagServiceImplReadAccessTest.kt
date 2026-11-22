@@ -5,13 +5,11 @@ package com.calypsan.listenup.server.api
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
-import com.calypsan.listenup.api.error.TagError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookTagSyncPayload
 import com.calypsan.listenup.api.sync.Tag
 import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
 import com.calypsan.listenup.api.sync.CollectionSyncPayload
-import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.TagId
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPrincipal
@@ -33,7 +31,6 @@ import com.calypsan.listenup.server.testing.withSqlDatabase
 import com.calypsan.listenup.api.dto.FacetStats
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
-import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
 
 /**
@@ -98,93 +95,16 @@ class TagServiceImplReadAccessTest :
             collectionBookRepo.upsert(membership("stranger-col", "private-book"))
         }
 
-        // ⛔ Fails today: the junction rows are returned unfiltered, so the member learns the id of
-        // a book sitting in a collection they have no relationship with.
-        test("member listBooksForTag never enumerates a book they cannot reach") {
-            withSqlDatabase {
-                sql.seedTestLibraryAndFolder()
-                sql.seedTestUser("member")
-                val f = fixture()
-                runTest {
-                    f.seedPublicAndPrivate()
-
-                    val scoped = f.service.copyWith(principalFor("member", UserRole.MEMBER))
-                    val result = scoped.listBooksForTag(TagId("t-noir"), limit = 50)
-
-                    val success = result.shouldBeInstanceOf<AppResult.Success<List<BookId>>>()
-                    success.data.map { it.value } shouldBe listOf("public-book")
-                }
-            }
-        }
-
-        test("admin listBooksForTag still sees every book — the bypass is preserved") {
-            withSqlDatabase {
-                sql.seedTestLibraryAndFolder()
-                val f = fixture()
-                runTest {
-                    f.seedPublicAndPrivate()
-
-                    val scoped = f.service.copyWith(principalFor("admin", UserRole.ADMIN))
-                    val result = scoped.listBooksForTag(TagId("t-noir"), limit = 50)
-
-                    val success = result.shouldBeInstanceOf<AppResult.Success<List<BookId>>>()
-                    success.data.map { it.value }.sorted() shouldBe listOf("private-book", "public-book")
-                }
-            }
-        }
-
-        // ⛔ Fails today: the gate is `bookExists`, so a denied book returns its tags rather than
-        // the same NotFound an absent book would produce. BookServiceImpl.getBook is explicit that
-        // a denied book must be indistinguishable from one that does not exist.
-        test("member listTagsForBook reports a denied book as absent, not as forbidden") {
-            withSqlDatabase {
-                sql.seedTestLibraryAndFolder()
-                sql.seedTestUser("member")
-                val f = fixture()
-                runTest {
-                    f.seedPublicAndPrivate()
-
-                    val scoped = f.service.copyWith(principalFor("member", UserRole.MEMBER))
-
-                    // Control: the reachable book answers normally, so a blanket-deny would fail here.
-                    val visible = scoped.listTagsForBook(BookId("public-book"))
-                    visible.shouldBeInstanceOf<AppResult.Success<*>>()
-
-                    val denied = scoped.listTagsForBook(BookId("private-book"))
-                    val failure = denied.shouldBeInstanceOf<AppResult.Failure>()
-                    failure.error.shouldBeInstanceOf<TagError.BookNotFound>()
-                }
-            }
-        }
-
-        test("admin listTagsForBook reads the private book's tags") {
-            withSqlDatabase {
-                sql.seedTestLibraryAndFolder()
-                val f = fixture()
-                runTest {
-                    f.seedPublicAndPrivate()
-
-                    val scoped = f.service.copyWith(principalFor("admin", UserRole.ADMIN))
-                    val result = scoped.listTagsForBook(BookId("private-book"))
-
-                    val success = result.shouldBeInstanceOf<AppResult.Success<List<Tag>>>()
-                    success.data.map { it.slug } shouldBe listOf("noir")
-                }
-            }
-        }
-
         // An unscoped service is a wiring bug. It must deny rather than fall open — the same
         // choice GenreServiceImpl makes (absent principal collapses to the empty set).
-        test("an absent principal enumerates nothing") {
+        test("an absent principal counts nothing") {
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()
                 val f = fixture()
                 runTest {
                     f.seedPublicAndPrivate()
 
-                    val result = f.service.listBooksForTag(TagId("t-noir"), limit = 50)
-
-                    result.shouldBeInstanceOf<AppResult.Success<List<BookId>>>().data.shouldBeEmptyList()
+                    f.service.getTagStats(TagId("t-noir")) shouldBe AppResult.Success(FacetStats.EMPTY)
                 }
             }
         }
@@ -212,10 +132,6 @@ class TagServiceImplReadAccessTest :
             }
         }
     })
-
-private fun <T> List<T>.shouldBeEmptyList() {
-    this shouldBe emptyList<T>()
-}
 
 private fun tagPayload(
     id: String,

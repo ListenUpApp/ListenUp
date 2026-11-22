@@ -91,11 +91,6 @@ UPDATE book_moods SET revision = :revision, updated_at = :updated_at, deleted_at
 selectLiveIdsForMood:
 SELECT id FROM book_moods WHERE mood_id = :mood_id AND deleted_at IS NULL;
 
--- Count of LIVE (non-tombstoned) junctions for a mood — drives the `bookCount`
--- column on MoodSummary (listMoods / getMoodBySlug).
-countLiveForMood:
-SELECT COUNT(*) FROM book_moods WHERE mood_id = :mood_id AND deleted_at IS NULL;
-
 -- Distinct mood ids ever linked to a book, tombstoned junctions included — the orphan-purge
 -- capture set. Tombstone-inclusive so a resume run (re-invoked softDelete after a crash that
 -- already tombstoned the junctions) still nominates the moods; liveBookCountForMood remains the
