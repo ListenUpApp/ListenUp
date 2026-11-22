@@ -67,12 +67,29 @@ plugins {
 // is the patch release; same build-only lane.
 //
 // Remove when the lockfile resolves follow-redirects >= 1.16.2 on its own.
+//
+// mocha 11 declares glob ^10.4.5 and minimatch ^9.0.5, and karma-webpack minimatch ^9.0.3. Every glob
+// from 9.0.0 through 14.0.1 carries GHSA-3g3m-2fjr-6pw4 (an aborted walk keeps reading directories), and
+// every minimatch from 7.0.0 below 11.0.1 carries GHSA-g3hv-75wg-m249 (a denial of service through globparts
+// amplification). Neither has a fix on the line its consumer declares, so these are major moves — scoped
+// to those three consumers by path, because the glob 7 and minimatch 3 that karma and rimraf take sit
+// outside both windows and must stay where they are. Same build-only lane: no task runs mocha or karma.
+//
+// Remove when the Kotlin Gradle plugin moves to a mocha that declares glob >= 14.0.2 and minimatch >= 11.0.1,
+// and karma-webpack to a release that declares minimatch >= 11.0.1.
+//
+// After changing any resolution here, regenerate the lockfile with
+// `./gradlew rootPackageJson --rerun kotlinUpgradeYarnLock`: rootPackageJson does not treat the
+// resolutions as an input, so a plain kotlinUpgradeYarnLock installs against the stale package.json.
 plugins.withType<org.jetbrains.kotlin.gradle.targets.js.yarn.YarnPlugin> {
     the<org.jetbrains.kotlin.gradle.targets.js.yarn.YarnRootExtension>().apply {
         resolution("serialize-javascript", "7.1.4")
         resolution("ws", "8.22.0")
         resolution("diff", "8.0.4")
         resolution("follow-redirects", "1.16.2")
+        resolution("**/mocha/glob", "14.0.6")
+        resolution("**/mocha/minimatch", "11.0.9")
+        resolution("**/karma-webpack/minimatch", "11.0.9")
         // The default drops kotlin-js-store/ at the repo root, which the five-directory root
         // layout has no slot for. It is build machinery (KGP's yarn lockfile, which still pins
         // karma, mocha and webpack because the `js { browser() }` targets declare them), so it
