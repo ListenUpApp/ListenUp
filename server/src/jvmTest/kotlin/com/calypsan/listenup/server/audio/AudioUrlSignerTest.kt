@@ -89,7 +89,7 @@ class AudioUrlSignerTest :
         test("a URL minted for longer than the default expires at that time instead") {
             val signer = AudioUrlSigner(signingKey = key, ttl = 12.hours, clock = FixedClock(now))
 
-            val query = signer.signedQuery("user1", "book1", "file1", validFor = 7.days)
+            val query = signer.signedQuery("user1", "book1", "file1", expiresAt = signer.expiry(validFor = 7.days))
             val exp = query.substringAfter("exp=").substringBefore("&").toLong()
             val sig = query.substringAfter("sig=")
 

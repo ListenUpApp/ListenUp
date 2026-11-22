@@ -37,8 +37,8 @@ class PreparePurposeTest :
         suspend fun prepared(
             purpose: PreparePurpose?,
             capabilities: Set<CodecCapability>? = null,
-        ): PreparedAudioFile {
-            var file: PreparedAudioFile? = null
+        ): PreparedPlayback {
+            var playback: PreparedPlayback? = null
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()
                 sql.seedTestUser("u1")
@@ -46,14 +46,19 @@ class PreparePurposeTest :
                 runTest {
                     deps.bookRepo.upsert(bookWithThreeFiles("b1"))
                     deps.makeReachable("b1", "u1")
-                    file =
+                    playback =
                         deps
                             .service(sql, "u1", availability = availableEncoder())
                             .prepare(BookId("b1"), capabilities, purpose = purpose)
                             .shouldBeInstanceOf<AppResult.Success<PreparedPlayback>>()
-                            .data.audioFiles
+                            .data
+                    val query =
+                        playback
+                            .shouldNotBeNull()
+                            .audioFiles
                             .first()
-                    val query = file.shouldNotBeNull().url.substringAfter("?")
+                            .url
+                            .substringAfter("?")
                     val params = query.split("&").associate { it.substringBefore("=") to it.substringAfter("=") }
                     deps.signer.verify(
                         userId = params.getValue("u"),
@@ -64,28 +69,43 @@ class PreparePurposeTest :
                     ) shouldBe true
                 }
             }
-            return file.shouldNotBeNull()
+            return playback.shouldNotBeNull()
         }
+
+        fun PreparedPlayback.firstFile(): PreparedAudioFile = audioFiles.first()
 
         fun PreparedAudioFile.secondsToExpiry(): Long =
             url.substringAfter("exp=").substringBefore("&").toLong() - Clock.System.now().epochSeconds
 
         test("download URLs live for seven days") {
-            val lifetime = prepared(PreparePurpose.Download).secondsToExpiry()
+            val lifetime = prepared(PreparePurpose.Download).firstFile().secondsToExpiry()
 
             lifetime shouldBeGreaterThan (7.days - 1.hours).inWholeSeconds
             lifetime shouldBeLessThan (7.days + 1.hours).inWholeSeconds
         }
 
         test("stream URLs keep the twelve-hour lifetime") {
-            val lifetime = prepared(PreparePurpose.Stream).secondsToExpiry()
+            val lifetime = prepared(PreparePurpose.Stream).firstFile().secondsToExpiry()
 
             lifetime shouldBeGreaterThan 11.hours.inWholeSeconds
             lifetime shouldBeLessThan 13.hours.inWholeSeconds
         }
 
+        test("the expiry a download is told is the one its URLs carry, not the stream lifetime") {
+            val playback = prepared(PreparePurpose.Download)
+            val exp =
+                playback
+                    .firstFile()
+                    .url
+                    .substringAfter("exp=")
+                    .substringBefore("&")
+                    .toLong()
+
+            playback.urlsExpireAt shouldBe exp * 1_000
+        }
+
         test("a call that names no purpose, as an older client's does, is a stream") {
-            val lifetime = prepared(purpose = null).secondsToExpiry()
+            val lifetime = prepared(purpose = null).firstFile().secondsToExpiry()
 
             lifetime shouldBeLessThan 13.hours.inWholeSeconds
         }
@@ -94,9 +114,11 @@ class PreparePurposeTest :
             // Without the purpose this client is offered HLS for this book (PrepareWithCapabilitiesTest);
             // a download is the original file, and a stream URL it would never fetch is noise.
             prepared(PreparePurpose.Download, capabilities = setOf(CodecCapability.MP3))
+                .firstFile()
                 .hlsUrl
                 .shouldBeNull()
             prepared(PreparePurpose.Stream, capabilities = setOf(CodecCapability.MP3))
+                .firstFile()
                 .hlsUrl
                 .shouldNotBeNull()
         }
