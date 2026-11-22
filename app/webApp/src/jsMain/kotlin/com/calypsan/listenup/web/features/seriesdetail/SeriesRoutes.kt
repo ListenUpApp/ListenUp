@@ -43,6 +43,7 @@ internal fun SeriesRouteContent(
         onPlayBook = { id -> playback.onPlayBook(BookId(id), null) },
         // Pushed, not popped to: Back from the ancestor still returns to this series.
         onOpenSeries = { id -> router.navigate(Routes.series(id)) },
+        onOpenContributor = { id -> router.navigate(Routes.Contributor.detail(id)) },
         onToggleSection = session.onToggleSection,
         addSubSeries = session.addSubSeries.collectAsState().value,
         onAddSubSeriesEvent = session.onAddSubSeriesEvent,

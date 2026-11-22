@@ -11,7 +11,10 @@ import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
+import com.calypsan.listenup.web.nav.Routes
+import org.w3c.dom.HTMLAnchorElement
 import org.w3c.dom.HTMLElement
+import org.w3c.dom.asList
 
 /**
  * Series Detail rendered against the shared [SeriesDetailUiState].
@@ -32,6 +35,7 @@ class SeriesDetailPageTest :
             onOpenLibrary: () -> Unit = {},
             onOpenBook: (String) -> Unit = {},
             onPlayBook: (String) -> Unit = {},
+            onOpenContributor: (String) -> Unit = {},
         ): HTMLElement =
             mounts.mount {
                 SeriesDetailPage(
@@ -39,6 +43,7 @@ class SeriesDetailPageTest :
                     onOpenLibrary = onOpenLibrary,
                     onOpenBook = onOpenBook,
                     onPlayBook = onPlayBook,
+                    onOpenContributor = onOpenContributor,
                 )
             }
 
@@ -64,6 +69,40 @@ class SeriesDetailPageTest :
             val line = (root.querySelector(".sd-by") as HTMLElement).textContent.orEmpty()
             line shouldContain "Robert Jordan"
             line shouldContain "Brandon Sanderson"
+        }
+
+        // Android and iOS give each author a tap target; so does web's own Now Playing.
+        test("each author is a link to their contributor page, and the separators stay text") {
+            val root =
+                seriesDetailPage(
+                    readySeries(
+                        seriesAuthors =
+                            listOf(
+                                BookContributor(id = "c1", name = "Robert Jordan"),
+                                BookContributor(id = "c2", name = "Brandon Sanderson"),
+                            ),
+                    ),
+                )
+
+            val byline = root.querySelector(".sd-by") as HTMLElement
+            val links = byline.querySelectorAll("a").asList().filterIsInstance<HTMLAnchorElement>()
+            links.map { it.textContent } shouldBe listOf("Robert Jordan", "Brandon Sanderson")
+            links.map { it.getAttribute("href") } shouldBe
+                listOf(Routes.Contributor.detail("c1").toUrl(), Routes.Contributor.detail("c2").toUrl())
+            byline.textContent shouldBe "Robert Jordan, Brandon Sanderson"
+        }
+
+        test("activating an author opens that contributor") {
+            val opened = mutableListOf<String>()
+            val root =
+                seriesDetailPage(
+                    readySeries(seriesAuthors = listOf(BookContributor(id = "c7", name = "Ursula K. Le Guin"))),
+                    onOpenContributor = { opened += it },
+                )
+
+            (root.querySelector(".sd-by a") as HTMLElement).click()
+
+            opened shouldBe listOf("c7")
         }
 
         test("a series whose books name no author renders no byline at all") {

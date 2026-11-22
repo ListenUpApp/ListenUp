@@ -28,6 +28,8 @@ import com.calypsan.listenup.web.nav.SETTINGS_KEY
 import com.calypsan.listenup.web.nav.UPLOAD_KEY
 import com.calypsan.listenup.web.nav.USER_KEY
 import com.calypsan.listenup.web.nav.rememberSession
+import com.calypsan.listenup.web.nav.rememberUnsavedWorkGuard
+import com.calypsan.listenup.client.presentation.admin.upload.UploadBooksUiState
 import com.calypsan.listenup.web.shell.NotFoundPage
 import com.calypsan.listenup.web.shell.nowMs
 import com.calypsan.listenup.web.uploadRefusalSentence
@@ -190,15 +192,29 @@ internal fun AdminRouteContent(
  * selection the shared rules refuse is said in a toast, with the picker left exactly as it was.
  */
 @Composable
-private fun UploadRoute(
+internal fun UploadRoute(
     router: Router,
     openUpload: OpenUpload,
     onToast: (String) -> Unit,
 ) {
     val session = rememberSession { openUpload() }
+    val state = session.state.collectAsState().value
+
+    // Leaving closes the session, which aborts the transfer — so a running one is unsaved work. The
+    // wording is iOS's (en.json's admin.upload_books_stop_*); stopping cancels before the page goes.
+    val guard =
+        rememberUnsavedWorkGuard(
+            dirty = state is UploadBooksUiState.Uploading || state is UploadBooksUiState.Finalizing,
+            onDiscard = session.onCancel,
+        )
+    guard.Dialog(
+        title = "Stop upload?",
+        body = "The files sent so far will be discarded, and nothing will be added to your library.",
+        confirmLabel = "Stop upload",
+    )
 
     UploadPage(
-        state = session.state.collectAsState().value,
+        state = state,
         onFilesPicked = { files ->
             if (files.isNotEmpty()) {
                 val candidates = candidatesFrom(files)

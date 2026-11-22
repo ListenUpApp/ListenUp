@@ -14,6 +14,8 @@ import com.calypsan.listenup.web.BufferingSink
 import com.calypsan.listenup.web.nav.Router
 import com.calypsan.listenup.web.nav.Routes
 import com.calypsan.listenup.web.nav.rememberSession
+import com.calypsan.listenup.web.nav.rememberUnsavedWorkGuard
+import com.calypsan.listenup.client.presentation.admin.imports.ImportFlowUiState
 import com.calypsan.listenup.web.saveToDisk
 
 /**
@@ -48,9 +50,32 @@ internal fun ImportFlowRoute(
     openImportFlow: OpenImportFlow,
 ) {
     val session = rememberSession { openImportFlow() }
+    val state = session.state.collectAsState().value
+
+    // From the upload to the last applied session, leaving closes the session and drops the run —
+    // the mapping made at Review with it — so every phase between Idle and Done/Error asks first.
+    val guard =
+        rememberUnsavedWorkGuard(
+            dirty =
+                when (state) {
+                    ImportFlowUiState.Idle, is ImportFlowUiState.Done, is ImportFlowUiState.Error -> false
+
+                    is ImportFlowUiState.Uploading,
+                    is ImportFlowUiState.Analyzing,
+                    is ImportFlowUiState.Review,
+                    is ImportFlowUiState.Applying,
+                    -> true
+                },
+            onDiscard = session.onReset,
+        )
+    guard.Dialog(
+        title = "Leave the import?",
+        body = "This run and any choices you made for it will be lost, and you'll need to start the import again.",
+        confirmLabel = "Leave import",
+    )
 
     ImportFlowPage(
-        state = session.state.collectAsState().value,
+        state = state,
         onStart = { file -> session.onStart(BlobFileSource(file)) },
         onMapUser = { match, userId -> session.onMapUser(match.absUserId, userId) },
         onSkipUser = { match -> session.onSkipUser(match.absUserId) },

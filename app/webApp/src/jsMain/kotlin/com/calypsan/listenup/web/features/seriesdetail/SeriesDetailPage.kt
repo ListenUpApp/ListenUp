@@ -11,7 +11,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.setValue
+import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.domain.model.BookListItem
+import com.calypsan.listenup.web.design.AppLink
+import com.calypsan.listenup.web.nav.Routes
 import com.calypsan.listenup.client.presentation.seriesdetail.SeriesDetailUiState
 import com.calypsan.listenup.client.presentation.seriesedit.AddSubSeriesEvent
 import com.calypsan.listenup.client.presentation.seriesedit.AddSubSeriesUiState
@@ -65,6 +68,7 @@ fun SeriesDetailPage(
     onToggleSection: (String) -> Unit = {},
     addSubSeries: AddSubSeriesUiState = AddSubSeriesUiState.Closed(),
     onAddSubSeriesEvent: (AddSubSeriesEvent) -> Unit = {},
+    onOpenContributor: (String) -> Unit = {},
 ) {
     Div(attrs = { classes("sd") }) {
         // Renders in every state, including the ones with no series: a page that cannot show what
@@ -87,6 +91,7 @@ fun SeriesDetailPage(
                         onOpenSeries,
                         onToggleSection,
                         onAddSubSeriesEvent,
+                        onOpenContributor,
                     ),
                 )
                 AddSubSeriesDialogs(addSubSeries, onAddSubSeriesEvent)
@@ -137,6 +142,7 @@ internal class SeriesPageActions(
     val onOpenSeries: (String) -> Unit,
     val onToggleSection: (String) -> Unit,
     val onAddSubSeriesEvent: (AddSubSeriesEvent) -> Unit,
+    val onOpenContributor: (String) -> Unit,
 )
 
 @Composable
@@ -144,7 +150,7 @@ private fun ReadyContent(
     state: SeriesDetailUiState.Ready,
     actions: SeriesPageActions,
 ) {
-    Hero(state, actions.onPlayBook, actions.onEdit)
+    Hero(state, actions)
 
     val description = state.seriesDescription
     if (!description.isNullOrBlank()) {
@@ -185,8 +191,7 @@ private fun ReadyContent(
 @Composable
 private fun Hero(
     state: SeriesDetailUiState.Ready,
-    onPlayBook: (String) -> Unit,
-    onEdit: () -> Unit,
+    actions: SeriesPageActions,
 ) {
     Div(attrs = { classes("sd-head") }) {
         val first = state.books.firstOrNull()
@@ -201,7 +206,7 @@ private fun Hero(
         Div(attrs = { classes("sd-tblock") }) {
             PageHeader(title = state.seriesName, display = true)
 
-            authorLine(state)?.let { line -> Div(attrs = { classes("sd-by") }) { Text(line) } }
+            AuthorLine(state.seriesAuthors, actions.onOpenContributor)
 
             Div(attrs = { classes("sd-stats") }) {
                 // A parent counts its sub-series too: "4 series · 23 books" (en.json's series.count_books).
@@ -222,7 +227,7 @@ private fun Hero(
                 }
             }
 
-            ResumeAction(state, onPlayBook)
+            ResumeAction(state, actions.onPlayBook)
         }
 
         // Icon-only, so the accessible name is the attribute rather than the content — the same
@@ -232,7 +237,7 @@ private fun Hero(
             Button(
                 kind = ButtonKind.Icon,
                 size = ButtonSize.Lg,
-                onClick = { onEdit() },
+                onClick = { actions.onEdit() },
                 label = "Edit series",
                 attrs = {
                     classes("sd-edit")
@@ -384,12 +389,27 @@ private fun subtitleFor(book: BookListItem): String {
 
 /**
  * Every author across the series, as the ViewModel deduped them — a multi-author series (Wheel of
- * Time) or an anthology names all of them, not just whoever wrote book one. Null when no book in
- * the series names an author, so the hero renders no empty line.
+ * Time) or an anthology names all of them, not just whoever wrote book one. Each name links to its
+ * contributor page, as on Android, iOS and Now Playing; the commas between them stay text. No line
+ * at all when no book in the series names an author.
  */
-private fun authorLine(state: SeriesDetailUiState.Ready): String? {
-    val names = state.seriesAuthors.map { it.name }
-    return if (names.isEmpty()) null else names.joinToString(", ")
+@Composable
+private fun AuthorLine(
+    authors: List<BookContributor>,
+    onOpenContributor: (String) -> Unit,
+) {
+    if (authors.isEmpty()) return
+    Div(attrs = { classes("sd-by") }) {
+        authors.forEachIndexed { index, author ->
+            key(author.id) {
+                if (index > 0) Text(", ")
+                AppLink(
+                    href = Routes.Contributor.detail(author.id).toUrl(),
+                    onOpen = { onOpenContributor(author.id) },
+                ) { Text(author.name) }
+            }
+        }
+    }
 }
 
 /** The hero is the largest cover this page shows, so it asks for its own rung. See `coverUrl`. */
