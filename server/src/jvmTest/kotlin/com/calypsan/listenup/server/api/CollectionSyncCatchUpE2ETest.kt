@@ -17,6 +17,7 @@ import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FakeBookRevisionTouch
+import com.calypsan.listenup.server.testing.collectionAccess
 import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.seedTestBook
@@ -25,7 +26,6 @@ import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
-import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
@@ -42,8 +42,8 @@ private const val SYNC_PULL_LIMIT = 100
  * against a migrated SQLite database, no mocks) and then asserts at the two
  * seams Collections-2 will consume:
  *
- *  1. **Service read seam** — `listCollections` reflects owner (u1, an admin — only admins
- *     write collections) vs shared (u2, a member) correctly: `isOwner` and `callerPermission`
+ *  1. **Access seam** — the collection access policy reflects owner (u1, an admin — only
+ *     admins write collections) vs shared (u2, a member) correctly: `isOwner` and `permission`
  *     differ per caller.
  *  2. **Sync catch-up seam** — `pullSince(userId = null, cursor = 0)` on each of the
  *     three syncable repositories (`collections`, `collection_books`,
@@ -110,7 +110,7 @@ class CollectionSyncCatchUpE2ETest :
             role: UserRole = UserRole.MEMBER,
         ): CollectionServiceImpl = copyWith(principalFor(userId, role))
 
-        test("create + add-book + share → listCollections distinguishes owner vs shared, and all three domains replay via catch-up") {
+        test("create + add-book + share → the access policy distinguishes owner vs shared, and all three domains replay via catch-up") {
             withSqlDatabase {
                 val db = this
                 sql.seedTestLibraryAndFolder()
@@ -120,8 +120,7 @@ class CollectionSyncCatchUpE2ETest :
                 runTest {
                     // ---- Drive the real service end-to-end as u1 ----
                     // u1 is an admin: only admins write collections. An admin sees every live book, so
-                    // u1 needs no visibility path to book1 — and no ALL_BOOKS collection is bootstrapped,
-                    // which matters because an admin's listCollections is a god-view that would list it.
+                    // u1 needs no visibility path to book1.
                     val service = makeService(db)
                     val owner = service.actAs("u1", UserRole.ADMIN)
 
@@ -134,23 +133,17 @@ class CollectionSyncCatchUpE2ETest :
                     val shared = owner.shareCollection(collectionId, "u2", SharePermission.Read)
                     require(shared is AppResult.Success)
 
-                    // ---- Service read seam: owner vs shared perspective ----
-                    val ownerView = owner.listCollections()
-                    require(ownerView is AppResult.Success)
-                    ownerView.data shouldHaveSize 1
-                    ownerView.data.first().let { collection ->
-                        collection.id shouldBe collectionId
-                        collection.isOwner shouldBe true
-                        collection.callerPermission shouldBe SharePermission.Write
+                    // ---- Access seam: owner vs shared perspective ----
+                    db.collectionAccess("u1", collectionId, UserRole.ADMIN).let { access ->
+                        access.canAccess shouldBe true
+                        access.isOwner shouldBe true
+                        access.permission shouldBe SharePermission.Write
                     }
 
-                    val sharedView = service.actAs("u2").listCollections()
-                    require(sharedView is AppResult.Success)
-                    sharedView.data shouldHaveSize 1
-                    sharedView.data.first().let { collection ->
-                        collection.id shouldBe collectionId
-                        collection.isOwner shouldBe false
-                        collection.callerPermission shouldBe SharePermission.Read
+                    db.collectionAccess("u2", collectionId).let { access ->
+                        access.canAccess shouldBe true
+                        access.isOwner shouldBe false
+                        access.permission shouldBe SharePermission.Read
                     }
 
                     // ---- Sync catch-up seam: each domain replays from cursor 0 ----

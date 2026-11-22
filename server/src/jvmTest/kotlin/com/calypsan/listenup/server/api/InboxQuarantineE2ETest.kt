@@ -45,6 +45,8 @@ import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.time.Duration.Companion.minutes
 import kotlinx.coroutines.flow.first
+import com.calypsan.listenup.server.sync.CollectionBookRepository
+import com.calypsan.listenup.server.sync.CollectionRepository
 import org.koin.ktor.ext.inject
 import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.SyncStreamService
@@ -80,7 +82,7 @@ import io.kotest.matchers.types.shouldBeInstanceOf
  *
  * Two scenarios:
  *  1. holdNewBooksForReview=true  → member never sees a scanned book (firehose + getBook); admin's
- *     `listInbox` contains it; `releaseBooks` converges it to the member; a re-scan does
+ *     inbox holds it; `releaseBooks` converges it to the member; a re-scan does
  *     not re-inbox a released book.
  *  2. holdNewBooksForReview=false → member sees the scanned book immediately (control).
  */
@@ -145,6 +147,15 @@ class InboxQuarantineE2ETest :
                         books.upsert(publicBook("Public", libraryId)).requireSuccess()
                         collections.addBookToCollection(allBooksId, BookId("public-Public")).requireSuccess()
 
+                        val collectionRepo by application.inject<CollectionRepository>()
+                        val collectionBookRepo by application.inject<CollectionBookRepository>()
+
+                        suspend fun inboxIds(): List<String> =
+                            collectionRepo
+                                .findInboxForLibrary(libraryId)
+                                ?.let { collectionBookRepo.findBookIdsForCollection(it.id) }
+                                .orEmpty()
+
                         val bus by application.inject<ChangeBus>()
                         val policy by application.inject<BookAccessPolicy>()
                         val firstBooksFrame =
@@ -159,10 +170,9 @@ class InboxQuarantineE2ETest :
                         val quarantinedId = findBookIdByTitle(admin.token, "Quarantined")
 
                         // ── getBook: the member is denied the quarantined book (NotFound — the deny
-                        // is indistinguishable from absent). The admin's inbox list contains it.
+                        // is indistinguishable from absent). The library's inbox holds it.
                         getBook(m1.token, quarantinedId).shouldBeInstanceOf<AppResult.Failure>()
-                        val inboxIds = (collections.listInbox(LibraryId(libraryId)) as AppResult.Success).data.map { it.value }
-                        inboxIds shouldContain quarantinedId
+                        inboxIds() shouldContain quarantinedId
 
                         // ── Release the quarantined book with no explicit target → it joins ALL_BOOKS
                         // (the public substrate). The member (default ALL_BOOKS grant) now sees it.
@@ -173,9 +183,7 @@ class InboxQuarantineE2ETest :
 
                         // ── Re-scan the now-released book: only-on-create means it must NOT be re-inboxed.
                         persister.scanSubtree(libraryRoot.toString(), book("Quarantined"))
-                        val inboxAfterRescan =
-                            (collections.listInbox(LibraryId(libraryId)) as AppResult.Success).data.map { it.value }
-                        inboxAfterRescan shouldNotContain quarantinedId
+                        inboxIds() shouldNotContain quarantinedId
                         getBook(m1.token, quarantinedId).shouldBeInstanceOf<AppResult.Success<BookSyncPayload>>()
                     }
                 } finally {

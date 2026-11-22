@@ -27,6 +27,7 @@ import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
+import com.calypsan.listenup.server.testing.collectionBookIds
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
@@ -134,26 +135,14 @@ class CollectionServiceImplSetBookCollectionsTest :
                     // set [c1, c2] → c1 kept, c2 added.
                     admin.setBookCollections(BookId("book1"), listOf(c1.data.id, c2.data.id)) shouldBe
                         AppResult.Success(Unit)
-                    admin.listCollectionBooks(c1.data.id).let { books ->
-                        require(books is AppResult.Success)
-                        books.data shouldBe listOf(BookId("book1"))
-                    }
-                    admin.listCollectionBooks(c2.data.id).let { books ->
-                        require(books is AppResult.Success)
-                        books.data shouldBe listOf(BookId("book1"))
-                    }
+                    db.collectionBookIds(c1.data.id) shouldBe listOf(BookId("book1"))
+                    db.collectionBookIds(c2.data.id) shouldBe listOf(BookId("book1"))
 
                     // set [c2] → c1 removed.
                     admin.setBookCollections(BookId("book1"), listOf(c2.data.id)) shouldBe
                         AppResult.Success(Unit)
-                    admin.listCollectionBooks(c1.data.id).let { books ->
-                        require(books is AppResult.Success)
-                        books.data shouldHaveSize 0
-                    }
-                    admin.listCollectionBooks(c2.data.id).let { books ->
-                        require(books is AppResult.Success)
-                        books.data shouldBe listOf(BookId("book1"))
-                    }
+                    db.collectionBookIds(c1.data.id) shouldHaveSize 0
+                    db.collectionBookIds(c2.data.id) shouldBe listOf(BookId("book1"))
                 }
             }
         }
@@ -286,10 +275,7 @@ class CollectionServiceImplSetBookCollectionsTest :
                     admin.addBookToCollection(allBooksId, BookId("book1")) shouldBe AppResult.Success(Unit)
 
                     // Precondition: book is in ALL_BOOKS.
-                    admin.listCollectionBooks(allBooksId).let { books ->
-                        require(books is AppResult.Success)
-                        books.data shouldBe listOf(BookId("book1"))
-                    }
+                    db.collectionBookIds(allBooksId) shouldBe listOf(BookId("book1"))
 
                     // Create a NORMAL collection and set the book's collections to [normal only].
                     // Under the exclusivity invariant, curating the book OUT of the everyone-collection
@@ -302,25 +288,13 @@ class CollectionServiceImplSetBookCollectionsTest :
                     admin.setBookCollections(BookId("book1"), listOf(normalId)) shouldBe AppResult.Success(Unit)
 
                     // The book must have LEFT ALL_BOOKS — it now lives only in its explicit collection.
-                    admin.listCollectionBooks(allBooksId).let { books ->
-                        require(books is AppResult.Success)
-                        books.data shouldHaveSize 0
-                    }
-                    admin.listCollectionBooks(normalId).let { books ->
-                        require(books is AppResult.Success)
-                        books.data shouldBe listOf(BookId("book1"))
-                    }
+                    db.collectionBookIds(allBooksId) shouldHaveSize 0
+                    db.collectionBookIds(normalId) shouldBe listOf(BookId("book1"))
 
                     // Clearing every real membership must RETURN the book to ALL_BOOKS (never orphaned).
                     admin.setBookCollections(BookId("book1"), emptyList()) shouldBe AppResult.Success(Unit)
-                    admin.listCollectionBooks(allBooksId).let { books ->
-                        require(books is AppResult.Success)
-                        books.data shouldBe listOf(BookId("book1"))
-                    }
-                    admin.listCollectionBooks(normalId).let { books ->
-                        require(books is AppResult.Success)
-                        books.data shouldHaveSize 0
-                    }
+                    db.collectionBookIds(allBooksId) shouldBe listOf(BookId("book1"))
+                    db.collectionBookIds(normalId) shouldHaveSize 0
                 }
             }
         }
@@ -342,10 +316,7 @@ class CollectionServiceImplSetBookCollectionsTest :
 
                     val allBooks = admin.getOrCreateSystemCollection("test-library", SystemCollectionType.ALL_BOOKS)
                     require(allBooks is AppResult.Success)
-                    admin.listCollectionBooks(allBooks.data.id).let { books ->
-                        require(books is AppResult.Success)
-                        books.data shouldBe listOf(BookId("book1"))
-                    }
+                    db.collectionBookIds(allBooks.data.id) shouldBe listOf(BookId("book1"))
                 }
             }
         }

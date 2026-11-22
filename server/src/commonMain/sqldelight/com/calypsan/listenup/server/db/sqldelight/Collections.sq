@@ -75,15 +75,7 @@ selectLiveSystemForLibrary:
 SELECT * FROM collections
 WHERE library_id = :library_id AND type = :type AND deleted_at IS NULL;
 
--- All live collections owned by a user.
-listLiveOwnedBy:
-SELECT * FROM collections WHERE owner_id = :owner_id AND deleted_at IS NULL;
-
--- All live collections across all users and libraries (the admin god-view source).
-listAllLive:
-SELECT * FROM collections WHERE deleted_at IS NULL;
-
--- Ids of every live system collection (ALL_BOOKS or INBOX) — the member-list exclusion set.
+-- Ids of every live system collection (ALL_BOOKS or INBOX).
 selectLiveSystemCollectionIds:
 SELECT id FROM collections
 WHERE type IN ('ALL_BOOKS', 'INBOX') AND deleted_at IS NULL;

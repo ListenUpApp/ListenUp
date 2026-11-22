@@ -218,31 +218,12 @@ class CollectionRepository(
         }
     }
 
-    /** Returns all non-deleted collections owned by [userId]. */
-    suspend fun listOwnedBy(userId: String): List<CollectionSyncPayload> =
-        suspendTransaction(db) {
-            db.collectionsQueries
-                .listLiveOwnedBy(userId)
-                .executeAsList()
-                .map { it.toSyncPayload() }
-        }
-
-    /** Returns all non-deleted collections across all users and libraries. */
-    suspend fun listAll(): List<CollectionSyncPayload> =
-        suspendTransaction(db) {
-            db.collectionsQueries
-                .listAllLive()
-                .executeAsList()
-                .map { it.toSyncPayload() }
-        }
-
     /**
      * Returns the ids of all live system collections (ALL_BOOKS and INBOX).
      *
      * System collections are never member-facing: spec §3.2 states they must not appear in a
-     * member's collection list. This query gives `CollectionServiceImpl.listCollections` the
-     * exclusion set it needs for the non-admin path, without leaking the server-only `type`
-     * column onto the wire or into the payload layer.
+     * member's collection list. This query gives callers that exclusion set without leaking the
+     * server-only `type` column onto the wire or into the payload layer.
      */
     suspend fun systemCollectionIds(): Set<String> =
         suspendTransaction(db) {

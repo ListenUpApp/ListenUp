@@ -197,7 +197,6 @@ contract/src/commonMain/kotlin/com/calypsan/listenup/core/CachingSecureStorage.k
 contract/src/jvmMain/kotlin/com/calypsan/listenup/core/JvmSecureStorage.kt 1
 server/src/commonMain/kotlin/com/calypsan/listenup/server/ApplicationRoutes.kt 1
 server/src/commonMain/kotlin/com/calypsan/listenup/server/api/BookServiceImpl.kt 1
-server/src/commonMain/kotlin/com/calypsan/listenup/server/api/CollectionServiceImpl.kt 1
 server/src/commonMain/kotlin/com/calypsan/listenup/server/auth/Argon2Limiter.kt 1
 server/src/commonMain/kotlin/com/calypsan/listenup/server/auth/AuthServiceImpl.kt 6
 server/src/commonMain/kotlin/com/calypsan/listenup/server/auth/LoginRateLimiter.kt 1

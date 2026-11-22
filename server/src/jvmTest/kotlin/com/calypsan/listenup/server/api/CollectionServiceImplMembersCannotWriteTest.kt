@@ -26,6 +26,7 @@ import com.calypsan.listenup.server.testing.makeBooksVisibleTo
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
+import com.calypsan.listenup.server.testing.collectionAccess
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -145,17 +146,16 @@ class CollectionServiceImplMembersCannotWriteTest :
                     db.makeBooksVisibleTo("u1", "book1")
                     val member = makeService(db, "u1")
 
-                    val summary = member.getCollection(collectionId)
-                    require(summary is AppResult.Success)
-                    summary.data.isOwner shouldBe true
-                    summary.data.callerPermission shouldBe SharePermission.Read
+                    val access = db.collectionAccess("u1", collectionId)
+                    access.canAccess shouldBe true
+                    access.isOwner shouldBe true
+                    access.permission shouldBe SharePermission.Read
 
                     member.addBookToCollection(collectionId, BookId("book1")).forbidden()
                     member.removeBookFromCollection(collectionId, BookId("book1")).forbidden()
                     member.renameCollection(collectionId, "Renamed").forbidden()
                     member.deleteCollection(collectionId).forbidden()
                     member.shareCollection(collectionId, "u2", SharePermission.Read).forbidden()
-                    member.listShares(collectionId).forbidden()
                 }
             }
         }
@@ -176,9 +176,7 @@ class CollectionServiceImplMembersCannotWriteTest :
                     db.makeBooksVisibleTo("u2", "book1")
 
                     val member = makeService(db, "u2")
-                    val summary = member.getCollection(collectionId)
-                    require(summary is AppResult.Success)
-                    summary.data.callerPermission shouldBe SharePermission.Read
+                    db.collectionAccess("u2", collectionId).permission shouldBe SharePermission.Read
 
                     member.addBookToCollection(collectionId, BookId("book1")).forbidden()
                 }

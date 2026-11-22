@@ -17,59 +17,18 @@ import kotlinx.rpc.annotations.Rpc
  * ACL: the owner has implicit write access, and other users gain access only
  * through a [CollectionShareDto] grant carrying a [SharePermission].
  *
- * Three surface categories:
- * - **Observation** — [listCollections], [getCollection], [listCollectionBooks],
- *   [listShares] read state only and are safe to call repeatedly.
+ * Clients read collections, their books and their shares from their local mirror; this
+ * contract carries only the writes:
  * - **Membership mutation** — [createCollection], [renameCollection],
  *   [deleteCollection], [addBookToCollection], [removeBookFromCollection]
  *   mutate the collection or its book set.
  * - **Share mutation** — [shareCollection], [updateShare], [revokeShare]
  *   manage the per-user ACL; owner-only.
  *
- * Accessibility for [listCollections] is the union of the caller's owned
- * collections, collections shared with the caller, and — for admins — all
- * collections on the server.
- *
  * There is no REST mirror; this contract is the whole collection surface.
  */
 @Rpc
 interface CollectionService {
-    // ── Observation ──────────────────────────────────────────────────────────
-
-    /**
-     * Returns every collection the caller can access: their owned collections,
-     * collections shared with them, and — for admins — all collections.
-     *
-     * Each [CollectionSummary] carries a live [CollectionSummary.bookCount]
-     * computed at query time and the caller's effective
-     * [CollectionSummary.callerPermission].
-     */
-    suspend fun listCollections(): AppResult<List<CollectionSummary>>
-
-    /**
-     * Returns the collection identified by [id] as a [CollectionSummary].
-     *
-     * Fails when no collection with [id] exists or when the caller lacks read
-     * access to it.
-     */
-    suspend fun getCollection(id: CollectionId): AppResult<CollectionSummary>
-
-    /**
-     * Returns up to [limit] book IDs that are members of the collection
-     * identified by [id], excluding any membership rows that have been
-     * soft-deleted.
-     *
-     * [limit] is clamped server-side. Default 500. Callers hydrate book detail
-     * from Room for IDs already cached and call `BookService.getBook` for misses.
-     *
-     * Fails when no collection with [id] exists or when the caller lacks read
-     * access to it.
-     */
-    suspend fun listCollectionBooks(
-        id: CollectionId,
-        limit: Int = 500,
-    ): AppResult<List<BookId>>
-
     // ── Membership mutation ──────────────────────────────────────────────────
 
     /**
@@ -206,26 +165,7 @@ interface CollectionService {
         sharedWithUserId: String,
     ): AppResult<Unit>
 
-    /**
-     * Returns every active share grant on the collection identified by [id] as
-     * a list of [CollectionShareDto].
-     *
-     * Owner-only. Fails when no collection with [id] exists or when the caller
-     * is not the owner.
-     */
-    suspend fun listShares(id: CollectionId): AppResult<List<CollectionShareDto>>
-
     // ── Admin inbox ──────────────────────────────────────────────────────────
-
-    /**
-     * Returns the live (unreleased) book ids in the inbox — the system collection holding
-     * freshly-ingested books awaiting admin triage — for the library identified by
-     * [libraryId], or an empty list when no inbox exists yet for it.
-     *
-     * **Admin-only** — gated to ROOT/ADMIN; everyone else gets
-     * [com.calypsan.listenup.api.error.CollectionError.Forbidden].
-     */
-    suspend fun listInbox(libraryId: LibraryId): AppResult<List<BookId>>
 
     /**
      * Releases the books keyed in [assignments] out of the library's inbox into their

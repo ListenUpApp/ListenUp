@@ -41,8 +41,6 @@ import kotlinx.coroutines.sync.withLock
 
 private val log = loggerFor<CollectionServiceImpl>()
 
-private const val LIST_BOOKS_MIN = 1
-private const val LIST_BOOKS_MAX = 1000
 private const val MAX_NAME_LENGTH = 200
 
 /**
@@ -76,7 +74,7 @@ internal const val MAX_COLLECTIONS_PER_BOOK = 200
  * [MAX_COLLECTIONS_PER_BOOK], or `null` when [collectionIds] is within the bound. Bounds the set
  * before it becomes a lookup and a row write per id; an over-cap set is rejected outright rather
  * than truncated, because a partial replace-set would silently drop memberships. Top-level to keep
- * the class body lean, like [listableCollectionsFor].
+ * the class body lean.
  */
 private fun overCollectionCap(collectionIds: List<CollectionId>): CollectionError.InvalidInput? =
     if (collectionIds.size > MAX_COLLECTIONS_PER_BOOK) {
@@ -207,74 +205,6 @@ internal fun accessScopeFor(
 }
 
 /**
- * The collections visible to a caller for [CollectionServiceImpl.listCollections], plus the active
- * grants (keyed by collectionId) that resolve a non-owner's permission — resolved once so
- * [decisionFor] can build each collection's Decision inline instead of a fresh
- * [CollectionAccessPolicy.decide] call per collection.
- */
-private data class ListableCollections(
-    val collections: List<CollectionSyncPayload>,
-    val grantsByCollectionId: Map<String, SharePermission>,
-)
-
-/**
- * Resolves [ListableCollections] for `(callerUserId, callerRole)` — [CollectionServiceImpl.listCollections]'s
- * own-vs-admin-vs-shared collection resolution, extracted to a top-level function to keep the
- * class body lean. Admin sees every collection including the system ones (ALL_BOOKS, INBOX) and
- * never needs the grants map (owner-or-admin-bypass covers every row); everyone else sees their
- * owned collections plus any collection actively shared to them, with system collections filtered
- * out (spec §3.2 — a member's default ALL_BOOKS grant must not leak ALL_BOOKS/INBOX into their list).
- */
-private suspend fun CollectionRepository.listableCollectionsFor(
-    grantRepo: CollectionGrantRepository,
-    callerUserId: String,
-    callerRole: UserRoleColumn,
-): ListableCollections {
-    if (callerRole.isAdmin()) {
-        return ListableCollections(listAll(), emptyMap())
-    }
-    val owned = listOwnedBy(callerUserId)
-    val grants = grantRepo.listActiveGrantsForUser(callerUserId)
-    val shared = grants.map { it.collectionId }.mapNotNull { findById(it) }
-    val systemIds = systemCollectionIds()
-    val collections = (owned + shared).distinctBy { it.id }.filterNot { it.id in systemIds }
-    return ListableCollections(collections, grants.associateBy({ it.collectionId }, { it.permission }))
-}
-
-/**
- * Reconstructs the [CollectionAccessPolicy.Decision] for this collection from data already in hand
- * — [CollectionServiceImpl.listCollections]'s batched replacement for calling
- * [CollectionAccessPolicy.decide] (and its redundant `collectionRepo.findById` re-read) once per
- * listed collection. Mirrors `decide`'s owner → admin → active-share precedence exactly. Safe to
- * skip the "deleted/missing" branch: every collection reaching this function came from a
- * `listAll`/`listOwnedBy`/`findById` call that only ever returns LIVE rows, so `canAccess` is
- * unconditionally true here. [grantsByCollectionId] backs the active-share branch only — never
- * consulted for an owner or an admin/root caller, matching `decide`'s short-circuit order.
- */
-private fun CollectionSyncPayload.decisionFor(
-    callerUserId: String,
-    callerRole: UserRoleColumn,
-    grantsByCollectionId: Map<String, SharePermission>,
-): CollectionAccessPolicy.Decision =
-    when {
-        ownerId == callerUserId -> {
-            CollectionAccessPolicy.Decision(true, SharePermission.Write, true)
-        }
-
-        callerRole.isAdmin() -> {
-            CollectionAccessPolicy.Decision(true, SharePermission.Write, false)
-        }
-
-        else -> {
-            CollectionAccessPolicy.Decision(
-                canAccess = true,
-                permission = grantsByCollectionId[id] ?: SharePermission.Read,
-                isOwner = false,
-            )
-        }
-    }
-
-/**
  * [CollectionService] implementation.
  *
  * Resolves the authenticated caller from [principal] (never from request fields),
@@ -285,12 +215,10 @@ private fun CollectionSyncPayload.decisionFor(
  * write permission to ROOT/ADMIN alone), so a member can never hide a public book by curating it.
  *
  * Access semantics deliberately distinguish "can't see" from "can see but can't":
- * - **Read** ([getCollection], [listCollectionBooks]) require [CollectionAccessPolicy.Decision.canAccess];
- *   otherwise [CollectionError.NotFound] — we never leak the existence of a collection
- *   the caller has no relationship to.
  * - **Write-book** ([addBookToCollection], [removeBookFromCollection]) require write
  *   permission; a caller who can read but not write gets [AuthError.PermissionDenied],
- *   a caller who can't see it at all gets [CollectionError.NotFound].
+ *   a caller who can't see it at all gets [CollectionError.NotFound] — we never leak the
+ *   existence of a collection the caller has no relationship to.
  * - **Admin-only management** ([renameCollection], [deleteCollection]) require ROOT/ADMIN;
  *   a member who can read (even one owning a collection from before the admin-only rule)
  *   gets [AuthError.PermissionDenied], one who can't see it gets [CollectionError.NotFound].
@@ -298,7 +226,7 @@ private fun CollectionSyncPayload.decisionFor(
  * Route handlers call [copyWith] to bind each request to the authenticated principal;
  * the Koin singleton carries an unscoped placeholder that yields no principal.
  *
- * Sharing ([shareCollection], [updateShare], [revokeShare], [listShares]) is admin-only —
+ * Sharing ([shareCollection], [updateShare], [revokeShare]) is admin-only —
  * gated through [manageGate] like rename/delete. System collections (ALL_BOOKS, INBOX) reject
  * all three share mutations with [CollectionError.SystemCollectionReadOnly]; the default
  * ALL_BOOKS grants are managed exclusively by [DefaultAllBooksGrantIssuer]. The per-user
@@ -346,48 +274,6 @@ internal class CollectionServiceImpl(
      * sign, which indexes the array out of bounds for any book whose hash is negative (about half).
      */
     private fun bookLock(bookId: String): Mutex = bookLocks[bookId.hashCode().mod(BOOK_LOCK_STRIPES)]
-
-    // ── Observation ─────────────────────────────────────────────────────────
-
-    override suspend fun listCollections(): AppResult<List<CollectionSummary>> {
-        val caller = resolveCaller() ?: return noPrincipal()
-        val (collections, grantsByCollectionId) =
-            collectionRepo.listableCollectionsFor(grantRepo, caller.userId, caller.role)
-
-        // One batched count round trip instead of one countLiveForCollection call per collection.
-        val counts = collectionBookRepo.countLiveForCollections(collections.map { it.id })
-        val summaries =
-            collections.map { collection ->
-                summarize(
-                    collection = collection,
-                    caller = caller,
-                    decision = collection.decisionFor(caller.userId, caller.role, grantsByCollectionId),
-                    bookCount = counts[collection.id] ?: 0L,
-                )
-            }
-        return AppResult.Success(summaries)
-    }
-
-    override suspend fun getCollection(id: CollectionId): AppResult<CollectionSummary> {
-        val caller = resolveCaller() ?: return noPrincipal()
-        val decision = accessPolicy.decide(caller.userId, caller.role, id.value)
-        if (!decision.canAccess) return AppResult.Failure(CollectionError.NotFound())
-        val collection = collectionRepo.findById(id.value) ?: return AppResult.Failure(CollectionError.NotFound())
-        return AppResult.Success(summarize(collection, caller, decision))
-    }
-
-    override suspend fun listCollectionBooks(
-        id: CollectionId,
-        limit: Int,
-    ): AppResult<List<BookId>> {
-        val caller = resolveCaller() ?: return noPrincipal()
-        if (!accessPolicy.canRead(caller.userId, caller.role, id.value)) {
-            return AppResult.Failure(CollectionError.NotFound())
-        }
-        val safeLimit = limit.coerceIn(LIST_BOOKS_MIN, LIST_BOOKS_MAX)
-        val bookIds = collectionBookRepo.findBookIdsForCollection(id.value).take(safeLimit).map { BookId(it) }
-        return AppResult.Success(bookIds)
-    }
 
     // ── Membership mutation ───────────────────────────────────────────────────
 
@@ -748,21 +634,12 @@ internal class CollectionServiceImpl(
         return AppResult.Success(Unit)
     }
 
-    override suspend fun listShares(id: CollectionId): AppResult<List<CollectionShareDto>> {
-        val caller = resolveCaller() ?: return noPrincipal()
-        val decision = accessPolicy.decide(caller.userId, caller.role, id.value)
-        manageGate(decision, caller.role)?.let { return AppResult.Failure(it) }
-
-        val shares = grantRepo.listActiveGrantsForCollection(id.value).map { it.toDto() }
-        return AppResult.Success(shares)
-    }
-
     // ── Inbox (system collection + release flow) ──────────────────────────────────
     //
-    // listInbox/releaseBooks (below) are admin-gated methods on the @Rpc CollectionService
-    // contract. getOrCreateSystemCollection/getOrCreateInbox/addToInbox are deliberately NOT
-    // on the contract — internal system operations with no caller-principal gate of their
-    // own, used by the scan path (auto-quarantine) and by listInbox/releaseBooks themselves.
+    // releaseBooks (below) is an admin-gated method on the @Rpc CollectionService contract.
+    // getOrCreateSystemCollection/getOrCreateInbox/addToInbox are deliberately NOT on the
+    // contract — internal system operations with no caller-principal gate of their own, used
+    // by the scan path (auto-quarantine) and by releaseBooks itself.
 
     /**
      * Resolves the library's per-library system collection of [type], creating it on first use.
@@ -1098,8 +975,8 @@ internal class CollectionServiceImpl(
         // membership ALSO releases it from the inbox. [SystemCollectionType] documents both system
         // collections as exclusive with regular ones, but this reconcile previously owned only the
         // ALL_BOOKS junction: curating a held book left it in INBOX *and* the regular collection, so
-        // it was visible to that collection's audience while still listed as quarantined by
-        // `listInbox`. Dropping INBOX here is deliberate — curating a held book IS releasing it.
+        // it was visible to that collection's audience while still held as quarantined in the
+        // inbox. Dropping INBOX here is deliberate — curating a held book IS releasing it.
         // A held book with no real membership stays held (it is still awaiting triage).
         val toDrop =
             buildList {
@@ -1158,21 +1035,6 @@ internal class CollectionServiceImpl(
         for (userId in userIds) {
             bus.publishControl(SyncControl.AccessChanged(scope), userId)
         }
-    }
-
-    /**
-     * Returns the live book ids in the library's inbox, or an empty list when no inbox
-     * exists yet — a read must never auto-create one.
-     *
-     * Admin-only ([AuthError.PermissionDenied] otherwise); requires a caller principal.
-     */
-    override suspend fun listInbox(libraryId: LibraryId): AppResult<List<BookId>> {
-        val caller = resolveCaller() ?: return noPrincipal()
-        adminGate(caller.role)?.let { return AppResult.Failure(it) }
-
-        val inbox = collectionRepo.findInboxForLibrary(libraryId.value) ?: return AppResult.Success(emptyList())
-        val bookIds = collectionBookRepo.findBookIdsForCollection(inbox.id).map { BookId(it) }
-        return AppResult.Success(bookIds)
     }
 
     // ── Principal binding ───────────────────────────────────────────────────────
