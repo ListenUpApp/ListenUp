@@ -1,3 +1,5 @@
+import Foundation
+import ListenupContract
 import Shared
 import Testing
 @testable import ListenUp
@@ -153,5 +155,33 @@ struct SettingsObserverTests {
         #expect(observer.serverUrl == nil)
         #expect(observer.serverVersion == nil)
         #expect(observer.appVersion == "1.0.0")
+    }
+
+    // MARK: - Send a test notification
+
+    @MainActor @Test func aTestNotificationTheServerAcceptedSaysSent() {
+        let observer = makeObserver()
+        #expect(observer.testNotification == .idle)
+
+        observer.apply(SettingsEventTestNotificationSent.shared)
+        #expect(observer.testNotification == .sent)
+        #expect(observer.testNotification.detail == String(localized: "settings.test_notification_sent"))
+    }
+
+    @MainActor @Test func aTestNotificationTheServerRefusedSaysWhy() {
+        let observer = makeObserver()
+        let error = TransportErrorTimeout(correlationId: nil, debugInfo: nil)
+
+        observer.apply(SettingsEventTestNotificationFailed(error: error))
+        #expect(observer.testNotification == .failed(message: error.message))
+        #expect(observer.testNotification.detail == error.message)
+    }
+
+    @Test func onlyASendInFlightHoldsTheRow() {
+        #expect(TestNotificationStatus.sending.isSending)
+        #expect(!TestNotificationStatus.idle.isSending)
+        #expect(!TestNotificationStatus.sent.isSending)
+        #expect(!TestNotificationStatus.failed(message: "No.").isSending)
+        #expect(TestNotificationStatus.idle.detail == String(localized: "settings.test_notification_subtitle"))
     }
 }
