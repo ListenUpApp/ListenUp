@@ -307,6 +307,7 @@ final class FakeEngineFacts: EngineFactReporting {
     private(set) var positions: [Int64] = []
     private(set) var rates: [Float] = []
     private(set) var routes: [String?] = []
+    private let routeGate = AsyncGate()
     private(set) var failures: [EngineFailure] = []
     private(set) var unloadedCount = 0
     /// The load generation each book fact carried, in report order (the route is not about a book).
@@ -320,7 +321,9 @@ final class FakeEngineFacts: EngineFactReporting {
     }
     func rate(_ rate: Float, generation: EngineLoadGeneration) { rates.append(rate); generations.append(generation) }
     func boost(_ db: Float, generation: EngineLoadGeneration) { generations.append(generation) }
-    func route(_ deviceName: String?) { routes.append(deviceName) }
+    func route(_ deviceName: String?) { routes.append(deviceName); routeGate.fire("route-\(routes.count)") }
+    /// Suspend until the coordinator has reported the route `count` times, once for each route change it has read.
+    func waitForRouteCount(_ count: Int) async { await routeGate.wait(forKey: "route-\(count)") }
     func failure(_ failure: EngineFailure, generation: EngineLoadGeneration) {
         failures.append(failure); failureGenerations.append(generation); generations.append(generation)
     }
