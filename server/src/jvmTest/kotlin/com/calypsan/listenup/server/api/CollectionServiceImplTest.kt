@@ -606,6 +606,17 @@ class CollectionServiceImplTest :
                 }
             }
         }
+
+        test("copyWith shares the underlying bookLock stripes across per-request copies") {
+            withSqlDatabase {
+                val base = makeService(this)
+                val copyA = base.actAs("u1", UserRole.ADMIN)
+                val copyB = base.actAs("u2", UserRole.MEMBER)
+
+                (copyA.bookLock("book-1") === copyB.bookLock("book-1")) shouldBe true
+                (base.bookLock("book-1") === copyA.bookLock("book-1")) shouldBe true
+            }
+        }
     })
 
 // Test-only factory helpers — kept top-level (outside the spec class) so the verbose

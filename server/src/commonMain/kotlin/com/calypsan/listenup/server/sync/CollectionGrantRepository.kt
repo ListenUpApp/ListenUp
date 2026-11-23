@@ -188,6 +188,22 @@ class CollectionGrantRepository(
         }
 
     /**
+     * Returns all active (non-tombstoned) USER grants across [collectionIds].
+     * Chunks reads at [SQLITE_IN_CHUNK] to stay under SQLite's bind-parameter limit.
+     */
+    suspend fun listActiveGrantsForCollections(collectionIds: Collection<String>): List<CollectionShareSyncPayload> {
+        val unique = collectionIds.distinct()
+        if (unique.isEmpty()) return emptyList()
+        return suspendTransaction(db) {
+            unique
+                .chunked(SQLITE_IN_CHUNK)
+                .flatMap { chunk ->
+                    db.collectionGrantsQueries.listActiveUserGrantsForCollections(chunk).executeAsList()
+                }.map { it.toSharePayload() }
+        }
+    }
+
+    /**
      * Soft-deletes the active USER grant for `(collectionId, userId)`. Bumps revision and
      * publishes [com.calypsan.listenup.api.sync.SyncEvent.Deleted]. Returns [AppResult.Failure]
      * if no live grant exists for this pair.
