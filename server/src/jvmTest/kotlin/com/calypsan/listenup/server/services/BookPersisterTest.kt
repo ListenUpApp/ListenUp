@@ -43,6 +43,10 @@ import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.filterIsInstance
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.take
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import kotlinx.io.files.Path
 import io.kotest.assertions.throwables.shouldThrow
@@ -459,6 +463,39 @@ class BookPersisterTest :
 
                     // "c" was never reached because the loop stopped on OOM
                     fake.resolved shouldContainExactly listOf("a")
+                }
+            }
+        }
+
+        test("the collector keeps persisting after one scan result's persist throws outside the per-book loop") {
+            withSqlDatabase {
+                runTest {
+                    val eventBus = MutableSharedFlow<ScanEvent>(replay = 16)
+                    val bus = MutableSharedFlow<ScanResult>()
+                    val fake = FakeBookIngest().apply { failNextResolveScanIdentities = true }
+                    persister(fake, scope = backgroundScope, eventBus = eventBus, scanResultBus = bus).start()
+                    bus.subscriptionCount.first { it > 0 }
+
+                    bus.emit(
+                        scanResult(
+                            books = listOf(analyzedBook("a")),
+                            changes = listOf(ChangeEventDto.Added(analyzedBook("a"))),
+                            scope = ScanScope.Subtree("a"),
+                        ).copy(correlationId = "faulty"),
+                    )
+                    bus.emit(
+                        scanResult(
+                            books = listOf(analyzedBook("b")),
+                            changes = listOf(ChangeEventDto.Added(analyzedBook("b"))),
+                            scope = ScanScope.Subtree("b"),
+                        ).copy(correlationId = "healthy"),
+                    )
+
+                    // Both scans end for clients: the faulty one reports its change as failed.
+                    val completed = eventBus.filterIsInstance<ScanEvent.Completed>().take(2).toList()
+                    completed.map { it.correlationId } shouldContainExactly listOf("faulty", "healthy")
+                    completed.first().result.failed shouldBe 1
+                    fake.resolved shouldContainExactly listOf("b")
                 }
             }
         }
@@ -897,8 +934,15 @@ internal class FakeBookIngest(
     /** The book collections passed to each [resolveScanIdentities] call, in call order. */
     val resolveScanIdentitiesCalls = mutableListOf<Collection<AnalyzedBook>>()
 
+    /** One-shot: the next [resolveScanIdentities] throws — a fault outside the per-book isolation. */
+    var failNextResolveScanIdentities = false
+
     override suspend fun resolveScanIdentities(books: Collection<AnalyzedBook>): ScanIdentityMaps {
         resolveScanIdentitiesCalls += books
+        if (failNextResolveScanIdentities) {
+            failNextResolveScanIdentities = false
+            error("injected fault outside the per-book loop")
+        }
         return ScanIdentityMaps()
     }
 
@@ -961,6 +1005,7 @@ internal suspend fun SqlTestDatabases.persister(
     changeBus: ChangeBus = ChangeBus(),
     coverImageStore: com.calypsan.listenup.server.cover.CoverImageStore? = null,
     isOnDisk: (Path) -> Boolean = { true },
+    scanResultBus: MutableSharedFlow<ScanResult> = MutableSharedFlow(),
 ): BookPersister {
     // Seed a library_folders row at the default scanResult rootPath ("/lib") so folder resolution
     // finds a REAL folder rather than the "unknown" sentinel — which now (finding 5) skips the
@@ -985,7 +1030,7 @@ internal suspend fun SqlTestDatabases.persister(
         libraryRepository = LibraryRepository(sql, ChangeBus(), SyncRegistry()),
         collectionService = inertCollectionService(),
         sql = sql,
-        scanResultBus = MutableSharedFlow(),
+        scanResultBus = scanResultBus,
         eventBus = eventBus,
         changeBus = changeBus,
         scope = scope,

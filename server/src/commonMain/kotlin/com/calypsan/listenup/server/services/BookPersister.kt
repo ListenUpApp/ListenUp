@@ -140,8 +140,46 @@ class BookPersister internal constructor(
     /** Launch the collector. Idempotent only in the sense that it should be called once at bootstrap. */
     fun start() {
         scope.launch {
-            scanResultBus.collect { result -> persist(result) }
+            scanResultBus.collect { result -> persistContained(result) }
         }
+    }
+
+    /**
+     * [persist], with the collector's survival guaranteed. Per-book faults are already isolated inside
+     * [persistAll], but the calls around them (the library lookup, folder and identity resolution,
+     * the sweep) are not; one escaped exception used to end this collector, and every later scan then
+     * published to a bus nobody read — nothing written, no `Completed` — until a restart. The failed
+     * result is logged and reported as finished with every change failed, so a client's scan UI ends.
+     * Not retried: the next scan re-offers whatever this one did not write. [OutOfMemoryError] keeps
+     * its own handling in [persist] and still propagates.
+     */
+    private suspend fun persistContained(result: ScanResult) {
+        try {
+            persist(result)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: OutOfMemoryError) {
+            throw e
+        } catch (e: Throwable) {
+            log.error(
+                e,
+            ) { "Persisting scan result corr=${result.correlationId} failed — skipping it, still collecting" }
+            reportAbandoned(result)
+        }
+    }
+
+    private suspend fun reportAbandoned(result: ScanResult) {
+        val libraryId =
+            try {
+                libraryRegistry.currentLibrary()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                log.error(e) { "No library id for abandoned scan corr=${result.correlationId} — no Completed sent" }
+                return
+            }
+        val counts = PersistCounts(persisted = 0, failed = result.changes.size, removed = 0)
+        eventBus.emit(ScanEvent.Completed(result.correlationId, libraryId, result.toSummary(counts)))
     }
 
     /** Visible for tests — drive one ScanResult through without the bus. */
