@@ -68,6 +68,8 @@ struct NotificationsView: View {
         }
         // A list button tints its label with the accent; the notification's words stay label-coloured.
         .foregroundStyle(Color.primary)
+        // Unread is a weight and a dot on screen; VoiceOver hears it as the row's value.
+        .accessibilityValue(row.isUnread ? String(localized: "notifications.unread") : "")
     }
 
     private func rowLabel(_ row: NotificationRowModel) -> some View {
