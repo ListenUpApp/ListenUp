@@ -17,8 +17,10 @@ import com.calypsan.listenup.web.design.Field
 import com.calypsan.listenup.web.design.PageHeader
 import com.calypsan.listenup.web.design.Panel
 import org.jetbrains.compose.web.attributes.InputType
+import org.jetbrains.compose.web.attributes.onSubmit
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
+import org.jetbrains.compose.web.dom.Form
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
@@ -69,7 +71,66 @@ private fun InviteForm(
 
     val error = (status as? CreateInviteStatus.Error)?.type
     val submitting = status is CreateInviteStatus.Submitting
+    val canCreate = !submitting && email.isNotBlank()
 
+    // A real <form>, so Enter in the email field creates the invite — the browser's implicit
+    // submission, which no key listener reproduces (see LoginForm). `display: contents` keeps the
+    // panels laid out as the page's own children.
+    Form(attrs = {
+        classes("inv-form")
+        onSubmit { event ->
+            event.preventDefault()
+            if (canCreate) onCreate(email, role, days)
+        }
+    }) {
+        InviteFields(
+            email = email,
+            role = role,
+            days = days,
+            error = error,
+            onEmail = { typed ->
+                email = typed
+                // The typed error is about the value that was submitted; the moment it changes,
+                // the error is describing something that is no longer on screen.
+                if (error != null) onClearError()
+            },
+            onRole = { role = it },
+            onDays = { days = it },
+        )
+
+        otherError(error)?.let { message ->
+            P(attrs = {
+                classes("inv-err")
+                attr("role", "alert")
+            }) { Text(message) }
+        }
+
+        Button(
+            kind = ButtonKind.Primary,
+            submit = true,
+            attrs = {
+                classes("inv-go")
+                // No onClick: a submit button inside a form already submits it. Keeping one would
+                // fire the handler twice for a click and once for Enter.
+                // ⛔ A blank email cannot make an invite, and the server would answer with a
+                // validation error the reader has to read to learn what the form already knew.
+                if (!canCreate) attr("disabled", "")
+            },
+        ) { Text(if (submitting) "Creating…" else "Create invite") }
+    }
+}
+
+/** The three choices an invite is made of: who, at what level, for how long. */
+@Composable
+private fun InviteFields(
+    email: String,
+    role: String,
+    days: Int,
+    error: CreateInviteErrorType?,
+    onEmail: (String) -> Unit,
+    onRole: (String) -> Unit,
+    onDays: (Int) -> Unit,
+) {
     Panel(title = "Who's joining") {
         val emailProblem = emailError(error)
         Field(
@@ -83,19 +144,14 @@ private fun InviteForm(
             type = InputType.Email,
             autocomplete = "email",
             errorText = emailProblem,
-            onInput = { typed ->
-                email = typed
-                // The typed error is about the value that was submitted; the moment it changes,
-                // the error is describing something that is no longer on screen.
-                if (error != null) onClearError()
-            },
+            onInput = onEmail,
         )
     }
 
     Panel(title = "Access level") {
         Div(attrs = { classes("inv-opts") }) {
-            RoleOption(ROLE_MEMBER, "Member", "Can access the library", role) { role = it }
-            RoleOption(ROLE_ADMIN, "Admin", "Can manage users and invites", role) { role = it }
+            RoleOption(ROLE_MEMBER, "Member", "Can access the library", role, onRole)
+            RoleOption(ROLE_ADMIN, "Admin", "Can manage users and invites", role, onRole)
         }
     }
 
@@ -107,29 +163,11 @@ private fun InviteForm(
                     if (option == days) classes("on")
                     attr(ATTR_TYPE, VALUE_BUTTON)
                     attr("aria-pressed", (option == days).toString())
-                    onClick { days = option }
+                    onClick { onDays(option) }
                 }) { Text(expiryLabel(option)) }
             }
         }
     }
-
-    otherError(error)?.let { message ->
-        P(attrs = {
-            classes("inv-err")
-            attr("role", "alert")
-        }) { Text(message) }
-    }
-
-    Button(
-        kind = ButtonKind.Primary,
-        onClick = { onCreate(email, role, days) },
-        attrs = {
-            classes("inv-go")
-            // ⛔ A blank email cannot make an invite, and the server would answer with a validation
-            // error the reader has to read to learn what the form already knew.
-            if (submitting || email.isBlank()) attr("disabled", "")
-        },
-    ) { Text(if (submitting) "Creating…" else "Create invite") }
 }
 
 @Composable

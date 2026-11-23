@@ -2,6 +2,8 @@
    INVITES — minting one, and the link it produces
    ============================================================ */
 .luw .inv { display: flex; flex-direction: column; gap: var(--gap); min-width: 0; max-width: 640px; }
+/* The <form> that lets Enter create the invite; its panels lay out as the page's own children. */
+.luw .inv-form { display: contents; }
 
 .luw .inv-err { margin: var(--sp-8) 0 0; font-size: var(--fs-small); font-weight: 600; color: var(--coral-text); }
 .luw .inv-opts { display: flex; flex-direction: column; gap: var(--sp-8); }

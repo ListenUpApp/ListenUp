@@ -4,7 +4,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
 import org.jetbrains.compose.web.dom.Button
+import org.jetbrains.compose.web.attributes.onSubmit
 import org.jetbrains.compose.web.dom.Div
+import org.jetbrains.compose.web.dom.Form
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.Text
@@ -164,6 +166,10 @@ private class FocusReturn(
  * [confirmEnabled] false renders a genuinely `disabled` button. The alternative is accepting the
  * press and letting the server refuse, which arrives as a toast over a dialog still holding the
  * same unusable input.
+ *
+ * [submit] is for actions inside a [DialogForm]: the verb becomes the form's submit button and
+ * [onConfirm] is not called from here — the form's submit is the one path, for a click and for
+ * Enter alike. Keeping a click handler as well would fire the action twice for a click.
  */
 @Composable
 fun DialogActions(
@@ -172,15 +178,43 @@ fun DialogActions(
     onDismiss: () -> Unit,
     confirmEnabled: Boolean = true,
     confirmKind: ButtonKind = ButtonKind.Primary,
+    submit: Boolean = false,
 ) {
     Div(attrs = { classes("dlg-actions") }) {
         Button(kind = ButtonKind.Secondary, onClick = { onDismiss() }) { Text("Cancel") }
         Button(
             kind = confirmKind,
-            onClick = { if (confirmEnabled) onConfirm() },
+            onClick = { if (confirmEnabled && !submit) onConfirm() },
             enabled = confirmEnabled,
+            submit = submit,
         ) { Text(confirmLabel) }
     }
+}
+
+/**
+ * A dialog's field and its actions as a real `<form>`, so Enter in the field does what the verb
+ * does — the browser's implicit submission, which no key listener reproduces. Pair it with
+ * `DialogActions(submit = true)`; a form with no submit button gives Enter nothing to press.
+ *
+ * [onSubmit] runs only while [enabled]: Enter must not do what the disabled verb would refuse.
+ * The form lays its children out as if it were not there (`display: contents`), so the dialog's
+ * spacing is unchanged.
+ */
+@Composable
+fun DialogForm(
+    enabled: Boolean,
+    onSubmit: () -> Unit,
+    content: @Composable () -> Unit,
+) {
+    val submit = onSubmit
+    Form(attrs = {
+        classes("dlg-form")
+        // `this.` is load-bearing: the parameter `onSubmit` shadows the attribute builder's.
+        this.onSubmit { event ->
+            event.preventDefault()
+            if (enabled) submit()
+        }
+    }) { content() }
 }
 
 /** A paragraph inside a dialog: what the thing about to happen actually does. */

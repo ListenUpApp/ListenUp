@@ -64,6 +64,8 @@
 }
 dialog.dlg::backdrop { background: rgba(0,0,0,0.45); }
 .luw .dlg-body, dialog.dlg .dlg-body { display: flex; flex-direction: column; gap: 0.7rem; padding: 1.4rem; }
+/* A one-field dialog's <form>, there so Enter submits: its children lay out as the body's own. */
+.luw .dlg-form, dialog.dlg .dlg-form { display: contents; }
 .luw .dlg-t, dialog.dlg .dlg-t {
   margin: 0; font-size: 1.15rem; font-weight: 800; letter-spacing: -0.02em; color: var(--ink);
 }
