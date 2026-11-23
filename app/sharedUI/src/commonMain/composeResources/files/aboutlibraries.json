@@ -1573,10 +1573,10 @@
         },
         {
             "uniqueId": "androidx.lifecycle:lifecycle-common",
-            "artifactVersion": "2.11.0",
+            "artifactVersion": "2.11.1",
             "name": "Lifecycle-Common",
             "description": "Android Lifecycle-Common",
-            "website": "https://developer.android.com/jetpack/androidx/releases/lifecycle#2.11.0",
+            "website": "https://developer.android.com/jetpack/androidx/releases/lifecycle#2.11.1",
             "developers": [
                 {
                     "name": "The Android Open Source Project"
@@ -1598,10 +1598,10 @@
         },
         {
             "uniqueId": "androidx.lifecycle:lifecycle-common-java8",
-            "artifactVersion": "2.11.0",
+            "artifactVersion": "2.11.1",
             "name": "Lifecycle-Common for Java 8",
             "description": "Android Lifecycle-Common for Java 8 Language",
-            "website": "https://developer.android.com/jetpack/androidx/releases/lifecycle#2.11.0",
+            "website": "https://developer.android.com/jetpack/androidx/releases/lifecycle#2.11.1",
             "developers": [
                 {
                     "name": "The Android Open Source Project"
@@ -1623,10 +1623,10 @@
         },
         {
             "uniqueId": "androidx.lifecycle:lifecycle-livedata",
-            "artifactVersion": "2.11.0",
+            "artifactVersion": "2.11.1",
             "name": "Lifecycle LiveData",
             "description": "Android Lifecycle LiveData",
-            "website": "https://developer.android.com/jetpack/androidx/releases/lifecycle#2.11.0",
+            "website": "https://developer.android.com/jetpack/androidx/releases/lifecycle#2.11.1",
             "developers": [
                 {
                     "name": "The Android Open Source Project"
@@ -1648,10 +1648,10 @@
         },
         {
             "uniqueId": "androidx.lifecycle:lifecycle-livedata-core",
-            "artifactVersion": "2.11.0",
+            "artifactVersion": "2.11.1",
             "name": "Lifecycle LiveData Core",
             "description": "Android Lifecycle LiveData Core",
-            "website": "https://developer.android.com/jetpack/androidx/releases/lifecycle#2.11.0",
+            "website": "https://developer.android.com/jetpack/androidx/releases/lifecycle#2.11.1",
             "developers": [
                 {
                     "name": "The Android Open Source Project"
@@ -1673,10 +1673,10 @@
         },
         {
             "uniqueId": "androidx.lifecycle:lifecycle-livedata-core-ktx",
-            "artifactVersion": "2.11.0",
+            "artifactVersion": "2.11.1",
             "name": "LiveData Core Kotlin Extensions",
             "description": "Kotlin extensions for 'livedata-core' artifact",
-            "website": "https://developer.android.com/jetpack/androidx/releases/lifecycle#2.11.0",
+            "website": "https://developer.android.com/jetpack/androidx/releases/lifecycle#2.11.1",
             "developers": [
                 {
                     "name": "The Android Open Source Project"
@@ -1698,10 +1698,10 @@
         },
         {
             "uniqueId": "androidx.lifecycle:lifecycle-process",
-            "artifactVersion": "2.11.0",
+            "artifactVersion": "2.11.1",
             "name": "Lifecycle Process",
             "description": "Android Lifecycle Process",
-            "website": "https://developer.android.com/jetpack/androidx/releases/lifecycle#2.11.0",
+            "website": "https://developer.android.com/jetpack/androidx/releases/lifecycle#2.11.1",
             "developers": [
                 {
                     "name": "The Android Open Source Project"
@@ -1723,10 +1723,10 @@
         },
         {
             "uniqueId": "androidx.lifecycle:lifecycle-runtime",
-            "artifactVersion": "2.11.0",
+            "artifactVersion": "2.11.1",
             "name": "Lifecycle Runtime",
             "description": "Android Lifecycle Runtime",
-            "website": "https://developer.android.com/jetpack/androidx/releases/lifecycle#2.11.0",
+            "website": "https://developer.android.com/jetpack/androidx/releases/lifecycle#2.11.1",
             "developers": [
                 {
                     "name": "The Android Open Source Project"
@@ -1748,10 +1748,10 @@
         },
         {
             "uniqueId": "androidx.lifecycle:lifecycle-runtime-compose",
-            "artifactVersion": "2.11.0",
+            "artifactVersion": "2.11.1",
             "name": "Lifecycle Runtime Compose",
             "description": "Compose integration with Lifecycle",
-            "website": "https://developer.android.com/jetpack/androidx/releases/lifecycle#2.11.0",
+            "website": "https://developer.android.com/jetpack/androidx/releases/lifecycle#2.11.1",
             "developers": [
                 {
                     "name": "The Android Open Source Project"
@@ -1773,10 +1773,10 @@
         },
         {
             "uniqueId": "androidx.lifecycle:lifecycle-runtime-ktx",
-            "artifactVersion": "2.11.0",
+            "artifactVersion": "2.11.1",
             "name": "Lifecycle Kotlin Extensions",
             "description": "Kotlin extensions for 'lifecycle' artifact",
-            "website": "https://developer.android.com/jetpack/androidx/releases/lifecycle#2.11.0",
+            "website": "https://developer.android.com/jetpack/androidx/releases/lifecycle#2.11.1",
             "developers": [
                 {
                     "name": "The Android Open Source Project"
@@ -1798,10 +1798,10 @@
         },
         {
             "uniqueId": "androidx.lifecycle:lifecycle-service",
-            "artifactVersion": "2.11.0",
+            "artifactVersion": "2.11.1",
             "name": "Lifecycle Service",
             "description": "Android Lifecycle Service",
-            "website": "https://developer.android.com/jetpack/androidx/releases/lifecycle#2.11.0",
+            "website": "https://developer.android.com/jetpack/androidx/releases/lifecycle#2.11.1",
             "developers": [
                 {
                     "name": "The Android Open Source Project"
@@ -1823,10 +1823,10 @@
         },
         {
             "uniqueId": "androidx.lifecycle:lifecycle-viewmodel",
-            "artifactVersion": "2.11.0",
+            "artifactVersion": "2.11.1",
             "name": "Lifecycle ViewModel",
             "description": "Android Lifecycle ViewModel",
-            "website": "https://developer.android.com/jetpack/androidx/releases/lifecycle#2.11.0",
+            "website": "https://developer.android.com/jetpack/androidx/releases/lifecycle#2.11.1",
             "developers": [
                 {
                     "name": "The Android Open Source Project"
@@ -1848,10 +1848,10 @@
         },
         {
             "uniqueId": "androidx.lifecycle:lifecycle-viewmodel-compose",
-            "artifactVersion": "2.11.0",
+            "artifactVersion": "2.11.1",
             "name": "Lifecycle ViewModel Compose",
             "description": "Compose integration with Lifecycle ViewModel",
-            "website": "https://developer.android.com/jetpack/androidx/releases/lifecycle#2.11.0",
+            "website": "https://developer.android.com/jetpack/androidx/releases/lifecycle#2.11.1",
             "developers": [
                 {
                     "name": "The Android Open Source Project"
@@ -1873,10 +1873,10 @@
         },
         {
             "uniqueId": "androidx.lifecycle:lifecycle-viewmodel-ktx",
-            "artifactVersion": "2.11.0",
+            "artifactVersion": "2.11.1",
             "name": "Lifecycle ViewModel Kotlin Extensions",
             "description": "Kotlin extensions for 'viewmodel' artifact",
-            "website": "https://developer.android.com/jetpack/androidx/releases/lifecycle#2.11.0",
+            "website": "https://developer.android.com/jetpack/androidx/releases/lifecycle#2.11.1",
             "developers": [
                 {
                     "name": "The Android Open Source Project"
@@ -1898,10 +1898,10 @@
         },
         {
             "uniqueId": "androidx.lifecycle:lifecycle-viewmodel-navigation3",
-            "artifactVersion": "2.11.0",
+            "artifactVersion": "2.11.1",
             "name": "Androidx Lifecycle Navigation3 ViewModel",
             "description": "Provides the ViewModel wrapper for nav3.",
-            "website": "https://developer.android.com/jetpack/androidx/releases/lifecycle#2.11.0",
+            "website": "https://developer.android.com/jetpack/androidx/releases/lifecycle#2.11.1",
             "developers": [
                 {
                     "name": "The Android Open Source Project"
@@ -1923,10 +1923,10 @@
         },
         {
             "uniqueId": "androidx.lifecycle:lifecycle-viewmodel-savedstate",
-            "artifactVersion": "2.11.0",
+            "artifactVersion": "2.11.1",
             "name": "Lifecycle ViewModel with SavedState",
             "description": "Android Lifecycle ViewModel",
-            "website": "https://developer.android.com/jetpack/androidx/releases/lifecycle#2.11.0",
+            "website": "https://developer.android.com/jetpack/androidx/releases/lifecycle#2.11.1",
             "developers": [
                 {
                     "name": "The Android Open Source Project"
@@ -2273,10 +2273,10 @@
         },
         {
             "uniqueId": "androidx.navigation3:navigation3-runtime",
-            "artifactVersion": "1.2.1",
+            "artifactVersion": "1.2.2",
             "name": "Androidx Navigation 3 Runtime",
             "description": "Provides the building blocks for a Compose first Navigation solution that easily supports extensions.",
-            "website": "https://developer.android.com/jetpack/androidx/releases/navigation3#1.2.1",
+            "website": "https://developer.android.com/jetpack/androidx/releases/navigation3#1.2.2",
             "developers": [
                 {
                     "name": "The Android Open Source Project"
@@ -2298,10 +2298,10 @@
         },
         {
             "uniqueId": "androidx.navigation3:navigation3-ui",
-            "artifactVersion": "1.2.1",
+            "artifactVersion": "1.2.2",
             "name": "Androidx Navigation 3 UI",
             "description": "Provides a Navigation3 display that uses the building blocks from runtime to create a higher level solution.",
-            "website": "https://developer.android.com/jetpack/androidx/releases/navigation3#1.2.1",
+            "website": "https://developer.android.com/jetpack/androidx/releases/navigation3#1.2.2",
             "developers": [
                 {
                     "name": "The Android Open Source Project"
@@ -3601,7 +3601,7 @@
         },
         {
             "uniqueId": "com.google.guava:failureaccess",
-            "artifactVersion": "1.0.2",
+            "artifactVersion": "1.0.3",
             "name": "Guava InternalFutureFailureAccess and InternalFutures",
             "description": "Contains\n    com.google.common.util.concurrent.internal.InternalFutureFailureAccess and\n    InternalFutures. Most users will never need to use this artifact. Its\n    classes are conceptually a part of Guava, but they're in this separate\n    artifact so that Android libraries can use them without pulling in all of\n    Guava (just as they can use ListenableFuture by depending on the\n    listenablefuture artifact).",
             "website": "https://github.com/google/guava/failureaccess",
@@ -3625,14 +3625,13 @@
         },
         {
             "uniqueId": "com.google.guava:guava",
-            "artifactVersion": "33.3.1-android",
+            "artifactVersion": "33.7.2-android",
             "name": "Guava: Google Core Libraries for Java",
             "description": "Guava is a suite of core and expanded libraries that include\n    utility classes, Google's collections, I/O classes, and\n    much more.",
             "website": "https://github.com/google/guava",
             "developers": [
                 {
-                    "name": "Kevin Bourrillion",
-                    "organisationUrl": "http://www.google.com"
+                    "name": "Chris Povirk"
                 }
             ],
             "scm": {
@@ -6990,13 +6989,19 @@
         },
         {
             "uniqueId": "org.jspecify:jspecify",
-            "artifactVersion": "1.0.0",
+            "artifactVersion": "1.0.1",
             "name": "JSpecify annotations",
             "description": "An artifact of well-named and well-specified annotations to power static analysis checks",
-            "website": "http://jspecify.org/",
+            "website": "https://jspecify.dev/",
             "developers": [
                 {
+                    "name": "Chris Povirk"
+                },
+                {
                     "name": "Kevin Bourrillion"
+                },
+                {
+                    "name": "David P. Baker"
                 }
             ],
             "scm": {

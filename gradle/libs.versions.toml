@@ -17,8 +17,8 @@ androidx-activity = "1.13.0"
 androidx-lifecycle = "2.11.0"
 androidx-window = "1.5.1"
 # AndroidX lifecycle (androidx.lifecycle): the Navigation 3 ViewModel add-on and lifecycle-process.
-androidx-lifecycle-android = "2.11.0"
-androidx-navigation3 = "1.2.1"
+androidx-lifecycle-android = "2.11.1"
+androidx-navigation3 = "1.2.2"
 androidx-graphics-shapes = "1.1.0"
 androidx-material-icons = "1.7.8"
 androidx-compose-ui-test = "1.12.1"
@@ -93,7 +93,7 @@ material3-adaptive-multiplatform = "1.3.0"
 
 # Quality Tool
 detekt = "2.0.0-alpha.6"
-spotless = "8.11.0"
+spotless = "8.12.0"
 ktlint = "1.8.0" # Used by Spotless plugin at runtime
 kover = "0.9.11"
 atomicfu = "0.33.0"
