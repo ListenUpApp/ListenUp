@@ -18,8 +18,8 @@ import kotlinx.rpc.annotations.Rpc
  * Two surface categories:
  * - **Observation** — [getMoodStats] is safe to call repeatedly; it reads state only. Clients
  *   read moods and their books from their local mirror.
- * - **Mutation** — [addMoodToBook], [removeMoodFromBook], [renameMood],
- *   [deleteMood] mutate server state and should be called once per user intent.
+ * - **Mutation** — [addMoodToBook], [removeMoodFromBook] mutate server state and should be
+ *   called once per user intent.
  *
  * The `book_moods` junction is a global cross-user association (curator model) — one shared
  * vocabulary, curated by anyone with `canEdit`. Visibility is a separate axis from curation:
@@ -75,34 +75,4 @@ interface MoodService {
         bookId: BookId,
         moodId: MoodId,
     ): AppResult<Unit>
-
-    /**
-     * Updates the display name of the mood identified by [moodId] to [newName]
-     * and returns the updated [Mood] aggregate.
-     *
-     * Rename semantics: only the display [Mood.name] changes — [Mood.slug] is
-     * intentionally preserved so that existing URLs and client-side slug lookups
-     * remain valid.
-     *
-     * Failures:
-     * - [com.calypsan.listenup.api.error.MoodError.NotFound] when no mood with
-     *   the given id exists.
-     * - [com.calypsan.listenup.api.error.MoodError.InvalidName] when [newName]
-     *   is blank or normalizes to an empty slug.
-     * - [com.calypsan.listenup.api.error.MoodError.NameTooLong] when [newName]
-     *   exceeds 64 characters.
-     */
-    suspend fun renameMood(
-        moodId: MoodId,
-        newName: String,
-    ): AppResult<Mood>
-
-    /**
-     * Deletes the mood identified by [moodId] and cascade-soft-deletes all of its
-     * `book_moods` junction rows atomically inside a single transaction.
-     *
-     * Returns [com.calypsan.listenup.api.error.MoodError.NotFound] when no mood
-     * with the given id exists.
-     */
-    suspend fun deleteMood(moodId: MoodId): AppResult<Unit>
 }

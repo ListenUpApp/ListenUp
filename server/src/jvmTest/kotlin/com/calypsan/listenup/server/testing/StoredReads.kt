@@ -83,7 +83,3 @@ internal suspend fun SqlTestDatabases.moodsOnBook(bookId: String): List<Mood> {
         ).findAllForBook(bookId)
     return MoodRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry()).findByIds(junctions.map { it.moodId })
 }
-
-/** The live mood whose slug is [slug], or null. */
-internal suspend fun SqlTestDatabases.liveMoodBySlug(slug: String): Mood? =
-    MoodRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry()).findBySlug(slug)

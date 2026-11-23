@@ -1,6 +1,5 @@
 package com.calypsan.listenup.server.sync
 
-import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.Mood
 import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
@@ -29,7 +28,6 @@ import kotlin.time.Clock
  *  - [findByIds] — batch fetch non-deleted moods by id
  *  - [findBySlug] — fetch one non-deleted mood by slug (the stable URL identity)
  *  - [listAll] — fetch all non-deleted moods, ordered by name
- *  - [updateName] — rename a mood (updates [Mood.name] only; slug is preserved)
  */
 class MoodRepository(
     db: ListenUpDatabase,
@@ -184,27 +182,6 @@ class MoodRepository(
                 .executeAsList()
                 .map { it.toMood() }
         }
-
-    /**
-     * Updates the [Mood.name] of the mood with [id] to [newName]. [Mood.slug] is
-     * intentionally preserved — the slug is the stable URL identity and must
-     * not change on rename.
-     *
-     * Bumps revision and publishes a [com.calypsan.listenup.api.sync.SyncEvent.Updated]
-     * to the change bus so clients receive the renamed payload. Returns the
-     * updated [Mood], or null when no non-deleted row with [id] exists.
-     */
-    suspend fun updateName(
-        id: String,
-        newName: String,
-    ): Mood? {
-        val current = findById(id) ?: return null
-        val updated = current.copy(name = newName)
-        return when (val result = upsert(updated)) {
-            is AppResult.Success -> result.data
-            is AppResult.Failure -> null
-        }
-    }
 
     /** Maps a generated [Moods] row to the wire [Mood] DTO. */
     private fun Moods.toMood(): Mood =

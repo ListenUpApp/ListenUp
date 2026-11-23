@@ -294,31 +294,6 @@ class BookMoodRepositoryTest :
             }
         }
 
-        // ── softDeleteAllForMood ──────────────────────────────────────────────────
-
-        test("softDeleteAllForMood tombstones all junction rows for the mood") {
-            withSqlDatabase {
-                sql.seedTestLibraryAndFolder()
-                sql.seedTestBook("book1")
-                sql.seedTestBook("book2")
-                val registry = SyncRegistry()
-                val bus = ChangeBus()
-                val moodRepo = MoodRepository(db = sql, bus = bus, registry = registry)
-                val bookMoodRepo = BookMoodRepository(db = sql, bus = bus, registry = registry, driver = driver)
-
-                runTest {
-                    moodRepo.upsert(Mood("m1", "Tense", "tense", 0, 0))
-                    bookMoodRepo.upsert(BookMoodSyncPayload("book1:m1", "book1", "m1", 1000L, 0L))
-                    bookMoodRepo.upsert(BookMoodSyncPayload("book2:m1", "book2", "m1", 2000L, 0L))
-
-                    val count = bookMoodRepo.softDeleteAllForMood("m1")
-                    count shouldBe 2
-
-                    bookMoodRepo.findAllForMood("m1").shouldBeEmpty()
-                }
-            }
-        }
-
         // ── findBookIdsForMood ────────────────────────────────────────────────────
 
         test("findBookIdsForMood returns book IDs for non-tombstoned rows") {

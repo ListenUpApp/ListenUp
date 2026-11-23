@@ -28,13 +28,8 @@ import com.calypsan.listenup.server.auth.requirePermission
  * so there is no reindex step on mutation — the sync firehose alone propagates changes
  * to clients.
  *
- * Slug conflict on rename: only the [Mood.name] is updated — [Mood.slug] is
- * intentionally preserved per the contract spec so existing URLs remain valid.
- * Renames therefore cannot produce a slug conflict; the slug stays the same.
- *
- * [getMoodStats] is scoped to the books the caller can reach. Edits ([addMoodToBook], [removeMoodFromBook], [renameMood]) are
- * gated on [Permission.EDIT_METADATA]; [deleteMood] on [Permission.CURATE_LIBRARY] — both via
- * [permissionPolicy]:
+ * [getMoodStats] is scoped to the books the caller can reach. Edits ([addMoodToBook], [removeMoodFromBook]) are
+ * gated on [Permission.EDIT_METADATA] via [permissionPolicy]:
  * ROOT/ADMIN pass implicitly, a MEMBER passes iff their flag is set (fresh DB lookup per call).
  * The authenticated caller is resolved from [principal] — route handlers call [copyWith] to
  * bind it per-request; the Koin singleton carries an unscoped placeholder that yields no
@@ -156,41 +151,6 @@ internal class MoodServiceImpl(
         return AppResult.Success(Unit)
     }
 
-    override suspend fun renameMood(
-        moodId: MoodId,
-        newName: String,
-    ): AppResult<Mood> {
-        principal.requirePermission(permissionPolicy, Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
-        // Validate new name (we call normalize just for validation — slug is not changed).
-        when (val slugResult = MoodSlug.normalize(newName)) {
-            is AppResult.Success -> Unit
-            is AppResult.Failure -> return AppResult.Failure(slugResult.error)
-        }
-
-        val updated =
-            moodRepository.updateName(moodId.value, newName.trim())
-                ?: return AppResult.Failure(MoodError.NotFound())
-
-        return AppResult.Success(updated)
-    }
-
-    override suspend fun deleteMood(moodId: MoodId): AppResult<Unit> {
-        principal.requirePermission(permissionPolicy, Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
-        if (moodRepository.findById(moodId.value) == null) {
-            return AppResult.Failure(MoodError.NotFound())
-        }
-
-        // Cascade: tombstone all junctions, then the mood itself. Both are suspend repo
-        // calls that each open their own SQLDelight transaction, so they run sequentially
-        // (they cannot nest inside one another's non-suspend transaction body). Sequential
-        // single-engine writes never contend for the lone SQLite write lock — matching the
-        // GenreServiceImpl / ContributorServiceImpl cutover shape.
-        bookMoodRepository.softDeleteAllForMood(moodId.value)
-        moodRepository.softDelete(moodId.value)
-
-        return AppResult.Success(Unit)
-    }
-
     // ── Private helpers ───────────────────────────────────────────────────────
 
     /**
@@ -210,7 +170,4 @@ internal class MoodServiceImpl(
 
     private suspend fun bookExists(bookId: String): Boolean =
         suspendTransaction(sql) { sql.booksQueries.existsLiveById(bookId).executeAsOne() }
-
-    private suspend fun MoodRepository.softDelete(moodId: String): AppResult<Unit> =
-        softDelete(moodId, clientOpId = null)
 }

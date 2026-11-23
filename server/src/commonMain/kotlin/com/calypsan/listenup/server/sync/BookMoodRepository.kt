@@ -44,7 +44,6 @@ data class BookMoodId(
  * In addition to the standard [upsert] / [softDelete], this repository provides
  * bulk cascade variants used by service-layer delete operations:
  *  - [softDeleteAllForBook] — cascades when a book is deleted
- *  - [softDeleteAllForMood] — cascades when a mood is deleted
  *  - [findBookIdsForMood] — returns book IDs for any post-delete sweep
  */
 class BookMoodRepository(
@@ -254,22 +253,6 @@ class BookMoodRepository(
     }
 
     /**
-     * Bulk soft-deletes all junction rows for [moodId]. Used as a cascade step in
-     * mood deletion — called inside the same transaction as the mood's own soft-delete.
-     *
-     * Each row gets its own revision bump and [SyncEvent.Deleted] publication so
-     * clients receive per-row tombstones. Returns the number of rows tombstoned.
-     */
-    suspend fun softDeleteAllForMood(moodId: String): Int {
-        val suppressed = isFirehoseSuppressed()
-        return suspendTransaction(db) {
-            val live = db.bookMoodsQueries.selectLiveIdsForMood(moodId).executeAsList()
-            tombstoneEach(live, suppressed)
-            live.size
-        }
-    }
-
-    /**
      * Revives the tombstoned junction rows for the books in [bookIds] that were tombstoned at or after
      * [cascadeFloor] — the cascade counterpart to [softDeleteAllForBook], run when a removed folder is
      * re-added so a book's moods return with the book instead of being lost. [cascadeFloor] is the
@@ -366,7 +349,7 @@ class BookMoodRepository(
      * Tombstones each synthetic id in [syntheticIds] with its own revision bump, inside
      * the caller's open transaction, and registers a per-row after-commit
      * [SyncEvent.Deleted] — none when [suppressed] ([FirehoseSuppressed]). The shared body of
-     * [softDeleteAllForBook] / [softDeleteAllForMood].
+     * [softDeleteAllForBook].
      */
     private fun app.cash.sqldelight.TransactionWithReturn<*>.tombstoneEach(
         syntheticIds: List<String>,
