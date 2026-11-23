@@ -25,7 +25,7 @@ class NotificationUnreadA11yTest {
     fun `an unread notification says it is unread`() {
         setContent(readAt = null)
 
-        composeRule.onNode(hasText(UNKNOWN_TITLE) and hasStateDescription).assert(isUnread)
+        composeRule.onNode(hasText(UNKNOWN_TITLE) and hasStateDescription).assert(saysUnread)
     }
 
     @Test
@@ -58,6 +58,6 @@ class NotificationUnreadA11yTest {
     private companion object {
         const val UNKNOWN_TITLE = "Notification"
         val hasStateDescription = SemanticsMatcher.keyIsDefined(SemanticsProperties.StateDescription)
-        val isUnread = SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Unread")
+        val saysUnread = SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Unread")
     }
 }

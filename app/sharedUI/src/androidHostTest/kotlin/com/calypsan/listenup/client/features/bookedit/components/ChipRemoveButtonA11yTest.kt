@@ -41,7 +41,7 @@ class ChipRemoveButtonA11yTest {
 
         composeRule
             .onNodeWithContentDescription("Remove Favourites")
-            .assert(isButton)
+            .assert(hasButtonRole)
             .assertTouchTargetAtLeast()
     }
 
@@ -60,9 +60,11 @@ class ChipRemoveButtonA11yTest {
 
         composeRule
             .onNodeWithContentDescription("Remove Robert Galbraith")
-            .assert(isButton)
+            .assert(hasButtonRole)
             .assertTouchTargetAtLeast()
     }
 
-    private val isButton = SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button)
+    private companion object {
+        val hasButtonRole = SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button)
+    }
 }

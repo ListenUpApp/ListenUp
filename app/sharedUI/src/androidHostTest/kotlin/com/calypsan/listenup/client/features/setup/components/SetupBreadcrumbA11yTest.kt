@@ -29,7 +29,7 @@ class SetupBreadcrumbA11yTest {
 
         composeRule
             .onNodeWithContentDescription("Root folder")
-            .assert(isButton)
+            .assert(hasButtonRole)
             .assertTouchTargetAtLeast()
     }
 
@@ -39,7 +39,7 @@ class SetupBreadcrumbA11yTest {
 
         composeRule
             .onNodeWithText("audiobooks")
-            .assert(isButton)
+            .assert(hasButtonRole)
             .assertTouchTargetAtLeast()
     }
 
@@ -51,5 +51,7 @@ class SetupBreadcrumbA11yTest {
         }
     }
 
-    private val isButton = SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button)
+    private companion object {
+        val hasButtonRole = SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button)
+    }
 }
