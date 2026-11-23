@@ -109,6 +109,42 @@ class AbsMetadataReaderTest :
             }
         }
 
+        /** Reads a metadata.json holding [body]. */
+        suspend fun readJson(body: String): AbsMetadata? {
+            val tmp = Files.createTempDirectory("listenup-md-")
+            try {
+                val file = tmp / "metadata.json"
+                file.writeText(body)
+                return reader.read(IoPath(file.toString()))
+            } finally {
+                tmp.toFile().deleteRecursively()
+            }
+        }
+
+        test("publishedYear is read from the strings ABS writes, dates included, keeping the rest of the file") {
+            runTest {
+                // ABS stores publishedYear as a string, filled verbatim from the audio file's date tag.
+                mapOf(
+                    "\"2010\"" to 2010,
+                    "\"2011-05-03\"" to 2011,
+                    "\"2011-05-03T00:00:00Z\"" to 2011,
+                    "2010" to 2010,
+                    "\"\"" to null,
+                    "\"unknown\"" to null,
+                ).forEach { (raw, expected) ->
+                    val md = readJson("""{"title":"Kept","publishedYear":$raw}""").shouldNotBeNull()
+                    md.title shouldBe "Kept"
+                    md.publishedYear shouldBe expected
+                }
+            }
+        }
+
+        test("publishedYear falls back to the year of publishedDate") {
+            runTest {
+                readJson("""{"title":"Kept","publishedDate":"1999-01-02"}""").shouldNotBeNull().publishedYear shouldBe 1999
+            }
+        }
+
         test("parseSeriesEntries handles plain name (no #)") {
             reader.parseSeriesEntries(listOf("Standalone")) shouldBe listOf(SeriesEntry("Standalone"))
         }
