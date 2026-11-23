@@ -19,6 +19,9 @@ import kotlinx.io.files.SystemFileSystem
 
 private val logger = loggerFor<Walker>()
 
+/** The recovery folder ext-family filesystems create at their root; usually unreadable to the server. */
+private const val LOST_AND_FOUND = "lost+found"
+
 /**
  * Stage 1 of the scanner pipeline: enumerates every file beneath a library
  * root and emits one [FileEntry] per file the [SkipRules] don't filter out.
@@ -93,6 +96,8 @@ internal class Walker(
             }
         for (child in children) {
             if (skipByName(child)) continue
+            // Root level only: that is where a filesystem creates its recovery folder, and it is never a book.
+            if (child.name == LOST_AND_FOUND && containmentRoots.any { it.toString() == dir.toString() }) continue
             // The isSymlink probe precedes every other test: metadataOrNull follows links, so a
             // linked directory would otherwise look recursable and a linked file would look plain.
             if (isSymlink(child)) {

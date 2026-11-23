@@ -205,7 +205,11 @@ class ScannerRemovalSafetyTest :
 
                     gone.toFile().deleteRecursively()
                     withUnlistable(lostAndFound) {
-                        scanner.runFullScan().removedPaths() shouldContainExactly listOf("Author/Gone")
+                        val result = scanner.runFullScan()
+                        result.removedPaths() shouldContainExactly listOf("Author/Gone")
+                        // A filesystem's recovery folder is never a book: it does not switch the sweep off.
+                        result.fullScanAuthoritative shouldBe true
+                        result.errors.filterIsInstance<ScanError.FileUnreadable>().shouldBeEmpty()
                     }
                 }
             }
