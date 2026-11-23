@@ -7,6 +7,11 @@ import com.calypsan.listenup.api.dto.match.FieldDecision
 import com.calypsan.listenup.api.dto.match.ImageChoice
 import com.calypsan.listenup.api.dto.match.LabelSetChange
 import com.calypsan.listenup.api.dto.match.MatchReceipt
+import com.calypsan.listenup.api.dto.scanner.AnalyzedBook
+import com.calypsan.listenup.api.dto.scanner.CandidateBook
+import com.calypsan.listenup.api.dto.scanner.FileEntry
+import com.calypsan.listenup.api.dto.scanner.FileType
+import com.calypsan.listenup.api.dto.scanner.TrackEntry
 import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.api.metadata.BookField
 import com.calypsan.listenup.api.metadata.FieldSourceKind
@@ -19,6 +24,7 @@ import com.calypsan.listenup.server.sync.withCapturedFrames
 import com.calypsan.listenup.server.testing.shouldSucceed
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.nulls.shouldBeNull
@@ -33,6 +39,29 @@ private suspend fun MatchRig.applyCaptured(request: com.calypsan.listenup.api.dt
     withCapturedFrames { applier.apply(book(), request, US, appliedBy = "u1") }
 
 private fun AppResult<*>.error() = (this as AppResult.Failure).error
+
+/** What a rescan of [rootRelPath] reads from files that carry no ASIN — the scanner's tier-0 rewrite. */
+private fun scanWithoutAsin(
+    rootRelPath: String,
+    title: String,
+): AnalyzedBook {
+    val file =
+        FileEntry(
+            relPath = "$rootRelPath/01.m4b",
+            name = "01.m4b",
+            ext = "m4b",
+            size = 1024L,
+            mtimeMs = 0L,
+            inode = null,
+            fileType = FileType.AUDIO,
+        )
+    return AnalyzedBook(
+        candidate = CandidateBook(rootRelPath = rootRelPath, isFile = false, files = listOf(file)),
+        title = title,
+        asin = null,
+        tracks = listOf(TrackEntry(file = file)),
+    )
+}
 
 /** A request choosing the description only Hardcover offers; Hardcover must answer the Review that offers it. */
 private suspend fun MatchRig.hardcoverDescriptionRequest(): com.calypsan.listenup.api.dto.match.BookMatchApply {
@@ -113,6 +142,27 @@ class BookMatchApplyTest :
                             provenance[field]?.kind shouldBe FieldSourceKind.ENRICHMENT
                             provenance[field]?.provider shouldBe "audible"
                         }
+                }
+            }
+        }
+
+        test("a matched book keeps its ASIN and Audible link when a rescan of files without an ASIN rewrites it") {
+            withSqlDatabase {
+                runTest {
+                    val rig = MatchRig(this@withSqlDatabase)
+                    val seeded = rig.seedBook()
+                    rig.applier.apply(rig.book(), rig.fullRequest(), US, "u1").shouldSucceed()
+
+                    val stamp = rig.book().fieldProvenance[BookField.ASIN]
+                    stamp?.kind shouldBe FieldSourceKind.ENRICHMENT
+                    stamp?.provider shouldBe "audible"
+
+                    rig.books
+                        .resolveOrInsert(seeded.libraryId, seeded.folderId, scanWithoutAsin(seeded.rootRelPath, seeded.title))
+                        .shouldSucceed()
+                    val rescanned = rig.book()
+                    rescanned.asin shouldBe "B0X"
+                    rescanned.externalRefs.map { it.provider to it.id } shouldContain ("audible" to "B0X")
                 }
             }
         }
