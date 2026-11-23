@@ -55,11 +55,13 @@ jobs:
           bash tools/scripts/check-docker-debian-release.test.sh
           bash tools/scripts/check-docker-debian-release.sh
 
-      # Release's iOS lane runs revoke_ci_dev_certs.py against App Store Connect to stay under
-      # Apple's certificate cap. Run its offline unit + JWT signature tests here so script edits
-      # cannot break a release silently.
-      - name: Test iOS dev-cert cleanup script
-        run: python3 .github/scripts/test_revoke_ci_dev_certs.py
+      # Release's iOS lanes run revoke_ci_dev_certs.py (to stay under Apple's certificate cap) and
+      # submit_testflight_beta.py (to send each build to external testers) against App Store
+      # Connect. Run their offline tests here so script edits cannot break a release silently.
+      - name: Test iOS release scripts
+        run: |
+          python3 .github/scripts/test_revoke_ci_dev_certs.py
+          python3 .github/scripts/test_submit_testflight_beta.py
 
       # SwiftLint runs on Linux against .swift source (no Xcode needed) via the official
       # container, pinned (0.65.1 — keep CLAUDE.md's local-commands row in sync when bumping).

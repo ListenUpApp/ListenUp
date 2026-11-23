@@ -360,6 +360,42 @@ jobs:
             } >> "$GITHUB_STEP_SUMMARY"
           fi
 
+  # The upload above ends at App Store Connect. External testers get the build only after it is
+  # added to their group and passes Beta App Review, which every new version needs in full, so
+  # this sends it the moment Apple finishes processing instead of whenever someone next does it by
+  # hand. Waiting for processing takes 10–30 minutes; it runs here on Linux rather than holding the
+  # macOS runner. The groups are every external one, or those named in the TESTFLIGHT_GROUPS
+  # repository variable. Not a need of github-release: the release publishes without waiting.
+  ios-beta-review:
+    name: iOS → TestFlight external testers
+    runs-on: ubuntu-latest
+    needs: [set-version, ios]
+    if: ${{ inputs.ios && !inputs.ios_dry_run }}
+    timeout-minutes: 100
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.set-version.outputs.sha }}
+          sparse-checkout: .github/scripts
+
+      - name: Add the build to external groups and submit it for Beta App Review
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8_BASE64 }}
+          BUNDLE_ID: com.calypsan.listenup.client.ios
+          MARKETING_VERSION: ${{ needs.set-version.outputs.version }}
+          BUILD_NUMBER: ${{ github.run_number }}
+          TESTFLIGHT_GROUPS: ${{ vars.TESTFLIGHT_GROUPS }}
+        run: |
+          set -euo pipefail
+          export ASC_KEY_PATH="$RUNNER_TEMP/AuthKey.p8"
+          echo "$ASC_KEY_P8" | base64 -d > "$ASC_KEY_PATH"
+          python3 .github/scripts/submit_testflight_beta.py
+
   server:
     name: Server → GHCR
     # Pin to 24.04 so the builder's glibc matches what the runtime image provides:
