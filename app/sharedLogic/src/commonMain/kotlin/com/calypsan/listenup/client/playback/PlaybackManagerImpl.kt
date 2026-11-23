@@ -2,25 +2,11 @@
 package com.calypsan.listenup.client.playback
 
 import com.calypsan.listenup.api.error.AppError
-import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.api.sync.BookSyncPayload
-import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.client.data.local.db.AudioFileDao
-import com.calypsan.listenup.client.data.local.db.BookDao
-import com.calypsan.listenup.client.data.local.db.ChapterDao
-import com.calypsan.listenup.client.data.remote.RpcChannel
-import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
-import com.calypsan.listenup.client.domain.repository.ImageStorage
-import com.calypsan.listenup.client.domain.repository.LocalPreferences
-import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
-import com.calypsan.listenup.client.domain.repository.PlaybackPrepareRepository
-import com.calypsan.listenup.client.domain.repository.ServerConfig
-import com.calypsan.listenup.client.device.DeviceContext
-import com.calypsan.listenup.client.download.DownloadService
 import com.calypsan.listenup.client.playback.loudness.VolumeGain
+import com.calypsan.listenup.core.BookId
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -46,31 +32,12 @@ private const val POSITION_PERSIST_INTERVAL_MS = 10_000L
  * Default [PlaybackManager] implementation. See the interface KDoc on
  * [PlaybackManager] for the contract; this class is the sole production
  * realisation, wired into Koin as `single<PlaybackManager> { PlaybackManagerImpl(...) }`.
- *
- * LongParameterList suppressed: forwards the same heterogeneous playback-prep
- * collaborators to [PlaybackPreparer] (auth, 3 DAOs + repo, cover storage, progress,
- * codec negotiation, download). A parameter object would only bag them and ripples
- * into platform code that also constructs this class.
  */
-@Suppress("LongParameterList")
 internal class PlaybackManagerImpl(
-    serverConfig: ServerConfig,
-    playbackPreferences: PlaybackPreferences,
-    bookDao: BookDao,
-    audioFileDao: AudioFileDao,
-    chapterDao: ChapterDao,
-    imageStorage: ImageStorage,
-    progressTracker: ProgressTracker,
+    private val preparer: PlaybackPreparer,
     private val reporter: PlaybackProgressReporter,
-    tokenProvider: AudioTokenProvider,
-    deviceContext: DeviceContext,
-    downloadService: DownloadService,
-    prepareRepository: PlaybackPrepareRepository,
-    channel: RpcChannel<BookService>,
     private val scope: CoroutineScope,
-    bookSyncDomainHandler: SyncDomainHandler<BookSyncPayload>,
     private val playbackBandwidthCoordinator: PlaybackBandwidthCoordinator,
-    localPreferences: LocalPreferences,
     /**
      * When true, this instance is the reporter-based persistence owner: [setPlaybackState]
      * routes Playing/Paused transitions through [reporter] (position + listening span), and
@@ -89,31 +56,8 @@ internal class PlaybackManagerImpl(
      */
     private val persistTransitionsViaReporter: Boolean = true,
 ) : PlaybackManager {
-    private val preparer =
-        PlaybackPreparer(
-            serverConfig = serverConfig,
-            playbackPreferences = playbackPreferences,
-            bookDao = bookDao,
-            audioFileDao = audioFileDao,
-            chapterDao = chapterDao,
-            imageStorage = imageStorage,
-            progressTracker = progressTracker,
-            tokenProvider = tokenProvider,
-            deviceContext = deviceContext,
-            downloadService = downloadService,
-            prepareRepository = prepareRepository,
-            channel = channel,
-            scope = scope,
-            bookSyncDomainHandler = bookSyncDomainHandler,
-            localPreferences = localPreferences,
-        )
-
     override val currentBookId: StateFlow<BookId?>
         field = MutableStateFlow<BookId?>(null)
-
-    /** String version of [currentBookId] for Swift, where the value class crosses as a wrapper object. */
-    val currentBookIdString: StateFlow<String?>
-        field = MutableStateFlow<String?>(null)
 
     override val currentTimeline: StateFlow<PlaybackTimeline?>
         field = MutableStateFlow<PlaybackTimeline?>(null)
@@ -184,7 +128,6 @@ internal class PlaybackManagerImpl(
             preparedStart?.takeIf { it.first == bookId }?.second
                 ?: if (currentBookId.value == bookId) currentPositionMs.value else 0L
         currentBookId.value = bookId
-        currentBookIdString.value = bookId.value
         updatePosition(startMs)
         // A pause window left open by the PREVIOUS book must never leak a transition rewind
         // onto this one's first play, stacking on top of the prepare-time offset already
@@ -627,7 +570,6 @@ internal class PlaybackManagerImpl(
         playerObservationJob?.cancel()
         playerObservationJob = null
         currentBookId.value = null
-        currentBookIdString.value = null
         currentTimeline.value = null
         chapters.value = emptyList()
         currentChapter.value = null

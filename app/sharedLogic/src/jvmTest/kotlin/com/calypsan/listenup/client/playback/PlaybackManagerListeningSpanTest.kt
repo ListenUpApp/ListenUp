@@ -229,13 +229,24 @@ private fun buildManager(
         )
     val progressTracker = buildProgressTracker(scope = scope)
     return PlaybackManagerImpl(
-        serverConfig = serverConfig,
-        playbackPreferences = prefs,
-        bookDao = db.bookDao(),
-        audioFileDao = db.audioFileDao(),
-        chapterDao = db.chapterDao(),
-        imageStorage = imageStorage,
-        progressTracker = progressTracker,
+        preparer =
+            PlaybackPreparer(
+                serverConfig = serverConfig,
+                playbackPreferences = prefs,
+                bookDao = db.bookDao(),
+                audioFileDao = db.audioFileDao(),
+                chapterDao = db.chapterDao(),
+                imageStorage = imageStorage,
+                progressTracker = progressTracker,
+                tokenProvider = tokenProvider,
+                deviceContext = DeviceContext(type = DeviceType.Desktop),
+                downloadService = downloadService,
+                prepareRepository = testPlaybackPrepareRepository("af-0"),
+                channel = RpcChannel.forTest(mock<BookService>()),
+                scope = scope,
+                bookSyncDomainHandler = mock<SyncDomainHandler<BookSyncPayload>>(),
+                localPreferences = localPreferences,
+            ),
         reporter =
             PlaybackProgressReporter(
                 progressTracker = progressTracker,
@@ -244,15 +255,8 @@ private fun buildManager(
                 localPreferences = localPreferences,
                 nowMillis = nowMillis,
             ),
-        tokenProvider = tokenProvider,
-        deviceContext = DeviceContext(type = DeviceType.Desktop),
-        downloadService = downloadService,
-        prepareRepository = testPlaybackPrepareRepository("af-0"),
-        channel = RpcChannel.forTest(mock<BookService>()),
         scope = scope,
-        bookSyncDomainHandler = mock<SyncDomainHandler<BookSyncPayload>>(),
         playbackBandwidthCoordinator = FakePlaybackBandwidthCoordinator(),
-        localPreferences = localPreferences,
     )
 }
 

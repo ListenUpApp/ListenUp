@@ -130,23 +130,27 @@ class PlayerSessionFailedSwitchTest :
             val localPreferences: LocalPreferences = mock()
             every { localPreferences.autoRewindEnabled } returns MutableStateFlow(false)
             return PlaybackManagerImpl(
-                serverConfig = serverConfig,
-                playbackPreferences = FakePlaybackPreferences(),
-                bookDao = db.bookDao(),
-                audioFileDao = db.audioFileDao(),
-                chapterDao = db.chapterDao(),
-                imageStorage = imageStorage,
-                progressTracker = tracker,
+                preparer =
+                    PlaybackPreparer(
+                        serverConfig = serverConfig,
+                        playbackPreferences = FakePlaybackPreferences(),
+                        bookDao = db.bookDao(),
+                        audioFileDao = db.audioFileDao(),
+                        chapterDao = db.chapterDao(),
+                        imageStorage = imageStorage,
+                        progressTracker = tracker,
+                        tokenProvider = tokenProvider,
+                        deviceContext = DeviceContext(type = DeviceType.Phone),
+                        downloadService = downloadService,
+                        prepareRepository = testPlaybackPrepareRepository("af-a", "af-b"),
+                        channel = RpcChannel.forTest(mock<BookService>()),
+                        scope = scope,
+                        bookSyncDomainHandler = mock<SyncDomainHandler<BookSyncPayload>>(),
+                        localPreferences = localPreferences,
+                    ),
                 reporter = PlaybackProgressReporter(tracker, recorder = null, scope = scope, localPreferences = localPreferences),
-                tokenProvider = tokenProvider,
-                deviceContext = DeviceContext(type = DeviceType.Phone),
-                downloadService = downloadService,
-                prepareRepository = testPlaybackPrepareRepository("af-a", "af-b"),
-                channel = RpcChannel.forTest(mock<BookService>()),
                 scope = scope,
-                bookSyncDomainHandler = mock<SyncDomainHandler<BookSyncPayload>>(),
                 playbackBandwidthCoordinator = FakePlaybackBandwidthCoordinator(),
-                localPreferences = localPreferences,
                 persistTransitionsViaReporter = persistTransitionsViaReporter,
             )
         }

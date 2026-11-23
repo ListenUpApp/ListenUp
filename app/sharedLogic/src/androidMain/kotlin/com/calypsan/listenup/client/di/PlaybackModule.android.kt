@@ -1,18 +1,13 @@
 package com.calypsan.listenup.client.di
 
 import com.calypsan.listenup.client.playback.CachedAudioTokenProvider
-import com.calypsan.listenup.api.BookService
-import com.calypsan.listenup.api.sync.BookSyncPayload
-import com.calypsan.listenup.api.sync.SyncDomains
-import com.calypsan.listenup.client.data.remote.rpcChannel
-import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.playback.ManagedPlayerEngine
 import com.calypsan.listenup.client.playback.NoPlaybackStartGate
 import com.calypsan.listenup.client.playback.PlaybackManager
 import com.calypsan.listenup.client.playback.PlaybackManagerImpl
-import com.calypsan.listenup.client.playback.PlaybackStateProvider
 import com.calypsan.listenup.client.playback.PlaybackProgressReporter
 import com.calypsan.listenup.client.playback.PlaybackStartGate
+import com.calypsan.listenup.client.playback.PlaybackStateProvider
 import com.calypsan.listenup.client.playback.PlayerEngine
 import org.koin.core.module.Module
 import org.koin.core.qualifier.named
@@ -42,25 +37,14 @@ val androidPlaybackModule: Module =
             )
         }
 
+        playbackPreparerSingle()
+
         single<PlaybackManager> {
             PlaybackManagerImpl(
-                serverConfig = get(),
-                playbackPreferences = get(),
-                bookDao = get(),
-                audioFileDao = get(),
-                chapterDao = get(),
-                imageStorage = get(),
-                progressTracker = get(),
+                preparer = get(),
                 reporter = get(),
-                tokenProvider = get(),
-                deviceContext = get(),
-                downloadService = get(),
-                prepareRepository = get(),
-                channel = rpcChannel<BookService>(),
                 scope = get(),
-                bookSyncDomainHandler = get<SyncDomainHandler<BookSyncPayload>>(named(SyncDomains.BOOKS.name)),
                 playbackBandwidthCoordinator = get(),
-                localPreferences = get(),
                 // Android's Media3 `PlaybackService.PlayerListener` already persists
                 // book-relative transitions and records listening spans. Opt this class out
                 // of transition persistence so play/pause is not double-written to the outbox

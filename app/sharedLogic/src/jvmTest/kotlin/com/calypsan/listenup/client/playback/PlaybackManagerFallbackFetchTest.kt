@@ -155,14 +155,26 @@ class PlaybackManagerFallbackFetchTest :
 
             val localPreferences: LocalPreferences = mock()
             every { localPreferences.autoRewindEnabled } returns MutableStateFlow(false)
+            val scope = CoroutineScope(Job())
             return PlaybackManagerImpl(
-                serverConfig = serverConfig,
-                playbackPreferences = playbackPreferences,
-                bookDao = db.bookDao(),
-                audioFileDao = db.audioFileDao(),
-                chapterDao = db.chapterDao(),
-                imageStorage = imageStorage,
-                progressTracker = progressTracker,
+                preparer =
+                    PlaybackPreparer(
+                        serverConfig = serverConfig,
+                        playbackPreferences = playbackPreferences,
+                        bookDao = db.bookDao(),
+                        audioFileDao = db.audioFileDao(),
+                        chapterDao = db.chapterDao(),
+                        imageStorage = imageStorage,
+                        progressTracker = progressTracker,
+                        tokenProvider = tokenProvider,
+                        deviceContext = DeviceContext(type = DeviceType.Phone),
+                        downloadService = downloadService,
+                        prepareRepository = testPlaybackPrepareRepository("af-1", "af-2"),
+                        channel = channel,
+                        scope = scope,
+                        bookSyncDomainHandler = bookSyncDomainHandler,
+                        localPreferences = localPreferences,
+                    ),
                 reporter =
                     PlaybackProgressReporter(
                         progressTracker,
@@ -170,14 +182,7 @@ class PlaybackManagerFallbackFetchTest :
                         scope = CoroutineScope(Job()),
                         localPreferences = localPreferences,
                     ),
-                tokenProvider = tokenProvider,
-                deviceContext = DeviceContext(type = DeviceType.Phone),
-                downloadService = downloadService,
-                prepareRepository = testPlaybackPrepareRepository("af-1", "af-2"),
-                channel = channel,
-                scope = CoroutineScope(Job()),
-                bookSyncDomainHandler = bookSyncDomainHandler,
-                localPreferences = localPreferences,
+                scope = scope,
                 playbackBandwidthCoordinator = FakePlaybackBandwidthCoordinator(),
             )
         }

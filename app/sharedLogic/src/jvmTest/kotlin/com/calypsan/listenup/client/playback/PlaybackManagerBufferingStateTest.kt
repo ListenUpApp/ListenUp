@@ -84,13 +84,24 @@ class PlaybackManagerBufferingStateTest :
             val localPreferences: LocalPreferences = mock()
             every { localPreferences.autoRewindEnabled } returns MutableStateFlow(false)
             return PlaybackManagerImpl(
-                serverConfig = serverConfig,
-                playbackPreferences = playbackPreferences,
-                bookDao = db.bookDao(),
-                audioFileDao = db.audioFileDao(),
-                chapterDao = db.chapterDao(),
-                imageStorage = imageStorage,
-                progressTracker = progressTracker,
+                preparer =
+                    PlaybackPreparer(
+                        serverConfig = serverConfig,
+                        playbackPreferences = playbackPreferences,
+                        bookDao = db.bookDao(),
+                        audioFileDao = db.audioFileDao(),
+                        chapterDao = db.chapterDao(),
+                        imageStorage = imageStorage,
+                        progressTracker = progressTracker,
+                        tokenProvider = tokenProvider,
+                        deviceContext = DeviceContext(type = DeviceType.Phone),
+                        downloadService = downloadService,
+                        prepareRepository = testPlaybackPrepareRepository("af-0"),
+                        channel = RpcChannel.forTest(mock<BookService>()),
+                        scope = scope,
+                        bookSyncDomainHandler = mock<SyncDomainHandler<BookSyncPayload>>(),
+                        localPreferences = localPreferences,
+                    ),
                 reporter =
                     PlaybackProgressReporter(
                         progressTracker,
@@ -98,14 +109,7 @@ class PlaybackManagerBufferingStateTest :
                         scope = scope,
                         localPreferences = localPreferences,
                     ),
-                tokenProvider = tokenProvider,
-                deviceContext = DeviceContext(type = DeviceType.Phone),
-                downloadService = downloadService,
-                prepareRepository = testPlaybackPrepareRepository("af-0"),
-                channel = RpcChannel.forTest(mock<BookService>()),
                 scope = scope,
-                bookSyncDomainHandler = mock<SyncDomainHandler<BookSyncPayload>>(),
-                localPreferences = localPreferences,
                 playbackBandwidthCoordinator = bandwidthCoordinator,
             )
         }

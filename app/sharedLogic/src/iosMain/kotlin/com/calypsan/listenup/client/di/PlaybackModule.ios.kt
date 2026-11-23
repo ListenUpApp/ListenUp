@@ -1,20 +1,13 @@
 package com.calypsan.listenup.client.di
 
-import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.dto.auth.DeviceInfo
-import com.calypsan.listenup.core.IODispatcher
-import com.calypsan.listenup.core.appCoroutineExceptionHandler
-import com.calypsan.listenup.api.sync.BookSyncPayload
-import com.calypsan.listenup.api.sync.SyncDomains
-import com.calypsan.listenup.client.data.remote.rpcChannel
-import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.device.DeviceContext
 import com.calypsan.listenup.client.device.DeviceInfoProvider
 import com.calypsan.listenup.client.download.AppleDownloadEnqueuer
+import com.calypsan.listenup.client.download.AppleDownloadService
 import com.calypsan.listenup.client.download.DownloadEnqueuer
 import com.calypsan.listenup.client.download.DownloadFileManager
 import com.calypsan.listenup.client.download.DownloadService
-import com.calypsan.listenup.client.download.AppleDownloadService
 import com.calypsan.listenup.client.playback.AudioTokenProvider
 import com.calypsan.listenup.client.playback.EnginePlaybackStateProvider
 import com.calypsan.listenup.client.playback.NativePlayerEngine
@@ -23,6 +16,8 @@ import com.calypsan.listenup.client.playback.PlaybackProgressReporter
 import com.calypsan.listenup.client.playback.PlaybackStateProvider
 import com.calypsan.listenup.client.playback.PlayerEngine
 import com.calypsan.listenup.client.playback.ProgressTracker
+import com.calypsan.listenup.core.IODispatcher
+import com.calypsan.listenup.core.appCoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import org.koin.core.module.Module
@@ -129,25 +124,7 @@ internal val iosPlaybackModule: Module =
         }
 
         // Stateless playback-preparation pipeline — consumed directly by PlayerCoordinator
-        single {
-            PlaybackPreparer(
-                serverConfig = get(),
-                playbackPreferences = get(),
-                bookDao = get(),
-                audioFileDao = get(),
-                chapterDao = get(),
-                imageStorage = get(),
-                progressTracker = get(),
-                tokenProvider = get(),
-                deviceContext = get(),
-                downloadService = get(),
-                prepareRepository = get(),
-                channel = rpcChannel<BookService>(),
-                scope = get(qualifier = named(PLAYBACK_SCOPE)),
-                bookSyncDomainHandler = get<SyncDomainHandler<BookSyncPayload>>(named(SyncDomains.BOOKS.name)),
-                localPreferences = get(),
-            )
-        }
+        playbackPreparerSingle(named(PLAYBACK_SCOPE))
 
         // The shared player's engine (playerModule): Kotlin issues EngineCommands, Swift's PlayerCoordinator
         // executes them on AVAudioEngine and reports back. The sleep timer is playerModule's shared one.
