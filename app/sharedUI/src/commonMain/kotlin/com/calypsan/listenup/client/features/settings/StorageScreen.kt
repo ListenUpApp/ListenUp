@@ -85,6 +85,8 @@ import listenup.composeapp.generated.resources.settings_storage_size_files_one
 import listenup.composeapp.generated.resources.settings_you_can_redownload_books_anytime
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 
 /**
  * Storage management screen showing downloaded books and storage usage.
@@ -409,7 +411,7 @@ private fun DownloadedBooksHeading(modifier: Modifier = Modifier) {
     Text(
         text = stringResource(Res.string.settings_downloaded_books),
         style = MaterialTheme.typography.titleMedium,
-        modifier = modifier,
+        modifier = modifier.semantics { heading() },
     )
 }
 

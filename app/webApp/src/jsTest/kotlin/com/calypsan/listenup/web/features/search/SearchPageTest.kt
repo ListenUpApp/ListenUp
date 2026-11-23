@@ -403,6 +403,53 @@ class SearchPageTest :
             window.getComputedStyle(pill).cursor shouldBe window.getComputedStyle(row).cursor
         }
 
+        test("the results summary is a polite status a screen reader announces") {
+            val root =
+                searchPage(
+                    state =
+                        SearchUiState.Results(
+                            query = "dune",
+                            selectedTypes = emptySet(),
+                            result = searchResult(query = "dune", hits = listOf(bookHit("b1", "Dune"))),
+                        ),
+                )
+
+            (root.querySelector(".search-summary") as HTMLElement).getAttribute("role") shouldBe "status"
+        }
+
+        test("a search with no results is announced, not only drawn") {
+            val root =
+                searchPage(
+                    state =
+                        SearchUiState.Results(
+                            query = "zzzzz",
+                            selectedTypes = emptySet(),
+                            result = searchResult(query = "zzzzz", hits = emptyList()),
+                        ),
+                )
+
+            root.querySelector("[role=status] .is-noresults") shouldNotBe null
+        }
+
+        test("each result group is headed, and each See all names what it opens") {
+            val books = (1..5).map { bookHit("b$it", "Book $it") }
+            val people = (1..4).map { contributorHit("c$it", "Person $it") }
+            val root =
+                searchPage(
+                    state =
+                        SearchUiState.Results(
+                            query = "abc",
+                            selectedTypes = emptySet(),
+                            result = searchResult(query = "abc", hits = books + people),
+                        ),
+                )
+
+            root.querySelectorAll("h2.search-group-label").asList().map { it.textContent } shouldBe
+                listOf("Books", "Contributors")
+            root.querySelectorAll(".search-seeall").asList().map { (it as HTMLElement).getAttribute("aria-label") } shouldBe
+                listOf("See all books", "See all contributors")
+        }
+
         test("an ordinary row carries no Held pill") {
             val host = mounts.mount { SearchRow(hit = bookHit("b1", "Dune"), isOpenable = true, onOpen = {}) }
 

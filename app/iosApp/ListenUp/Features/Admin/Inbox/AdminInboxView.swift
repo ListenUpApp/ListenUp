@@ -237,6 +237,7 @@ struct AdminInboxView: View {
                     .foregroundStyle(Color.luTint)
                 Text(String(localized: "common.inbox"))
                     .font(.largeTitle.bold())
+                    .accessibilityAddTraits(.isHeader)
                 if ready.hasBooks {
                     subtitleRow(ready: ready)
                         .font(.subheadline)

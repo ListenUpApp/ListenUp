@@ -164,8 +164,9 @@ private struct SeeAllRowList<Row: View>: View {
 
 // MARK: - Type title
 
-private extension SearchSeeAllType {
-    /// The localized page title — the plural group name the main results already use.
+extension SearchSeeAllType {
+    /// The localized page title — the plural group name the main results already use, and the
+    /// name a group's "See all" button speaks.
     var title: String {
         switch self {
         case .book: String(localized: "library.books")

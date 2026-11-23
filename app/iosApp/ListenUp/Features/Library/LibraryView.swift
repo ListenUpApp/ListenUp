@@ -119,6 +119,8 @@ struct LibraryView: View {
                 UserAvatarView(user: user, size: 32)
             }
             .buttonStyle(.plain)
+            // The avatar alone reads as initials; the link is the way to the profile.
+            .accessibilityLabel(String(localized: "common.profile"))
         }
         // Multi-select on the Books tab is entered by long-pressing a cover (see BooksContent),
         // so the toolbar surfaces only a "Done" exit + the action bar once selecting — no idle

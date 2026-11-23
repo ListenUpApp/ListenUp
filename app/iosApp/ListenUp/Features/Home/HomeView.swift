@@ -63,6 +63,8 @@ struct HomeView: View {
                     UserAvatarView(user: user, size: 32)
                 }
                 .buttonStyle(.plain)
+                // The avatar alone reads as initials; the link is the way to the profile.
+                .accessibilityLabel(String(localized: "common.profile"))
             }
         }
         .bookSelectionChrome(selection)

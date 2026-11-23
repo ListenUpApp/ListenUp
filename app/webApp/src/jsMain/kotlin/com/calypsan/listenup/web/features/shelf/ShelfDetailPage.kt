@@ -20,6 +20,7 @@ import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
 import org.w3c.dom.HTMLElement
+import com.calypsan.listenup.web.design.SkeletonRegion
 
 private const val SHELF_COVER_WIDTH = 120
 
@@ -53,7 +54,7 @@ fun ShelfDetailPage(
         when (state) {
             is ShelfDetailUiState.Idle, is ShelfDetailUiState.Loading -> {
                 PageHeader(title = SHELF, pending = true)
-                Div(attrs = { classes("skel", "shelf-skel") })
+                SkeletonRegion { Div(attrs = { classes("skel", "shelf-skel") }) }
             }
 
             is ShelfDetailUiState.Error -> {

@@ -33,6 +33,7 @@ import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
+import com.calypsan.listenup.web.design.SkeletonRegion
 
 /** The last bar's label, sharedUI's `home_today` verbatim: the others keep their weekday letter. */
 private const val TODAY_LABEL = "Today"
@@ -206,7 +207,7 @@ internal fun LastSevenDays(
         UnderHeading(level = SECTION_HEADING_LEVEL) {
             when (stats) {
                 is HomeStatsUiState.Loading -> {
-                    Div(attrs = { classes("skel", "home-stats-skel") })
+                    SkeletonRegion { Div(attrs = { classes("skel", "home-stats-skel") }) }
                 }
 
                 is HomeStatsUiState.Empty -> {

@@ -171,6 +171,21 @@ struct AdminCollectionsView: View {
 
     // MARK: - Create sheet
 
+    private var canCreate: Bool {
+        !createName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private func createCollection() {
+        observer?.createCollection(name: createName)
+        showingCreateSheet = false
+        createName = ""
+    }
+
+    /// Return creates the collection under Save's own rule: an empty name does nothing.
+    private func createFromKeyboard() {
+        if canCreate { createCollection() }
+    }
+
     private var createSheet: some View {
         NavigationStack {
             Form {
@@ -179,7 +194,9 @@ struct AdminCollectionsView: View {
                     text: $createName,
                     entry: .words,
                     label: String(localized: "admin.collection_name"),
-                    icon: "folder.badge.plus"
+                    icon: "folder.badge.plus",
+                    submitLabel: .done,
+                    onSubmit: createFromKeyboard
                 )
             }
             .navigationTitle(String(localized: "admin.collection_new_collection"))
@@ -192,12 +209,8 @@ struct AdminCollectionsView: View {
                     }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(String(localized: "common.save")) {
-                        observer?.createCollection(name: createName)
-                        showingCreateSheet = false
-                        createName = ""
-                    }
-                    .disabled(createName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    Button(String(localized: "common.save")) { createCollection() }
+                        .disabled(!canCreate)
                 }
             }
         }
@@ -263,6 +276,9 @@ private struct CollectionTile: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
+                // A glyph and a bare number; VoiceOver hears "8 books".
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(ShelvesByOthersSection.bookCount(collection.bookCount))
             }
         }
         .contentShape(Rectangle())

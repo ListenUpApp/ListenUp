@@ -27,6 +27,7 @@ import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
+import com.calypsan.listenup.web.design.SkeletonRegion
 
 /**
  * Who else is on this book — the Book Detail side panel.
@@ -99,7 +100,7 @@ fun ReadersPage(
 
         when (state) {
             BookReadersUiState.Loading -> {
-                Div(attrs = { classes("skel", "rdr-skel") })
+                SkeletonRegion { Div(attrs = { classes("skel", "rdr-skel") }) }
             }
 
             BookReadersUiState.NoReaders -> {

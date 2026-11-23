@@ -25,6 +25,7 @@ import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.domain.model.BookContributor
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
+import androidx.compose.ui.semantics.Role
 
 /**
  * A (possibly folding) row of tappable contributor names.
@@ -126,7 +127,7 @@ fun ClickableContributorLine(
                     text = contributor.name,
                     style = tokenStyle,
                     color = nameColor,
-                    modifier = Modifier.clickable { onContributorClick(contributor.id) },
+                    modifier = Modifier.clickable(role = Role.Button) { onContributorClick(contributor.id) },
                 )
 
                 if (index < contributors.lastIndex) {

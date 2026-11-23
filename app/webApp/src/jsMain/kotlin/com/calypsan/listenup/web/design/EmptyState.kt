@@ -87,6 +87,22 @@ fun LoadingState(label: String = "Loading…") {
 }
 
 /**
+ * A page's own skeleton shape, said aloud: [label] in a polite live region, and the blocks in
+ * [skeleton] hidden from assistive tech — a grey block means nothing to a screen reader. Use this
+ * where a page keeps its own skeleton shape rather than [LoadingState]'s generic block.
+ */
+@Composable
+fun SkeletonRegion(
+    label: String = "Loading…",
+    skeleton: @Composable () -> Unit,
+) {
+    Div(attrs = { attr("role", "status") }) {
+        Span(attrs = { classes("sr-only") }) { Text(label) }
+        Div(attrs = { attr("aria-hidden", "true") }) { skeleton() }
+    }
+}
+
+/**
  * The level of the heading the current content sits under: 1 on a page (its H1), 2 inside a panel or
  * a titled section. [EmptyState] reads it to pick its own level.
  */

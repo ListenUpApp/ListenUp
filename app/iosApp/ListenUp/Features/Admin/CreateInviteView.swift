@@ -63,14 +63,7 @@ struct CreateInviteView: View {
         let validationField = observer.phase.validationField
         Form {
             Section(String(localized: "admin.whos_joining")) {
-                AppTextField(
-                    placeholder: String(localized: "common.email"),
-                    text: $email,
-                    entry: .email,
-                    label: String(localized: "common.email"),
-                    icon: "envelope",
-                    error: validationField == .email ? String(localized: "admin.valid_email_is_required") : nil
-                )
+                emailField(observer: observer, showsError: validationField == .email)
             }
             Section(String(localized: "admin.access_level")) {
                 SelectableOptionRow(
@@ -155,6 +148,20 @@ struct CreateInviteView: View {
     }
 
     // MARK: - Actions
+
+    private func emailField(observer: CreateInviteObserver, showsError: Bool) -> some View {
+        AppTextField(
+            placeholder: String(localized: "common.email"),
+            text: $email,
+            entry: .email,
+            label: String(localized: "common.email"),
+            icon: "envelope",
+            error: showsError ? String(localized: "admin.valid_email_is_required") : nil,
+            submitLabel: .done,
+            // Return sends the invite, under the same rule as the button.
+            onSubmit: { if !observer.phase.isSubmitting { submit(observer: observer) } }
+        )
+    }
 
     private func submit(observer: CreateInviteObserver) {
         observer.createInvite(email: email, role: role, expiresInDays: expiresInDays)

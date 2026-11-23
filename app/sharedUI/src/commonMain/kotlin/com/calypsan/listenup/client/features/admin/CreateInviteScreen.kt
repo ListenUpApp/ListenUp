@@ -88,6 +88,8 @@ import listenup.composeapp.generated.resources.common_member
 import listenup.composeapp.generated.resources.common_n_days
 import com.calypsan.listenup.client.design.theme.HeroInk
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 
 private const val ROLE_MEMBER = "member"
 private const val ROLE_ADMIN = "admin"
@@ -409,6 +411,7 @@ private fun SectionHeader(
             style = MaterialTheme.typography.labelLarge,
             fontWeight = FontWeight.Bold,
             color = accent,
+            modifier = Modifier.semantics { heading() },
         )
     }
 }

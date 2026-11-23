@@ -48,6 +48,7 @@ struct LibraryScanView: View {
 
             Text(String(localized: "library_setup.building_title"))
                 .font(isWide ? .largeTitle.bold() : .title.bold())
+                .accessibilityAddTraits(.isHeader)
                 .multilineTextAlignment(.center)
                 .padding(.top, Spacing.xl)
 

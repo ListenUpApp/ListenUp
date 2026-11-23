@@ -1191,6 +1191,7 @@
     "results_count_for": "%1$d results for “%2$s”",
     "searching": "Searching…",
     "see_all": "See all",
+    "see_all_group_a11y": "See all %1$s",
     "section_count": "(%1$d)",
     "search_placeholder": "Search books, authors, series...",
     "search_your_library": "Search your library",
@@ -2259,7 +2260,8 @@
     "item_count_one": "%1$d item",
     "folder_selected_count": "%1$d folder selected",
     "folders_selected_count": "%1$d folders selected",
-    "include_folder": "Include %1$s"
+    "include_folder": "Include %1$s",
+    "root_folder": "Root folder"
   },
   "scan": {
     "building_subtitle": "Building your library.",
@@ -2422,6 +2424,7 @@
     "type_campfire_invite": "Campfire invites",
     "type_registration_decision": "Registration decisions",
     "type_registration_approval": "Pending registrations",
+    "unread": "Unread",
     "unread_count_a11y": "%1$d unread",
     "settings_switch_a11y": "%1$s notifications for %2$s"
   },

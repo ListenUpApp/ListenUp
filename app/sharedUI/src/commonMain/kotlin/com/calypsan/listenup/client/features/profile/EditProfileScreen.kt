@@ -99,6 +99,8 @@ import listenup.composeapp.generated.resources.auth_confirm_password
 import listenup.composeapp.generated.resources.auth_first_name
 import listenup.composeapp.generated.resources.auth_last_name
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 
 private val CARD_CONTENT_PADDING = 20.dp
 private val SECTION_GAP = 16.dp
@@ -331,6 +333,7 @@ private fun ProfileSectionCard(
                 text = title,
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.ExtraBold,
+                modifier = Modifier.semantics { heading() },
             )
             if (subtitle != null) {
                 Spacer(modifier = Modifier.height(4.dp))

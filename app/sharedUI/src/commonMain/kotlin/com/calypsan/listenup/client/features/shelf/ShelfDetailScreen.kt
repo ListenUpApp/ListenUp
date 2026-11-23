@@ -98,6 +98,7 @@ import com.calypsan.listenup.client.design.theme.HeroInk
 import listenup.composeapp.generated.resources.shelf_stat_total
 import listenup.composeapp.generated.resources.shelf_stat_book
 import listenup.composeapp.generated.resources.shelf_stat_books
+import androidx.compose.ui.semantics.heading
 
 /**
  * Screen displaying a shelf's details and its books.
@@ -488,6 +489,7 @@ private fun ShelfHeroTexts(
             fontWeight = FontWeight.ExtraBold,
             color = MaterialTheme.colorScheme.onPrimaryContainer,
             textAlign = if (center) TextAlign.Center else TextAlign.LayoutStart,
+            modifier = Modifier.semantics { heading() },
         )
 
         Spacer(Modifier.height(16.dp))
@@ -566,7 +568,7 @@ private fun ShelfBooksHeader(
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.ExtraBold,
             color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.weight(1f).semantics { heading() },
         )
         if (showSortPill) {
             ShelfSortPill(sort = sort, onSortChange = onSortChange)
@@ -716,6 +718,7 @@ private fun ShelfDescription(
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.semantics { heading() },
         )
         Spacer(Modifier.height(8.dp))
         Text(

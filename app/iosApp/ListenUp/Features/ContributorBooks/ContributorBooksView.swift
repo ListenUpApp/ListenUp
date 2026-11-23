@@ -106,6 +106,7 @@ struct ContributorBooksView: View {
                 .font(.title.weight(.bold))
                 .foregroundStyle(.primary)
                 .lineLimit(2)
+                .accessibilityAddTraits(.isHeader)
             StatStrip(
                 stats: [
                     .init(value: "\(observer.totalBooks)", label: String(localized: "contributor.stat_books"))

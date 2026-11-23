@@ -172,6 +172,7 @@ struct BooksContent: View {
             .foregroundStyle(.primary)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.top, Spacing.xs)
+            .accessibilityAddTraits(.isHeader)
             .id(section.id)
     }
 

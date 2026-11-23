@@ -16,6 +16,7 @@ import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
+import com.calypsan.listenup.web.design.SkeletonRegion
 
 /**
  * Which notifications reach you, and how — one row per type, two channels each.
@@ -57,7 +58,7 @@ fun NotificationPrefsPage(
             }
 
             NotificationPrefsUiState.Loading -> {
-                Div(attrs = { classes("skel", "nprefs-skel") })
+                SkeletonRegion { Div(attrs = { classes("skel", "nprefs-skel") }) }
             }
         }
     }

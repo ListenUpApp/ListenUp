@@ -61,6 +61,7 @@ import listenup.composeapp.generated.resources.connect_version_prefix
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import com.calypsan.listenup.client.design.theme.HeroInk
+import androidx.compose.ui.semantics.heading
 
 /**
  * Server selection — the first screen of the connect flow. Lists servers discovered via mDNS
@@ -210,6 +211,7 @@ private fun NetworkHeader(
             text = stringResource(Res.string.connect_on_your_network).uppercase(),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.semantics { heading() },
         )
         CountBadge(count)
         Box(modifier = Modifier.weight(1f))

@@ -23,6 +23,7 @@ import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
 import kotlin.time.Duration.Companion.milliseconds
+import com.calypsan.listenup.web.design.SkeletonRegion
 
 /**
  * A listener: who they are, what they have been listening to, and what they have put on a shelf.
@@ -61,7 +62,7 @@ fun ProfilePage(
 
             UserProfileUiState.Loading, UserProfileUiState.Idle -> {
                 PageHeader(title = PROFILE, pending = true)
-                Div(attrs = { classes("skel", "prof-skel") })
+                SkeletonRegion { Div(attrs = { classes("skel", "prof-skel") }) }
             }
         }
     }

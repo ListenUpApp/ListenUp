@@ -1,14 +1,10 @@
 package com.calypsan.listenup.client.features.contributoredit.components
 
 import com.calypsan.listenup.client.design.components.ListenUpAlertDialog
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.size
-import androidx.compose.material3.Icon
 import androidx.compose.material3.InputChip
-import androidx.compose.material3.InputChipDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -16,7 +12,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.design.icons.ListenUpIcons
@@ -30,6 +25,7 @@ import listenup.composeapp.generated.resources.contributor_unmerge_aliasname
 import listenup.composeapp.generated.resources.contributor_unmerge_body
 import listenup.composeapp.generated.resources.contributor_unmerge_confirm
 import org.jetbrains.compose.resources.stringResource
+import com.calypsan.listenup.client.design.components.ChipRemoveButton
 
 /**
  * Always-visible "Also Known As" section: a contributor's aliases (AKAs) with a
@@ -101,13 +97,9 @@ private fun AliasChip(
         trailingIcon =
             onUnmerge?.let {
                 {
-                    Icon(
-                        imageVector = ListenUpIcons.CloseFilled,
+                    ChipRemoveButton(
                         contentDescription = stringResource(Res.string.contributor_remove_aliasname, alias),
-                        modifier =
-                            Modifier
-                                .size(InputChipDefaults.AvatarSize)
-                                .clickable { showConfirm = true },
+                        onRemove = { showConfirm = true },
                     )
                 }
             },

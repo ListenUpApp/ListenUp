@@ -21110,6 +21110,17 @@
         }
       }
     },
+    "library_setup.root_folder": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Root folder"
+          }
+        }
+      }
+    },
     "library_setup.select_at_least_one": {
       "extractionState": "manual",
       "localizations": {
@@ -24641,6 +24652,17 @@
         }
       }
     },
+    "notifications.unread": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unread"
+          }
+        }
+      }
+    },
     "notifications.unread_count_a11y": {
       "extractionState": "manual",
       "localizations": {
@@ -27552,6 +27574,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "See all"
+          }
+        }
+      }
+    },
+    "search.see_all_group_a11y": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "See all %1$@"
           }
         }
       }

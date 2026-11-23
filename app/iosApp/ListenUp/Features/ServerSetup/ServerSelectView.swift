@@ -93,6 +93,7 @@ struct ServerSelectView: View {
         HStack(spacing: 9) {
             Text(String(localized: "connect.on_your_network").uppercased())
                 .font(.footnote).foregroundStyle(.secondary)
+                .accessibilityAddTraits(.isHeader)
             Text("\(viewModel.servers.count)")
                 .font(.caption.weight(.bold)).foregroundStyle(.secondary)
                 .padding(.horizontal, Spacing.xs).padding(.vertical, 2)

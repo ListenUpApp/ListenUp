@@ -2,7 +2,6 @@ package com.calypsan.listenup.client.features.bookedit.components
 
 import androidx.compose.foundation.text.input.clearText
 import com.calypsan.listenup.client.design.components.rememberForwardingTextFieldState
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
@@ -11,7 +10,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.InputChip
-import androidx.compose.material3.InputChipDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -42,6 +40,7 @@ import listenup.composeapp.generated.resources.book_edit_add_genre
 import listenup.composeapp.generated.resources.book_edit_add_collection
 import listenup.composeapp.generated.resources.book_edit_add_mood
 import listenup.composeapp.generated.resources.book_edit_add_tag
+import com.calypsan.listenup.client.design.components.ChipRemoveButton
 
 /**
  * Classification section with genres and tags.
@@ -467,22 +466,14 @@ private fun GenreChip(
     genre: EditableGenre,
     onRemove: () -> Unit,
 ) {
-    val haptics = LocalHaptics.current
     InputChip(
         selected = false,
         onClick = { },
         label = { Text(genre.name) },
         trailingIcon = {
-            Icon(
-                imageVector = ListenUpIcons.CloseFilled,
+            ChipRemoveButton(
                 contentDescription = stringResource(Res.string.common_remove_name, genre.name),
-                modifier =
-                    Modifier
-                        .size(InputChipDefaults.AvatarSize)
-                        .clickable {
-                            haptics.press()
-                            onRemove()
-                        },
+                onRemove = onRemove,
             )
         },
     )
@@ -493,22 +484,14 @@ private fun TagChip(
     tag: EditableTag,
     onRemove: () -> Unit,
 ) {
-    val haptics = LocalHaptics.current
     InputChip(
         selected = false,
         onClick = { },
         label = { Text(tag.displayName()) },
         trailingIcon = {
-            Icon(
-                imageVector = ListenUpIcons.CloseFilled,
+            ChipRemoveButton(
                 contentDescription = stringResource(Res.string.common_remove_name, tag.displayName()),
-                modifier =
-                    Modifier
-                        .size(InputChipDefaults.AvatarSize)
-                        .clickable {
-                            haptics.press()
-                            onRemove()
-                        },
+                onRemove = onRemove,
             )
         },
     )
@@ -519,22 +502,14 @@ private fun MoodChip(
     mood: EditableMood,
     onRemove: () -> Unit,
 ) {
-    val haptics = LocalHaptics.current
     InputChip(
         selected = false,
         onClick = { },
         label = { Text(mood.displayName()) },
         trailingIcon = {
-            Icon(
-                imageVector = ListenUpIcons.CloseFilled,
+            ChipRemoveButton(
                 contentDescription = stringResource(Res.string.common_remove_name, mood.displayName()),
-                modifier =
-                    Modifier
-                        .size(InputChipDefaults.AvatarSize)
-                        .clickable {
-                            haptics.press()
-                            onRemove()
-                        },
+                onRemove = onRemove,
             )
         },
     )
@@ -545,22 +520,14 @@ private fun CollectionChip(
     collection: EditableCollection,
     onRemove: () -> Unit,
 ) {
-    val haptics = LocalHaptics.current
     InputChip(
         selected = false,
         onClick = { },
         label = { Text(collection.name) },
         trailingIcon = {
-            Icon(
-                imageVector = ListenUpIcons.CloseFilled,
+            ChipRemoveButton(
                 contentDescription = stringResource(Res.string.common_remove_name, collection.name),
-                modifier =
-                    Modifier
-                        .size(InputChipDefaults.AvatarSize)
-                        .clickable {
-                            haptics.press()
-                            onRemove()
-                        },
+                onRemove = onRemove,
             )
         },
     )

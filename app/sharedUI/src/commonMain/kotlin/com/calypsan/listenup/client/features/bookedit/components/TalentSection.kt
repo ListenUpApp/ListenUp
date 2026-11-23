@@ -53,6 +53,7 @@ import listenup.composeapp.generated.resources.book_edit_showing_offline_results
 import listenup.composeapp.generated.resources.book_edit_this_will_remove_contributorstoremovecount
 import listenup.composeapp.generated.resources.book_edit_add_role_placeholder
 import listenup.composeapp.generated.resources.book_edit_remove_role_title
+import com.calypsan.listenup.client.design.components.ChipRemoveButton
 
 /**
  * Talent section for managing contributors by role.

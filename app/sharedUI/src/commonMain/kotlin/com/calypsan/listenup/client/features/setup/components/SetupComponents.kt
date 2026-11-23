@@ -40,6 +40,8 @@ import com.calypsan.listenup.client.design.components.ExpressiveCheckbox
 import com.calypsan.listenup.client.design.theme.Spacing
 import listenup.composeapp.generated.resources.library_setup_include_folder
 import com.calypsan.listenup.client.design.theme.HeroInk
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import listenup.composeapp.generated.resources.library_setup_root_folder
 
 /** Soft decorative blob echoing the design hero. Purely cosmetic. */
 @Composable
@@ -74,7 +76,7 @@ fun SetupBreadcrumb(
                 Modifier
                     .height(36.dp)
                     .clip(CircleShape)
-                    .clickable { onNavigate("/") }
+                    .clickable(role = Role.Button) { onNavigate("/") }
                     .background(MaterialTheme.colorScheme.surfaceContainerHigh)
                     .padding(start = 12.dp, end = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -82,7 +84,7 @@ fun SetupBreadcrumb(
         ) {
             Icon(
                 imageVector = ListenUpIcons.Home,
-                contentDescription = null,
+                contentDescription = stringResource(Res.string.library_setup_root_folder),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(19.dp),
             )
@@ -91,6 +93,8 @@ fun SetupBreadcrumb(
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface,
+                // The glyph is the root's picture; the icon above carries its spoken name.
+                modifier = Modifier.clearAndSetSemantics {},
             )
         }
         segments.forEachIndexed { index, segment ->
@@ -112,7 +116,10 @@ fun SetupBreadcrumb(
                     },
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.clickable { onNavigate("/" + segments.take(index + 1).joinToString("/")) },
+                modifier =
+                    Modifier.clickable(role = Role.Button) {
+                        onNavigate("/" + segments.take(index + 1).joinToString("/"))
+                    },
             )
         }
     }

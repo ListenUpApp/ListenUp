@@ -187,6 +187,8 @@ private struct SearchListSectionHeader: View {
                 Button(String(localized: "search.see_all")) { onSeeAll(seeAllType) }
                     .font(.subheadline)
                     .textCase(nil)
+                    // Every group has a "See all"; VoiceOver hears which one this is.
+                    .accessibilityLabel(String(localized: .searchSeeAllGroupA11Y(seeAllType.title)))
             }
         }
     }
@@ -203,10 +205,12 @@ private struct SearchSectionHeader: View {
             Text(title)
                 .font(.headline)
                 .foregroundStyle(.secondary)
+                .accessibilityAddTraits(.isHeader)
             Spacer()
             if let seeAllType, let onSeeAll {
                 Button(String(localized: "search.see_all")) { onSeeAll(seeAllType) }
                     .font(.subheadline)
+                    .accessibilityLabel(String(localized: .searchSeeAllGroupA11Y(seeAllType.title)))
             }
         }
     }

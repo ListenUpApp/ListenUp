@@ -55,6 +55,8 @@ import listenup.composeapp.generated.resources.common_role
 import org.jetbrains.compose.resources.stringResource
 import com.calypsan.listenup.client.design.theme.HeroInk
 import listenup.composeapp.generated.resources.admin_user_details_title
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 
 /**
  * Screen for viewing a single user's details, and the way into their role and permissions.
@@ -210,7 +212,7 @@ private fun SectionHeading(
         text = text,
         style = MaterialTheme.typography.titleMedium,
         color = MaterialTheme.colorScheme.onSurface,
-        modifier = modifier.padding(bottom = 8.dp),
+        modifier = modifier.padding(bottom = 8.dp).semantics { heading() },
     )
 }
 

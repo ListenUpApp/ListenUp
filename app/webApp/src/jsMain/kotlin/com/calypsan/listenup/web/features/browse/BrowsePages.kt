@@ -18,6 +18,7 @@ import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
+import com.calypsan.listenup.web.design.SkeletonRegion
 
 /**
  * Every book carrying one tag or one mood.
@@ -39,7 +40,7 @@ fun BrowseFacetPage(
             BrowseFacetUiState.Loading -> {
                 Breadcrumb(trail = listOf(LIBRARY_CRUMB, "…"), onNavigate = { onOpenLibrary() })
                 PageHeader(title = LIBRARY_CRUMB, pending = true)
-                Div(attrs = { classes("skel", "brw-skel") })
+                SkeletonRegion { Div(attrs = { classes("skel", "brw-skel") }) }
             }
 
             is BrowseFacetUiState.NotFound -> {
@@ -81,7 +82,7 @@ fun GenreDestinationPage(
             GenreDestinationUiState.Loading -> {
                 Breadcrumb(trail = listOf(LIBRARY_CRUMB, "…"), onNavigate = { onOpenLibrary() })
                 PageHeader(title = GENRE, pending = true)
-                Div(attrs = { classes("skel", "brw-skel") })
+                SkeletonRegion { Div(attrs = { classes("skel", "brw-skel") }) }
             }
 
             GenreDestinationUiState.NotFound -> {

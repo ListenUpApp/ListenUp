@@ -20,6 +20,7 @@ import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Form
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Text
+import com.calypsan.listenup.web.design.SkeletonRegion
 
 /**
  * Create a shelf, or change one that exists.
@@ -79,7 +80,7 @@ fun ShelfEditPage(
         PageHeader(title = heading)
 
         if (state is CreateEditShelfUiState.LoadingExisting) {
-            Div(attrs = { classes("skel", "shelf-skel") })
+            SkeletonRegion { Div(attrs = { classes("skel", "shelf-skel") }) }
             return@Div
         }
 

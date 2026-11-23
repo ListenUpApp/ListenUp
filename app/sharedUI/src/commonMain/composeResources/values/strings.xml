@@ -1920,6 +1920,7 @@ One beautiful library.</string>
     <string name="library_setup_no_subfolders_select_hint">This folder has no subfolders. You can select it as a library location.</string>
     <string name="library_setup_open_folder">Open folder</string>
     <string name="library_setup_point_at_audiobooks">Point ListenUp at your audiobooks.</string>
+    <string name="library_setup_root_folder">Root folder</string>
     <string name="library_setup_select_at_least_one">Select at least one folder to continue.</string>
     <string name="library_setup_select_one_or_more">Select one or more folders where your audiobooks are stored.</string>
     <string name="library_setup_select_this_folder">Select this folder</string>
@@ -2241,6 +2242,7 @@ One beautiful library.</string>
     <string name="notifications_type_registration_decision">Registration decisions</string>
     <string name="notifications_unknown_subtitle">Update ListenUp to see this notification.</string>
     <string name="notifications_unknown_title">Notification</string>
+    <string name="notifications_unread">Unread</string>
     <string name="notifications_unread_count_a11y">%1$d unread</string>
     <string name="player_add_more_time">Add more time</string>
     <string name="player_airplay">AirPlay</string>
@@ -2506,6 +2508,7 @@ One beautiful library.</string>
     <string name="search_searching">Searching…</string>
     <string name="search_section_count">(%1$d)</string>
     <string name="search_see_all">See all</string>
+    <string name="search_see_all_group_a11y">See all %1$s</string>
     <string name="search_tab_all">All</string>
     <string name="search_try_a_different_search_term">Try a different search term</string>
     <string name="search_unavailable">Search unavailable</string>

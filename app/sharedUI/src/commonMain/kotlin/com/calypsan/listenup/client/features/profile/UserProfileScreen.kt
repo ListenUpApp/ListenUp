@@ -94,6 +94,7 @@ import listenup.composeapp.generated.resources.profile_stat_finished
 import listenup.composeapp.generated.resources.profile_stat_best
 import listenup.composeapp.generated.resources.profile_stat_streak
 import listenup.composeapp.generated.resources.profile_stat_listened
+import androidx.compose.ui.semantics.Role
 
 /**
  * Screen displaying a user's full profile — a color-blocked hero with the scallop avatar,
@@ -739,7 +740,7 @@ private fun ShelfTile(
                 .height(112.dp)
                 .clip(MaterialTheme.shapes.medium)
                 .background(container)
-                .clickable {
+                .clickable(role = Role.Button) {
                     haptics.press()
                     onClick()
                 },
@@ -787,7 +788,7 @@ private fun AddShelfTile(
                 .height(112.dp)
                 .clip(MaterialTheme.shapes.medium)
                 .border(2.dp, MaterialTheme.colorScheme.outlineVariant, MaterialTheme.shapes.medium)
-                .clickable {
+                .clickable(role = Role.Button) {
                     haptics.press()
                     onClick()
                 },
@@ -872,7 +873,7 @@ private fun RecentBookCard(
     val haptics = LocalHaptics.current
     Column(
         modifier =
-            modifier.clickable {
+            modifier.clickable(role = Role.Button) {
                 haptics.press()
                 onClick()
             },
