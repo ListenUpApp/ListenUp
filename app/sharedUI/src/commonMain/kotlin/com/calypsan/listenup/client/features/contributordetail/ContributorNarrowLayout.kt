@@ -37,6 +37,7 @@ import com.calypsan.listenup.client.features.contributoredit.components.remember
 import com.calypsan.listenup.client.features.library.BookCard
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailUiState
 import com.calypsan.listenup.client.presentation.contributordetail.RoleSection
+import com.calypsan.listenup.client.presentation.contributordetail.formatLifeDates
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.domain.BookProgress
 import listenup.composeapp.generated.resources.Res

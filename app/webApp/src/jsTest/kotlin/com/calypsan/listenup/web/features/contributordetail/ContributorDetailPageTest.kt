@@ -111,6 +111,56 @@ class ContributorDetailPageTest :
             (root.querySelector(".cd-delete") as HTMLElement).hasAttribute("disabled") shouldBe true
         }
 
+        fun aboutPanel(root: HTMLElement): HTMLElement? =
+            root.querySelectorAll("section").asList().map { it as HTMLElement }.firstOrNull { panel ->
+                panel.querySelector("header h2")?.textContent == "About"
+            }
+
+        test("who the person is: biography, other names, life dates and website") {
+            val base = readyContributor()
+            val root =
+                contributorDetailPage(
+                    base.copy(
+                        contributor =
+                            base.contributor.copy(
+                                description = "Born in Portland, Maine.\n\nWrites horror.",
+                                aliases = listOf("Richard Bachman", "John Swithen"),
+                                birthDate = "1947-09-21",
+                                website = "https://stephenking.com",
+                            ),
+                    ),
+                )
+
+            aboutPanel(root).shouldNotBeNull().textContent.orEmpty() shouldContain "Writes horror."
+            root.querySelector(".cd-aka")?.textContent shouldBe "aka Richard Bachman, John Swithen"
+            root.querySelector(".cd-life")?.textContent.orEmpty() shouldContain "Born"
+            root.querySelector(".cd-life")?.textContent.orEmpty() shouldContain "1947"
+            val site = (root.querySelector("a.cd-site") as? HTMLElement).shouldNotBeNull()
+            site.getAttribute("href") shouldBe "https://stephenking.com"
+            site.getAttribute("target") shouldBe "_blank"
+            site.getAttribute("rel") shouldBe "noopener noreferrer"
+        }
+
+        test("a person with none of those shows no About panel and no empty lines") {
+            val root = contributorDetailPage(readyContributor())
+
+            aboutPanel(root) shouldBe null
+            root.querySelector(".cd-aka") shouldBe null
+            root.querySelector(".cd-life") shouldBe null
+            root.querySelector(".cd-site") shouldBe null
+        }
+
+        test("a website that is not http(s) is shown as text, never as a link") {
+            val base = readyContributor()
+            val root =
+                contributorDetailPage(
+                    base.copy(contributor = base.contributor.copy(website = "javascript:alert(1)")),
+                )
+
+            root.querySelector("a.cd-site") shouldBe null
+            root.querySelector(".cd-site")?.textContent shouldBe "javascript:alert(1)"
+        }
+
         test("a failed delete says so, and can be dismissed") {
             // ⛔ A delete that did not happen leaves the contributor on screen looking untouched,
             // so silence here reads as success.
