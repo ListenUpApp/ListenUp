@@ -98,9 +98,43 @@ class ForgotPasswordPanelTest :
             host.typeInto("#auth-reset-code", "884213")
             host.typeInto("#auth-reset-password", "a-new-one")
             host.typeInto("#auth-reset-confirm", "a-new-one")
+            awaitFrame()
             (host.querySelector("button[type=submit]") as HTMLButtonElement).click()
 
             completed shouldBe ("884213" to "a-new-one")
+        }
+
+        test("Set new password waits for a code and a password") {
+            val host = panel(ForgotPasswordUiState.EnterCode("t1"))
+            val submit = host.querySelector("button[type=submit]") as HTMLButtonElement
+
+            submit.disabled shouldBe true
+            host.typeInto("#auth-reset-code", "884213")
+            awaitFrame()
+            submit.disabled shouldBe true
+            host.typeInto("#auth-reset-password", "a-new-one")
+            awaitFrame()
+            submit.disabled shouldBe false
+        }
+
+        test("a code being checked cannot be sent again, by the button or by Enter") {
+            // A second send would burn another of the ticket's limited attempts on the same code.
+            var completions = 0
+            val host =
+                panel(
+                    ForgotPasswordUiState.EnterCode("t1", isCompleting = true),
+                    onCompleteReset = { _, _ -> completions++ },
+                )
+
+            host.typeInto("#auth-reset-code", "884213")
+            host.typeInto("#auth-reset-password", "a-new-one")
+            host.typeInto("#auth-reset-confirm", "a-new-one")
+            awaitFrame()
+            (host.querySelector("button[type=submit]") as HTMLButtonElement).disabled shouldBe true
+            host.querySelector("form")?.dispatchEvent(Event("submit", EventInit(bubbles = true, cancelable = true)))
+            awaitFrame()
+
+            completions shouldBe 0
         }
 
         test("a mismatched confirmation never reaches the server") {
@@ -117,6 +151,7 @@ class ForgotPasswordPanelTest :
             host.typeInto("#auth-reset-code", "884213")
             host.typeInto("#auth-reset-password", "a-new-one")
             host.typeInto("#auth-reset-confirm", "a-new-onf")
+            awaitFrame()
             (host.querySelector("button[type=submit]") as HTMLButtonElement).click()
             awaitFrame()
 

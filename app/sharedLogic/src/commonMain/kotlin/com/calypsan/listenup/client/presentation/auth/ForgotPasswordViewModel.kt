@@ -113,7 +113,8 @@ class ForgotPasswordViewModel internal constructor(
 
     /**
      * Completes the reset with [code] plus [newPassword], using the ticket id of the current
-     * [ForgotPasswordUiState.EnterCode] state. A no-op if called from any other state.
+     * [ForgotPasswordUiState.EnterCode] state. A no-op if called from any other state, or while a
+     * previous submit is still in flight ([ForgotPasswordUiState.EnterCode.isCompleting]).
      *
      * A wrong code is not treated as a terminal failure — it surfaces the remaining attempt
      * budget on [ForgotPasswordUiState.EnterCode] so the user can retry, exactly mirroring
@@ -123,7 +124,11 @@ class ForgotPasswordViewModel internal constructor(
         code: String,
         newPassword: String,
     ) {
-        val ticketId = (state.value as? ForgotPasswordUiState.EnterCode)?.ticketId ?: return
+        val entering = state.value as? ForgotPasswordUiState.EnterCode ?: return
+        // A second submit while one is in flight would burn another of the limited attempts.
+        if (entering.isCompleting) return
+        val ticketId = entering.ticketId
+        state.value = entering.copy(isCompleting = true)
         viewModelScope.launch {
             when (val result = repository.completeReset(ticketId, code, newPassword)) {
                 is AppResult.Success -> {
@@ -146,6 +151,7 @@ class ForgotPasswordViewModel internal constructor(
                             latest.copy(
                                 attemptsRemaining = attemptsRemaining,
                                 error = result.error.message,
+                                isCompleting = false,
                             )
                     }
                 }
