@@ -49,17 +49,8 @@ struct AdminCollectionDetailView: View {
             readyBody(observer: observer, ready: ready)
                 .navigationTitle(ready.collectionName)
         case .error(let message):
-            VStack(spacing: 16) {
-                Image(systemName: "exclamationmark.triangle")
-                    .font(.largeTitle)
-                    .foregroundStyle(.secondary)
-                Text(message)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-            }
-            .padding()
-            .navigationTitle("")
+            LoadFailedView(message: message) { observer.retry() }
+                .navigationTitle("")
         }
     }
 

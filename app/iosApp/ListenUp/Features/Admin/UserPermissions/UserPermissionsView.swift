@@ -20,11 +20,7 @@ struct UserPermissionsView: View {
             case .ready(let ready):
                 content(ready)
             case .error(let message):
-                ContentUnavailableView(
-                    String(localized: "common.error"),
-                    systemImage: "exclamationmark.triangle",
-                    description: Text(message)
-                )
+                LoadFailedView(message: message) { observer?.retry() }
             }
         }
         .navigationTitle(String(localized: "common.permissions"))

@@ -43,11 +43,7 @@ struct OrganizeSettingsView: View {
         case .loading:
             LoadingStateView()
         case .error(let message):
-            ContentUnavailableView(
-                String(localized: "common.something_went_wrong"),
-                systemImage: "exclamationmark.triangle",
-                description: Text(message)
-            )
+            LoadFailedView(message: message) { observer.retry() }
         case .ready(let model):
             ready(model, observer: observer)
         }

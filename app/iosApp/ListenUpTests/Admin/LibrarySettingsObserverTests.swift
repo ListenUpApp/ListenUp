@@ -32,3 +32,22 @@ struct BrowserEntryModelTests {
         #expect(model.id == "/media/books")
     }
 }
+
+/// Try Again on a library-settings screen whose load failed reaches the shared ViewModel, which starts over.
+@Suite("LibrarySettings retry")
+@MainActor
+struct LibrarySettingsRetryTests {
+    @Test func tryAgainAfterAFailedLoadStartsTheLoadOver() async throws {
+        // No server is configured under test, so the first load fails.
+        let viewModel = Dependencies.shared.createLibrarySettingsViewModel()
+        let observer = LibrarySettingsObserver(viewModel: viewModel)
+        for _ in 0..<100 where !(viewModel.state.value is LibrarySettingsUiStateError) {
+            try await Task.sleep(for: .milliseconds(100))
+        }
+        try #require(viewModel.state.value is LibrarySettingsUiStateError)
+
+        observer.retry()
+
+        #expect(viewModel.state.value is LibrarySettingsUiStateLoading)
+    }
+}

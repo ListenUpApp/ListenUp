@@ -18,6 +18,11 @@ final class UserDetailObserver {
         bridge.bind(viewModel.state) { [weak self] in self?.apply($0) }
     }
 
+    // MARK: - Actions
+
+    /// Re-runs the load after it failed; the ViewModel ignores it in any other state.
+    func retry() { viewModel.retry() }
+
     // MARK: - State mapping
 
     private func apply(_ state: UserDetailUiState) {

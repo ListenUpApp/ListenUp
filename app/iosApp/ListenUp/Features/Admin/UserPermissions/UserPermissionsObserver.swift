@@ -20,6 +20,9 @@ final class UserPermissionsObserver {
 
     // MARK: - Actions
 
+    /// Re-runs the load after it failed; the ViewModel ignores it in any other state.
+    func retry() { viewModel.retry() }
+
     func selectPreset(_ preset: PermissionPreset) { viewModel.selectPreset(preset: preset) }
     func setPermission(_ permission: Permission, granted: Bool) {
         viewModel.setPermission(permission: permission, granted: granted)
