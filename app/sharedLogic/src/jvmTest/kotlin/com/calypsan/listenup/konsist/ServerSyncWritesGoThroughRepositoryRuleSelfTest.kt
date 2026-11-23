@@ -1,6 +1,7 @@
 package com.calypsan.listenup.konsist
 
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
 
 /**
@@ -11,48 +12,56 @@ import io.kotest.matchers.shouldBe
  * care about, and that told you nothing about whether the matcher actually fires. Meanwhile the
  * rule it "covered" had been matching zero declarations since the Exposed→SQLDelight migration.
  * A rule guarding a silent-corruption invariant earns a test that proves detection, so this plants
- * violations and demands they are caught, and plants safe code and demands it is not.
+ * violations and demands they are caught, and plants safe code and demands it is not — against the
+ * write labels the rule itself reads from the `.sq` files.
  */
 class ServerSyncWritesGoThroughRepositoryRuleSelfTest :
     FunSpec({
 
-        fun detect(source: String): String? =
-            ServerSyncWritesGoThroughRepositoryRule.WRITE_CALL
-                .find(source)
-                ?.run { groupValues[1] }
+        val writeLabels = ServerSyncWritesGoThroughRepositoryRule.syncableRootWriteLabels()
 
-        test("catches every write verb that bypasses the revision bump") {
+        fun detect(source: String): List<String> = ServerSyncWritesGoThroughRepositoryRule.rootTableWrites(source, writeLabels)
+
+        test("catches root-table writes whatever their name, including the ones a verb list missed") {
             val writes =
                 listOf(
-                    "db.shelvesQueries.insert(row)",
-                    "db.shelvesQueries.update(name = x, id = y)",
-                    "db.shelvesQueries.upsert(row)",
-                    "sql.genresQueries.updateParentId(parent_id = p, id = i)",
-                    "db.tagsQueries.deleteById(id)",
-                    "db.booksQueries.softDeleteById(id)",
-                    "db.shelfBooksQueries.deleteAllForShelf(shelfId)",
-                    "db.moodsQueries.insertOrReplace(row)",
+                    "db.booksQueries.clearManagedCover(id)",
+                    "db.booksQueries.setCoverColumns(a, b, id)",
+                    "db.booksQueries.touchRevision(rev, id)",
+                    "db.booksQueries.reviveById(id)",
+                    "sql.seriesQueries.setHierarchy(parent, id)",
+                    "db.contributorsQueries.repointMergedInto(to, from)",
+                    "db.collectionsQueries.setType(type, id)",
                 )
-            val undetected = writes.filter { detect(it) == null }
-            undetected shouldBe emptyList()
+            writes.filter { detect(it).isEmpty() } shouldBe emptyList()
         }
 
-        test("does not fire on reads") {
-            val reads =
+        test("does not fire on reads, on a non-syncable table, on an exempt column write, or in a comment") {
+            val clean =
                 listOf(
-                    "db.shelvesQueries.selectById(id).executeAsOne()",
-                    "db.tagsQueries.existsById(id)",
                     "db.booksQueries.selectIdsAboveRevision(cursor)",
-                    "db.genresQueries.descendantIds(prefix).executeAsList()",
+                    "db.tagsQueries.existsById(id)",
+                    "sql.usersQueries.updatePassword(hash, id)",
+                    "sql.bookRatingsQueries.setHardcoverSeen(0, book, user)",
+                    "// db.booksQueries.clearManagedCover(id)",
                 )
-            val falsePositives = reads.filter { detect(it) != null }
-            falsePositives shouldBe emptyList()
+            clean.filter { detect(it).isNotEmpty() } shouldBe emptyList()
         }
 
-        test("captures the queries wrapper name, which is what scopes the rule to syncable roots") {
-            // The rule only reports a hit when this capture is a syncable repository's root
-            // queries wrapper — so a write to a non-syncable table (users, sessions) is allowed.
-            detect("db.shelvesQueries.insert(row)") shouldBe "shelves"
-            detect("sql.userSettingsQueries.update(x)") shouldBe "userSettings"
+        test("names the queries wrapper and the label it caught") {
+            detect("db.booksQueries.clearManagedCover(id)") shouldContainExactly listOf("booksQueries.clearManagedCover")
+        }
+
+        test("a label is a write unless its statement is a SELECT") {
+            val sql =
+                """
+                -- a comment: notALabel:
+                readOne:
+                SELECT * FROM t WHERE id = ?;
+
+                touch:
+                UPDATE t SET x = 1;
+                """.trimIndent()
+            writeLabelsIn(sql) shouldBe setOf("touch")
         }
     })

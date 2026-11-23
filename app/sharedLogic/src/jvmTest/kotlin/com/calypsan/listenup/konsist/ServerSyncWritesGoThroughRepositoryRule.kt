@@ -1,7 +1,9 @@
 package com.calypsan.listenup.konsist
 
+import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
+import io.kotest.matchers.ints.shouldBeGreaterThanOrEqual
 import io.kotest.matchers.collections.shouldNotBeEmpty
 
 /**
@@ -26,17 +28,22 @@ import io.kotest.matchers.collections.shouldNotBeEmpty
  *
  * Detection is now `<root>Queries.<write>(` where `<root>` is a syncable repository's root queries
  * wrapper, discovered from the repositories themselves via [syncableRepositories] rather than
- * hard-coded — so a new domain is covered the day it lands.
+ * hard-coded — so a new domain is covered the day it lands — and `<write>` is any label in that
+ * root's `.sq` file whose statement is not a `SELECT` ([writeLabelsOf]). A verb guess once let
+ * `booksQueries.clearManagedCover(…)`, `setCoverColumns`, `touchRevision` and `reviveById` through.
  */
 class ServerSyncWritesGoThroughRepositoryRule :
     FunSpec({
 
         test("no direct SQLDelight writes against a syncable root table outside the repository layer") {
-            val syncableQueries = syncableRepositories().mapNotNull { it.queriesName }.toSet()
+            val writeLabels = syncableRootWriteLabels()
 
             // Vacuity guard. Replaces the predecessor's silent `return@test` — the exact mechanism
             // that let this rule pass green through the entire Exposed→SQLDelight migration.
-            syncableQueries.shouldNotBeEmpty()
+            writeLabels.keys.shouldNotBeEmpty()
+            withClue("write labels read from the syncable roots' .sq files: $writeLabels") {
+                writeLabels.values.sumOf { it.size } shouldBeGreaterThanOrEqual 60
+            }
 
             val offenders =
                 productionScope()
@@ -46,27 +53,55 @@ class ServerSyncWritesGoThroughRepositoryRule :
                     .filterNot { it.path.contains("/server/sync/") }
                     .filterNot { it.path.contains("/server/services/") }
                     .filterNot { file -> BULK_REWRITE_ALLOWLIST.any { file.path.endsWith(it) } }
-                    .flatMap { file ->
-                        WRITE_CALL
-                            .findAll(stripComments(file.text))
-                            .filter { it.groupValues[1] in syncableQueries }
-                            .map { "${it.groupValues[1]}Queries.${it.groupValues[2]}( in ${file.path}" }
-                    }.toList()
+                    .flatMap { file -> rootTableWrites(file.text, writeLabels).map { "$it( in ${file.path}" } }
+                    .toList()
 
             offenders.shouldBeEmpty()
         }
+
+        test("every non-synced-column exemption still names a write label of a syncable root") {
+            val writeLabels = syncableRootWriteLabels()
+            val stale =
+                NON_SYNCED_COLUMN_WRITES.keys.filterNot { call ->
+                    val (root, label) = call.split(".")
+                    label in writeLabels[root].orEmpty()
+                }
+            stale.shouldBeEmpty()
+        }
     }) {
     companion object {
+        /** `<root>Queries.<label>(` — a write when the label is a write statement of a syncable root. */
+        private val QUERIES_CALL = Regex("""\b([A-Za-z][A-Za-z0-9]*)Queries\s*\.\s*([A-Za-z][A-Za-z0-9]*)\s*\(""")
+
         /**
-         * Matches `<root>Queries.<write>(`. The write-verb alternation is the load-bearing part —
-         * a verb missing from it is a silent bypass — so [ServerSyncWritesGoThroughRepositoryRuleSelfTest]
-         * exercises it against planted samples rather than asserting it equals a copy of itself.
+         * `root.label` writes that touch a deliberately non-synced column, so they need no revision bump —
+         * each cites where the code says so.
          */
-        val WRITE_CALL =
-            Regex(
-                """\b([A-Za-z][A-Za-z0-9]*)Queries\.([A-Za-z]*(?:insert|update|delete|upsert|replace)[A-Za-z]*)\s*\(""",
-                RegexOption.IGNORE_CASE,
+        val NON_SYNCED_COLUMN_WRITES: Map<String, String> =
+            mapOf(
+                "bookRatings.setHardcoverSeen" to
+                    "records the Hardcover value the pull last saw; BookRatings.sq: \"Not a sync write: no revision bump\"",
             )
+
+        /** Each syncable root's queries name mapped to its `.sq` file's write labels. */
+        fun syncableRootWriteLabels(): Map<String, Set<String>> =
+            syncableRepositories()
+                .mapNotNull { it.queriesName }
+                .distinct()
+                .associateWith { writeLabelsOf(it) }
+
+        /** `rootQueries.label` for every syncable-root write in [source], comments stripped, exemptions removed. */
+        fun rootTableWrites(
+            source: String,
+            writeLabels: Map<String, Set<String>>,
+        ): List<String> =
+            QUERIES_CALL
+                .findAll(stripComments(source))
+                .filter { it.groupValues[2] in writeLabels[it.groupValues[1]].orEmpty() }
+                .map { "${it.groupValues[1]}.${it.groupValues[2]}" }
+                .filterNot { it in NON_SYNCED_COLUMN_WRITES }
+                .map { "${it.substringBefore('.')}Queries.${it.substringAfter('.')}" }
+                .toList()
 
         /**
          * Files that write a syncable root table directly **and** re-upsert every touched row
