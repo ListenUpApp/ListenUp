@@ -102,6 +102,7 @@ import listenup.composeapp.generated.resources.search_tab_all
 import listenup.composeapp.generated.resources.search_try_a_different_search_term
 import listenup.composeapp.generated.resources.shell_close_search
 import com.calypsan.listenup.client.design.components.RestrictedBookMarker
+import androidx.compose.ui.semantics.heading
 
 // Stable lazy-list item keys, shared across the compact list, the wide rail, and the See-all page
 // so a single hit keeps the same identity wherever it renders.
@@ -620,7 +621,7 @@ private fun BooksGrid(
  * non-null and a trailing "See all" affordance opens the full single-type page.
  */
 @Composable
-private fun GroupHeader(
+internal fun GroupHeader(
     title: String,
     count: Int,
     badgeContainer: Color,
@@ -641,6 +642,7 @@ private fun GroupHeader(
             style = MaterialTheme.typography.titleLargeEmphasized,
             fontWeight = FontWeight.ExtraBold,
             color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.semantics { heading() },
         )
         ScallopBadge(size = 34.dp, containerColor = badgeContainer) {
             Text(
@@ -789,6 +791,7 @@ private fun SeeAllTopBar(
             style = MaterialTheme.typography.headlineSmallEmphasized,
             fontWeight = FontWeight.ExtraBold,
             color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.semantics { heading() },
         )
     }
 }

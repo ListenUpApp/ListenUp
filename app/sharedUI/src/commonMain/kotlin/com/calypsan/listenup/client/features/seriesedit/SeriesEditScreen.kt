@@ -697,6 +697,7 @@ private fun SeriesStudioCard(
                         fontWeight = FontWeight.Bold,
                     ),
                 color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.semantics { heading() },
             )
             content()
         }

@@ -102,6 +102,8 @@ import listenup.composeapp.generated.resources.common_administration
 import listenup.composeapp.generated.resources.import_unknown
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 
 private val logger = KotlinLogging.logger {}
 
@@ -456,7 +458,7 @@ private fun SectionHeader(title: String) {
         style = MaterialTheme.typography.labelLarge,
         fontWeight = FontWeight.Bold,
         color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(start = 4.dp, top = 4.dp, bottom = 4.dp),
+        modifier = Modifier.padding(start = 4.dp, top = 4.dp, bottom = 4.dp).semantics { heading() },
     )
 }
 
