@@ -264,9 +264,57 @@ class AdminPageTest :
                     )
                 }
 
-            (host.querySelectorAll(".adm-row-actions button").item(1) as HTMLElement).click()
+            (host.querySelectorAll(".adm-row-actions button").item(0) as HTMLElement).click()
 
-            decision shouldBe ("r1" to false)
+            decision shouldBe ("r1" to true)
+        }
+
+        test("declining a password reset asks first; confirming declines it once") {
+            val decisions = mutableListOf<Pair<String, Boolean>>()
+            val host =
+                mounts.mount {
+                    page(
+                        state = AdminUiState.Ready(pendingPasswordResets = listOf(resetRequest("r1"))),
+                        onDecidePasswordReset = { id, approved -> decisions += id to approved },
+                    )
+                }
+
+            (host.querySelectorAll(".adm-row-actions button").item(1) as HTMLElement).click()
+            awaitFrame()
+
+            decisions shouldBe emptyList()
+            val dialog = host.querySelector("dialog.dlg").shouldNotBeNull()
+            dialog.textContent.orEmpty() shouldContain "Are you sure you want to deny the password reset for Ada?"
+
+            (dialog.querySelectorAll(".dlg-actions button").item(1) as HTMLElement).click()
+            awaitFrame()
+
+            decisions shouldBe listOf("r1" to false)
+            host.querySelector("dialog.dlg") shouldBe null
+        }
+
+        test("denying a registration asks first; confirming denies it once") {
+            val denied = mutableListOf<String>()
+            val host =
+                mounts.mount {
+                    page(
+                        state = AdminUiState.Ready(pendingUsers = listOf(user("u3", "Grace"))),
+                        onDenyUser = { denied += it },
+                    )
+                }
+
+            (host.querySelectorAll(".adm-row-actions button").item(1) as HTMLElement).click()
+            awaitFrame()
+
+            denied shouldBe emptyList()
+            val dialog = host.querySelector("dialog.dlg").shouldNotBeNull()
+            dialog.textContent.orEmpty() shouldContain
+                "Are you sure you want to deny the registration request from Grace? They will need to register again."
+
+            (dialog.querySelectorAll(".dlg-actions button").item(1) as HTMLElement).click()
+            awaitFrame()
+
+            denied shouldBe listOf("u3")
         }
 
         test("a minted reset code is shown once, and says so") {
