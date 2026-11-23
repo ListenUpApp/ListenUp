@@ -236,17 +236,14 @@ struct BookReadersSection: View {
             .foregroundStyle(.secondary)
         // The line above says how far; the bar draws it. The row's one VoiceOver label speaks the percent.
         if let pct = reader.progressPercent {
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    Capsule()
-                        .fill(Color.luFill)
-                    Capsule()
+            Capsule()
+                .fill(Color.luFill)
+                .overlay {
+                    ProgressFillShape(progress: Double(pct) / 100)
                         .fill(Color.listenUpOrange)
-                        .frame(width: geo.size.width * CGFloat(pct) / 100)
                 }
-            }
-            .frame(height: 5)
-            .frame(maxWidth: 150)
+                .frame(height: 5)
+                .frame(maxWidth: 150)
         }
     }
 

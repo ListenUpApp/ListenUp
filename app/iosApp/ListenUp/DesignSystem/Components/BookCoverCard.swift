@@ -160,21 +160,18 @@ struct BookCoverCard: View {
     }
 
     private func progressOverlay(progress: Float) -> some View {
-        GeometryReader { geo in
-            VStack {
-                Spacer()
-                ZStack(alignment: .leading) {
-                    // Background track
-                    Rectangle()
-                        .fill(Color.black.opacity(0.3))
-                        .frame(height: 4)
+        VStack(spacing: 0) {
+            Spacer(minLength: 0)
+            ZStack(alignment: .leading) {
+                // Background track
+                Rectangle()
+                    .fill(Color.black.opacity(0.3))
 
-                    // Progress fill
-                    Rectangle()
-                        .fill(Color.listenUpOrange)
-                        .frame(width: geo.size.width * CGFloat(progress), height: 4)
-                }
+                // Progress fill
+                ProgressFillShape(progress: Double(progress), cornerRadius: 0)
+                    .fill(Color.listenUpOrange)
             }
+            .frame(height: 4)
         }
         .clipShape(RoundedRectangle(cornerRadius: Radius.s))
     }
@@ -256,14 +253,11 @@ private struct BookCoverCardPreview: View {
                     .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
 
                 // Sample progress
-                GeometryReader { geo in
-                    VStack {
-                        Spacer()
-                        Rectangle()
-                            .fill(Color.listenUpOrange)
-                            .frame(width: geo.size.width * 0.6, height: 4)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
+                VStack(spacing: 0) {
+                    Spacer(minLength: 0)
+                    ProgressFillShape(progress: 0.6, cornerRadius: 0)
+                        .fill(Color.listenUpOrange)
+                        .frame(height: 4)
                 }
                 .clipShape(RoundedRectangle(cornerRadius: Radius.s))
             }
