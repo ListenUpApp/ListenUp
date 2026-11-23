@@ -39,8 +39,8 @@ import org.jetbrains.compose.web.dom.Text
  * system to an unreviewed pattern; "sign out all other devices" was the second destructive action, which is
  * where that pattern got decided. Two shapes of "are you sure" in one app was the thing to avoid.
  *
- * [CreateEditShelfUiState.Loaded] seeds the inputs by keying their `remember` on it. Re-seeding on
- * every emission would overwrite whatever the person had typed the moment anything else
+ * [CreateEditShelfUiState.Loaded] seeds the inputs once, by keying their `remember` on the last one
+ * seen. Re-seeding on every emission would overwrite whatever the person had typed the moment anything else
  * re-rendered; an effect would seed a frame late, which is a blank form on first paint.
  */
 @Composable
@@ -53,13 +53,13 @@ fun ShelfEditPage(
     onCancel: () -> Unit,
     hasChanges: (name: String, description: String, isPrivate: Boolean) -> Boolean = { _, _, _ -> false },
 ) {
-    val loaded = state as? CreateEditShelfUiState.Loaded
-    // Keyed on the loaded value, so the fields carry it from their very first composition rather
+    val opened = rememberOpenedShelf(state)
+    // Keyed on the opened shelf, so the fields carry it from their very first composition rather
     // than a frame later — and so a re-emission of the SAME shelf (a data class, so an equal key)
     // leaves whatever has been typed alone. Only a genuinely different shelf re-seeds.
-    var name by remember(loaded) { mutableStateOf(loaded?.name.orEmpty()) }
-    var description by remember(loaded) { mutableStateOf(loaded?.description.orEmpty()) }
-    var isPrivate by remember(loaded) { mutableStateOf(loaded?.isPrivate ?: false) }
+    var name by remember(opened) { mutableStateOf(opened?.name.orEmpty()) }
+    var description by remember(opened) { mutableStateOf(opened?.description.orEmpty()) }
+    var isPrivate by remember(opened) { mutableStateOf(opened?.isPrivate ?: false) }
     var confirmingDelete by remember { mutableStateOf(false) }
 
     val saving = state is CreateEditShelfUiState.Saving
@@ -68,7 +68,7 @@ fun ShelfEditPage(
             dirty =
                 holdsDraft(
                     isEditing,
-                    isLoaded = loaded != null,
+                    isLoaded = opened != null,
                     changed = hasChanges(name, description, isPrivate),
                 ),
         )
@@ -183,6 +183,21 @@ private fun DeleteShelfSection(
         },
         onDismiss = onDismiss,
     )
+}
+
+/**
+ * The shelf the form opened on, kept past `Loaded`.
+ *
+ * Save moves the state on to `Saving`, and a refusal on to `Error` and `Idle`. Keying the fields on
+ * the live state re-seeded them to empty there — pressing Save blanked the form, and a refused save
+ * left it blank. Only a genuinely different `Loaded` replaces the one held.
+ */
+@Composable
+private fun rememberOpenedShelf(state: CreateEditShelfUiState): CreateEditShelfUiState.Loaded? {
+    var opened by remember { mutableStateOf<CreateEditShelfUiState.Loaded?>(null) }
+    val loaded = state as? CreateEditShelfUiState.Loaded
+    if (loaded != null && loaded != opened) opened = loaded
+    return opened
 }
 
 /** Edit mode has nothing to lose until the shelf has loaded into the fields; create mode always does. */
