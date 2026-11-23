@@ -2,7 +2,9 @@ package com.calypsan.listenup.server.routes
 
 import com.calypsan.listenup.server.io.fileIoDispatcher
 import com.calypsan.listenup.server.io.hashBytesSha256
+import com.calypsan.listenup.server.io.isUnder
 import com.calypsan.listenup.server.io.readBytes
+import com.calypsan.listenup.server.librarywrite.resolvedForContainment
 import io.ktor.http.ContentType
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -62,12 +64,19 @@ internal data class BundleFile(
  * ETags derive from the raw file's SHA-256 plus [BundleEncoding.etagSuffix]: the variants are made
  * from the raw file in the same build, so the raw hash names all of them, and the suffix keeps a
  * cache from revalidating brotli bytes for a client that asked for gzip.
+ *
+ * **What is served:** only regular files whose resolved path lies strictly inside the resolved
+ * root — the raw file and each variant checked on its own. The route already refuses odd segments;
+ * this holds even if one slips past, and it is what refuses a symbolic link in the bundle that
+ * points out of it. The root is resolved once, so a root that is itself a link (an image mounting
+ * the bundle elsewhere) still serves; a root that cannot be resolved serves nothing.
  */
 internal class WebBundle(
     private val root: Path,
     private val files: WebBundleFiles,
     private val inMemoryLimit: Int = DEFAULT_IN_MEMORY_LIMIT,
 ) {
+    private val resolvedRoot: Path? = resolvedForContainment(root)
     private val mutex = Mutex()
     private val cache = HashMap<String, BundleFile>()
 
@@ -88,7 +97,7 @@ internal class WebBundle(
 
     private fun load(segments: List<String>): BundleFile? {
         val path = segments.fold(root) { acc, segment -> Path(acc, segment) }
-        if (!files.isRegularFile(path)) return null
+        if (!files.isRegularFile(path) || !isInsideRoot(path)) return null
 
         val raw = files.readBytes(path)
         val hash = hashBytesSha256(raw)
@@ -100,7 +109,7 @@ internal class WebBundle(
                 )
                 for (encoding in BundleEncoding.compressed) {
                     val variant = Path(path.parent ?: root, path.name + encoding.fileSuffix)
-                    if (!files.isRegularFile(variant)) continue
+                    if (!files.isRegularFile(variant) || !isInsideRoot(variant)) continue
                     put(
                         encoding,
                         representation(
@@ -113,6 +122,13 @@ internal class WebBundle(
                 }
             }
         return BundleFile(contentTypeFor(path.name), representations)
+    }
+
+    /** Whether [path] resolves — symbolic links followed — to somewhere strictly below the root. */
+    private fun isInsideRoot(path: Path): Boolean {
+        val root = resolvedRoot ?: return false
+        val resolved = resolvedForContainment(path) ?: return false
+        return resolved != root && resolved.isUnder(root)
     }
 
     private fun representation(

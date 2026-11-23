@@ -49,17 +49,21 @@ internal fun Route.webAppRoutes(
     install(WebResponseHeaders)
 
     get("/{path...}") {
+        // An empty segment is what `//` or a trailing slash leaves behind; it names nothing and
+        // carries no separator, so dropping it keeps `/library/` a reloadable deep link.
         val segments =
             call.parameters
                 .getAll("path")
                 .orEmpty()
                 .filter { it.isNotEmpty() }
+        if (!segments.all(::isPlainSegment)) {
+            call.respond(HttpStatusCode.NotFound)
+            return@get
+        }
 
         // Anything that is not a real file on disk falls back to the shell: client-side routing
         // means a deep link is a URL the user can reload or share, but only index.html exists.
-        // A traversal attempt lands here too, which is exactly right — it is not an error worth
-        // telling the caller about, it is simply not a file we serve.
-        val requested = segments.takeIf { it.isSafe() && it.isNotEmpty() }?.let { bundle.lookup(it) }
+        val requested = segments.takeIf { it.isNotEmpty() }?.let { bundle.lookup(it) }
         val file = requested ?: bundle.lookup(listOf(INDEX))
         if (file == null) {
             call.respond(HttpStatusCode.NotFound)
@@ -111,14 +115,18 @@ private fun String.namesEtag(etag: String): Boolean =
     split(',').map { it.trim().removePrefix("W/") }.any { it == etag || it == "*" }
 
 /**
- * Rejects any segment that could escape the web root.
+ * Whether [segment] is a plain file or directory name: not `.` or `..`, and free of separators and
+ * control characters.
  *
- * The path is rebuilt from routing segments rather than from the raw URL, so separators cannot
- * appear inside a segment — leaving `..` and `.` as the cases that matter. Checked explicitly
- * because this route hand-rolls static serving and therefore does not inherit Ktor's own
- * traversal protection.
+ * Ktor splits the path on the raw `/` and only then percent-decodes each segment, so `%2F`, `%5C`
+ * and `%00` all arrive *inside* a segment. No file the bundle ships has a name like that, so such a
+ * request is answered 404 before it reaches the disk. [WebBundle] confines every path it opens to
+ * the web root as well; this is the first of two checks, not the only one.
  */
-private fun List<String>.isSafe(): Boolean = none { it == ".." || it == "." }
+private fun isPlainSegment(segment: String): Boolean =
+    segment != "." &&
+        segment != ".." &&
+        segment.none { it == '/' || it == '\\' || it.isISOControl() }
 
 /**
  * The policy the web client is served under, because it keeps its tokens in `localStorage` and a
