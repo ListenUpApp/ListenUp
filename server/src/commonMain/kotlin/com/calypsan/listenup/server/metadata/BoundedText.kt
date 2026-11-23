@@ -1,5 +1,9 @@
 package com.calypsan.listenup.server.metadata
 
+import io.ktor.client.HttpClient
+import io.ktor.client.request.HttpRequestBuilder
+import io.ktor.client.request.prepareGet
+import io.ktor.client.request.preparePost
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsChannel
 import io.ktor.http.contentLength
@@ -37,5 +41,28 @@ internal suspend fun bodyAsTextBounded(
     }
     return buffer.readByteArray().decodeToString()
 }
+
+/**
+ * Issues a GET with [client] whose body has not been read when [handle] runs, so [bodyAsTextBounded] inside it
+ * caps the download itself.
+ *
+ * A plain `get()` runs Ktor's body-saving step, which pulls the whole response into memory before
+ * the caller resumes — a ceiling checked after that bounds nothing. The response is only valid
+ * inside [handle] and must not escape it; the connection is released when [handle] returns.
+ */
+internal suspend fun <T> streamingGet(
+    client: HttpClient,
+    url: String,
+    build: HttpRequestBuilder.() -> Unit = {},
+    handle: suspend (HttpResponse) -> T,
+): T = client.prepareGet(url, build).execute(handle)
+
+/** The POST twin of [streamingGet]: the same unread body, the same scope rule for the response. */
+internal suspend fun <T> streamingPost(
+    client: HttpClient,
+    url: String,
+    build: HttpRequestBuilder.() -> Unit = {},
+    handle: suspend (HttpResponse) -> T,
+): T = client.preparePost(url, build).execute(handle)
 
 private const val READ_CHUNK_BYTES = 8 * 1024

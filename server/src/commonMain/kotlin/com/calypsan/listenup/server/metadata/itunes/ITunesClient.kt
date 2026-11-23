@@ -2,13 +2,13 @@ package com.calypsan.listenup.server.metadata.itunes
 
 import com.calypsan.listenup.server.metadata.MAX_CATALOGUE_BODY_BYTES
 import com.calypsan.listenup.server.metadata.bodyAsTextBounded
+import com.calypsan.listenup.server.metadata.streamingGet
 import com.calypsan.listenup.server.metadata.retryAfterSeconds
 import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.map
 import com.calypsan.listenup.server.logging.loggerFor
 import io.ktor.client.HttpClient
-import io.ktor.client.request.get
 import io.ktor.client.request.parameter
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
@@ -99,46 +99,50 @@ class ITunesClient(
         try {
             log.debug { "iTunes cover search: title='$title' author='$author'" }
             rateLimiter.await()
-            val response =
-                httpClient.get(SEARCH_BASE_URL) {
+            streamingGet(
+                client = httpClient,
+                url = SEARCH_BASE_URL,
+                build = {
                     parameter("term", "$title $author")
                     parameter("media", AUDIOBOOK_MEDIA_TYPE)
                     parameter("entity", AUDIOBOOK_MEDIA_TYPE)
                     parameter("limit", DEFAULT_LIMIT)
-                }
-            when (response.status) {
-                HttpStatusCode.OK -> {
-                    try {
-                        val text =
-                            bodyAsTextBounded(response, maxBodyBytes)
-                                ?: return AppResult.Failure(
-                                    MetadataError.Malformed(debugInfo = "response body over $maxBodyBytes bytes"),
-                                )
-                        val results = json.decodeFromString<ITunesSearchResponse>(text).results
-                        log.debug { "iTunes cover search result: matches=${results.size}" }
-                        AppResult.Success(results)
-                    } catch (e: SerializationException) {
-                        AppResult.Failure(MetadataError.Malformed(debugInfo = e.message))
-                    } catch (e: IllegalArgumentException) {
-                        // kotlinx.serialization throws IAE for type mismatches in some cases.
-                        AppResult.Failure(MetadataError.Malformed(debugInfo = e.message))
+                },
+            ) { response ->
+                when (response.status) {
+                    HttpStatusCode.OK -> {
+                        try {
+                            val text =
+                                bodyAsTextBounded(response, maxBodyBytes)
+                                    ?: return@streamingGet AppResult.Failure(
+                                        MetadataError.Malformed(debugInfo = "response body over $maxBodyBytes bytes"),
+                                    )
+                            val results = json.decodeFromString<ITunesSearchResponse>(text).results
+                            log.debug { "iTunes cover search result: matches=${results.size}" }
+                            AppResult.Success(results)
+                        } catch (e: SerializationException) {
+                            AppResult.Failure(MetadataError.Malformed(debugInfo = e.message))
+                        } catch (e: IllegalArgumentException) {
+                            // kotlinx.serialization throws IAE for type mismatches in some cases.
+                            AppResult.Failure(MetadataError.Malformed(debugInfo = e.message))
+                        }
                     }
-                }
 
-                HttpStatusCode.TooManyRequests -> {
-                    log.warn { "iTunes cover search rate-limited: title='$title'" }
-                    AppResult.Failure(
-                        MetadataError.ExternalRateLimited(
-                            retryAfterSeconds = retryAfterSeconds(response.headers[HttpHeaders.RetryAfter]),
-                        ),
-                    )
-                }
+                    HttpStatusCode.TooManyRequests -> {
+                        log.warn { "iTunes cover search rate-limited: title='$title'" }
+                        AppResult.Failure(
+                            MetadataError.ExternalRateLimited(
+                                retryAfterSeconds = retryAfterSeconds(response.headers[HttpHeaders.RetryAfter]),
+                            ),
+                        )
+                    }
 
-                else -> {
-                    log.warn { "iTunes cover search failed: title='$title' status=${response.status.value}" }
-                    AppResult.Failure(
-                        MetadataError.ExternalUnavailable(debugInfo = "HTTP ${response.status.value}"),
-                    )
+                    else -> {
+                        log.warn { "iTunes cover search failed: title='$title' status=${response.status.value}" }
+                        AppResult.Failure(
+                            MetadataError.ExternalUnavailable(debugInfo = "HTTP ${response.status.value}"),
+                        )
+                    }
                 }
             }
         } catch (e: CancellationException) {

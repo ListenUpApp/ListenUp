@@ -2,13 +2,13 @@ package com.calypsan.listenup.server.metadata.audnexus
 
 import com.calypsan.listenup.server.metadata.MAX_CATALOGUE_BODY_BYTES
 import com.calypsan.listenup.server.metadata.bodyAsTextBounded
+import com.calypsan.listenup.server.metadata.streamingGet
 import com.calypsan.listenup.server.metadata.retryAfterSeconds
 import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.map
 import com.calypsan.listenup.server.logging.loggerFor
 import io.ktor.client.HttpClient
-import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.parameter
 import io.ktor.http.HttpHeaders
@@ -86,19 +86,22 @@ internal class AudnexusClient(
     ): AppResult<T?> =
         try {
             rateLimiter.await()
-            val response =
-                httpClient.get("$baseUrl$path") {
+            streamingGet(
+                client = httpClient,
+                url = "$baseUrl$path",
+                build = {
                     header("Accept", "application/json")
                     header("User-Agent", "ListenUp/1.0")
                     parameter("region", region)
                     extraParams.forEach { (k, v) -> parameter(k, v) }
-                }
+                },
+            ) { response ->
             when (response.status) {
                 HttpStatusCode.OK -> {
                     try {
                         val text =
                             bodyAsTextBounded(response, maxBodyBytes)
-                                ?: return AppResult.Failure(
+                                ?: return@streamingGet AppResult.Failure(
                                     MetadataError.Malformed(debugInfo = "response body over $maxBodyBytes bytes"),
                                 )
                         AppResult.Success(decode(text))
@@ -127,6 +130,7 @@ internal class AudnexusClient(
                     logger.warn { "Audnexus request failed: path=$path region=$region status=${response.status.value}" }
                     AppResult.Failure(MetadataError.ExternalUnavailable(debugInfo = "HTTP ${response.status.value}"))
                 }
+            }
             }
         } catch (e: CancellationException) {
             throw e

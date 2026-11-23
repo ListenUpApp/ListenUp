@@ -2,14 +2,15 @@ package com.calypsan.listenup.server.metadata.custom
 
 import com.calypsan.listenup.server.metadata.MAX_CATALOGUE_BODY_BYTES
 import com.calypsan.listenup.server.metadata.bodyAsTextBounded
+import com.calypsan.listenup.server.metadata.streamingGet
 import com.calypsan.listenup.server.metadata.retryAfterSeconds
 import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.logging.loggerFor
 import io.ktor.client.HttpClient
-import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.parameter
+import io.ktor.client.statement.HttpResponse
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.CancellationException
@@ -113,55 +114,66 @@ internal class CustomMetadataClient(
     ): AppResult<T?> =
         try {
             rateLimiter.await()
-            val response =
-                httpClient.get("$baseUrl$path") {
+            streamingGet(
+                client = httpClient,
+                url = "$baseUrl$path",
+                build = {
                     header("Accept", "application/json")
                     header("User-Agent", "ListenUp/1.0")
                     parameter("region", region)
                     asin?.takeIf { it.isNotBlank() }?.let { parameter("asin", it) }
                     title?.takeIf { it.isNotBlank() }?.let { parameter("title", it) }
                     author?.takeIf { it.isNotBlank() }?.let { parameter("author", it) }
-                }
-            when (response.status) {
-                HttpStatusCode.OK -> {
-                    try {
-                        val text =
-                            bodyAsTextBounded(response, maxBodyBytes)
-                                ?: return AppResult.Failure(
-                                    MetadataError.Malformed(debugInfo = "response body over $maxBodyBytes bytes"),
-                                )
-                        AppResult.Success(decode(text))
-                    } catch (e: SerializationException) {
-                        AppResult.Failure(MetadataError.Malformed(debugInfo = e.message))
-                    } catch (e: IllegalArgumentException) {
-                        AppResult.Failure(MetadataError.Malformed(debugInfo = e.message))
-                    }
-                }
-
-                HttpStatusCode.NotFound -> {
-                    AppResult.Success(null)
-                }
-
-                HttpStatusCode.TooManyRequests -> {
-                    logger.warn { "Custom provider rate-limited: base=$baseUrl path=$path region=$region" }
-                    AppResult.Failure(
-                        MetadataError.ExternalRateLimited(
-                            retryAfterSeconds = retryAfterSeconds(response.headers[HttpHeaders.RetryAfter]),
-                        ),
-                    )
-                }
-
-                else -> {
-                    logger.warn {
-                        "Custom provider request failed: base=$baseUrl path=$path status=${response.status.value}"
-                    }
-                    AppResult.Failure(MetadataError.ExternalUnavailable(debugInfo = "HTTP ${response.status.value}"))
-                }
-            }
+                },
+            ) { response -> respondTo(response = response, path = path, region = region, decode = decode) }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             logger.warn(e) { "Custom provider request errored: base=$baseUrl path=$path region=$region" }
             AppResult.Failure(MetadataError.ExternalUnavailable(debugInfo = e.message))
+        }
+
+    /** Maps one streaming [response] from [path] to the client's [AppResult] contract. */
+    private suspend fun <T> respondTo(
+        response: HttpResponse,
+        path: String,
+        region: String,
+        decode: (String) -> T,
+    ): AppResult<T?> =
+        when (response.status) {
+            HttpStatusCode.OK -> {
+                try {
+                    val text =
+                        bodyAsTextBounded(response, maxBodyBytes)
+                            ?: return AppResult.Failure(
+                                MetadataError.Malformed(debugInfo = "response body over $maxBodyBytes bytes"),
+                            )
+                    AppResult.Success(decode(text))
+                } catch (e: SerializationException) {
+                    AppResult.Failure(MetadataError.Malformed(debugInfo = e.message))
+                } catch (e: IllegalArgumentException) {
+                    AppResult.Failure(MetadataError.Malformed(debugInfo = e.message))
+                }
+            }
+
+            HttpStatusCode.NotFound -> {
+                AppResult.Success(null)
+            }
+
+            HttpStatusCode.TooManyRequests -> {
+                logger.warn { "Custom provider rate-limited: base=$baseUrl path=$path region=$region" }
+                AppResult.Failure(
+                    MetadataError.ExternalRateLimited(
+                        retryAfterSeconds = retryAfterSeconds(response.headers[HttpHeaders.RetryAfter]),
+                    ),
+                )
+            }
+
+            else -> {
+                logger.warn {
+                    "Custom provider request failed: base=$baseUrl path=$path status=${response.status.value}"
+                }
+                AppResult.Failure(MetadataError.ExternalUnavailable(debugInfo = "HTTP ${response.status.value}"))
+            }
         }
 }
