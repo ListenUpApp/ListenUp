@@ -34,6 +34,7 @@ import com.calypsan.listenup.client.presentation.genredestination.GenreDestinati
 import com.calypsan.listenup.client.presentation.genredestination.GenreDestinationViewModel
 import com.calypsan.listenup.core.GenreId
 import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.genre_no_books_in_genre
 import listenup.composeapp.generated.resources.common_back
 import listenup.composeapp.generated.resources.common_not_found
 import org.jetbrains.compose.resources.stringResource
@@ -92,7 +93,7 @@ fun GenreDestinationScreen(
 }
 
 @Composable
-private fun GenreDestinationContent(
+internal fun GenreDestinationContent(
     state: GenreDestinationUiState.Ready,
     onBackClick: () -> Unit,
     onBookClick: (String) -> Unit,
@@ -137,15 +138,21 @@ private fun GenreDestinationContent(
             FacetSectionHeader(bookCount = state.stats.bookCount, modifier = Modifier.padding(bottom = 12.dp))
         }
 
-        items(
-            items = state.books,
-            key = { it.id.value },
-        ) { book ->
-            BookCard(
-                cover = book.toCoverModel(),
-                onClick = { onBookClick(book.id.value) },
-                duration = book.formatDuration(),
-            )
+        if (state.books.isEmpty()) {
+            item(span = { GridItemSpan(maxLineSpan) }) {
+                EmptyFacetMessage(message = stringResource(Res.string.genre_no_books_in_genre))
+            }
+        } else {
+            items(
+                items = state.books,
+                key = { it.id.value },
+            ) { book ->
+                BookCard(
+                    cover = book.toCoverModel(),
+                    onClick = { onBookClick(book.id.value) },
+                    duration = book.formatDuration(),
+                )
+            }
         }
     }
 }

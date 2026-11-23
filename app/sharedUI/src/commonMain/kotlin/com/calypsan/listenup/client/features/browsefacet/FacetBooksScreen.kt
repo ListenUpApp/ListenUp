@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
@@ -40,6 +39,7 @@ import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.FacetKind
 import com.calypsan.listenup.client.features.genredestination.FacetHeroScaffold
+import com.calypsan.listenup.client.features.genredestination.EmptyFacetMessage
 import com.calypsan.listenup.client.features.genredestination.FacetSectionHeader
 import com.calypsan.listenup.client.features.genredestination.FacetHeroInk
 import com.calypsan.listenup.client.features.genredestination.HeroStatChip
@@ -163,7 +163,13 @@ private fun FacetBooksContent(
 
         if (state.books.isEmpty()) {
             item(span = { GridItemSpan(maxLineSpan) }) {
-                EmptyFacetMessage(kind = state.kind)
+                EmptyFacetMessage(
+                    message =
+                        when (state.kind) {
+                            FacetKind.Tag -> stringResource(Res.string.browse_facet_no_books_tag)
+                            FacetKind.Mood -> stringResource(Res.string.browse_facet_no_books_mood)
+                        },
+                )
             }
         } else {
             items(
@@ -237,25 +243,6 @@ private fun FacetHero(
                 )
             }
         }
-    }
-}
-
-/** Empty-state message shown when the facet exists but currently has no live books. */
-@Composable
-private fun EmptyFacetMessage(kind: FacetKind) {
-    Box(
-        modifier = Modifier.fillMaxWidth().padding(top = 48.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            text =
-                when (kind) {
-                    FacetKind.Tag -> stringResource(Res.string.browse_facet_no_books_tag)
-                    FacetKind.Mood -> stringResource(Res.string.browse_facet_no_books_mood)
-                },
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
     }
 }
 
