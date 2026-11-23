@@ -599,4 +599,106 @@ class CollectionRepositoryTest :
                 }
             }
         }
+
+        // ── Batch lookups: findByIds + listActiveGrantsForCollections ─────────────
+
+        test("findByIds returns live collections keyed by id and excludes deleted or missing rows") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val repo =
+                    CollectionRepository(
+                        db = sql,
+                        bus = ChangeBus(),
+                        registry = SyncRegistry(),
+                        driver = driver,
+                    )
+
+                runTest {
+                    repo.findByIds(emptyList()) shouldBe emptyMap()
+
+                    repo.upsert(
+                        CollectionSyncPayload(
+                            id = "col1",
+                            libraryId = "test-library",
+                            ownerId = "user1",
+                            name = "One",
+                            revision = 0L,
+                            updatedAt = 0L,
+                        ),
+                    )
+                    repo.upsert(
+                        CollectionSyncPayload(
+                            id = "col2",
+                            libraryId = "test-library",
+                            ownerId = "user1",
+                            name = "Two",
+                            revision = 0L,
+                            updatedAt = 0L,
+                        ),
+                    )
+                    repo.upsert(
+                        CollectionSyncPayload(
+                            id = "col3",
+                            libraryId = "test-library",
+                            ownerId = "user1",
+                            name = "Deleted",
+                            revision = 0L,
+                            updatedAt = 0L,
+                        ),
+                    )
+                    repo.softDelete("col3")
+
+                    val found = repo.findByIds(listOf("col1", "col2", "col1", "col3", "missing"))
+                    found.keys shouldBe setOf("col1", "col2")
+                    found.getValue("col1").name shouldBe "One"
+                    found.getValue("col2").name shouldBe "Two"
+                }
+            }
+        }
+
+        test("listActiveGrantsForCollections batches active grants across multiple collections") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("user2")
+                sql.seedTestUser("user3")
+                val bus = ChangeBus()
+                val registry = SyncRegistry()
+                val collectionRepo =
+                    CollectionRepository(db = sql, bus = bus, registry = registry, driver = driver)
+                val grantRepo =
+                    CollectionGrantRepository(db = sql, bus = bus, registry = registry, driver = driver)
+
+                runTest {
+                    grantRepo.listActiveGrantsForCollections(emptyList()).shouldBeEmpty()
+
+                    collectionRepo.upsert(
+                        CollectionSyncPayload(
+                            id = "col1",
+                            libraryId = "test-library",
+                            ownerId = "user1",
+                            name = "A",
+                            revision = 0L,
+                            updatedAt = 0L,
+                        ),
+                    )
+                    collectionRepo.upsert(
+                        CollectionSyncPayload(
+                            id = "col2",
+                            libraryId = "test-library",
+                            ownerId = "user1",
+                            name = "B",
+                            revision = 0L,
+                            updatedAt = 0L,
+                        ),
+                    )
+                    grantRepo.upsert(CollectionShareSyncPayload("s1", "col1", "user2", "user1", SharePermission.Read, 0L, 0L))
+                    grantRepo.upsert(CollectionShareSyncPayload("s2", "col2", "user3", "user1", SharePermission.Write, 0L, 0L))
+                    grantRepo.upsert(CollectionShareSyncPayload("s3", "col2", "user2", "user1", SharePermission.Read, 0L, 0L))
+                    grantRepo.softDeleteGrant("col2", "user2")
+
+                    val active = grantRepo.listActiveGrantsForCollections(listOf("col1", "col2", "col1", "missing"))
+                    active.map { it.id }.toSet() shouldBe setOf("s1", "s2")
+                }
+            }
+        }
     })

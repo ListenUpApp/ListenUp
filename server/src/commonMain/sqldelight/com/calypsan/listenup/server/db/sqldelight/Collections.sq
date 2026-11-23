@@ -65,6 +65,10 @@ SELECT * FROM collections WHERE id IN :ids;
 selectLiveById:
 SELECT * FROM collections WHERE id = :id AND deleted_at IS NULL;
 
+-- Live (non-tombstoned) collections by id set.
+selectLiveByIds:
+SELECT * FROM collections WHERE id IN :ids AND deleted_at IS NULL;
+
 -- Live inbox collection for a library (type = 'INBOX'); at most one by partial unique index.
 selectLiveInboxForLibrary:
 SELECT * FROM collections

@@ -66,6 +66,11 @@ listActiveUserGrantsForCollection:
 SELECT * FROM collection_grants
 WHERE collection_id = :collection_id AND principal_type = 'USER' AND deleted_at IS NULL;
 
+-- All active USER grants across a set of collections.
+listActiveUserGrantsForCollections:
+SELECT * FROM collection_grants
+WHERE collection_id IN :collection_ids AND principal_type = 'USER' AND deleted_at IS NULL;
+
 -- All active USER grants where the principal is the recipient.
 listActiveUserGrantsForPrincipal:
 SELECT * FROM collection_grants

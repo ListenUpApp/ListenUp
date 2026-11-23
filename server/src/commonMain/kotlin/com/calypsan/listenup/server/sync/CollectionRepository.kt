@@ -169,6 +169,21 @@ class CollectionRepository(
         }
 
     /**
+     * Returns all non-deleted collections matching [ids], keyed by collection id.
+     * Chunks reads at [SQLITE_IN_CHUNK] to stay under SQLite's bind-parameter limit.
+     */
+    suspend fun findByIds(ids: Collection<String>): Map<String, CollectionSyncPayload> {
+        val unique = ids.distinct()
+        if (unique.isEmpty()) return emptyMap()
+        return suspendTransaction(db) {
+            unique
+                .chunked(SQLITE_IN_CHUNK)
+                .flatMap { chunk -> db.collectionsQueries.selectLiveByIds(chunk).executeAsList() }
+                .associate { it.id to it.toSyncPayload() }
+        }
+    }
+
+    /**
      * Returns the live inbox collection for [libraryId], or null when none exists.
      *
      * At most one live inbox per library is enforced by a partial unique index; this query

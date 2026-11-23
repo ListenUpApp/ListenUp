@@ -13,10 +13,8 @@ import com.calypsan.listenup.api.error.CollectionError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.getOrElse
 import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
-import com.calypsan.listenup.api.sync.AccessScope
 import com.calypsan.listenup.api.sync.CollectionShareSyncPayload
 import com.calypsan.listenup.api.sync.CollectionSyncPayload
-import com.calypsan.listenup.api.sync.SyncControl
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.CollectionId
 import com.calypsan.listenup.core.LibraryId
@@ -27,54 +25,28 @@ import com.calypsan.listenup.server.auth.toContract
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
-import com.calypsan.listenup.server.logging.loggerFor
 import com.calypsan.listenup.server.services.BookRevisionTouch
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
 import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
-import kotlin.uuid.Uuid
 import kotlin.time.Clock
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
-
-private val log = loggerFor<CollectionServiceImpl>()
+import kotlin.uuid.Uuid
 
 private const val MAX_NAME_LENGTH = 200
-
-/**
- * Stripe count for [CollectionServiceImpl.bookLocks]. A power of two well above the concurrency a
- * self-hosted server sees, so same-stripe collisions between different books are rare and, when they
- * happen, cost only serialisation.
- */
-private const val BOOK_LOCK_STRIPES = 64
-
-/**
- * The largest scoped [AccessChanged][SyncControl.AccessChanged] delta the server will emit. Above
- * it — too many affected collections or books — the frame degrades to coarse (scope = null) and the
- * client re-derives its whole accessible library, which is cheaper than a huge targeted fetch. 200
- * comfortably covers every realistic single collection mutation while capping the pathological case.
- */
-internal const val DELTA_MAX_BOOKS = 200
 
 /**
  * Largest number of collections one book may be filed under in a single
  * [CollectionServiceImpl.setBookCollections] call. The picker that produces this list is a checkbox
  * over the caller's visible collections and a real save carries a handful; a book filed under more
- * than this many is not a shelf anyone browses. Every id costs a `findById` round trip and, when
- * added, a junction-row write, so the bound belongs here next to the work rather than being left to
- * the transport's frame cap. 200 mirrors `MAX_CONTRIBUTORS_PER_BOOK` in `BookServiceImpl`, the same
- * shape of per-book list.
+ * than this many is not a shelf anyone browses. 200 mirrors `MAX_CONTRIBUTORS_PER_BOOK` in
+ * `BookServiceImpl`, the same shape of per-book list.
  */
 internal const val MAX_COLLECTIONS_PER_BOOK = 200
 
 /**
  * The failure for a [CollectionServiceImpl.setBookCollections] target set larger than
- * [MAX_COLLECTIONS_PER_BOOK], or `null` when [collectionIds] is within the bound. Bounds the set
- * before it becomes a lookup and a row write per id; an over-cap set is rejected outright rather
- * than truncated, because a partial replace-set would silently drop memberships. Top-level to keep
- * the class body lean.
+ * [MAX_COLLECTIONS_PER_BOOK], or `null` when [collectionIds] is within the bound.
  */
 private fun overCollectionCap(collectionIds: List<CollectionId>): CollectionError.InvalidInput? =
     if (collectionIds.size > MAX_COLLECTIONS_PER_BOOK) {
@@ -86,152 +58,15 @@ private fun overCollectionCap(collectionIds: List<CollectionId>): CollectionErro
     }
 
 /**
- * Logs a discarded `collection_books` upsert [error] for [bookId]/[collectionId], tagged [op] —
- * #1226's three call sites ([CollectionServiceImpl.setBookCollections],
- * [CollectionServiceImpl.releaseBooks], the reconcile) that used to swallow this silently.
- */
-private fun logFailedMembershipWrite(
-    op: String,
-    bookId: String,
-    collectionId: String,
-    error: AppError,
-) {
-    log.error { "$op: membership write failed for book=$bookId collection=$collectionId — $error" }
-}
-
-/**
- * Logs that [op] skipped the ALL_BOOKS reconcile for [bookId] after a failed membership write
- * above it — see [CollectionServiceImpl.setBookCollections] / [CollectionServiceImpl.releaseBooks].
- */
-private fun logSkippedReconcile(
-    op: String,
-    bookId: String,
-) {
-    log.warn { "$op: skipping reconcile for book=$bookId after a failed membership write" }
-}
-
-/**
- * Upserts [payload] via this repository, logging (tagged [op]) and returning `false` on a write
- * failure instead of discarding the [AppResult] — #1226's single choke point for the three call
- * sites in [CollectionServiceImpl] that used to swallow this silently.
- */
-private suspend fun CollectionBookRepository.upsertOrLog(
-    op: String,
-    payload: CollectionBookSyncPayload,
-): Boolean {
-    val result = upsert(payload)
-    if (result is AppResult.Failure) {
-        logFailedMembershipWrite(
-            op = op,
-            bookId = payload.bookId,
-            collectionId = payload.collectionId,
-            error = result.error,
-        )
-        return false
-    }
-    return true
-}
-
-/** What releasing one book out of the inbox did. */
-private enum class BookRelease {
-    /** It was held and has left the inbox for its targets. */
-    RELEASED,
-
-    /** It was no longer held — another release took it first — so nothing was written. */
-    NOT_HELD,
-
-    /** A write faulted and the book was rolled back whole: still held, exactly as before. */
-    FAILED,
-}
-
-/**
- * Releases one held book via [CollectionBookRepository.releaseFromInbox] under its book [lock].
- * The lock keeps a concurrent single-book mutation (`setBookCollections`, a reconcile) from moving
- * the INBOX row mid-release. A fault has already rolled the book back whole; it is logged and
- * answered as [BookRelease.FAILED], never propagated, so the books released before it in the same
- * call are still announced and reconciled.
- */
-private suspend fun CollectionBookRepository.releaseHeldBook(
-    lock: Mutex,
-    bookId: String,
-    inboxId: String,
-    targetIds: List<String>,
-    createdAt: Long,
-): BookRelease =
-    try {
-        val released =
-            lock.withLock {
-                releaseFromInbox(bookId = bookId, inboxId = inboxId, targetIds = targetIds, createdAt = createdAt)
-            }
-        if (released) BookRelease.RELEASED else BookRelease.NOT_HELD
-    } catch (e: CancellationException) {
-        throw e
-    } catch (e: Exception) {
-        log.error(e) { "releaseBooks: book=$bookId stayed held after a failed release" }
-        BookRelease.FAILED
-    }
-
-/** What a release of [requested] books answers: `Success` only when none of them stayed held. */
-private fun releaseOutcome(
-    failedBookIds: List<String>,
-    requested: Int,
-): AppResult<Unit> =
-    if (failedBookIds.isEmpty()) {
-        AppResult.Success(Unit)
-    } else {
-        AppResult.Failure(
-            CollectionError.ReleaseIncomplete(
-                failedBookIds = failedBookIds,
-                debugInfo = "${failedBookIds.size} of $requested books stayed held",
-            ),
-        )
-    }
-
-/**
- * Builds the recipient-agnostic [AccessScope] naming the entities an access change touched, or
- * `null` when the change is too large to delta ([maxBooks]) — the explicit, never-silent fallback to
- * a coarse re-derive. A pure function of the affected ids, so the emission sites can build the scope
- * without any per-user computation and a unit test can pin the threshold directly.
- */
-internal fun accessScopeFor(
-    collectionIds: Collection<String>,
-    bookIds: Collection<String>,
-    maxBooks: Int = DELTA_MAX_BOOKS,
-): AccessScope? {
-    val cols = collectionIds.toSet()
-    val books = bookIds.toSet()
-    if (cols.size > maxBooks || books.size > maxBooks) return null
-    return AccessScope(collectionIds = cols.toList(), bookIds = books.toList())
-}
-
-/**
  * [CollectionService] implementation.
  *
- * Resolves the authenticated caller from [principal] (never from request fields),
- * bridges the contract [UserRole] to the DB [UserRoleColumn] the
- * [CollectionAccessPolicy] speaks, and gates every operation through that policy.
+ * Resolves the authenticated caller from [principal] (never from request fields), bridges the
+ * contract [UserRole] to the DB [UserRoleColumn] the [CollectionAccessPolicy] speaks, and gates
+ * every operation through that policy.
  *
- * **Only admins write collections** ([createCollection] is admin-gated, and the policy gives
- * write permission to ROOT/ADMIN alone), so a member can never hide a public book by curating it.
- *
- * Access semantics deliberately distinguish "can't see" from "can see but can't":
- * - **Write-book** ([addBookToCollection], [removeBookFromCollection]) require write
- *   permission; a caller who can read but not write gets [AuthError.PermissionDenied],
- *   a caller who can't see it at all gets [CollectionError.NotFound] — we never leak the
- *   existence of a collection the caller has no relationship to.
- * - **Admin-only management** ([renameCollection], [deleteCollection]) require ROOT/ADMIN;
- *   a member who can read (even one owning a collection from before the admin-only rule)
- *   gets [AuthError.PermissionDenied], one who can't see it gets [CollectionError.NotFound].
- *
- * Route handlers call [copyWith] to bind each request to the authenticated principal;
- * the Koin singleton carries an unscoped placeholder that yields no principal.
- *
- * Sharing ([shareCollection], [revokeShare]) is admin-only —
- * gated through [manageGate] like rename/delete. System collections (ALL_BOOKS, INBOX) reject
- * both share mutations with [CollectionError.SystemCollectionReadOnly]; the default
- * ALL_BOOKS grants are managed exclusively by [DefaultAllBooksGrantIssuer]. The per-user
- * `AccessChanged` reconcile signal on share/unshare is Collections-1b (it depends on the
- * book-visibility layer); 1a just persists the share rows and emits the normal sync events.
+ * Route handlers call [copyWith] to bind each request to the authenticated principal; per-request
+ * copies share [accessNotifier] and [systemReconciler] (including its striped `bookLocks`) so
+ * concurrent requests serialise against the same per-book mutexes.
  */
 internal class CollectionServiceImpl(
     private val collectionRepo: CollectionRepository,
@@ -244,36 +79,19 @@ internal class CollectionServiceImpl(
     private val clock: Clock = Clock.System,
     private val bookRevisionTouch: BookRevisionTouch,
     private val principal: PrincipalProvider,
+    private val accessNotifier: CollectionAccessNotifier =
+        CollectionAccessNotifier(collectionRepo, grantRepo, bus),
+    private val systemReconciler: CollectionSystemReconciler =
+        CollectionSystemReconciler(
+            collectionRepo = collectionRepo,
+            collectionBookRepo = collectionBookRepo,
+            sql = sql,
+            clock = clock,
+            bookRevisionTouch = bookRevisionTouch,
+            accessNotifier = accessNotifier,
+        ),
 ) : CollectionService {
-    /**
-     * Striped locks serialising **membership mutation + [reconcileSystemMembership]** for one book.
-     *
-     * The reconcile reads the book's live memberships and then writes the system junction, and a
-     * suspend repo call cannot nest inside a non-suspend SQLDelight transaction body — so that
-     * read-then-write spans several independent commits. Ktor serves requests concurrently, so two
-     * mutations of the SAME book could interleave between the read and the write and settle on
-     * mutually stale decisions: the book ends up in a regular collection **and** ALL_BOOKS (a
-     * curated book made visible to every member — the #680/#730 leak class), or in **neither**
-     * (invisible, and nothing re-homes it until its memberships are next mutated).
-     *
-     * Fixed stripe count rather than a per-book map so the table cannot grow without bound and
-     * needs no eviction; two different books occasionally sharing a stripe merely serialises them,
-     * which is harmless. **Not reentrant** — [reconcileSystemMembership] deliberately does NOT take
-     * the lock itself; callers own it, so a caller holding the lock across mutation-then-reconcile
-     * cannot deadlock against its own reconcile.
-     *
-     * In-process only. A second server instance against the same database would reintroduce the
-     * race; closing that needs the write to be conditional in SQL, not a lock.
-     */
-    private val bookLocks = Array(BOOK_LOCK_STRIPES) { Mutex() }
-
-    /**
-     * The stripe guarding [bookId]. Stable for the process lifetime; collisions only over-serialise.
-     *
-     * `Int.mod` — never `%` — because `hashCode()` is signed and the remainder operator preserves the
-     * sign, which indexes the array out of bounds for any book whose hash is negative (about half).
-     */
-    private fun bookLock(bookId: String): Mutex = bookLocks[bookId.hashCode().mod(BOOK_LOCK_STRIPES)]
+    internal fun bookLock(bookId: String) = systemReconciler.bookLock(bookId)
 
     // ── Membership mutation ───────────────────────────────────────────────────
 
@@ -309,8 +127,9 @@ internal class CollectionServiceImpl(
         val caller = resolveCaller() ?: return noPrincipal()
         val decision = accessPolicy.decide(caller.userId, caller.role, id.value)
         manageGate(decision, caller.role)?.let { return AppResult.Failure(it) }
-        val systemIds = collectionRepo.systemCollectionIds()
-        if (id.value in systemIds) return AppResult.Failure(CollectionError.SystemCollectionReadOnly())
+        if (id.value in collectionRepo.systemCollectionIds()) {
+            return AppResult.Failure(CollectionError.SystemCollectionReadOnly())
+        }
 
         val trimmed = name.trim()
         if (trimmed.isEmpty() || trimmed.length > MAX_NAME_LENGTH) {
@@ -329,46 +148,26 @@ internal class CollectionServiceImpl(
         manageGate(decision, caller.role)?.let { return AppResult.Failure(it) }
 
         if (collectionRepo.findById(id.value) == null) return AppResult.Failure(CollectionError.NotFound())
-        val systemIds = collectionRepo.systemCollectionIds()
-        if (id.value in systemIds) return AppResult.Failure(CollectionError.SystemCollectionReadOnly())
+        if (id.value in collectionRepo.systemCollectionIds()) {
+            return AppResult.Failure(CollectionError.SystemCollectionReadOnly())
+        }
 
-        // Cascade: tombstone the membership rows, every active grant, then the collection. Each is
-        // a suspend repo call that opens its own SQLDelight transaction, so they run sequentially
-        // (they cannot nest inside a non-suspend SQLDelight transaction body). Sequential
-        // single-engine writes never contend for the lone SQLite write lock.
-        // Capture the live members BEFORE the cascade so we can re-home any book that loses its
-        // last real membership: deleting a collection must never strand a book with zero memberships.
+        // Capture affected books and audience before tombstoning; publish after writes commit so no
+        // client pulls stale rows before the cascade finishes.
         val affectedBookIds = collectionBookRepo.findBookIdsForCollection(id.value)
-        // S2: capture the collection's audience (owner + active grant recipients) and the scoped
-        // delta BEFORE the cascade — while the grants are still live — but PUBLISH the frame AFTER
-        // the cascade commits. Staging the audience keeps the "loses access in real time" guarantee
-        // for a member who could reach these books only via this collection; deferring the publish
-        // fixes the pre-existing race where the frame raced ahead of the membership/revision writes
-        // it points at, so a fast client could fetch stale rows.
-        val audience = accessChangedAudience(listOf(id.value))
+        val audience = accessNotifier.audienceFor(listOf(id.value))
         val scope = accessScopeFor(listOf(id.value), affectedBookIds)
         collectionBookRepo.softDeleteAllForCollection(id.value)
-        // A book whose only membership was this collection returns to ALL_BOOKS (reconcile bumps
-        // its revision + nudges ALL_BOOKS grant-holders so members re-derive the now-public book).
-        // Every affected book's revision is touched regardless, so a member whose access just changed
-        // re-derives visibility on their incremental `revision > cursor` pull (a book that stays in
-        // other collections isn't reconciled but must still drop for this collection's lost audience).
-        // One book lock at a time — never two at once — so a bulk reconcile serialises against a
-        // concurrent single-book mutation without any lock-ordering deadlock. See [bookLocks].
-        val lookups = SystemMembershipLookups()
+        val lookups = systemReconciler.SystemMembershipLookups()
         for (bookId in affectedBookIds) {
-            bookLock(bookId).withLock { reconcileSystemMembership(bookId, lookups) }
+            systemReconciler.withBookLock(bookId) { reconcileSystemMembership(bookId, lookups) }
         }
-        // One batched revision bump for every affected book (one transaction, per-book revisions) —
-        // the reconcile above already bumps any book whose ALL_BOOKS membership flipped; this ensures
-        // every affected book advances so a member whose access just changed re-derives on their pull.
         bookRevisionTouch.touchRevisions(affectedBookIds.map(::BookId))
         for (grant in grantRepo.listActiveGrantsForCollection(id.value)) {
             grantRepo.softDelete(grant.id)
         }
         collectionRepo.softDelete(id.value)
-        // Cascade committed — now nudge the staged audience so no frame outruns its writes.
-        if (audience.isNotEmpty()) publishAccessChanged(audience, scope)
+        if (audience.isNotEmpty()) accessNotifier.publish(audience, scope)
         return AppResult.Success(Unit)
     }
 
@@ -380,14 +179,10 @@ internal class CollectionServiceImpl(
         val decision = accessPolicy.decide(caller.userId, caller.role, id.value)
         writeGate(decision)?.let { return AppResult.Failure(it) }
 
-        // A caller can only add a book they can already see. NotFound (not Forbidden):
-        // revealing that an inaccessible book exists would be an existence oracle, and
-        // adding it here would hand the caller a fresh access path to it.
         if (!bookAccessPolicy.canAccess(caller.userId, caller.role.toContract(), bookId.value)) {
             return AppResult.Failure(CollectionError.BookNotFound())
         }
-
-        if (!bookExists(bookId.value)) return AppResult.Failure(CollectionError.BookNotFound())
+        if (!sql.bookExistsLive(bookId.value)) return AppResult.Failure(CollectionError.BookNotFound())
 
         val payload =
             CollectionBookSyncPayload(
@@ -398,20 +193,11 @@ internal class CollectionServiceImpl(
                 revision = 0L,
                 deletedAt = null,
             )
-        // The write and the reconcile that derives system membership FROM it must not interleave
-        // with another mutation of the same book — see [bookLocks].
-        return bookLock(bookId.value).withLock {
+        return systemReconciler.withBookLock(bookId.value) {
             when (val result = collectionBookRepo.upsert(payload)) {
                 is AppResult.Success -> {
-                    // Adding the book to this collection grants its visible users (owner + active-share
-                    // recipients) a new access path — nudge each to re-derive, matching setBookCollections.
-                    notifyAccessChanged(listOf(id.value), listOf(bookId.value))
-                    // Bump the book's revision so each member's incremental `revision > cursor` pull
-                    // re-delivers the now-visible book — the access nudge alone never carries the row.
+                    accessNotifier.notify(listOf(id.value), listOf(bookId.value))
                     bookRevisionTouch.touchRevision(bookId)
-                    // First real membership ⇒ the book leaves the everyone-visible ALL_BOOKS substrate.
-                    // Adding directly to a system collection (ALL_BOOKS/INBOX) is a managed action, not
-                    // reconciled — reconcile there would immediately undo the deliberate placement.
                     if (id.value !in collectionRepo.systemCollectionIds()) {
                         reconcileSystemMembership(bookId.value)
                     }
@@ -433,19 +219,10 @@ internal class CollectionServiceImpl(
         val decision = accessPolicy.decide(caller.userId, caller.role, id.value)
         writeGate(decision)?.let { return AppResult.Failure(it) }
 
-        // The removal and the reconcile that re-homes the book FROM it must not interleave with
-        // another mutation of the same book — see [bookLocks].
-        bookLock(bookId.value).withLock {
-            // softDelete is idempotent: a Failure(NotFound) means the junction was already
-            // absent, which satisfies the caller's intent — treat as success.
+        systemReconciler.withBookLock(bookId.value) {
             collectionBookRepo.softDelete(collectionId = id.value, bookId = bookId.value)
-            // Removing the book may have severed a visible user's only access path to it — nudge this
-            // collection's visible users to re-derive (and prune if needed), matching setBookCollections.
-            notifyAccessChanged(listOf(id.value), listOf(bookId.value))
-            // Bump the book's revision so each member's incremental `revision > cursor` pull re-evaluates
-            // its now-changed visibility and prunes it when no access path remains.
+            accessNotifier.notify(listOf(id.value), listOf(bookId.value))
             bookRevisionTouch.touchRevision(bookId)
-            // Removing the last real membership ⇒ the book returns to ALL_BOOKS (never stranded).
             reconcileSystemMembership(bookId.value)
         }
         return AppResult.Success(Unit)
@@ -459,40 +236,22 @@ internal class CollectionServiceImpl(
         adminGate(caller.role)?.let { return AppResult.Failure(it) }
         overCollectionCap(collectionIds)?.let { return AppResult.Failure(it) }
 
-        if (!bookExists(bookId.value)) return AppResult.Failure(CollectionError.BookNotFound())
+        if (!sql.bookExistsLive(bookId.value)) return AppResult.Failure(CollectionError.BookNotFound())
 
-        // System collections (ALL_BOOKS, INBOX) are server-managed — a client must never NAME one
-        // as a target. Exclude system ids from the caller-supplied set and from the diff so this
-        // replace-set only touches NORMAL memberships; ALL_BOOKS is then maintained by
-        // reconcileSystemMembership below (derived from the resulting real set), never named here.
         val systemIds = collectionRepo.systemCollectionIds()
-
-        // Validate every distinct target up front — exists and live — before mutating:
-        // a tombstoned target would otherwise be silently resurrected by upsert, and a
-        // bad id would surface as an opaque FK violation mid-transaction.
         val targetIds = collectionIds.map { it.value }.toSet() - systemIds
-        for (targetId in targetIds) {
-            collectionRepo.findById(targetId) ?: return AppResult.Failure(CollectionError.NotFound())
+        if (targetIds.isNotEmpty() && collectionRepo.findByIds(targetIds).size < targetIds.size) {
+            return AppResult.Failure(CollectionError.NotFound())
         }
 
-        // Read-modify-write: `current` is read, diffed, then written, and the reconcile derives
-        // system membership from the result. The whole sequence must be atomic per book — see
-        // [bookLocks].
-        bookLock(bookId.value).withLock {
+        systemReconciler.withBookLock(bookId.value) {
             val current = collectionBookRepo.findCollectionIdsForBook(bookId.value).toSet() - systemIds
             val added = targetIds - current
             val removed = current - targetIds
 
-            // Sequential suspend repo writes — each opens its own SQLDelight transaction, so they
-            // cannot nest inside a non-suspend SQLDelight transaction body.
             for (collectionId in removed) {
                 collectionBookRepo.softDelete(collectionId = collectionId, bookId = bookId.value)
             }
-            // A book whose membership write FAILED must never be reconciled below: reconcile derives
-            // ALL_BOOKS membership from the live junction rows, so a book that silently failed to join
-            // its intended (possibly private) collection would read back as an uncollected orphan and
-            // get re-homed into the everyone-visible ALL_BOOKS substrate — a silent access widening.
-            // Staying in limbo (unchanged) until the next mutation is the acceptable failure mode.
             var hadFailedWrite = false
             for (collectionId in added) {
                 val payload =
@@ -507,21 +266,10 @@ internal class CollectionServiceImpl(
                 if (!collectionBookRepo.upsertOrLog("setBookCollections", payload)) hadFailedWrite = true
             }
 
-            // Changing the book's collection set changes who can see the book. Every enumerable user
-            // whose access may have shifted — the visible users of each ADDED collection (they may have
-            // gained the book) and each REMOVED collection (they may have lost their only access path) —
-            // is nudged once to re-derive. The non-enumerable public↔private "everyone" edge converges on
-            // the next firehose catch-up — the documented 1b behavior.
-            notifyAccessChanged(added + removed, listOf(bookId.value))
-            // Bump the subject book's revision once when its membership actually changed, so each member's
-            // incremental `revision > cursor` pull re-evaluates its visibility (delivering or pruning it).
+            accessNotifier.notify(added + removed, listOf(bookId.value))
             if (added.isNotEmpty() || removed.isNotEmpty()) {
                 bookRevisionTouch.touchRevision(bookId)
             }
-            // Derive ALL_BOOKS from the resulting real set: in ALL_BOOKS iff no real membership remains
-            // (and not held in INBOX). This drops a curated book out of the everyone-collection (the
-            // #680/#730 leak) and re-homes an empty target set into ALL_BOOKS instead of orphaning it.
-            // Skipped when a write above failed — see [hadFailedWrite].
             if (!hadFailedWrite) {
                 reconcileSystemMembership(bookId.value)
             } else {
@@ -541,8 +289,9 @@ internal class CollectionServiceImpl(
         val caller = resolveCaller() ?: return noPrincipal()
         val decision = accessPolicy.decide(caller.userId, caller.role, id.value)
         manageGate(decision, caller.role)?.let { return AppResult.Failure(it) }
-        val systemIds = collectionRepo.systemCollectionIds()
-        if (id.value in systemIds) return AppResult.Failure(CollectionError.SystemCollectionReadOnly())
+        if (id.value in collectionRepo.systemCollectionIds()) {
+            return AppResult.Failure(CollectionError.SystemCollectionReadOnly())
+        }
         if (sharedWithUserId == caller.userId) return AppResult.Failure(CollectionError.SelfShare())
         if (!userExists(sharedWithUserId)) return AppResult.Failure(CollectionError.UserNotFound())
         if (grantRepo.findActiveGrant(id.value, sharedWithUserId) != null) {
@@ -562,9 +311,7 @@ internal class CollectionServiceImpl(
             )
         return when (val result = grantRepo.upsert(payload)) {
             is AppResult.Success -> {
-                // The newly-shared user's accessible set just grew — tell them to re-derive, scoped
-                // to this collection and the books it currently holds (the ones they just gained).
-                publishAccessChanged(
+                accessNotifier.publish(
                     setOf(sharedWithUserId),
                     accessScopeFor(listOf(id.value), collectionBookRepo.findBookIdsForCollection(id.value)),
                 )
@@ -584,16 +331,12 @@ internal class CollectionServiceImpl(
         val caller = resolveCaller() ?: return noPrincipal()
         val decision = accessPolicy.decide(caller.userId, caller.role, id.value)
         manageGate(decision, caller.role)?.let { return AppResult.Failure(it) }
-        val systemIds = collectionRepo.systemCollectionIds()
-        if (id.value in systemIds) return AppResult.Failure(CollectionError.SystemCollectionReadOnly())
+        if (id.value in collectionRepo.systemCollectionIds()) {
+            return AppResult.Failure(CollectionError.SystemCollectionReadOnly())
+        }
 
-        // softDeleteGrant returns Failure(NotFound) when no live grant exists; revoke is
-        // idempotent — a no-op revoke satisfies the caller's intent. Only nudge the ex-target
-        // when a live grant was actually removed: a no-op revoke didn't change their access.
         if (grantRepo.softDeleteGrant(id.value, sharedWithUserId) is AppResult.Success) {
-            // The ex-target lost this grant — scope the re-derive to this collection and the books
-            // it holds (the ones they may have just lost; per-user truth resolves at fetch time).
-            publishAccessChanged(
+            accessNotifier.publish(
                 setOf(sharedWithUserId),
                 accessScopeFor(listOf(id.value), collectionBookRepo.findBookIdsForCollection(id.value)),
             )
@@ -602,138 +345,23 @@ internal class CollectionServiceImpl(
     }
 
     // ── Inbox (system collection + release flow) ──────────────────────────────────
-    //
-    // releaseBooks (below) is an admin-gated method on the @Rpc CollectionService contract.
-    // getOrCreateSystemCollection/getOrCreateInbox/addToInbox are deliberately NOT on the
-    // contract — internal system operations with no caller-principal gate of their own, used
-    // by the scan path (auto-quarantine) and by releaseBooks itself.
 
-    /**
-     * Resolves the library's per-library system collection of [type], creating it on first use.
-     *
-     * A system collection (owned by [SYSTEM_OWNER_ID]) is identified by
-     * the server-only `collections.type` column ([SystemCollectionType.name]) — never on the wire.
-     * It is created lazily: the first call materialises it, subsequent calls return the same row.
-     * Idempotency rests on [CollectionRepository.findSystemCollection], backstopped at the DB by a
-     * per-type partial unique index — `idx_collections_inbox` (one live INBOX per library) and
-     * `idx_collections_all_books` (one live ALL_BOOKS per library) — so a concurrent first-call
-     * cannot create a duplicate system collection.
-     *
-     * The row is materialised through the normal [CollectionRepository.upsert] path (which never
-     * sees `type` — it's not a payload field), then [CollectionRepository.setType] stamps the
-     * server-only column with no revision bump or publish.
-     *
-     * **Owner.** System collections are owned by the [SYSTEM_OWNER_ID] sentinel — a fixed string
-     * that is never inserted into `users.id`. This means creation succeeds before any admin user
-     * exists (e.g. at library bootstrap). [CollectionAccessPolicy] grants owner-write via
-     * `coll.ownerId == userId`; with the sentinel owner no real user matches that branch.
-     * Admins reach system collections through the god-view null-filter path.
-     *
-     * This is a system operation: it does not require or consult a caller principal.
-     */
+    /** Resolves the library's per-library system collection of [type], creating it on first use. */
     suspend fun getOrCreateSystemCollection(
         libraryId: String,
         type: SystemCollectionType,
-    ): AppResult<CollectionSummary> {
-        collectionRepo.findSystemCollection(libraryId, type.name)?.let { return summarizeSystem(it) }
+    ): AppResult<CollectionSummary> = systemReconciler.getOrCreateSystemCollection(libraryId, type)
 
-        val payload =
-            CollectionSyncPayload(
-                id = Uuid.random().toString(),
-                libraryId = libraryId,
-                ownerId = SYSTEM_OWNER_ID,
-                name = if (type == SystemCollectionType.ALL_BOOKS) "All Books" else "Inbox",
-                isInbox = type == SystemCollectionType.INBOX,
-                revision = 0L,
-                updatedAt = clock.now().toEpochMilliseconds(),
-            )
-        return when (val result = collectionRepo.upsert(payload)) {
-            is AppResult.Success -> {
-                collectionRepo.setType(result.data.id, type.name)
-                // Re-read after setType so that isInbox is derived from the freshly-stamped
-                // type column (writePayload does not write is_inbox; isInbox is a projection of type).
-                val refreshed = collectionRepo.findById(result.data.id) ?: result.data
-                summarizeSystem(refreshed)
-            }
-
-            is AppResult.Failure -> {
-                AppResult.Failure(result.error)
-            }
-        }
-    }
-
-    /**
-     * Resolves the library's inbox, creating it on first use.
-     *
-     * Delegates to [getOrCreateSystemCollection] with [SystemCollectionType.INBOX] — the inbox is
-     * a per-library system collection (`isInbox = true`, never globally accessible, not deletable).
-     */
+    /** Resolves the library's inbox, creating it on first use. */
     suspend fun getOrCreateInbox(libraryId: String): AppResult<CollectionSummary> =
-        getOrCreateSystemCollection(libraryId, SystemCollectionType.INBOX)
+        systemReconciler.getOrCreateInbox(libraryId)
 
-    /**
-     * Adds [bookId] to the library's inbox, resolving (or creating) the inbox first.
-     *
-     * A deliberate admin/system action — used by the admin REST routes to quarantine a
-     * book for triage. It is unconditional: callers decide when to invoke it.
-     *
-     * **Distinct from the scan hook.** Scan-time auto-quarantine now lands inbox membership
-     * *atomically* in the book-insert transaction (see
-     * [com.calypsan.listenup.server.services.BookPersister] +
-     * [com.calypsan.listenup.server.services.BookRepository], gated on `library.holdNewBooksForReview`),
-     * so a new book never has a momentarily-public window. This `addToInbox` is the separate
-     * *deliberate admin action* for an already-public book: the firehose evaluates
-     * `BookAccessPolicy.canAccess` at delivery, so the book is hidden from members as soon as
-     * the membership commits — the action *reduces* its reach rather than exposing hidden content.
-     *
-     * A system operation (no caller principal); the book must exist
-     * ([CollectionError.BookNotFound]).
-     */
+    /** Adds [bookId] to [libraryId]'s inbox, resolving (or creating) the inbox first. */
     suspend fun addToInbox(
         bookId: String,
         libraryId: String,
-    ): AppResult<Unit> {
-        if (!bookExists(bookId)) return AppResult.Failure(CollectionError.BookNotFound())
+    ): AppResult<Unit> = systemReconciler.addToInbox(bookId, libraryId)
 
-        val inbox = getOrCreateInbox(libraryId).getOrElse { return AppResult.Failure(it) }
-
-        val payload =
-            CollectionBookSyncPayload(
-                id = Uuid.random().toString(),
-                collectionId = inbox.id.value,
-                bookId = bookId,
-                createdAt = clock.now().toEpochMilliseconds(),
-                revision = 0L,
-                deletedAt = null,
-            )
-        return when (val result = collectionBookRepo.upsert(payload)) {
-            is AppResult.Success -> AppResult.Success(Unit)
-            is AppResult.Failure -> AppResult.Failure(result.error)
-        }
-    }
-
-    /**
-     * Releases books out of the library's inbox into their assigned target collections.
-     *
-     * [assignments] maps `bookId → target collectionIds`. For each book the inbox junction
-     * is soft-deleted, then a junction is added for every target collection. A book with an
-     * **empty** target list is released to `ALL_BOOKS` — the library's public substrate
-     * collection — so it stays visible to every member under the pure-union visibility rule.
-     * (Under that rule "uncollected" means *invisible*, so approving a held book into no
-     * collection would silently hide it; releasing into `ALL_BOOKS` is how a book becomes
-     * public.)
-     *
-     * **Each book releases in one transaction, and a failed one stays held.** A book's target
-     * memberships and its INBOX tombstone commit together
-     * ([com.calypsan.listenup.server.sync.CollectionBookRepository.releaseFromInbox]), under that
-     * book's lock. A fault rolls that one book back whole — still in the inbox, in no new collection,
-     * nothing published — and it is reported in [CollectionError.ReleaseIncomplete], while every other
-     * book releases normally and is still announced and reconciled. The release as a whole is a
-     * sequence of per-book commits, not one: a crash part-way leaves the books before it released and
-     * the rest held, never a book in no collection.
-     *
-     * Admin-only ([AuthError.PermissionDenied] otherwise); requires a caller principal.
-     */
     override suspend fun releaseBooks(
         libraryId: LibraryId,
         assignments: Map<BookId, List<CollectionId>>,
@@ -747,16 +375,10 @@ internal class CollectionServiceImpl(
                 bookId.value to
                     targets.map(CollectionId::value)
             }
+        val inboxId = getOrCreateInbox(libraryIdValue).getOrElse { return AppResult.Failure(it) }.id.value
 
-        val inbox = getOrCreateInbox(libraryIdValue).getOrElse { return AppResult.Failure(it) }
-        val inboxId = inbox.id.value
-
-        // Books released with no explicit target join ALL_BOOKS (the public substrate). Resolve
-        // (or create) it once, up front, only when at least one book needs it — keeping the
-        // common "release into explicit collections" path free of system-collection lookups.
-        val needsAllBooks = targetsByBookId.values.any { it.isEmpty() }
         val allBooksId =
-            if (needsAllBooks) {
+            if (targetsByBookId.values.any { it.isEmpty() }) {
                 getOrCreateSystemCollection(libraryIdValue, SystemCollectionType.ALL_BOOKS)
                     .getOrElse { return AppResult.Failure(it) }
                     .id.value
@@ -764,41 +386,24 @@ internal class CollectionServiceImpl(
                 null
             }
 
-        // Validate every distinct target collection up front — exists, live, same library —
-        // before mutating anything: a bad id otherwise surfaces as an opaque FK violation, and
-        // a tombstoned target would be silently resurrected by upsert. Validating before any write
-        // keeps the common failure typed and leaves every book held when it fires.
-        val explicitTargetIds = targetsByBookId.values.flatten().toSet()
-        for (targetId in explicitTargetIds) {
-            val target =
-                collectionRepo.findById(targetId)
-                    ?: return AppResult.Failure(CollectionError.NotFound())
-            if (target.libraryId != libraryIdValue) {
-                return AppResult.Failure(
-                    CollectionError.InvalidInput(debugInfo = "Target collection $targetId is in a different library"),
-                )
-            }
+        validateReleaseTargets(targetsByBookId.values.flatten().toSet(), libraryIdValue)?.let {
+            return AppResult.Failure(it)
         }
 
-        // One transaction per book, never one for the whole release — see
-        // [CollectionBookRepository.releaseFromInbox]. A book that is no longer held (another release
-        // took it first) is neither released nor failed here: nothing was written, so it is neither
-        // announced nor reported.
         val releasedBookIds = mutableListOf<String>()
         val releasedTargetIds = mutableSetOf<String>()
         val failedBookIds = mutableListOf<String>()
         for ((bookId, targetCollectionIds) in targetsByBookId) {
-            // Empty target → release to ALL_BOOKS so the book stays publicly visible.
             val resolvedTargets = targetCollectionIds.ifEmpty { listOfNotNull(allBooksId) }
-            val step =
+            when (
                 collectionBookRepo.releaseHeldBook(
-                    lock = bookLock(bookId),
+                    lock = systemReconciler.bookLock(bookId),
                     bookId = bookId,
                     inboxId = inboxId,
                     targetIds = resolvedTargets,
                     createdAt = clock.now().toEpochMilliseconds(),
                 )
-            when (step) {
+            ) {
                 BookRelease.RELEASED -> {
                     releasedBookIds += bookId
                     releasedTargetIds += resolvedTargets
@@ -813,195 +418,16 @@ internal class CollectionServiceImpl(
         }
 
         if (releasedBookIds.isNotEmpty()) {
-            // Every user who can see a target collection just gained access to the released books —
-            // nudge each once to re-derive. ALL_BOOKS is among the targets when a book went public, so
-            // its grant recipients re-derive too.
-            notifyAccessChanged(releasedTargetIds, releasedBookIds)
-            // Bump each released book's revision so members' incremental `revision > cursor` pull
-            // re-evaluates its now-changed visibility — the access nudge alone never carries the row.
-            // One transaction, per-book revisions (never one shared revision — see touchRevisions).
+            accessNotifier.notify(releasedTargetIds, releasedBookIds)
             bookRevisionTouch.touchRevisions(releasedBookIds.map(::BookId))
         }
-        // Maintain exclusivity from the post-release set: a book released into explicit targets must
-        // not linger in ALL_BOOKS (defensive tombstone of any stale junction); one released unsorted
-        // stays in ALL_BOOKS (the fallback added above). reconcile derives both. One memo hoists the
-        // loop-invariant system-collection lookups across the whole release.
-        // One book lock at a time — never two at once — so a bulk reconcile serialises against a
-        // concurrent single-book mutation without any lock-ordering deadlock. See [bookLocks].
-        // A book that stayed held changed nothing, so it has nothing to reconcile.
-        val lookups = SystemMembershipLookups()
+        val lookups = systemReconciler.SystemMembershipLookups()
         for (bookId in releasedBookIds) {
-            bookLock(bookId).withLock { reconcileSystemMembership(bookId, lookups) }
+            systemReconciler.withBookLock(bookId) { reconcileSystemMembership(bookId, lookups) }
         }
         for (bookId in failedBookIds) logSkippedReconcile("releaseBooks", bookId)
 
         return releaseOutcome(failedBookIds, requested = targetsByBookId.size)
-    }
-
-    /**
-     * Loop-invariant lookups for [reconcileSystemMembership], resolved at most once per bulk operation
-     * instead of once per book. The global system-id set and the per-library inbox id are stable for
-     * the duration of one operation; the ALL_BOOKS id is memoized only once FOUND, so the lazy-create
-     * fallback inside the reconcile still fires for the first book that materialises it —
-     * [noteAllBooksCreated] registers the fresh id (and adds it to the system-id set) so later books in
-     * the same loop see it exactly as a fresh per-book lookup would.
-     */
-    private inner class SystemMembershipLookups {
-        private var systemIds: Set<String>? = null
-        private val inboxIdByLibrary = mutableMapOf<String, String?>()
-        private val allBooksIdByLibrary = mutableMapOf<String, String>()
-
-        suspend fun systemIds(): Set<String> =
-            systemIds ?: collectionRepo.systemCollectionIds().toSet().also { systemIds = it }
-
-        suspend fun inboxId(libraryId: String): String? {
-            if (libraryId !in inboxIdByLibrary) {
-                inboxIdByLibrary[libraryId] = collectionRepo.findInboxForLibrary(libraryId)?.id
-            }
-            return inboxIdByLibrary[libraryId]
-        }
-
-        suspend fun allBooksId(libraryId: String): String? {
-            allBooksIdByLibrary[libraryId]?.let { cached -> return cached }
-            val allBooks = collectionRepo.findSystemCollection(libraryId, SYSTEM_TYPE_ALL_BOOKS) ?: return null
-            allBooksIdByLibrary[libraryId] = allBooks.id
-            return allBooks.id
-        }
-
-        fun noteAllBooksCreated(
-            libraryId: String,
-            id: String,
-        ) {
-            allBooksIdByLibrary[libraryId] = id
-            systemIds = systemIds?.plus(id)
-        }
-    }
-
-    /** Single-book entry point: reconciles [bookId] through a fresh one-shot [SystemMembershipLookups]. */
-    private suspend fun reconcileSystemMembership(bookId: String) =
-        reconcileSystemMembership(bookId, SystemMembershipLookups())
-
-    /**
-     * Enforces the exclusivity invariant between the everyone-visible ALL_BOOKS substrate and
-     * every regular collection: a book is in ALL_BOOKS **iff** it belongs to no other (non-system)
-     * collection and is not held in INBOX. Called after any junction mutation.
-     *
-     * Derives the book's live memberships, then:
-     *  - `real.isEmpty() && !held` → ensures a live ALL_BOOKS junction via
-     *    [CollectionBookRepository.upsert], which **resurrects** a tombstoned row — unlike the
-     *    insert-only `writeSystemMembership`, which would skip an existing/tombstoned junction.
-     *  - otherwise → tombstones the live ALL_BOOKS junction if present.
-     *
-     * Only when ALL_BOOKS membership actually flips does it nudge that collection's grant-holders
-     * (every member holds a default ALL_BOOKS grant) and bump the book's revision, so each member
-     * re-derives their view and the visibility delta converges. Idempotent: a no-op flip emits
-     * nothing.
-     *
-     * [lookups] memoizes the loop-invariant lookups (system-id set, per-library inbox/ALL_BOOKS ids) so
-     * a bulk caller (deleteCollection / releaseBooks) resolves them once per operation rather than once
-     * per book; single-book callers delegate with a fresh memo. A mid-loop lazy-create of ALL_BOOKS is
-     * recorded via [SystemMembershipLookups.noteAllBooksCreated] so later books observe it.
-     */
-    private suspend fun reconcileSystemMembership(
-        bookId: String,
-        lookups: SystemMembershipLookups,
-    ) {
-        val libraryId = bookLibraryId(bookId) ?: return
-        val systemIds = lookups.systemIds()
-        val liveMemberships = collectionBookRepo.findCollectionIdsForBook(bookId).toSet()
-        val real = liveMemberships - systemIds
-        val inboxId = lookups.inboxId(libraryId)
-        val held = inboxId != null && inboxId in liveMemberships
-        val allBooksId = lookups.allBooksId(libraryId)
-        val allBooksLive = allBooksId != null && allBooksId in liveMemberships
-
-        if (real.isEmpty() && !held) {
-            if (allBooksLive) return
-            val id =
-                allBooksId
-                    ?: getOrCreateSystemCollection(libraryId, SystemCollectionType.ALL_BOOKS)
-                        .getOrElse { return }
-                        .id.value
-                        .also { lookups.noteAllBooksCreated(libraryId, it) }
-            val payload =
-                CollectionBookSyncPayload(
-                    id = Uuid.random().toString(),
-                    collectionId = id,
-                    bookId = bookId,
-                    createdAt = clock.now().toEpochMilliseconds(),
-                    revision = 0L,
-                    deletedAt = null,
-                )
-            if (!collectionBookRepo.upsertOrLog("reconcileSystemMembership", payload)) return
-            notifyAccessChanged(listOf(id), listOf(bookId))
-            bookRevisionTouch.touchRevision(BookId(bookId))
-            return
-        }
-
-        // The book is no longer an uncollected orphan, so it must not sit in ALL_BOOKS — and a real
-        // membership ALSO releases it from the inbox. [SystemCollectionType] documents both system
-        // collections as exclusive with regular ones, but this reconcile previously owned only the
-        // ALL_BOOKS junction: curating a held book left it in INBOX *and* the regular collection, so
-        // it was visible to that collection's audience while still held as quarantined in the
-        // inbox. Dropping INBOX here is deliberate — curating a held book IS releasing it.
-        // A held book with no real membership stays held (it is still awaiting triage).
-        val toDrop =
-            buildList {
-                if (allBooksLive) add(allBooksId)
-                if (held && real.isNotEmpty()) add(inboxId)
-            }.filterNotNull()
-        if (toDrop.isEmpty()) return
-        toDrop.forEach { collectionBookRepo.softDelete(collectionId = it, bookId = bookId) }
-        notifyAccessChanged(toDrop, listOf(bookId))
-        bookRevisionTouch.touchRevision(BookId(bookId))
-    }
-
-    /** The `books.library_id` for [bookId], or null when the book is absent — resolves its system collections. */
-    private suspend fun bookLibraryId(bookId: String): String? =
-        suspendTransaction(sql) { sql.booksQueries.selectLibraryIdById(bookId).executeAsOneOrNull() }
-
-    /**
-     * Nudge the audience of an access change on [collectionIds] — each collection's owner + active
-     * grant recipients — to re-derive, carrying the [scoped delta][accessScopeFor] of the
-     * [affectedBookIds] (books whose accessibility may have flipped). [affectedBookIds] is
-     * **required**: an emission site that cannot enumerate the touched books passes the coarse
-     * `emptyList()` deliberately (there is no way to forget it silently), and a scope over
-     * [DELTA_MAX_BOOKS] entities degrades to coarse. The audience is resolved once here; the
-     * recipient-agnostic frame is published to every member (per-user truth resolves at fetch time).
-     */
-    private suspend fun notifyAccessChanged(
-        collectionIds: Collection<String>,
-        affectedBookIds: Collection<String>,
-    ) {
-        val audience = accessChangedAudience(collectionIds)
-        if (audience.isEmpty()) return
-        publishAccessChanged(audience, accessScopeFor(collectionIds, affectedBookIds))
-    }
-
-    /**
-     * The users to nudge for an access change on [collectionIds]: each collection's owner + its
-     * active grant recipients, minus the [SYSTEM_OWNER_ID] sentinel (not a real client — ALL_BOOKS
-     * reaches its real audience through the per-member default grants enumerated here). Captured
-     * separately from [publishAccessChanged] so a cascade (e.g. [deleteCollection]) can resolve the
-     * audience *before* it tombstones the grants, then publish *after* the writes commit.
-     */
-    private suspend fun accessChangedAudience(collectionIds: Collection<String>): Set<String> =
-        collectionIds
-            .flatMap { collectionId ->
-                val owner = collectionRepo.findById(collectionId)?.ownerId
-                val shareUsers = grantRepo.listActiveGrantsForCollection(collectionId).map { it.sharedWithUserId }
-                if (owner != null) shareUsers + owner else shareUsers
-            }.toSet()
-            .minus(SYSTEM_OWNER_ID)
-
-    /** Publishes the recipient-agnostic [AccessChanged][SyncControl.AccessChanged] frame carrying [scope] to each of [userIds]. */
-    private fun publishAccessChanged(
-        userIds: Set<String>,
-        scope: AccessScope?,
-    ) {
-        for (userId in userIds) {
-            bus.publishControl(SyncControl.AccessChanged(scope), userId)
-        }
     }
 
     // ── Principal binding ───────────────────────────────────────────────────────
@@ -1019,11 +445,12 @@ internal class CollectionServiceImpl(
             clock = clock,
             bookRevisionTouch = bookRevisionTouch,
             principal = principal,
+            accessNotifier = accessNotifier,
+            systemReconciler = systemReconciler,
         )
 
     // ── Private helpers ─────────────────────────────────────────────────────────
 
-    /** The resolved caller: their user id and the DB-enum role the policy expects. */
     private data class Caller(
         val userId: String,
         val role: UserRoleColumn,
@@ -1033,14 +460,6 @@ internal class CollectionServiceImpl(
 
     private fun noPrincipal(): AppResult.Failure = AppResult.Failure(CollectionError.NotFound())
 
-    /**
-     * Management gate (rename, delete, share, list shares): null = allowed (ROOT/ADMIN);
-     * [AuthError.PermissionDenied] if the caller can see the collection but is not an admin;
-     * [CollectionError.NotFound] if they can't see it at all (don't leak existence).
-     *
-     * Only admins write collections — a member who owns a collection from before that rule
-     * can read it but not manage it (see [CollectionAccessPolicy]).
-     */
     private fun manageGate(
         decision: CollectionAccessPolicy.Decision,
         role: UserRoleColumn,
@@ -1050,6 +469,28 @@ internal class CollectionServiceImpl(
             decision.canAccess -> AuthError.PermissionDenied()
             else -> CollectionError.NotFound()
         }
+
+    private suspend fun validateReleaseTargets(
+        explicitTargetIds: Set<String>,
+        libraryIdValue: String,
+    ): CollectionError? {
+        if (explicitTargetIds.isEmpty()) return null
+        val foundTargets = collectionRepo.findByIds(explicitTargetIds)
+        for (targetId in explicitTargetIds) {
+            val target = foundTargets[targetId] ?: return CollectionError.NotFound()
+            if (target.libraryId != libraryIdValue) {
+                return CollectionError.InvalidInput(debugInfo = "Target collection $targetId is in a different library")
+            }
+        }
+        return null
+    }
+
+    private suspend fun reconcileSystemMembership(bookId: String) = systemReconciler.reconcileSystemMembership(bookId)
+
+    private suspend fun reconcileSystemMembership(
+        bookId: String,
+        lookups: CollectionSystemReconciler.SystemMembershipLookups,
+    ) = systemReconciler.reconcileSystemMembership(bookId, lookups)
 
     private suspend fun summarize(
         collection: CollectionSyncPayload,
@@ -1069,30 +510,6 @@ internal class CollectionServiceImpl(
             isOwner = verdict.isOwner,
         )
     }
-
-    /**
-     * Summarises a system collection (the inbox) without a caller context.
-     *
-     * The inbox is owned by an admin and managed through admin operations, so the summary
-     * reflects the owning admin's view: [CollectionSummary.isOwner] true,
-     * [CollectionSummary.callerPermission] Write.
-     */
-    private suspend fun summarizeSystem(collection: CollectionSyncPayload): AppResult<CollectionSummary> =
-        AppResult.Success(
-            CollectionSummary(
-                id = CollectionId(collection.id),
-                name = collection.name,
-                ownerId = UserId(collection.ownerId),
-                isInbox = collection.isInbox,
-                isSystem = true,
-                bookCount = collectionBookRepo.countLiveForCollection(collection.id),
-                callerPermission = SharePermission.Write,
-                isOwner = true,
-            ),
-        )
-
-    private suspend fun bookExists(bookId: String): Boolean =
-        suspendTransaction(sql) { sql.booksQueries.existsLiveById(bookId).executeAsOne() }
 
     private suspend fun userExists(userId: String): Boolean =
         suspendTransaction(sql) { sql.usersQueries.existsById(userId).executeAsOne() }
@@ -1119,20 +536,15 @@ private fun writeGate(decision: CollectionAccessPolicy.Decision): AppError? =
 
 /**
  * Constructs a [CollectionService] backed by [CollectionServiceImpl]. Public so cross-module
- * test harnesses (e.g. `:app:sharedLogic:jvmTest`'s `WithCollectionSyncEngineAgainstServer`) can
- * build the service without depending on the Koin graph or piercing the `internal` access on
- * [CollectionServiceImpl] / [CollectionAccessPolicy]. Production wiring continues to construct
- * the impl directly inside the books Koin module.
- *
- * Returns the concrete [CollectionService] interface; scope it per caller with
- * [collectionServiceScopedTo] before driving owner-only operations (create/share/revoke).
+ * test harnesses can build the service without depending on the Koin graph or piercing the
+ * `internal` access on [CollectionServiceImpl] / [CollectionAccessPolicy].
  */
 fun createCollectionService(
     collectionRepo: CollectionRepository,
     collectionBookRepo: CollectionBookRepository,
     grantRepo: CollectionGrantRepository,
     bus: ChangeBus,
-    sql: com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase,
+    sql: ListenUpDatabase,
     driver: SqlDriver,
     bookRevisionTouch: BookRevisionTouch,
     clock: Clock = Clock.System,
@@ -1152,8 +564,6 @@ fun createCollectionService(
 
 /**
  * Scopes a [CollectionService] built by [createCollectionService] to [principal] for one caller.
- * Public so cross-module test harnesses can bind the authenticated caller without piercing the
- * `internal` access on [CollectionServiceImpl.copyWith].
  */
 fun collectionServiceScopedTo(
     service: CollectionService,

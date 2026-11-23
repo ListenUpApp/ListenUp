@@ -138,7 +138,7 @@ internal object ControlChannelDetector {
             "RestoreOrchestrator.kt" to setOf("LibraryDataChanged"),
             "AdminSettingsServiceImpl.kt" to setOf("ServerInfoChanged"),
             "UserPreferencesServiceImpl.kt" to setOf("PreferencesChanged"),
-            "CollectionServiceImpl.kt" to setOf("AccessChanged"),
+            "CollectionAccessNotifier.kt" to setOf("AccessChanged"),
             "AdminUserServiceImpl.kt" to setOf("UserDeleted"),
             "ActiveSessionCleanupTask.kt" to setOf("ActiveSessionsChanged"),
             "ActiveSessionRepository.kt" to setOf("ActiveSessionsChanged"),
