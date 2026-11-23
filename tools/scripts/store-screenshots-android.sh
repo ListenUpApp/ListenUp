@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 # Captures the Play listing screenshots: phone, 7" tablet and 10" tablet, brand colours, demo-mode status bar.
 #
-# Runs on a machine with the Android SDK and an arm64 or x86_64 system image, against a screenshot-rig
+# Runs on macOS or Linux with the Android SDK and an arm64 or x86_64 system image, against a screenshot-rig
 # server (a throwaway ListenUp server seeded with invented listeners; never a real one). It boots a
 # headless, silent emulator, installs the debug app and the :app:storeshots UiAutomator suite, and runs
 # the suite once per listing size, writing alpha-free PNGs into <output-dir>/<size>/. The emulator is
-# shut down at the end, and an AVD the script created is deleted unless SCREENSHOTS_KEEP_AVD=1.
+# shut down at the end, and an AVD the script created is deleted unless SCREENSHOTS_KEEP_AVD=1. On Linux
+# the PNGs are flattened with ImageMagick (`magick`, or version 6's `mogrify`), which must be installed;
+# macOS uses its own CoreGraphics.
 #
 #   tools/scripts/store-screenshots-android.sh [output-dir]    (default: build/store-screenshots/android)
 #
@@ -13,7 +15,7 @@
 # 7" the same display at density 288, which is 600dp wide and gets the tablet layout; 10" 2560x1440 at 320.
 #
 # Environment:
-#   ANDROID_HOME             the SDK                                (default ~/Library/Android/sdk)
+#   ANDROID_HOME             the SDK                  (default ~/Library/Android/sdk, ~/Android/Sdk on Linux)
 #   SCREENSHOTS_SERVER_URL   the rig as the emulator reaches it     (default http://10.0.2.2:8099, the host)
 #   SCREENSHOTS_LIVE_URL     the rig as this machine reaches it     (default http://localhost:8099)
 #   SCREENSHOTS_CREDENTIALS  the rig's credentials file             (default ~/listenup-shots/CREDENTIALS.txt)
@@ -30,7 +32,8 @@ set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/store-screenshots-common.sh"
 
 OUT="$(mkdir -p "${1:-$SHOTS_REPO_ROOT/build/store-screenshots/android}" && cd "${1:-$SHOTS_REPO_ROOT/build/store-screenshots/android}" && pwd)"
-export ANDROID_HOME="${ANDROID_HOME:-$HOME/Library/Android/sdk}"
+if [ "$(uname -s)" = Darwin ]; then DEFAULT_ANDROID_HOME="$HOME/Library/Android/sdk"; else DEFAULT_ANDROID_HOME="$HOME/Android/Sdk"; fi
+export ANDROID_HOME="${ANDROID_HOME:-$DEFAULT_ANDROID_HOME}"
 SERVER_URL="${SCREENSHOTS_SERVER_URL:-http://10.0.2.2:8099}"
 LIVE_URL="${SCREENSHOTS_LIVE_URL:-http://localhost:8099}"
 AVD="${SCREENSHOTS_AVD:-ListenUp_Screenshots}"
@@ -100,8 +103,10 @@ ensure_avd() {
   echo no | "$AVDMANAGER" create avd -n "$AVD" -k "${image//\//;}" -d pixel_7 >/dev/null
   CREATED_AVD="$AVD"
   # The emulator refuses to boot without free disk for the whole data partition; the app and its
-  # three short downloads need a fraction of the default.
-  sed -i '' 's/^disk.dataPartition.size=.*/disk.dataPartition.size=4G/' "$HOME/.android/avd/$AVD.avd/config.ini"
+  # three short downloads need a fraction of the default. `-i.bak` is the one in-place form BSD and GNU
+  # sed both read the same way.
+  local config="$HOME/.android/avd/$AVD.avd/config.ini"
+  sed -i.bak 's/^disk.dataPartition.size=.*/disk.dataPartition.size=4G/' "$config" && rm -f "$config.bak"
 }
 
 boot_emulator() {
@@ -201,6 +206,7 @@ capture_size() {
 }
 
 shots_require_credentials
+shots_require_png_flattener
 shots_write_main_account "$SHOTS_WORK/account"
 shots_mute
 ensure_avd

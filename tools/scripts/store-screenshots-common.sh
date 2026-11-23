@@ -125,9 +125,14 @@ shots_live_stop() {
 }
 
 # Mutes this Mac's output for the run (the simulator and emulator play through it) and restores the
-# previous state on exit.
+# previous state on exit. Elsewhere there is no osascript and nothing to mute: the emulator runs with
+# -no-audio, so it is skipped.
 SHOTS_WAS_MUTED=""
 shots_mute() {
+  if ! command -v osascript >/dev/null 2>&1; then
+    shots_log "Not a Mac: leaving the output volume alone (the emulator runs with -no-audio)."
+    return 0
+  fi
   SHOTS_WAS_MUTED=$(osascript -e 'output muted of (get volume settings)' 2>/dev/null || echo "unknown")
   osascript -e 'set volume output muted true' >/dev/null 2>&1 || shots_log "Could not mute the Mac's output."
 }
@@ -137,10 +142,37 @@ shots_unmute() {
   fi
 }
 
-# Rewrites every PNG under $1 in place as 24-bit RGB: Play rejects screenshots with an alpha channel,
-# and a store upload has no use for one. CoreGraphics via a throwaway Swift script, since macOS ships
-# no image tool that drops alpha losslessly.
+# Rewrites every PNG under $1 in place as 24-bit RGB on white: Play rejects screenshots with an alpha
+# channel, and a store upload has no use for one. On macOS, CoreGraphics via a throwaway Swift script,
+# since macOS ships no image tool that drops alpha losslessly; elsewhere, ImageMagick.
 shots_flatten_pngs() {
+  local dir="$1"
+  if command -v xcrun >/dev/null 2>&1; then
+    shots_flatten_pngs_coregraphics "$dir"
+  elif command -v magick >/dev/null 2>&1; then
+    shots_flatten_pngs_imagemagick "$dir" magick mogrify
+  elif command -v mogrify >/dev/null 2>&1; then
+    shots_flatten_pngs_imagemagick "$dir" mogrify
+  else
+    shots_require_png_flattener
+  fi
+}
+
+# Fails before anything boots when shots_flatten_pngs would have no tool to run.
+shots_require_png_flattener() {
+  command -v xcrun >/dev/null 2>&1 || command -v magick >/dev/null 2>&1 || command -v mogrify >/dev/null 2>&1 ||
+    { shots_log "Cannot flatten the PNGs: no xcrun (macOS) and no ImageMagick (magick or mogrify). Install ImageMagick."; return 1; }
+}
+
+# $2… is the ImageMagick mogrify command: `magick mogrify` on version 7, `mogrify` on 6.
+shots_flatten_pngs_imagemagick() {
+  local dir="$1"
+  shift
+  find "$dir" -name '*.png' -exec "$@" -background white -alpha remove -alpha off \
+    -define png:color-type=2 -define png:bit-depth=8 {} +
+}
+
+shots_flatten_pngs_coregraphics() {
   local dir="$1" script="$SHOTS_WORK/flatten.swift"
   cat >"$script" <<'SWIFT'
 import CoreGraphics

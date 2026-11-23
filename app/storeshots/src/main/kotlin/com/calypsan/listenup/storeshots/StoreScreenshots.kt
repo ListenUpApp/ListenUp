@@ -114,6 +114,8 @@ class StoreScreenshots {
 
     /** Settings > Appearance > Dynamic colors off, so the brand coral shows instead of the wallpaper's. */
     private fun turnOffDynamicColors() {
+        // Dynamic colors are Android 12+; below it the app has no toggle and already shows the brand coral.
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.S) return
         openSettings()
         val toggle = scrollTo(By.text(DYNAMIC_COLORS))
         val switch =
