@@ -3,6 +3,7 @@ package com.calypsan.listenup.server.absimport
 import com.calypsan.listenup.api.dto.activity.ActivityType
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.imports.ImportEvent
+import com.calypsan.listenup.api.dto.imports.ImportResult
 import com.calypsan.listenup.api.dto.imports.ImportStatus
 import com.calypsan.listenup.api.error.ImportError
 import com.calypsan.listenup.api.result.AppResult
@@ -40,6 +41,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.yield
 import java.nio.file.Files
@@ -470,6 +472,74 @@ class ImportApplierTest :
             }
         }
 
+        test("a second apply while one is running is refused at once, without announcing a failure") {
+            withSqlDatabase {
+                val dbs = this
+                runTest {
+                    val staged = stageAnalyzedImport(dbs)
+                    val applier = applierFor(staged)
+                    confirmSimonMapping(staged.paths, staged.importId)
+
+                    var second: AppResult<*>? = null
+                    val secondEvents = mutableListOf<ImportEvent>()
+                    val first =
+                        applier.apply(staged.importId) { event ->
+                            // Mid-apply, on the applying thread: a double tap or a client retry arrives.
+                            if (event is ImportEvent.Applying && second == null) {
+                                second = runBlocking { applier.apply(staged.importId) { secondEvents += it } }
+                            }
+                        }
+
+                    first.shouldBeInstanceOf<AppResult.Success<*>>()
+                    second
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<ImportError.ApplyFailed>()
+                    secondEvents shouldBe emptyList()
+                }
+            }
+        }
+
+        test("a mapped user deleted after the mapping was confirmed fails the apply, and nothing is written") {
+            withSqlDatabase {
+                val dbs = this
+                runTest {
+                    val staged = stageAnalyzedImport(dbs)
+                    val applier = applierFor(staged)
+                    confirmSimonMapping(staged.paths, staged.importId)
+                    dbs.driver.execute(null, "UPDATE users SET deleted_at = 1 WHERE id = '$LU_USER'", 0)
+
+                    applier
+                        .apply(staged.importId) {}
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<ImportError.MappingInvalid>()
+                    staged.repo.getPosition(LU_USER, LU_MIST).shouldBeNull()
+                    listeningEventIdsFor(dbs.sql, LU_USER) shouldBe emptyList()
+                    ImportStore(staged.paths).hasInterruptedApply(staged.importId) shouldBe false
+                }
+            }
+        }
+
+        test("a matched book deleted after analyze is skipped and the rest imports") {
+            withSqlDatabase {
+                val dbs = this
+                runTest {
+                    val staged = stageAnalyzedImport(dbs)
+                    val applier = applierFor(staged)
+                    confirmSimonMapping(staged.paths, staged.importId)
+                    dbs.driver.execute(null, "UPDATE books SET deleted_at = 1 WHERE id = '$LU_KINGS'", 0)
+
+                    val result = applier.apply(staged.importId) {}.shouldBeInstanceOf<AppResult.Success<ImportResult>>()
+
+                    staged.repo.getPosition(LU_USER, LU_KINGS).shouldBeNull()
+                    staged.repo.getPosition(LU_USER, LU_MIST).shouldNotBeNull()
+                    listeningEventIdsFor(dbs.sql, LU_USER).contains("abs:sess-kings") shouldBe false
+                    result.data.importedCount shouldBe 1
+                }
+            }
+        }
+
         test("apply without a confirmed mapping returns ApplyFailed") {
             withSqlDatabase {
                 val dbs = this
@@ -741,6 +811,7 @@ private data class StagedImport(
     val statsRecorder: StatsRecorder,
     val bookReads: BookReadsRepository,
     val bus: ChangeBus,
+    val validator: MappingValidator,
 )
 
 /**
@@ -824,11 +895,13 @@ private suspend fun stageAnalyzedImport(
         statsRecorder,
         bookReads,
         bus,
+        MappingValidator(dbs.sql),
     )
 }
 
 private fun applierFor(staged: StagedImport): ImportApplier =
     ImportApplier(
+        validator = staged.validator,
         reader = AbsBackupReader(),
         store = ImportStore(staged.paths),
         paths = staged.paths,

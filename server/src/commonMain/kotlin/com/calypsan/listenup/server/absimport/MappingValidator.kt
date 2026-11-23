@@ -24,7 +24,8 @@ private const val SQLITE_IN_CHUNK = 900
  *   overwrite another's).
  *
  * Returns `null` when the mapping is coherent. Lives separately from the applier so the service can
- * validate at `confirmMapping` time, before anything is written.
+ * validate at `confirmMapping` time, before anything is written; the applier validates again before it
+ * writes, because a user or book can be deleted between confirm and apply.
  */
 class MappingValidator(
     private val sql: ListenUpDatabase,
@@ -71,6 +72,16 @@ class MappingValidator(
     /** The first requested book id with no live (non-deleted) row, or null if all exist. */
     private suspend fun firstMissingBook(bookIds: Set<BookId>): BookId? {
         if (bookIds.isEmpty()) return null
+        val present = liveBooks(bookIds)
+        return bookIds.firstOrNull { it !in present }
+    }
+
+    /**
+     * The subset of [bookIds] that are live (non-deleted) books. Apply uses it to drop matches whose book
+     * was deleted between analyze and apply — the match itself is not the admin's to re-confirm.
+     */
+    suspend fun liveBooks(bookIds: Set<BookId>): Set<BookId> {
+        if (bookIds.isEmpty()) return emptySet()
         val wanted = bookIds.map { it.value }
         val present =
             suspendTransaction(sql) {
@@ -78,6 +89,6 @@ class MappingValidator(
                     .chunked(SQLITE_IN_CHUNK)
                     .flatMapTo(mutableSetOf()) { chunk -> sql.booksQueries.selectLiveIdsByIds(chunk).executeAsList() }
             }
-        return bookIds.firstOrNull { it.value !in present }
+        return bookIds.filterTo(mutableSetOf()) { it.value in present }
     }
 }
