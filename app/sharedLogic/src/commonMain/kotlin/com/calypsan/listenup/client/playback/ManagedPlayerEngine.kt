@@ -62,7 +62,7 @@ internal class ManagedPlayerEngine(
     override suspend fun load(
         bookId: BookId,
         start: PlaybackStart,
-    ): AppResult<Unit> {
+    ): AppResult<EngineLoad> {
         loadingBookId = bookId
         try {
             return when (val prepared = playbackManager.prepareForPlayback(bookId, start)) {
@@ -73,7 +73,7 @@ internal class ManagedPlayerEngine(
                 is AppResult.Success -> {
                     playbackManager.activateBook(bookId)
                     startOrLetGo(bookId, prepared.data)
-                    AppResult.Success(Unit)
+                    AppResult.Success(EngineLoad(prepared.data.serverConversion))
                 }
             }
         } finally {

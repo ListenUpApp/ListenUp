@@ -5,6 +5,7 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.PlaybackError
+import com.calypsan.listenup.api.error.TranscodeError
 import com.calypsan.listenup.client.features.nowplaying.components.MiniLineFit
 import com.calypsan.listenup.client.features.nowplaying.components.MiniPlayerLineText
 import com.calypsan.listenup.client.playback.PlayerPhase
@@ -136,6 +137,12 @@ class MiniPlayerLineTextTest {
     fun `a problem has its short mini line`() {
         line(loadedPlayerState(phase = PlayerPhase.Unavailable(PlaybackError.OfflineNotDownloaded())))
         composeRule.onNodeWithText("Can't play offline").assertExists()
+    }
+
+    @Test
+    fun `a server that can't convert the book says it can't play here`() {
+        line(loadedPlayerState(phase = PlayerPhase.Failed(TranscodeError.TranscoderUnavailable())))
+        composeRule.onNodeWithText("Can't play here").assertExists()
     }
 
     @Test

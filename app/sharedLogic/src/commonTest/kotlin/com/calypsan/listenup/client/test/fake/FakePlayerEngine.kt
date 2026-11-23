@@ -5,9 +5,11 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
 import com.calypsan.listenup.client.playback.ChapterInfo
+import com.calypsan.listenup.client.playback.EngineLoad
 import com.calypsan.listenup.client.playback.EnginePhase
 import com.calypsan.listenup.client.playback.PlaybackStart
 import com.calypsan.listenup.client.playback.PlayerEngine
+import com.calypsan.listenup.client.playback.ServerConversion
 import com.calypsan.listenup.client.playback.chapterInfoAt
 import com.calypsan.listenup.client.playback.landingMs
 import com.calypsan.listenup.core.BookId
@@ -32,7 +34,7 @@ class FakePlayerEngine : PlayerEngine {
     /** Runs on every recorded call, on the calling thread (a JVM spec reads which thread that was). */
     var onCall: (String) -> Unit = {}
     val loads = mutableListOf<Pair<BookId, PlaybackStart>>()
-    var loadResult: AppResult<Unit> = AppResult.Success(Unit)
+    var loadResult: AppResult<EngineLoad> = AppResult.Success(EngineLoad(ServerConversion.COVERED))
     var loadSuspension: suspend () -> Unit = {}
 
     /** The phase a successful [load] leaves the engine in: playing at once, unless a spec wants a stalled start. */
@@ -53,7 +55,7 @@ class FakePlayerEngine : PlayerEngine {
     override suspend fun load(
         bookId: BookId,
         start: PlaybackStart,
-    ): AppResult<Unit> {
+    ): AppResult<EngineLoad> {
         loads += bookId to start
         loadSuspension()
         if (loadResult is AppResult.Success) {

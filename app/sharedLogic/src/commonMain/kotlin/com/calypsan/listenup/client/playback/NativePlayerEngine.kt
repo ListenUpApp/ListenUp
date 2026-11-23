@@ -123,7 +123,7 @@ class NativePlayerEngine internal constructor(
     override suspend fun load(
         bookId: BookId,
         start: PlaybackStart,
-    ): AppResult<Unit> {
+    ): AppResult<EngineLoad> {
         // The session's load wins over a dropped book's fresh prepare.
         cancelReprepare()
         cancelDropRecovery()
@@ -135,7 +135,7 @@ class NativePlayerEngine internal constructor(
 
             is AppResult.Success -> {
                 handOver(bookId, result.data)
-                AppResult.Success(Unit)
+                AppResult.Success(EngineLoad(result.data.serverConversion))
             }
         }
     }

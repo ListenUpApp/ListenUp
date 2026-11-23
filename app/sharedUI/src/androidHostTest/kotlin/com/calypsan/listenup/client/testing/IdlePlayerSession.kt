@@ -10,6 +10,7 @@ import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
 import com.calypsan.listenup.client.playback.ChapterInfo
 import com.calypsan.listenup.client.playback.EnginePhase
 import com.calypsan.listenup.client.playback.PlaybackStart
+import com.calypsan.listenup.client.playback.EngineLoad
 import com.calypsan.listenup.client.playback.PlayerEngine
 import com.calypsan.listenup.client.playback.PlayerSession
 import com.calypsan.listenup.client.playback.SleepTimerManager
@@ -78,7 +79,7 @@ private object IdlePlayerEngine : PlayerEngine {
     override suspend fun load(
         bookId: BookId,
         start: PlaybackStart,
-    ): AppResult<Unit> = AppResult.Failure(PlaybackError.CouldNotStart())
+    ): AppResult<EngineLoad> = AppResult.Failure(PlaybackError.CouldNotStart())
 
     override fun abandonLoad() = Unit
 
