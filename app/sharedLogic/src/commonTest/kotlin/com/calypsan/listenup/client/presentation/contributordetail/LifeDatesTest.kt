@@ -37,6 +37,21 @@ class LifeDatesTest :
             formatLifeDates("1947-13-01", null) shouldBe null
         }
 
+        test("every year-month-day spelling the Android screen read before still reads") {
+            // Its parser split on '-' and took each part as a number, so unpadded and over-padded
+            // parts and a leading '+' all named the same day. Stored strings are not validated.
+            formatLifeDates("1947-9-21", null) shouldBe "Born ${shown("1947-09-21")}"
+            formatLifeDates("1947-09-1", null) shouldBe "Born ${shown("1947-09-01")}"
+            formatLifeDates("1947-009-021", null) shouldBe "Born ${shown("1947-09-21")}"
+            formatLifeDates("+1947-09-21", null) shouldBe "Born ${shown("1947-09-21")}"
+            formatLifeDates(null, "2024-1-15") shouldBe "Died ${shown("2024-01-15")}"
+        }
+
+        test("a day the calendar does not have gives no line") {
+            formatLifeDates("1947-02-30", null) shouldBe null
+            formatLifeDates("1947-04-0", null) shouldBe null
+        }
+
         test("the day shown is the day stored, in any zone west or east of UTC") {
             // Midnight UTC formatted in a zone behind UTC is the evening before.
             formatLifeDates("1947-09-21", null).orEmpty() shouldContain "21"
