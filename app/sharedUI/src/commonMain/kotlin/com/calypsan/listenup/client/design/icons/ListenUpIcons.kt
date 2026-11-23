@@ -14,1065 +14,2920 @@ import androidx.compose.ui.unit.dp
  * (FILL 1) form; directional glyphs mirror in right-to-left layouts.
  */
 object ListenUpIcons {
-    val AccountBalanceFilled: ImageVector by lazy {
-        symbol(name = "AccountBalanceFilled", autoMirror = false, pathData = PATH_ACCOUNT_BALANCE_FILL)
-    }
-
-    val AccountCircle: ImageVector by lazy {
-        symbol(name = "AccountCircle", autoMirror = false, pathData = PATH_ACCOUNT_CIRCLE)
-    }
-
-    val AccountCircleFilled: ImageVector by lazy {
-        symbol(name = "AccountCircleFilled", autoMirror = false, pathData = PATH_ACCOUNT_CIRCLE_FILL)
-    }
-
-    val AccountTreeFilled: ImageVector by lazy {
-        symbol(name = "AccountTreeFilled", autoMirror = false, pathData = PATH_ACCOUNT_TREE_FILL)
-    }
-
-    val Add: ImageVector by lazy {
-        symbol(name = "Add", autoMirror = false, pathData = PATH_ADD)
-    }
-
-    val AddFilled: ImageVector by lazy {
-        symbol(name = "AddFilled", autoMirror = false, pathData = PATH_ADD_FILL)
-    }
-
-    val AdminPanelSettings: ImageVector by lazy {
-        symbol(name = "AdminPanelSettings", autoMirror = false, pathData = PATH_ADMIN_PANEL_SETTINGS)
-    }
-
-    val AppsFilled: ImageVector by lazy {
-        symbol(name = "AppsFilled", autoMirror = false, pathData = PATH_APPS_FILL)
-    }
-
-    val Archive: ImageVector by lazy {
-        symbol(name = "Archive", autoMirror = false, pathData = PATH_ARCHIVE)
-    }
-
-    val ArrowBack: ImageVector by lazy {
-        symbol(name = "ArrowBack", autoMirror = true, pathData = PATH_ARROW_BACK)
-    }
-
-    val ArrowBackFilled: ImageVector by lazy {
-        symbol(name = "ArrowBackFilled", autoMirror = true, pathData = PATH_ARROW_BACK_FILL)
-    }
-
-    val ArrowDownwardFilled: ImageVector by lazy {
-        symbol(name = "ArrowDownwardFilled", autoMirror = false, pathData = PATH_ARROW_DOWNWARD_FILL)
-    }
-
-    val ArrowDropDown: ImageVector by lazy {
-        symbol(name = "ArrowDropDown", autoMirror = false, pathData = PATH_ARROW_DROP_DOWN)
-    }
-
-    val ArrowForward: ImageVector by lazy {
-        symbol(name = "ArrowForward", autoMirror = true, pathData = PATH_ARROW_FORWARD)
-    }
-
-    val ArrowForwardFilled: ImageVector by lazy {
-        symbol(name = "ArrowForwardFilled", autoMirror = true, pathData = PATH_ARROW_FORWARD_FILL)
-    }
-
-    val ArrowUpwardFilled: ImageVector by lazy {
-        symbol(name = "ArrowUpwardFilled", autoMirror = false, pathData = PATH_ARROW_UPWARD_FILL)
-    }
-
-    val AutoAwesome: ImageVector by lazy {
-        symbol(name = "AutoAwesome", autoMirror = false, pathData = PATH_AUTO_AWESOME)
-    }
-
-    val AutoAwesomeFilled: ImageVector by lazy {
-        symbol(name = "AutoAwesomeFilled", autoMirror = false, pathData = PATH_AUTO_AWESOME_FILL)
-    }
-
-    val AutoStories: ImageVector by lazy {
-        symbol(name = "AutoStories", autoMirror = false, pathData = PATH_AUTO_STORIES)
-    }
-
-    val AutoStoriesFilled: ImageVector by lazy {
-        symbol(name = "AutoStoriesFilled", autoMirror = false, pathData = PATH_AUTO_STORIES_FILL)
-    }
-
-    val Backup: ImageVector by lazy {
-        symbol(name = "Backup", autoMirror = false, pathData = PATH_BACKUP)
-    }
-
-    val Badge: ImageVector by lazy {
-        symbol(name = "Badge", autoMirror = false, pathData = PATH_BADGE)
-    }
-
-    val BedtimeFilled: ImageVector by lazy {
-        symbol(name = "BedtimeFilled", autoMirror = false, pathData = PATH_BEDTIME_FILL)
-    }
-
-    val Block: ImageVector by lazy {
-        symbol(name = "Block", autoMirror = false, pathData = PATH_BLOCK)
-    }
-
-    val Book: ImageVector by lazy {
-        symbol(name = "Book", autoMirror = false, pathData = PATH_BOOK)
-    }
-
-    val BookFilled: ImageVector by lazy {
-        symbol(name = "BookFilled", autoMirror = false, pathData = PATH_BOOK_FILL)
-    }
-
-    val Bookmark: ImageVector by lazy {
-        symbol(name = "Bookmark", autoMirror = false, pathData = PATH_BOOKMARK)
-    }
-
-    val BookmarkAdd: ImageVector by lazy {
-        symbol(name = "BookmarkAdd", autoMirror = false, pathData = PATH_BOOKMARK_ADD)
-    }
-
-    val Bookmarks: ImageVector by lazy {
-        symbol(name = "Bookmarks", autoMirror = false, pathData = PATH_BOOKMARKS)
-    }
-
-    val BookmarksFilled: ImageVector by lazy {
-        symbol(name = "BookmarksFilled", autoMirror = false, pathData = PATH_BOOKMARKS_FILL)
-    }
-
-    val BrokenImageFilled: ImageVector by lazy {
-        symbol(name = "BrokenImageFilled", autoMirror = false, pathData = PATH_BROKEN_IMAGE_FILL)
-    }
-
-    val BrushFilled: ImageVector by lazy {
-        symbol(name = "BrushFilled", autoMirror = false, pathData = PATH_BRUSH_FILL)
-    }
-
-    val Business: ImageVector by lazy {
-        symbol(name = "Business", autoMirror = false, pathData = PATH_DOMAIN)
-    }
-
-    val CalendarMonth: ImageVector by lazy {
-        symbol(name = "CalendarMonth", autoMirror = false, pathData = PATH_CALENDAR_MONTH)
-    }
-
-    val CalendarMonthFilled: ImageVector by lazy {
-        symbol(name = "CalendarMonthFilled", autoMirror = false, pathData = PATH_CALENDAR_MONTH_FILL)
-    }
-
-    val CallMerge: ImageVector by lazy {
-        symbol(name = "CallMerge", autoMirror = true, pathData = PATH_CALL_MERGE)
-    }
-
-    val CallMergeFilled: ImageVector by lazy {
-        symbol(name = "CallMergeFilled", autoMirror = true, pathData = PATH_CALL_MERGE_FILL)
-    }
-
-    val CameraAlt: ImageVector by lazy {
-        symbol(name = "CameraAlt", autoMirror = false, pathData = PATH_PHOTO_CAMERA)
-    }
-
-    val CameraAltFilled: ImageVector by lazy {
-        symbol(name = "CameraAltFilled", autoMirror = false, pathData = PATH_PHOTO_CAMERA_FILL)
-    }
-
-    val Cancel: ImageVector by lazy {
-        symbol(name = "Cancel", autoMirror = false, pathData = PATH_CANCEL)
-    }
-
-    val Cast: ImageVector by lazy {
-        symbol(name = "Cast", autoMirror = false, pathData = PATH_CAST)
-    }
-
-    val CastConnectedFilled: ImageVector by lazy {
-        symbol(name = "CastConnectedFilled", autoMirror = false, pathData = PATH_CAST_CONNECTED_FILL)
-    }
-
-    val CastleFilled: ImageVector by lazy {
-        symbol(name = "CastleFilled", autoMirror = false, pathData = PATH_CASTLE_FILL)
-    }
-
-    val Category: ImageVector by lazy {
-        symbol(name = "Category", autoMirror = false, pathData = PATH_CATEGORY)
-    }
-
-    val CategoryFilled: ImageVector by lazy {
-        symbol(name = "CategoryFilled", autoMirror = false, pathData = PATH_CATEGORY_FILL)
-    }
-
-    val Check: ImageVector by lazy {
-        symbol(name = "Check", autoMirror = false, pathData = PATH_CHECK)
-    }
-
-    val CheckCircle: ImageVector by lazy {
-        symbol(name = "CheckCircle", autoMirror = false, pathData = PATH_CHECK_CIRCLE)
-    }
-
-    val CheckCircleFilled: ImageVector by lazy {
-        symbol(name = "CheckCircleFilled", autoMirror = false, pathData = PATH_CHECK_CIRCLE_FILL)
-    }
-
-    val CheckFilled: ImageVector by lazy {
-        symbol(name = "CheckFilled", autoMirror = false, pathData = PATH_CHECK_FILL)
-    }
-
-    val ChevronRight: ImageVector by lazy {
-        symbol(name = "ChevronRight", autoMirror = false, pathData = PATH_CHEVRON_RIGHT)
-    }
-
-    val ChildCareFilled: ImageVector by lazy {
-        symbol(name = "ChildCareFilled", autoMirror = false, pathData = PATH_CHILD_CARE_FILL)
-    }
-
-    val ChurchFilled: ImageVector by lazy {
-        symbol(name = "ChurchFilled", autoMirror = false, pathData = PATH_CHURCH_FILL)
-    }
-
-    val ClearFilled: ImageVector by lazy {
-        symbol(name = "ClearFilled", autoMirror = false, pathData = PATH_CLOSE_FILL)
-    }
-
-    val Close: ImageVector by lazy {
-        symbol(name = "Close", autoMirror = false, pathData = PATH_CLOSE)
-    }
-
-    val CloseFilled: ImageVector by lazy {
-        symbol(name = "CloseFilled", autoMirror = false, pathData = PATH_CLOSE_FILL)
-    }
-
-    val CloudDone: ImageVector by lazy {
-        symbol(name = "CloudDone", autoMirror = false, pathData = PATH_CLOUD_DONE)
-    }
-
-    val CloudDoneFilled: ImageVector by lazy {
-        symbol(name = "CloudDoneFilled", autoMirror = false, pathData = PATH_CLOUD_DONE_FILL)
-    }
-
-    val CloudDownload: ImageVector by lazy {
-        symbol(name = "CloudDownload", autoMirror = false, pathData = PATH_CLOUD_DOWNLOAD)
-    }
-
-    val CloudOff: ImageVector by lazy {
-        symbol(name = "CloudOff", autoMirror = false, pathData = PATH_CLOUD_OFF)
-    }
-
-    val CloudOffFilled: ImageVector by lazy {
-        symbol(name = "CloudOffFilled", autoMirror = false, pathData = PATH_CLOUD_OFF_FILL)
-    }
-
-    val CloudSyncFilled: ImageVector by lazy {
-        symbol(name = "CloudSyncFilled", autoMirror = false, pathData = PATH_CLOUD_SYNC_FILL)
-    }
-
-    val CloudUpload: ImageVector by lazy {
-        symbol(name = "CloudUpload", autoMirror = false, pathData = PATH_CLOUD_UPLOAD)
-    }
-
-    val CollectionsBookmark: ImageVector by lazy {
-        symbol(name = "CollectionsBookmark", autoMirror = false, pathData = PATH_COLLECTIONS_BOOKMARK)
-    }
-
-    val Computer: ImageVector by lazy {
-        symbol(name = "Computer", autoMirror = false, pathData = PATH_COMPUTER)
-    }
-
-    val ComputerFilled: ImageVector by lazy {
-        symbol(name = "ComputerFilled", autoMirror = false, pathData = PATH_COMPUTER_FILL)
-    }
-
-    val ContentCopy: ImageVector by lazy {
-        symbol(name = "ContentCopy", autoMirror = false, pathData = PATH_CONTENT_COPY)
-    }
-
-    val CropFilled: ImageVector by lazy {
-        symbol(name = "CropFilled", autoMirror = false, pathData = PATH_CROP_FILL)
-    }
-
-    val DarkModeFilled: ImageVector by lazy {
-        symbol(name = "DarkModeFilled", autoMirror = false, pathData = PATH_DARK_MODE_FILL)
-    }
-
-    val Delete: ImageVector by lazy {
-        symbol(name = "Delete", autoMirror = false, pathData = PATH_DELETE)
-    }
-
-    val DeleteFilled: ImageVector by lazy {
-        symbol(name = "DeleteFilled", autoMirror = false, pathData = PATH_DELETE_FILL)
-    }
-
-    val DeleteSweep: ImageVector by lazy {
-        symbol(name = "DeleteSweep", autoMirror = false, pathData = PATH_DELETE_SWEEP)
-    }
-
-    val DescriptionFilled: ImageVector by lazy {
-        symbol(name = "DescriptionFilled", autoMirror = false, pathData = PATH_DESCRIPTION_FILL)
-    }
-
-    val Devices: ImageVector by lazy {
-        symbol(name = "Devices", autoMirror = false, pathData = PATH_DEVICES)
-    }
-
-    val DevicesFilled: ImageVector by lazy {
-        symbol(name = "DevicesFilled", autoMirror = false, pathData = PATH_DEVICES_FILL)
-    }
-
-    val DirectionsCar: ImageVector by lazy {
-        symbol(name = "DirectionsCar", autoMirror = false, pathData = PATH_DIRECTIONS_CAR)
-    }
-
-    val Dns: ImageVector by lazy {
-        symbol(name = "Dns", autoMirror = false, pathData = PATH_DNS)
-    }
-
-    val DnsFilled: ImageVector by lazy {
-        symbol(name = "DnsFilled", autoMirror = false, pathData = PATH_DNS_FILL)
-    }
-
-    val Download: ImageVector by lazy {
-        symbol(name = "Download", autoMirror = false, pathData = PATH_DOWNLOAD)
-    }
-
-    val DownloadFilled: ImageVector by lazy {
-        symbol(name = "DownloadFilled", autoMirror = false, pathData = PATH_DOWNLOAD_FILL)
-    }
-
-    val DragIndicatorFilled: ImageVector by lazy {
-        symbol(name = "DragIndicatorFilled", autoMirror = false, pathData = PATH_DRAG_INDICATOR_FILL)
-    }
-
-    val DriveFileMove: ImageVector by lazy {
-        symbol(name = "DriveFileMove", autoMirror = true, pathData = PATH_DRIVE_FILE_MOVE)
-    }
-
-    val Edit: ImageVector by lazy {
-        symbol(name = "Edit", autoMirror = false, pathData = PATH_EDIT)
-    }
-
-    val EditFilled: ImageVector by lazy {
-        symbol(name = "EditFilled", autoMirror = false, pathData = PATH_EDIT_FILL)
-    }
-
-    val EditNote: ImageVector by lazy {
-        symbol(name = "EditNote", autoMirror = false, pathData = PATH_EDIT_NOTE)
-    }
-
-    val Email: ImageVector by lazy {
-        symbol(name = "Email", autoMirror = false, pathData = PATH_MAIL)
-    }
-
-    val EmojiEventsFilled: ImageVector by lazy {
-        symbol(name = "EmojiEventsFilled", autoMirror = false, pathData = PATH_EMOJI_EVENTS_FILL)
-    }
-
-    val ErrorFilled: ImageVector by lazy {
-        symbol(name = "ErrorFilled", autoMirror = false, pathData = PATH_ERROR_FILL)
-    }
-
-    val ErrorOutline: ImageVector by lazy {
-        symbol(name = "ErrorOutline", autoMirror = false, pathData = PATH_ERROR)
-    }
-
-    val ErrorOutlineFilled: ImageVector by lazy {
-        symbol(name = "ErrorOutlineFilled", autoMirror = false, pathData = PATH_ERROR)
-    }
-
-    val ExpandLessFilled: ImageVector by lazy {
-        symbol(name = "ExpandLessFilled", autoMirror = false, pathData = PATH_EXPAND_LESS_FILL)
-    }
-
-    val ExpandMore: ImageVector by lazy {
-        symbol(name = "ExpandMore", autoMirror = false, pathData = PATH_EXPAND_MORE)
-    }
-
-    val ExpandMoreFilled: ImageVector by lazy {
-        symbol(name = "ExpandMoreFilled", autoMirror = false, pathData = PATH_EXPAND_MORE_FILL)
-    }
-
-    val Explore: ImageVector by lazy {
-        symbol(name = "Explore", autoMirror = false, pathData = PATH_EXPLORE)
-    }
-
-    val ExploreFilled: ImageVector by lazy {
-        symbol(name = "ExploreFilled", autoMirror = false, pathData = PATH_EXPLORE_FILL)
-    }
-
-    val FastForwardFilled: ImageVector by lazy {
-        symbol(name = "FastForwardFilled", autoMirror = false, pathData = PATH_FAST_FORWARD_FILL)
-    }
-
-    val FastRewindFilled: ImageVector by lazy {
-        symbol(name = "FastRewindFilled", autoMirror = false, pathData = PATH_FAST_REWIND_FILL)
-    }
-
-    val Favorite: ImageVector by lazy {
-        symbol(name = "Favorite", autoMirror = false, pathData = PATH_FAVORITE)
-    }
-
-    val FavoriteFilled: ImageVector by lazy {
-        symbol(name = "FavoriteFilled", autoMirror = false, pathData = PATH_FAVORITE_FILL)
-    }
-
-    val FilterListFilled: ImageVector by lazy {
-        symbol(name = "FilterListFilled", autoMirror = false, pathData = PATH_FILTER_LIST_FILL)
-    }
-
-    val FilterNoneFilled: ImageVector by lazy {
-        symbol(name = "FilterNoneFilled", autoMirror = false, pathData = PATH_FILTER_NONE_FILL)
-    }
-
-    val FlightFilled: ImageVector by lazy {
-        symbol(name = "FlightFilled", autoMirror = false, pathData = PATH_FLIGHT_FILL)
-    }
-
-    val Folder: ImageVector by lazy {
-        symbol(name = "Folder", autoMirror = false, pathData = PATH_FOLDER)
-    }
-
-    val FolderFilled: ImageVector by lazy {
-        symbol(name = "FolderFilled", autoMirror = false, pathData = PATH_FOLDER_FILL)
-    }
-
-    val FolderOpen: ImageVector by lazy {
-        symbol(name = "FolderOpen", autoMirror = false, pathData = PATH_FOLDER_OPEN)
-    }
-
-    val FolderSpecial: ImageVector by lazy {
-        symbol(name = "FolderSpecial", autoMirror = false, pathData = PATH_FOLDER_SPECIAL)
-    }
-
-    val FormatListNumbered: ImageVector by lazy {
-        symbol(name = "FormatListNumbered", autoMirror = false, pathData = PATH_FORMAT_LIST_NUMBERED)
-    }
-
-    val Forward10Filled: ImageVector by lazy {
-        symbol(name = "Forward10Filled", autoMirror = false, pathData = PATH_FORWARD_10_FILL)
-    }
-
-    val Forward30Filled: ImageVector by lazy {
-        symbol(name = "Forward30Filled", autoMirror = false, pathData = PATH_FORWARD_30_FILL)
-    }
-
-    val Forward5Filled: ImageVector by lazy {
-        symbol(name = "Forward5Filled", autoMirror = false, pathData = PATH_FORWARD_5_FILL)
-    }
-
-    val GavelFilled: ImageVector by lazy {
-        symbol(name = "GavelFilled", autoMirror = false, pathData = PATH_GAVEL_FILL)
-    }
-
-    val GraphicEq: ImageVector by lazy {
-        symbol(name = "GraphicEq", autoMirror = false, pathData = PATH_GRAPHIC_EQ)
-    }
-
-    val GraphicEqFilled: ImageVector by lazy {
-        symbol(name = "GraphicEqFilled", autoMirror = false, pathData = PATH_GRAPHIC_EQ_FILL)
-    }
-
-    val GridView: ImageVector by lazy {
-        symbol(name = "GridView", autoMirror = false, pathData = PATH_GRID_VIEW)
-    }
-
-    val Group: ImageVector by lazy {
-        symbol(name = "Group", autoMirror = false, pathData = PATH_GROUP)
-    }
-
-    val Groups: ImageVector by lazy {
-        symbol(name = "Groups", autoMirror = false, pathData = PATH_GROUPS)
-    }
-
-    val Headphones: ImageVector by lazy {
-        symbol(name = "Headphones", autoMirror = false, pathData = PATH_HEADPHONES)
-    }
-
-    val Headset: ImageVector by lazy {
-        symbol(name = "Headset", autoMirror = false, pathData = PATH_HEADPHONES)
-    }
-
-    val HealthAndSafetyFilled: ImageVector by lazy {
-        symbol(name = "HealthAndSafetyFilled", autoMirror = false, pathData = PATH_HEALTH_AND_SAFETY_FILL)
-    }
-
-    val History: ImageVector by lazy {
-        symbol(name = "History", autoMirror = false, pathData = PATH_HISTORY)
-    }
-
-    val HistoryFilled: ImageVector by lazy {
-        symbol(name = "HistoryFilled", autoMirror = false, pathData = PATH_HISTORY_FILL)
-    }
-
-    val Home: ImageVector by lazy {
-        symbol(name = "Home", autoMirror = false, pathData = PATH_HOME)
-    }
-
-    val HomeFilled: ImageVector by lazy {
-        symbol(name = "HomeFilled", autoMirror = false, pathData = PATH_HOME_FILL)
-    }
-
-    val HourglassEmpty: ImageVector by lazy {
-        symbol(name = "HourglassEmpty", autoMirror = false, pathData = PATH_HOURGLASS_EMPTY)
-    }
-
-    val HowToReg: ImageVector by lazy {
-        symbol(name = "HowToReg", autoMirror = false, pathData = PATH_HOW_TO_REG)
-    }
-
-    val Image: ImageVector by lazy {
-        symbol(name = "Image", autoMirror = false, pathData = PATH_IMAGE)
-    }
-
-    val Inbox: ImageVector by lazy {
-        symbol(name = "Inbox", autoMirror = false, pathData = PATH_INBOX)
-    }
-
-    val Info: ImageVector by lazy {
-        symbol(name = "Info", autoMirror = false, pathData = PATH_INFO)
-    }
-
-    val InfoFilled: ImageVector by lazy {
-        symbol(name = "InfoFilled", autoMirror = false, pathData = PATH_INFO_FILL)
-    }
-
-    val InsertDriveFile: ImageVector by lazy {
-        symbol(name = "InsertDriveFile", autoMirror = true, pathData = PATH_DRAFT)
-    }
-
-    val Inventory2: ImageVector by lazy {
-        symbol(name = "Inventory2", autoMirror = false, pathData = PATH_INVENTORY_2)
-    }
-
-    val Key: ImageVector by lazy {
-        symbol(name = "Key", autoMirror = false, pathData = PATH_KEY)
-    }
-
-    val KeyboardArrowDownFilled: ImageVector by lazy {
-        symbol(name = "KeyboardArrowDownFilled", autoMirror = false, pathData = PATH_KEYBOARD_ARROW_DOWN_FILL)
-    }
-
-    val KeyboardArrowRightFilled: ImageVector by lazy {
-        symbol(name = "KeyboardArrowRightFilled", autoMirror = true, pathData = PATH_KEYBOARD_ARROW_RIGHT_FILL)
-    }
-
-    val KeyboardArrowUpFilled: ImageVector by lazy {
-        symbol(name = "KeyboardArrowUpFilled", autoMirror = false, pathData = PATH_KEYBOARD_ARROW_UP_FILL)
-    }
-
-    val KeyboardFilled: ImageVector by lazy {
-        symbol(name = "KeyboardFilled", autoMirror = false, pathData = PATH_KEYBOARD_FILL)
-    }
-
-    val Label: ImageVector by lazy {
-        symbol(name = "Label", autoMirror = true, pathData = PATH_LABEL)
-    }
-
-    val Language: ImageVector by lazy {
-        symbol(name = "Language", autoMirror = false, pathData = PATH_LANGUAGE)
-    }
-
-    val LibraryAddCheck: ImageVector by lazy {
-        symbol(name = "LibraryAddCheck", autoMirror = false, pathData = PATH_LIBRARY_ADD_CHECK)
-    }
-
-    val LibraryBooks: ImageVector by lazy {
-        symbol(name = "LibraryBooks", autoMirror = true, pathData = PATH_LIBRARY_BOOKS)
-    }
-
-    val LibraryBooksFilled: ImageVector by lazy {
-        symbol(name = "LibraryBooksFilled", autoMirror = true, pathData = PATH_LIBRARY_BOOKS_FILL)
-    }
-
-    val Lightbulb: ImageVector by lazy {
-        symbol(name = "Lightbulb", autoMirror = false, pathData = PATH_LIGHTBULB)
-    }
-
-    val Link: ImageVector by lazy {
-        symbol(name = "Link", autoMirror = false, pathData = PATH_LINK)
-    }
-
-    val LinkOff: ImageVector by lazy {
-        symbol(name = "LinkOff", autoMirror = false, pathData = PATH_LINK_OFF)
-    }
-
-    val ListFilled: ImageVector by lazy {
-        symbol(name = "ListFilled", autoMirror = true, pathData = PATH_LIST_FILL)
-    }
-
-    val LocalFireDepartment: ImageVector by lazy {
-        symbol(name = "LocalFireDepartment", autoMirror = false, pathData = PATH_LOCAL_FIRE_DEPARTMENT)
-    }
-
-    val LocalFireDepartmentFilled: ImageVector by lazy {
-        symbol(name = "LocalFireDepartmentFilled", autoMirror = false, pathData = PATH_LOCAL_FIRE_DEPARTMENT_FILL)
-    }
-
-    val Lock: ImageVector by lazy {
-        symbol(name = "Lock", autoMirror = false, pathData = PATH_LOCK)
-    }
-
-    val LockFilled: ImageVector by lazy {
-        symbol(name = "LockFilled", autoMirror = false, pathData = PATH_LOCK_FILL)
-    }
-
-    val LockOpen: ImageVector by lazy {
-        symbol(name = "LockOpen", autoMirror = false, pathData = PATH_LOCK_OPEN)
-    }
-
-    val Login: ImageVector by lazy {
-        symbol(name = "Login", autoMirror = true, pathData = PATH_LOGIN)
-    }
-
-    val Logout: ImageVector by lazy {
-        symbol(name = "Logout", autoMirror = true, pathData = PATH_LOGOUT)
-    }
-
-    val LogoutFilled: ImageVector by lazy {
-        symbol(name = "LogoutFilled", autoMirror = true, pathData = PATH_LOGOUT_FILL)
-    }
-
-    val Mail: ImageVector by lazy {
-        symbol(name = "Mail", autoMirror = false, pathData = PATH_MAIL)
-    }
-
-    val MailOutline: ImageVector by lazy {
-        symbol(name = "MailOutline", autoMirror = false, pathData = PATH_MAIL)
-    }
-
-    val ManageSearch: ImageVector by lazy {
-        symbol(name = "ManageSearch", autoMirror = true, pathData = PATH_MANAGE_SEARCH)
-    }
-
-    val MenuBook: ImageVector by lazy {
-        symbol(name = "MenuBook", autoMirror = true, pathData = PATH_MENU_BOOK)
-    }
-
-    val MenuBookFilled: ImageVector by lazy {
-        symbol(name = "MenuBookFilled", autoMirror = true, pathData = PATH_MENU_BOOK_FILL)
-    }
-
-    val Mood: ImageVector by lazy {
-        symbol(name = "Mood", autoMirror = false, pathData = PATH_MOOD)
-    }
-
-    val MoodFilled: ImageVector by lazy {
-        symbol(name = "MoodFilled", autoMirror = false, pathData = PATH_MOOD_FILL)
-    }
-
-    val MoreVert: ImageVector by lazy {
-        symbol(name = "MoreVert", autoMirror = false, pathData = PATH_MORE_VERT)
-    }
-
-    val MoreVertFilled: ImageVector by lazy {
-        symbol(name = "MoreVertFilled", autoMirror = false, pathData = PATH_MORE_VERT_FILL)
-    }
-
-    val MusicNoteFilled: ImageVector by lazy {
-        symbol(name = "MusicNoteFilled", autoMirror = false, pathData = PATH_MUSIC_NOTE_FILL)
-    }
-
-    val MyLocation: ImageVector by lazy {
-        symbol(name = "MyLocation", autoMirror = false, pathData = PATH_MY_LOCATION)
-    }
-
-    val Notifications: ImageVector by lazy {
-        symbol(name = "Notifications", autoMirror = false, pathData = PATH_NOTIFICATIONS)
-    }
-
-    val NotificationsActiveFilled: ImageVector by lazy {
-        symbol(name = "NotificationsActiveFilled", autoMirror = false, pathData = PATH_NOTIFICATIONS_ACTIVE_FILL)
-    }
-
-    val NotificationsFilled: ImageVector by lazy {
-        symbol(name = "NotificationsFilled", autoMirror = false, pathData = PATH_NOTIFICATIONS_FILL)
-    }
-
-    val NotificationsNone: ImageVector by lazy {
-        symbol(name = "NotificationsNone", autoMirror = false, pathData = PATH_NOTIFICATIONS)
-    }
-
-    val OpenInNew: ImageVector by lazy {
-        symbol(name = "OpenInNew", autoMirror = true, pathData = PATH_OPEN_IN_NEW)
-    }
-
-    val PaletteFilled: ImageVector by lazy {
-        symbol(name = "PaletteFilled", autoMirror = false, pathData = PATH_PALETTE_FILL)
-    }
-
-    val PauseCircle: ImageVector by lazy {
-        symbol(name = "PauseCircle", autoMirror = false, pathData = PATH_PAUSE_CIRCLE)
-    }
-
-    val PauseFilled: ImageVector by lazy {
-        symbol(name = "PauseFilled", autoMirror = false, pathData = PATH_PAUSE_FILL)
-    }
-
-    val PendingFilled: ImageVector by lazy {
-        symbol(name = "PendingFilled", autoMirror = false, pathData = PATH_PENDING_FILL)
-    }
-
-    val Person: ImageVector by lazy {
-        symbol(name = "Person", autoMirror = false, pathData = PATH_PERSON)
-    }
-
-    val PersonAdd: ImageVector by lazy {
-        symbol(name = "PersonAdd", autoMirror = false, pathData = PATH_PERSON_ADD)
-    }
-
-    val PersonFilled: ImageVector by lazy {
-        symbol(name = "PersonFilled", autoMirror = false, pathData = PATH_PERSON_FILL)
-    }
-
-    val PersonOffFilled: ImageVector by lazy {
-        symbol(name = "PersonOffFilled", autoMirror = false, pathData = PATH_PERSON_OFF_FILL)
-    }
-
-    val PersonSearch: ImageVector by lazy {
-        symbol(name = "PersonSearch", autoMirror = false, pathData = PATH_PERSON_SEARCH)
-    }
-
-    val PlayArrow: ImageVector by lazy {
-        symbol(name = "PlayArrow", autoMirror = false, pathData = PATH_PLAY_ARROW)
-    }
-
-    val PlayArrowFilled: ImageVector by lazy {
-        symbol(name = "PlayArrowFilled", autoMirror = false, pathData = PATH_PLAY_ARROW_FILL)
-    }
-
-    val PlaylistAdd: ImageVector by lazy {
-        symbol(name = "PlaylistAdd", autoMirror = true, pathData = PATH_PLAYLIST_ADD)
-    }
-
-    val PlaylistAddFilled: ImageVector by lazy {
-        symbol(name = "PlaylistAddFilled", autoMirror = true, pathData = PATH_PLAYLIST_ADD_FILL)
-    }
-
-    val PlaylistPlayFilled: ImageVector by lazy {
-        symbol(name = "PlaylistPlayFilled", autoMirror = true, pathData = PATH_PLAYLIST_PLAY_FILL)
-    }
-
-    val RadioButtonUnchecked: ImageVector by lazy {
-        symbol(name = "RadioButtonUnchecked", autoMirror = false, pathData = PATH_RADIO_BUTTON_UNCHECKED)
-    }
-
-    val RecordVoiceOver: ImageVector by lazy {
-        symbol(name = "RecordVoiceOver", autoMirror = false, pathData = PATH_RECORD_VOICE_OVER)
-    }
-
-    val RecordVoiceOverFilled: ImageVector by lazy {
-        symbol(name = "RecordVoiceOverFilled", autoMirror = false, pathData = PATH_RECORD_VOICE_OVER_FILL)
-    }
-
-    val Refresh: ImageVector by lazy {
-        symbol(name = "Refresh", autoMirror = false, pathData = PATH_REFRESH)
-    }
-
-    val RefreshFilled: ImageVector by lazy {
-        symbol(name = "RefreshFilled", autoMirror = false, pathData = PATH_REFRESH_FILL)
-    }
-
-    val Remove: ImageVector by lazy {
-        symbol(name = "Remove", autoMirror = false, pathData = PATH_REMOVE)
-    }
-
-    val RemoveFilled: ImageVector by lazy {
-        symbol(name = "RemoveFilled", autoMirror = false, pathData = PATH_REMOVE_FILL)
-    }
-
-    val Replay10Filled: ImageVector by lazy {
-        symbol(name = "Replay10Filled", autoMirror = false, pathData = PATH_REPLAY_10_FILL)
-    }
-
-    val Replay30Filled: ImageVector by lazy {
-        symbol(name = "Replay30Filled", autoMirror = false, pathData = PATH_REPLAY_30_FILL)
-    }
-
-    val Replay5Filled: ImageVector by lazy {
-        symbol(name = "Replay5Filled", autoMirror = false, pathData = PATH_REPLAY_5_FILL)
-    }
-
-    val ReplayFilled: ImageVector by lazy {
-        symbol(name = "ReplayFilled", autoMirror = false, pathData = PATH_REPLAY_FILL)
-    }
-
-    val RestartAlt: ImageVector by lazy {
-        symbol(name = "RestartAlt", autoMirror = false, pathData = PATH_RESTART_ALT)
-    }
-
-    val RestartAltFilled: ImageVector by lazy {
-        symbol(name = "RestartAltFilled", autoMirror = false, pathData = PATH_RESTART_ALT_FILL)
-    }
-
-    val RestaurantFilled: ImageVector by lazy {
-        symbol(name = "RestaurantFilled", autoMirror = false, pathData = PATH_RESTAURANT_FILL)
-    }
-
-    val Restore: ImageVector by lazy {
-        symbol(name = "Restore", autoMirror = false, pathData = PATH_HISTORY)
-    }
-
-    val RocketLaunchFilled: ImageVector by lazy {
-        symbol(name = "RocketLaunchFilled", autoMirror = false, pathData = PATH_ROCKET_LAUNCH_FILL)
-    }
-
-    val SaveFilled: ImageVector by lazy {
-        symbol(name = "SaveFilled", autoMirror = false, pathData = PATH_SAVE_FILL)
-    }
-
-    val Schedule: ImageVector by lazy {
-        symbol(name = "Schedule", autoMirror = false, pathData = PATH_SCHEDULE)
-    }
-
-    val ScheduleFilled: ImageVector by lazy {
-        symbol(name = "ScheduleFilled", autoMirror = false, pathData = PATH_SCHEDULE_FILL)
-    }
-
-    val SchoolFilled: ImageVector by lazy {
-        symbol(name = "SchoolFilled", autoMirror = false, pathData = PATH_SCHOOL_FILL)
-    }
-
-    val ScienceFilled: ImageVector by lazy {
-        symbol(name = "ScienceFilled", autoMirror = false, pathData = PATH_SCIENCE_FILL)
-    }
-
-    val Search: ImageVector by lazy {
-        symbol(name = "Search", autoMirror = false, pathData = PATH_SEARCH)
-    }
-
-    val SearchFilled: ImageVector by lazy {
-        symbol(name = "SearchFilled", autoMirror = false, pathData = PATH_SEARCH_FILL)
-    }
-
-    val SearchOff: ImageVector by lazy {
-        symbol(name = "SearchOff", autoMirror = false, pathData = PATH_SEARCH_OFF)
-    }
-
-    val SearchOffFilled: ImageVector by lazy {
-        symbol(name = "SearchOffFilled", autoMirror = false, pathData = PATH_SEARCH_OFF_FILL)
-    }
-
-    val SelectAll: ImageVector by lazy {
-        symbol(name = "SelectAll", autoMirror = false, pathData = PATH_SELECT_ALL)
-    }
-
-    val SelfImprovementFilled: ImageVector by lazy {
-        symbol(name = "SelfImprovementFilled", autoMirror = false, pathData = PATH_SELF_IMPROVEMENT_FILL)
-    }
-
-    val Sell: ImageVector by lazy {
-        symbol(name = "Sell", autoMirror = false, pathData = PATH_SELL)
-    }
-
-    val Send: ImageVector by lazy {
-        symbol(name = "Send", autoMirror = true, pathData = PATH_SEND)
-    }
-
-    val Settings: ImageVector by lazy {
-        symbol(name = "Settings", autoMirror = false, pathData = PATH_SETTINGS)
-    }
-
-    val SettingsFilled: ImageVector by lazy {
-        symbol(name = "SettingsFilled", autoMirror = false, pathData = PATH_SETTINGS_FILL)
-    }
-
-    val Share: ImageVector by lazy {
-        symbol(name = "Share", autoMirror = false, pathData = PATH_SHARE)
-    }
-
-    val ShareFilled: ImageVector by lazy {
-        symbol(name = "ShareFilled", autoMirror = false, pathData = PATH_SHARE_FILL)
-    }
-
-    val Shield: ImageVector by lazy {
-        symbol(name = "Shield", autoMirror = false, pathData = PATH_SHIELD)
-    }
-
-    val ShieldFilled: ImageVector by lazy {
-        symbol(name = "ShieldFilled", autoMirror = false, pathData = PATH_SHIELD_FILL)
-    }
-
-    val ShuffleFilled: ImageVector by lazy {
-        symbol(name = "ShuffleFilled", autoMirror = false, pathData = PATH_SHUFFLE_FILL)
-    }
-
-    val SkipNext: ImageVector by lazy {
-        symbol(name = "SkipNext", autoMirror = false, pathData = PATH_SKIP_NEXT)
-    }
-
-    val SkipNextFilled: ImageVector by lazy {
-        symbol(name = "SkipNextFilled", autoMirror = false, pathData = PATH_SKIP_NEXT_FILL)
-    }
-
-    val SkipPreviousFilled: ImageVector by lazy {
-        symbol(name = "SkipPreviousFilled", autoMirror = false, pathData = PATH_SKIP_PREVIOUS_FILL)
-    }
-
-    val Smartphone: ImageVector by lazy {
-        symbol(name = "Smartphone", autoMirror = false, pathData = PATH_SMARTPHONE)
-    }
-
-    val SortByAlphaFilled: ImageVector by lazy {
-        symbol(name = "SortByAlphaFilled", autoMirror = false, pathData = PATH_SORT_BY_ALPHA_FILL)
-    }
-
-    val SortFilled: ImageVector by lazy {
-        symbol(name = "SortFilled", autoMirror = true, pathData = PATH_SORT_FILL)
-    }
-
-    val Speaker: ImageVector by lazy {
-        symbol(name = "Speaker", autoMirror = false, pathData = PATH_SPEAKER)
-    }
-
-    val SpeedFilled: ImageVector by lazy {
-        symbol(name = "SpeedFilled", autoMirror = false, pathData = PATH_SPEED_FILL)
-    }
-
-    val SportsBasketballFilled: ImageVector by lazy {
-        symbol(name = "SportsBasketballFilled", autoMirror = false, pathData = PATH_SPORTS_BASKETBALL_FILL)
-    }
-
-    val Star: ImageVector by lazy {
-        symbol(name = "Star", autoMirror = false, pathData = PATH_STAR)
-    }
-
-    val StarBorderFilled: ImageVector by lazy {
-        symbol(name = "StarBorderFilled", autoMirror = false, pathData = PATH_STAR)
-    }
-
-    val StarFilled: ImageVector by lazy {
-        symbol(name = "StarFilled", autoMirror = false, pathData = PATH_STAR_FILL)
-    }
-
-    val StarHalfFilled: ImageVector by lazy {
-        symbol(name = "StarHalfFilled", autoMirror = true, pathData = PATH_STAR_HALF_FILL)
-    }
-
-    val StarOutline: ImageVector by lazy {
-        symbol(name = "StarOutline", autoMirror = false, pathData = PATH_STAR)
-    }
-
-    val Storage: ImageVector by lazy {
-        symbol(name = "Storage", autoMirror = false, pathData = PATH_STORAGE)
-    }
-
-    val Storefront: ImageVector by lazy {
-        symbol(name = "Storefront", autoMirror = false, pathData = PATH_STOREFRONT)
-    }
-
-    val SwapVertFilled: ImageVector by lazy {
-        symbol(name = "SwapVertFilled", autoMirror = false, pathData = PATH_SWAP_VERT_FILL)
-    }
-
-    val Sync: ImageVector by lazy {
-        symbol(name = "Sync", autoMirror = false, pathData = PATH_SYNC)
-    }
-
-    val SyncProblem: ImageVector by lazy {
-        symbol(name = "SyncProblem", autoMirror = false, pathData = PATH_SYNC_PROBLEM)
-    }
-
-    val TabletMac: ImageVector by lazy {
-        symbol(name = "TabletMac", autoMirror = false, pathData = PATH_TABLET_MAC)
-    }
-
-    val TagFilled: ImageVector by lazy {
-        symbol(name = "TagFilled", autoMirror = false, pathData = PATH_TAG_FILL)
-    }
-
-    val TaskAlt: ImageVector by lazy {
-        symbol(name = "TaskAlt", autoMirror = false, pathData = PATH_TASK_ALT)
-    }
-
-    val TheaterComedyFilled: ImageVector by lazy {
-        symbol(name = "TheaterComedyFilled", autoMirror = false, pathData = PATH_THEATER_COMEDY_FILL)
-    }
-
-    val Timeline: ImageVector by lazy {
-        symbol(name = "Timeline", autoMirror = false, pathData = PATH_TIMELINE)
-    }
-
-    val TimerFilled: ImageVector by lazy {
-        symbol(name = "TimerFilled", autoMirror = false, pathData = PATH_TIMER_FILL)
-    }
-
-    val Tune: ImageVector by lazy {
-        symbol(name = "Tune", autoMirror = false, pathData = PATH_TUNE)
-    }
-
-    val Tv: ImageVector by lazy {
-        symbol(name = "Tv", autoMirror = false, pathData = PATH_TV)
-    }
-
-    val Undo: ImageVector by lazy {
-        symbol(name = "Undo", autoMirror = true, pathData = PATH_UNDO)
-    }
-
-    val UndoFilled: ImageVector by lazy {
-        symbol(name = "UndoFilled", autoMirror = true, pathData = PATH_UNDO_FILL)
-    }
-
-    val UnfoldLess: ImageVector by lazy {
-        symbol(name = "UnfoldLess", autoMirror = false, pathData = PATH_UNFOLD_LESS)
-    }
-
-    val UnfoldMore: ImageVector by lazy {
-        symbol(name = "UnfoldMore", autoMirror = false, pathData = PATH_UNFOLD_MORE)
-    }
-
-    val VerifiedFilled: ImageVector by lazy {
-        symbol(name = "VerifiedFilled", autoMirror = false, pathData = PATH_VERIFIED_FILL)
-    }
-
-    val VerifiedUser: ImageVector by lazy {
-        symbol(name = "VerifiedUser", autoMirror = false, pathData = PATH_VERIFIED_USER)
-    }
-
-    val VibrationFilled: ImageVector by lazy {
-        symbol(name = "VibrationFilled", autoMirror = false, pathData = PATH_VIBRATION_FILL)
-    }
-
-    val Visibility: ImageVector by lazy {
-        symbol(name = "Visibility", autoMirror = false, pathData = PATH_VISIBILITY)
-    }
-
-    val VisibilityFilled: ImageVector by lazy {
-        symbol(name = "VisibilityFilled", autoMirror = false, pathData = PATH_VISIBILITY_FILL)
-    }
-
-    val VisibilityOff: ImageVector by lazy {
-        symbol(name = "VisibilityOff", autoMirror = false, pathData = PATH_VISIBILITY_OFF)
-    }
-
-    val VisibilityOffFilled: ImageVector by lazy {
-        symbol(name = "VisibilityOffFilled", autoMirror = false, pathData = PATH_VISIBILITY_OFF_FILL)
-    }
-
-    val VolumeUpFilled: ImageVector by lazy {
-        symbol(name = "VolumeUpFilled", autoMirror = true, pathData = PATH_VOLUME_UP_FILL)
-    }
-
-    val Warning: ImageVector by lazy {
-        symbol(name = "Warning", autoMirror = false, pathData = PATH_WARNING)
-    }
-
-    val WarningAmber: ImageVector by lazy {
-        symbol(name = "WarningAmber", autoMirror = false, pathData = PATH_WARNING)
-    }
-
-    val WarningFilled: ImageVector by lazy {
-        symbol(name = "WarningFilled", autoMirror = false, pathData = PATH_WARNING_FILL)
-    }
-
-    val Watch: ImageVector by lazy {
-        symbol(name = "Watch", autoMirror = false, pathData = PATH_WATCH)
-    }
-
-    val WifiFilled: ImageVector by lazy {
-        symbol(name = "WifiFilled", autoMirror = false, pathData = PATH_WIFI_FILL)
-    }
-
-    val WifiOff: ImageVector by lazy {
-        symbol(name = "WifiOff", autoMirror = false, pathData = PATH_WIFI_OFF)
-    }
-
-    val ZoomInFilled: ImageVector by lazy {
-        symbol(name = "ZoomInFilled", autoMirror = false, pathData = PATH_ZOOM_IN_FILL)
-    }
-
-    val ZoomOutFilled: ImageVector by lazy {
-        symbol(name = "ZoomOutFilled", autoMirror = false, pathData = PATH_ZOOM_OUT_FILL)
-    }
+    private var accountBalanceFilled: ImageVector? = null
+
+    val AccountBalanceFilled: ImageVector
+        get() =
+            accountBalanceFilled
+                ?: symbol(
+                    name = "AccountBalanceFilled",
+                    autoMirror = false,
+                    pathData = PATH_ACCOUNT_BALANCE_FILL,
+                ).also { accountBalanceFilled = it }
+
+    private var accountCircle: ImageVector? = null
+
+    val AccountCircle: ImageVector
+        get() =
+            accountCircle
+                ?: symbol(
+                    name = "AccountCircle",
+                    autoMirror = false,
+                    pathData = PATH_ACCOUNT_CIRCLE,
+                ).also { accountCircle = it }
+
+    private var accountCircleFilled: ImageVector? = null
+
+    val AccountCircleFilled: ImageVector
+        get() =
+            accountCircleFilled
+                ?: symbol(
+                    name = "AccountCircleFilled",
+                    autoMirror = false,
+                    pathData = PATH_ACCOUNT_CIRCLE_FILL,
+                ).also { accountCircleFilled = it }
+
+    private var accountTreeFilled: ImageVector? = null
+
+    val AccountTreeFilled: ImageVector
+        get() =
+            accountTreeFilled
+                ?: symbol(
+                    name = "AccountTreeFilled",
+                    autoMirror = false,
+                    pathData = PATH_ACCOUNT_TREE_FILL,
+                ).also { accountTreeFilled = it }
+
+    private var add: ImageVector? = null
+
+    val Add: ImageVector
+        get() =
+            add
+                ?: symbol(
+                    name = "Add",
+                    autoMirror = false,
+                    pathData = PATH_ADD,
+                ).also { add = it }
+
+    private var addFilled: ImageVector? = null
+
+    val AddFilled: ImageVector
+        get() =
+            addFilled
+                ?: symbol(
+                    name = "AddFilled",
+                    autoMirror = false,
+                    pathData = PATH_ADD_FILL,
+                ).also { addFilled = it }
+
+    private var adminPanelSettings: ImageVector? = null
+
+    val AdminPanelSettings: ImageVector
+        get() =
+            adminPanelSettings
+                ?: symbol(
+                    name = "AdminPanelSettings",
+                    autoMirror = false,
+                    pathData = PATH_ADMIN_PANEL_SETTINGS,
+                ).also { adminPanelSettings = it }
+
+    private var appsFilled: ImageVector? = null
+
+    val AppsFilled: ImageVector
+        get() =
+            appsFilled
+                ?: symbol(
+                    name = "AppsFilled",
+                    autoMirror = false,
+                    pathData = PATH_APPS_FILL,
+                ).also { appsFilled = it }
+
+    private var archive: ImageVector? = null
+
+    val Archive: ImageVector
+        get() =
+            archive
+                ?: symbol(
+                    name = "Archive",
+                    autoMirror = false,
+                    pathData = PATH_ARCHIVE,
+                ).also { archive = it }
+
+    private var arrowBack: ImageVector? = null
+
+    val ArrowBack: ImageVector
+        get() =
+            arrowBack
+                ?: symbol(
+                    name = "ArrowBack",
+                    autoMirror = true,
+                    pathData = PATH_ARROW_BACK,
+                ).also { arrowBack = it }
+
+    private var arrowBackFilled: ImageVector? = null
+
+    val ArrowBackFilled: ImageVector
+        get() =
+            arrowBackFilled
+                ?: symbol(
+                    name = "ArrowBackFilled",
+                    autoMirror = true,
+                    pathData = PATH_ARROW_BACK_FILL,
+                ).also { arrowBackFilled = it }
+
+    private var arrowDownwardFilled: ImageVector? = null
+
+    val ArrowDownwardFilled: ImageVector
+        get() =
+            arrowDownwardFilled
+                ?: symbol(
+                    name = "ArrowDownwardFilled",
+                    autoMirror = false,
+                    pathData = PATH_ARROW_DOWNWARD_FILL,
+                ).also { arrowDownwardFilled = it }
+
+    private var arrowDropDown: ImageVector? = null
+
+    val ArrowDropDown: ImageVector
+        get() =
+            arrowDropDown
+                ?: symbol(
+                    name = "ArrowDropDown",
+                    autoMirror = false,
+                    pathData = PATH_ARROW_DROP_DOWN,
+                ).also { arrowDropDown = it }
+
+    private var arrowForward: ImageVector? = null
+
+    val ArrowForward: ImageVector
+        get() =
+            arrowForward
+                ?: symbol(
+                    name = "ArrowForward",
+                    autoMirror = true,
+                    pathData = PATH_ARROW_FORWARD,
+                ).also { arrowForward = it }
+
+    private var arrowForwardFilled: ImageVector? = null
+
+    val ArrowForwardFilled: ImageVector
+        get() =
+            arrowForwardFilled
+                ?: symbol(
+                    name = "ArrowForwardFilled",
+                    autoMirror = true,
+                    pathData = PATH_ARROW_FORWARD_FILL,
+                ).also { arrowForwardFilled = it }
+
+    private var arrowUpwardFilled: ImageVector? = null
+
+    val ArrowUpwardFilled: ImageVector
+        get() =
+            arrowUpwardFilled
+                ?: symbol(
+                    name = "ArrowUpwardFilled",
+                    autoMirror = false,
+                    pathData = PATH_ARROW_UPWARD_FILL,
+                ).also { arrowUpwardFilled = it }
+
+    private var autoAwesome: ImageVector? = null
+
+    val AutoAwesome: ImageVector
+        get() =
+            autoAwesome
+                ?: symbol(
+                    name = "AutoAwesome",
+                    autoMirror = false,
+                    pathData = PATH_AUTO_AWESOME,
+                ).also { autoAwesome = it }
+
+    private var autoAwesomeFilled: ImageVector? = null
+
+    val AutoAwesomeFilled: ImageVector
+        get() =
+            autoAwesomeFilled
+                ?: symbol(
+                    name = "AutoAwesomeFilled",
+                    autoMirror = false,
+                    pathData = PATH_AUTO_AWESOME_FILL,
+                ).also { autoAwesomeFilled = it }
+
+    private var autoStories: ImageVector? = null
+
+    val AutoStories: ImageVector
+        get() =
+            autoStories
+                ?: symbol(
+                    name = "AutoStories",
+                    autoMirror = false,
+                    pathData = PATH_AUTO_STORIES,
+                ).also { autoStories = it }
+
+    private var autoStoriesFilled: ImageVector? = null
+
+    val AutoStoriesFilled: ImageVector
+        get() =
+            autoStoriesFilled
+                ?: symbol(
+                    name = "AutoStoriesFilled",
+                    autoMirror = false,
+                    pathData = PATH_AUTO_STORIES_FILL,
+                ).also { autoStoriesFilled = it }
+
+    private var backup: ImageVector? = null
+
+    val Backup: ImageVector
+        get() =
+            backup
+                ?: symbol(
+                    name = "Backup",
+                    autoMirror = false,
+                    pathData = PATH_BACKUP,
+                ).also { backup = it }
+
+    private var badge: ImageVector? = null
+
+    val Badge: ImageVector
+        get() =
+            badge
+                ?: symbol(
+                    name = "Badge",
+                    autoMirror = false,
+                    pathData = PATH_BADGE,
+                ).also { badge = it }
+
+    private var bedtimeFilled: ImageVector? = null
+
+    val BedtimeFilled: ImageVector
+        get() =
+            bedtimeFilled
+                ?: symbol(
+                    name = "BedtimeFilled",
+                    autoMirror = false,
+                    pathData = PATH_BEDTIME_FILL,
+                ).also { bedtimeFilled = it }
+
+    private var block: ImageVector? = null
+
+    val Block: ImageVector
+        get() =
+            block
+                ?: symbol(
+                    name = "Block",
+                    autoMirror = false,
+                    pathData = PATH_BLOCK,
+                ).also { block = it }
+
+    private var book: ImageVector? = null
+
+    val Book: ImageVector
+        get() =
+            book
+                ?: symbol(
+                    name = "Book",
+                    autoMirror = false,
+                    pathData = PATH_BOOK,
+                ).also { book = it }
+
+    private var bookFilled: ImageVector? = null
+
+    val BookFilled: ImageVector
+        get() =
+            bookFilled
+                ?: symbol(
+                    name = "BookFilled",
+                    autoMirror = false,
+                    pathData = PATH_BOOK_FILL,
+                ).also { bookFilled = it }
+
+    private var bookmark: ImageVector? = null
+
+    val Bookmark: ImageVector
+        get() =
+            bookmark
+                ?: symbol(
+                    name = "Bookmark",
+                    autoMirror = false,
+                    pathData = PATH_BOOKMARK,
+                ).also { bookmark = it }
+
+    private var bookmarkAdd: ImageVector? = null
+
+    val BookmarkAdd: ImageVector
+        get() =
+            bookmarkAdd
+                ?: symbol(
+                    name = "BookmarkAdd",
+                    autoMirror = false,
+                    pathData = PATH_BOOKMARK_ADD,
+                ).also { bookmarkAdd = it }
+
+    private var bookmarks: ImageVector? = null
+
+    val Bookmarks: ImageVector
+        get() =
+            bookmarks
+                ?: symbol(
+                    name = "Bookmarks",
+                    autoMirror = false,
+                    pathData = PATH_BOOKMARKS,
+                ).also { bookmarks = it }
+
+    private var bookmarksFilled: ImageVector? = null
+
+    val BookmarksFilled: ImageVector
+        get() =
+            bookmarksFilled
+                ?: symbol(
+                    name = "BookmarksFilled",
+                    autoMirror = false,
+                    pathData = PATH_BOOKMARKS_FILL,
+                ).also { bookmarksFilled = it }
+
+    private var brokenImageFilled: ImageVector? = null
+
+    val BrokenImageFilled: ImageVector
+        get() =
+            brokenImageFilled
+                ?: symbol(
+                    name = "BrokenImageFilled",
+                    autoMirror = false,
+                    pathData = PATH_BROKEN_IMAGE_FILL,
+                ).also { brokenImageFilled = it }
+
+    private var brushFilled: ImageVector? = null
+
+    val BrushFilled: ImageVector
+        get() =
+            brushFilled
+                ?: symbol(
+                    name = "BrushFilled",
+                    autoMirror = false,
+                    pathData = PATH_BRUSH_FILL,
+                ).also { brushFilled = it }
+
+    private var business: ImageVector? = null
+
+    val Business: ImageVector
+        get() =
+            business
+                ?: symbol(
+                    name = "Business",
+                    autoMirror = false,
+                    pathData = PATH_DOMAIN,
+                ).also { business = it }
+
+    private var calendarMonth: ImageVector? = null
+
+    val CalendarMonth: ImageVector
+        get() =
+            calendarMonth
+                ?: symbol(
+                    name = "CalendarMonth",
+                    autoMirror = false,
+                    pathData = PATH_CALENDAR_MONTH,
+                ).also { calendarMonth = it }
+
+    private var calendarMonthFilled: ImageVector? = null
+
+    val CalendarMonthFilled: ImageVector
+        get() =
+            calendarMonthFilled
+                ?: symbol(
+                    name = "CalendarMonthFilled",
+                    autoMirror = false,
+                    pathData = PATH_CALENDAR_MONTH_FILL,
+                ).also { calendarMonthFilled = it }
+
+    private var callMerge: ImageVector? = null
+
+    val CallMerge: ImageVector
+        get() =
+            callMerge
+                ?: symbol(
+                    name = "CallMerge",
+                    autoMirror = true,
+                    pathData = PATH_CALL_MERGE,
+                ).also { callMerge = it }
+
+    private var callMergeFilled: ImageVector? = null
+
+    val CallMergeFilled: ImageVector
+        get() =
+            callMergeFilled
+                ?: symbol(
+                    name = "CallMergeFilled",
+                    autoMirror = true,
+                    pathData = PATH_CALL_MERGE_FILL,
+                ).also { callMergeFilled = it }
+
+    private var cameraAlt: ImageVector? = null
+
+    val CameraAlt: ImageVector
+        get() =
+            cameraAlt
+                ?: symbol(
+                    name = "CameraAlt",
+                    autoMirror = false,
+                    pathData = PATH_PHOTO_CAMERA,
+                ).also { cameraAlt = it }
+
+    private var cameraAltFilled: ImageVector? = null
+
+    val CameraAltFilled: ImageVector
+        get() =
+            cameraAltFilled
+                ?: symbol(
+                    name = "CameraAltFilled",
+                    autoMirror = false,
+                    pathData = PATH_PHOTO_CAMERA_FILL,
+                ).also { cameraAltFilled = it }
+
+    private var cancel: ImageVector? = null
+
+    val Cancel: ImageVector
+        get() =
+            cancel
+                ?: symbol(
+                    name = "Cancel",
+                    autoMirror = false,
+                    pathData = PATH_CANCEL,
+                ).also { cancel = it }
+
+    private var cast: ImageVector? = null
+
+    val Cast: ImageVector
+        get() =
+            cast
+                ?: symbol(
+                    name = "Cast",
+                    autoMirror = false,
+                    pathData = PATH_CAST,
+                ).also { cast = it }
+
+    private var castConnectedFilled: ImageVector? = null
+
+    val CastConnectedFilled: ImageVector
+        get() =
+            castConnectedFilled
+                ?: symbol(
+                    name = "CastConnectedFilled",
+                    autoMirror = false,
+                    pathData = PATH_CAST_CONNECTED_FILL,
+                ).also { castConnectedFilled = it }
+
+    private var castleFilled: ImageVector? = null
+
+    val CastleFilled: ImageVector
+        get() =
+            castleFilled
+                ?: symbol(
+                    name = "CastleFilled",
+                    autoMirror = false,
+                    pathData = PATH_CASTLE_FILL,
+                ).also { castleFilled = it }
+
+    private var category: ImageVector? = null
+
+    val Category: ImageVector
+        get() =
+            category
+                ?: symbol(
+                    name = "Category",
+                    autoMirror = false,
+                    pathData = PATH_CATEGORY,
+                ).also { category = it }
+
+    private var categoryFilled: ImageVector? = null
+
+    val CategoryFilled: ImageVector
+        get() =
+            categoryFilled
+                ?: symbol(
+                    name = "CategoryFilled",
+                    autoMirror = false,
+                    pathData = PATH_CATEGORY_FILL,
+                ).also { categoryFilled = it }
+
+    private var check: ImageVector? = null
+
+    val Check: ImageVector
+        get() =
+            check
+                ?: symbol(
+                    name = "Check",
+                    autoMirror = false,
+                    pathData = PATH_CHECK,
+                ).also { check = it }
+
+    private var checkCircle: ImageVector? = null
+
+    val CheckCircle: ImageVector
+        get() =
+            checkCircle
+                ?: symbol(
+                    name = "CheckCircle",
+                    autoMirror = false,
+                    pathData = PATH_CHECK_CIRCLE,
+                ).also { checkCircle = it }
+
+    private var checkCircleFilled: ImageVector? = null
+
+    val CheckCircleFilled: ImageVector
+        get() =
+            checkCircleFilled
+                ?: symbol(
+                    name = "CheckCircleFilled",
+                    autoMirror = false,
+                    pathData = PATH_CHECK_CIRCLE_FILL,
+                ).also { checkCircleFilled = it }
+
+    private var checkFilled: ImageVector? = null
+
+    val CheckFilled: ImageVector
+        get() =
+            checkFilled
+                ?: symbol(
+                    name = "CheckFilled",
+                    autoMirror = false,
+                    pathData = PATH_CHECK_FILL,
+                ).also { checkFilled = it }
+
+    private var chevronRight: ImageVector? = null
+
+    val ChevronRight: ImageVector
+        get() =
+            chevronRight
+                ?: symbol(
+                    name = "ChevronRight",
+                    autoMirror = false,
+                    pathData = PATH_CHEVRON_RIGHT,
+                ).also { chevronRight = it }
+
+    private var childCareFilled: ImageVector? = null
+
+    val ChildCareFilled: ImageVector
+        get() =
+            childCareFilled
+                ?: symbol(
+                    name = "ChildCareFilled",
+                    autoMirror = false,
+                    pathData = PATH_CHILD_CARE_FILL,
+                ).also { childCareFilled = it }
+
+    private var churchFilled: ImageVector? = null
+
+    val ChurchFilled: ImageVector
+        get() =
+            churchFilled
+                ?: symbol(
+                    name = "ChurchFilled",
+                    autoMirror = false,
+                    pathData = PATH_CHURCH_FILL,
+                ).also { churchFilled = it }
+
+    private var clearFilled: ImageVector? = null
+
+    val ClearFilled: ImageVector
+        get() =
+            clearFilled
+                ?: symbol(
+                    name = "ClearFilled",
+                    autoMirror = false,
+                    pathData = PATH_CLOSE_FILL,
+                ).also { clearFilled = it }
+
+    private var close: ImageVector? = null
+
+    val Close: ImageVector
+        get() =
+            close
+                ?: symbol(
+                    name = "Close",
+                    autoMirror = false,
+                    pathData = PATH_CLOSE,
+                ).also { close = it }
+
+    private var closeFilled: ImageVector? = null
+
+    val CloseFilled: ImageVector
+        get() =
+            closeFilled
+                ?: symbol(
+                    name = "CloseFilled",
+                    autoMirror = false,
+                    pathData = PATH_CLOSE_FILL,
+                ).also { closeFilled = it }
+
+    private var cloudDone: ImageVector? = null
+
+    val CloudDone: ImageVector
+        get() =
+            cloudDone
+                ?: symbol(
+                    name = "CloudDone",
+                    autoMirror = false,
+                    pathData = PATH_CLOUD_DONE,
+                ).also { cloudDone = it }
+
+    private var cloudDoneFilled: ImageVector? = null
+
+    val CloudDoneFilled: ImageVector
+        get() =
+            cloudDoneFilled
+                ?: symbol(
+                    name = "CloudDoneFilled",
+                    autoMirror = false,
+                    pathData = PATH_CLOUD_DONE_FILL,
+                ).also { cloudDoneFilled = it }
+
+    private var cloudDownload: ImageVector? = null
+
+    val CloudDownload: ImageVector
+        get() =
+            cloudDownload
+                ?: symbol(
+                    name = "CloudDownload",
+                    autoMirror = false,
+                    pathData = PATH_CLOUD_DOWNLOAD,
+                ).also { cloudDownload = it }
+
+    private var cloudOff: ImageVector? = null
+
+    val CloudOff: ImageVector
+        get() =
+            cloudOff
+                ?: symbol(
+                    name = "CloudOff",
+                    autoMirror = false,
+                    pathData = PATH_CLOUD_OFF,
+                ).also { cloudOff = it }
+
+    private var cloudOffFilled: ImageVector? = null
+
+    val CloudOffFilled: ImageVector
+        get() =
+            cloudOffFilled
+                ?: symbol(
+                    name = "CloudOffFilled",
+                    autoMirror = false,
+                    pathData = PATH_CLOUD_OFF_FILL,
+                ).also { cloudOffFilled = it }
+
+    private var cloudSyncFilled: ImageVector? = null
+
+    val CloudSyncFilled: ImageVector
+        get() =
+            cloudSyncFilled
+                ?: symbol(
+                    name = "CloudSyncFilled",
+                    autoMirror = false,
+                    pathData = PATH_CLOUD_SYNC_FILL,
+                ).also { cloudSyncFilled = it }
+
+    private var cloudUpload: ImageVector? = null
+
+    val CloudUpload: ImageVector
+        get() =
+            cloudUpload
+                ?: symbol(
+                    name = "CloudUpload",
+                    autoMirror = false,
+                    pathData = PATH_CLOUD_UPLOAD,
+                ).also { cloudUpload = it }
+
+    private var collectionsBookmark: ImageVector? = null
+
+    val CollectionsBookmark: ImageVector
+        get() =
+            collectionsBookmark
+                ?: symbol(
+                    name = "CollectionsBookmark",
+                    autoMirror = false,
+                    pathData = PATH_COLLECTIONS_BOOKMARK,
+                ).also { collectionsBookmark = it }
+
+    private var computer: ImageVector? = null
+
+    val Computer: ImageVector
+        get() =
+            computer
+                ?: symbol(
+                    name = "Computer",
+                    autoMirror = false,
+                    pathData = PATH_COMPUTER,
+                ).also { computer = it }
+
+    private var computerFilled: ImageVector? = null
+
+    val ComputerFilled: ImageVector
+        get() =
+            computerFilled
+                ?: symbol(
+                    name = "ComputerFilled",
+                    autoMirror = false,
+                    pathData = PATH_COMPUTER_FILL,
+                ).also { computerFilled = it }
+
+    private var contentCopy: ImageVector? = null
+
+    val ContentCopy: ImageVector
+        get() =
+            contentCopy
+                ?: symbol(
+                    name = "ContentCopy",
+                    autoMirror = false,
+                    pathData = PATH_CONTENT_COPY,
+                ).also { contentCopy = it }
+
+    private var cropFilled: ImageVector? = null
+
+    val CropFilled: ImageVector
+        get() =
+            cropFilled
+                ?: symbol(
+                    name = "CropFilled",
+                    autoMirror = false,
+                    pathData = PATH_CROP_FILL,
+                ).also { cropFilled = it }
+
+    private var darkModeFilled: ImageVector? = null
+
+    val DarkModeFilled: ImageVector
+        get() =
+            darkModeFilled
+                ?: symbol(
+                    name = "DarkModeFilled",
+                    autoMirror = false,
+                    pathData = PATH_DARK_MODE_FILL,
+                ).also { darkModeFilled = it }
+
+    private var delete: ImageVector? = null
+
+    val Delete: ImageVector
+        get() =
+            delete
+                ?: symbol(
+                    name = "Delete",
+                    autoMirror = false,
+                    pathData = PATH_DELETE,
+                ).also { delete = it }
+
+    private var deleteFilled: ImageVector? = null
+
+    val DeleteFilled: ImageVector
+        get() =
+            deleteFilled
+                ?: symbol(
+                    name = "DeleteFilled",
+                    autoMirror = false,
+                    pathData = PATH_DELETE_FILL,
+                ).also { deleteFilled = it }
+
+    private var deleteSweep: ImageVector? = null
+
+    val DeleteSweep: ImageVector
+        get() =
+            deleteSweep
+                ?: symbol(
+                    name = "DeleteSweep",
+                    autoMirror = false,
+                    pathData = PATH_DELETE_SWEEP,
+                ).also { deleteSweep = it }
+
+    private var descriptionFilled: ImageVector? = null
+
+    val DescriptionFilled: ImageVector
+        get() =
+            descriptionFilled
+                ?: symbol(
+                    name = "DescriptionFilled",
+                    autoMirror = false,
+                    pathData = PATH_DESCRIPTION_FILL,
+                ).also { descriptionFilled = it }
+
+    private var devices: ImageVector? = null
+
+    val Devices: ImageVector
+        get() =
+            devices
+                ?: symbol(
+                    name = "Devices",
+                    autoMirror = false,
+                    pathData = PATH_DEVICES,
+                ).also { devices = it }
+
+    private var devicesFilled: ImageVector? = null
+
+    val DevicesFilled: ImageVector
+        get() =
+            devicesFilled
+                ?: symbol(
+                    name = "DevicesFilled",
+                    autoMirror = false,
+                    pathData = PATH_DEVICES_FILL,
+                ).also { devicesFilled = it }
+
+    private var directionsCar: ImageVector? = null
+
+    val DirectionsCar: ImageVector
+        get() =
+            directionsCar
+                ?: symbol(
+                    name = "DirectionsCar",
+                    autoMirror = false,
+                    pathData = PATH_DIRECTIONS_CAR,
+                ).also { directionsCar = it }
+
+    private var dns: ImageVector? = null
+
+    val Dns: ImageVector
+        get() =
+            dns
+                ?: symbol(
+                    name = "Dns",
+                    autoMirror = false,
+                    pathData = PATH_DNS,
+                ).also { dns = it }
+
+    private var dnsFilled: ImageVector? = null
+
+    val DnsFilled: ImageVector
+        get() =
+            dnsFilled
+                ?: symbol(
+                    name = "DnsFilled",
+                    autoMirror = false,
+                    pathData = PATH_DNS_FILL,
+                ).also { dnsFilled = it }
+
+    private var download: ImageVector? = null
+
+    val Download: ImageVector
+        get() =
+            download
+                ?: symbol(
+                    name = "Download",
+                    autoMirror = false,
+                    pathData = PATH_DOWNLOAD,
+                ).also { download = it }
+
+    private var downloadFilled: ImageVector? = null
+
+    val DownloadFilled: ImageVector
+        get() =
+            downloadFilled
+                ?: symbol(
+                    name = "DownloadFilled",
+                    autoMirror = false,
+                    pathData = PATH_DOWNLOAD_FILL,
+                ).also { downloadFilled = it }
+
+    private var dragIndicatorFilled: ImageVector? = null
+
+    val DragIndicatorFilled: ImageVector
+        get() =
+            dragIndicatorFilled
+                ?: symbol(
+                    name = "DragIndicatorFilled",
+                    autoMirror = false,
+                    pathData = PATH_DRAG_INDICATOR_FILL,
+                ).also { dragIndicatorFilled = it }
+
+    private var driveFileMove: ImageVector? = null
+
+    val DriveFileMove: ImageVector
+        get() =
+            driveFileMove
+                ?: symbol(
+                    name = "DriveFileMove",
+                    autoMirror = true,
+                    pathData = PATH_DRIVE_FILE_MOVE,
+                ).also { driveFileMove = it }
+
+    private var edit: ImageVector? = null
+
+    val Edit: ImageVector
+        get() =
+            edit
+                ?: symbol(
+                    name = "Edit",
+                    autoMirror = false,
+                    pathData = PATH_EDIT,
+                ).also { edit = it }
+
+    private var editFilled: ImageVector? = null
+
+    val EditFilled: ImageVector
+        get() =
+            editFilled
+                ?: symbol(
+                    name = "EditFilled",
+                    autoMirror = false,
+                    pathData = PATH_EDIT_FILL,
+                ).also { editFilled = it }
+
+    private var editNote: ImageVector? = null
+
+    val EditNote: ImageVector
+        get() =
+            editNote
+                ?: symbol(
+                    name = "EditNote",
+                    autoMirror = false,
+                    pathData = PATH_EDIT_NOTE,
+                ).also { editNote = it }
+
+    private var email: ImageVector? = null
+
+    val Email: ImageVector
+        get() =
+            email
+                ?: symbol(
+                    name = "Email",
+                    autoMirror = false,
+                    pathData = PATH_MAIL,
+                ).also { email = it }
+
+    private var emojiEventsFilled: ImageVector? = null
+
+    val EmojiEventsFilled: ImageVector
+        get() =
+            emojiEventsFilled
+                ?: symbol(
+                    name = "EmojiEventsFilled",
+                    autoMirror = false,
+                    pathData = PATH_EMOJI_EVENTS_FILL,
+                ).also { emojiEventsFilled = it }
+
+    private var errorFilled: ImageVector? = null
+
+    val ErrorFilled: ImageVector
+        get() =
+            errorFilled
+                ?: symbol(
+                    name = "ErrorFilled",
+                    autoMirror = false,
+                    pathData = PATH_ERROR_FILL,
+                ).also { errorFilled = it }
+
+    private var errorOutline: ImageVector? = null
+
+    val ErrorOutline: ImageVector
+        get() =
+            errorOutline
+                ?: symbol(
+                    name = "ErrorOutline",
+                    autoMirror = false,
+                    pathData = PATH_ERROR,
+                ).also { errorOutline = it }
+
+    private var errorOutlineFilled: ImageVector? = null
+
+    val ErrorOutlineFilled: ImageVector
+        get() =
+            errorOutlineFilled
+                ?: symbol(
+                    name = "ErrorOutlineFilled",
+                    autoMirror = false,
+                    pathData = PATH_ERROR,
+                ).also { errorOutlineFilled = it }
+
+    private var expandLessFilled: ImageVector? = null
+
+    val ExpandLessFilled: ImageVector
+        get() =
+            expandLessFilled
+                ?: symbol(
+                    name = "ExpandLessFilled",
+                    autoMirror = false,
+                    pathData = PATH_EXPAND_LESS_FILL,
+                ).also { expandLessFilled = it }
+
+    private var expandMore: ImageVector? = null
+
+    val ExpandMore: ImageVector
+        get() =
+            expandMore
+                ?: symbol(
+                    name = "ExpandMore",
+                    autoMirror = false,
+                    pathData = PATH_EXPAND_MORE,
+                ).also { expandMore = it }
+
+    private var expandMoreFilled: ImageVector? = null
+
+    val ExpandMoreFilled: ImageVector
+        get() =
+            expandMoreFilled
+                ?: symbol(
+                    name = "ExpandMoreFilled",
+                    autoMirror = false,
+                    pathData = PATH_EXPAND_MORE_FILL,
+                ).also { expandMoreFilled = it }
+
+    private var explore: ImageVector? = null
+
+    val Explore: ImageVector
+        get() =
+            explore
+                ?: symbol(
+                    name = "Explore",
+                    autoMirror = false,
+                    pathData = PATH_EXPLORE,
+                ).also { explore = it }
+
+    private var exploreFilled: ImageVector? = null
+
+    val ExploreFilled: ImageVector
+        get() =
+            exploreFilled
+                ?: symbol(
+                    name = "ExploreFilled",
+                    autoMirror = false,
+                    pathData = PATH_EXPLORE_FILL,
+                ).also { exploreFilled = it }
+
+    private var fastForwardFilled: ImageVector? = null
+
+    val FastForwardFilled: ImageVector
+        get() =
+            fastForwardFilled
+                ?: symbol(
+                    name = "FastForwardFilled",
+                    autoMirror = false,
+                    pathData = PATH_FAST_FORWARD_FILL,
+                ).also { fastForwardFilled = it }
+
+    private var fastRewindFilled: ImageVector? = null
+
+    val FastRewindFilled: ImageVector
+        get() =
+            fastRewindFilled
+                ?: symbol(
+                    name = "FastRewindFilled",
+                    autoMirror = false,
+                    pathData = PATH_FAST_REWIND_FILL,
+                ).also { fastRewindFilled = it }
+
+    private var favorite: ImageVector? = null
+
+    val Favorite: ImageVector
+        get() =
+            favorite
+                ?: symbol(
+                    name = "Favorite",
+                    autoMirror = false,
+                    pathData = PATH_FAVORITE,
+                ).also { favorite = it }
+
+    private var favoriteFilled: ImageVector? = null
+
+    val FavoriteFilled: ImageVector
+        get() =
+            favoriteFilled
+                ?: symbol(
+                    name = "FavoriteFilled",
+                    autoMirror = false,
+                    pathData = PATH_FAVORITE_FILL,
+                ).also { favoriteFilled = it }
+
+    private var filterListFilled: ImageVector? = null
+
+    val FilterListFilled: ImageVector
+        get() =
+            filterListFilled
+                ?: symbol(
+                    name = "FilterListFilled",
+                    autoMirror = false,
+                    pathData = PATH_FILTER_LIST_FILL,
+                ).also { filterListFilled = it }
+
+    private var filterNoneFilled: ImageVector? = null
+
+    val FilterNoneFilled: ImageVector
+        get() =
+            filterNoneFilled
+                ?: symbol(
+                    name = "FilterNoneFilled",
+                    autoMirror = false,
+                    pathData = PATH_FILTER_NONE_FILL,
+                ).also { filterNoneFilled = it }
+
+    private var flightFilled: ImageVector? = null
+
+    val FlightFilled: ImageVector
+        get() =
+            flightFilled
+                ?: symbol(
+                    name = "FlightFilled",
+                    autoMirror = false,
+                    pathData = PATH_FLIGHT_FILL,
+                ).also { flightFilled = it }
+
+    private var folder: ImageVector? = null
+
+    val Folder: ImageVector
+        get() =
+            folder
+                ?: symbol(
+                    name = "Folder",
+                    autoMirror = false,
+                    pathData = PATH_FOLDER,
+                ).also { folder = it }
+
+    private var folderFilled: ImageVector? = null
+
+    val FolderFilled: ImageVector
+        get() =
+            folderFilled
+                ?: symbol(
+                    name = "FolderFilled",
+                    autoMirror = false,
+                    pathData = PATH_FOLDER_FILL,
+                ).also { folderFilled = it }
+
+    private var folderOpen: ImageVector? = null
+
+    val FolderOpen: ImageVector
+        get() =
+            folderOpen
+                ?: symbol(
+                    name = "FolderOpen",
+                    autoMirror = false,
+                    pathData = PATH_FOLDER_OPEN,
+                ).also { folderOpen = it }
+
+    private var folderSpecial: ImageVector? = null
+
+    val FolderSpecial: ImageVector
+        get() =
+            folderSpecial
+                ?: symbol(
+                    name = "FolderSpecial",
+                    autoMirror = false,
+                    pathData = PATH_FOLDER_SPECIAL,
+                ).also { folderSpecial = it }
+
+    private var formatListNumbered: ImageVector? = null
+
+    val FormatListNumbered: ImageVector
+        get() =
+            formatListNumbered
+                ?: symbol(
+                    name = "FormatListNumbered",
+                    autoMirror = false,
+                    pathData = PATH_FORMAT_LIST_NUMBERED,
+                ).also { formatListNumbered = it }
+
+    private var forward10Filled: ImageVector? = null
+
+    val Forward10Filled: ImageVector
+        get() =
+            forward10Filled
+                ?: symbol(
+                    name = "Forward10Filled",
+                    autoMirror = false,
+                    pathData = PATH_FORWARD_10_FILL,
+                ).also { forward10Filled = it }
+
+    private var forward30Filled: ImageVector? = null
+
+    val Forward30Filled: ImageVector
+        get() =
+            forward30Filled
+                ?: symbol(
+                    name = "Forward30Filled",
+                    autoMirror = false,
+                    pathData = PATH_FORWARD_30_FILL,
+                ).also { forward30Filled = it }
+
+    private var forward5Filled: ImageVector? = null
+
+    val Forward5Filled: ImageVector
+        get() =
+            forward5Filled
+                ?: symbol(
+                    name = "Forward5Filled",
+                    autoMirror = false,
+                    pathData = PATH_FORWARD_5_FILL,
+                ).also { forward5Filled = it }
+
+    private var gavelFilled: ImageVector? = null
+
+    val GavelFilled: ImageVector
+        get() =
+            gavelFilled
+                ?: symbol(
+                    name = "GavelFilled",
+                    autoMirror = false,
+                    pathData = PATH_GAVEL_FILL,
+                ).also { gavelFilled = it }
+
+    private var graphicEq: ImageVector? = null
+
+    val GraphicEq: ImageVector
+        get() =
+            graphicEq
+                ?: symbol(
+                    name = "GraphicEq",
+                    autoMirror = false,
+                    pathData = PATH_GRAPHIC_EQ,
+                ).also { graphicEq = it }
+
+    private var graphicEqFilled: ImageVector? = null
+
+    val GraphicEqFilled: ImageVector
+        get() =
+            graphicEqFilled
+                ?: symbol(
+                    name = "GraphicEqFilled",
+                    autoMirror = false,
+                    pathData = PATH_GRAPHIC_EQ_FILL,
+                ).also { graphicEqFilled = it }
+
+    private var gridView: ImageVector? = null
+
+    val GridView: ImageVector
+        get() =
+            gridView
+                ?: symbol(
+                    name = "GridView",
+                    autoMirror = false,
+                    pathData = PATH_GRID_VIEW,
+                ).also { gridView = it }
+
+    private var group: ImageVector? = null
+
+    val Group: ImageVector
+        get() =
+            group
+                ?: symbol(
+                    name = "Group",
+                    autoMirror = false,
+                    pathData = PATH_GROUP,
+                ).also { group = it }
+
+    private var groups: ImageVector? = null
+
+    val Groups: ImageVector
+        get() =
+            groups
+                ?: symbol(
+                    name = "Groups",
+                    autoMirror = false,
+                    pathData = PATH_GROUPS,
+                ).also { groups = it }
+
+    private var headphones: ImageVector? = null
+
+    val Headphones: ImageVector
+        get() =
+            headphones
+                ?: symbol(
+                    name = "Headphones",
+                    autoMirror = false,
+                    pathData = PATH_HEADPHONES,
+                ).also { headphones = it }
+
+    private var headset: ImageVector? = null
+
+    val Headset: ImageVector
+        get() =
+            headset
+                ?: symbol(
+                    name = "Headset",
+                    autoMirror = false,
+                    pathData = PATH_HEADPHONES,
+                ).also { headset = it }
+
+    private var healthAndSafetyFilled: ImageVector? = null
+
+    val HealthAndSafetyFilled: ImageVector
+        get() =
+            healthAndSafetyFilled
+                ?: symbol(
+                    name = "HealthAndSafetyFilled",
+                    autoMirror = false,
+                    pathData = PATH_HEALTH_AND_SAFETY_FILL,
+                ).also { healthAndSafetyFilled = it }
+
+    private var history: ImageVector? = null
+
+    val History: ImageVector
+        get() =
+            history
+                ?: symbol(
+                    name = "History",
+                    autoMirror = false,
+                    pathData = PATH_HISTORY,
+                ).also { history = it }
+
+    private var historyFilled: ImageVector? = null
+
+    val HistoryFilled: ImageVector
+        get() =
+            historyFilled
+                ?: symbol(
+                    name = "HistoryFilled",
+                    autoMirror = false,
+                    pathData = PATH_HISTORY_FILL,
+                ).also { historyFilled = it }
+
+    private var home: ImageVector? = null
+
+    val Home: ImageVector
+        get() =
+            home
+                ?: symbol(
+                    name = "Home",
+                    autoMirror = false,
+                    pathData = PATH_HOME,
+                ).also { home = it }
+
+    private var homeFilled: ImageVector? = null
+
+    val HomeFilled: ImageVector
+        get() =
+            homeFilled
+                ?: symbol(
+                    name = "HomeFilled",
+                    autoMirror = false,
+                    pathData = PATH_HOME_FILL,
+                ).also { homeFilled = it }
+
+    private var hourglassEmpty: ImageVector? = null
+
+    val HourglassEmpty: ImageVector
+        get() =
+            hourglassEmpty
+                ?: symbol(
+                    name = "HourglassEmpty",
+                    autoMirror = false,
+                    pathData = PATH_HOURGLASS_EMPTY,
+                ).also { hourglassEmpty = it }
+
+    private var howToReg: ImageVector? = null
+
+    val HowToReg: ImageVector
+        get() =
+            howToReg
+                ?: symbol(
+                    name = "HowToReg",
+                    autoMirror = false,
+                    pathData = PATH_HOW_TO_REG,
+                ).also { howToReg = it }
+
+    private var image: ImageVector? = null
+
+    val Image: ImageVector
+        get() =
+            image
+                ?: symbol(
+                    name = "Image",
+                    autoMirror = false,
+                    pathData = PATH_IMAGE,
+                ).also { image = it }
+
+    private var inbox: ImageVector? = null
+
+    val Inbox: ImageVector
+        get() =
+            inbox
+                ?: symbol(
+                    name = "Inbox",
+                    autoMirror = false,
+                    pathData = PATH_INBOX,
+                ).also { inbox = it }
+
+    private var info: ImageVector? = null
+
+    val Info: ImageVector
+        get() =
+            info
+                ?: symbol(
+                    name = "Info",
+                    autoMirror = false,
+                    pathData = PATH_INFO,
+                ).also { info = it }
+
+    private var infoFilled: ImageVector? = null
+
+    val InfoFilled: ImageVector
+        get() =
+            infoFilled
+                ?: symbol(
+                    name = "InfoFilled",
+                    autoMirror = false,
+                    pathData = PATH_INFO_FILL,
+                ).also { infoFilled = it }
+
+    private var insertDriveFile: ImageVector? = null
+
+    val InsertDriveFile: ImageVector
+        get() =
+            insertDriveFile
+                ?: symbol(
+                    name = "InsertDriveFile",
+                    autoMirror = true,
+                    pathData = PATH_DRAFT,
+                ).also { insertDriveFile = it }
+
+    private var inventory2: ImageVector? = null
+
+    val Inventory2: ImageVector
+        get() =
+            inventory2
+                ?: symbol(
+                    name = "Inventory2",
+                    autoMirror = false,
+                    pathData = PATH_INVENTORY_2,
+                ).also { inventory2 = it }
+
+    private var key: ImageVector? = null
+
+    val Key: ImageVector
+        get() =
+            key
+                ?: symbol(
+                    name = "Key",
+                    autoMirror = false,
+                    pathData = PATH_KEY,
+                ).also { key = it }
+
+    private var keyboardArrowDownFilled: ImageVector? = null
+
+    val KeyboardArrowDownFilled: ImageVector
+        get() =
+            keyboardArrowDownFilled
+                ?: symbol(
+                    name = "KeyboardArrowDownFilled",
+                    autoMirror = false,
+                    pathData = PATH_KEYBOARD_ARROW_DOWN_FILL,
+                ).also { keyboardArrowDownFilled = it }
+
+    private var keyboardArrowRightFilled: ImageVector? = null
+
+    val KeyboardArrowRightFilled: ImageVector
+        get() =
+            keyboardArrowRightFilled
+                ?: symbol(
+                    name = "KeyboardArrowRightFilled",
+                    autoMirror = true,
+                    pathData = PATH_KEYBOARD_ARROW_RIGHT_FILL,
+                ).also { keyboardArrowRightFilled = it }
+
+    private var keyboardArrowUpFilled: ImageVector? = null
+
+    val KeyboardArrowUpFilled: ImageVector
+        get() =
+            keyboardArrowUpFilled
+                ?: symbol(
+                    name = "KeyboardArrowUpFilled",
+                    autoMirror = false,
+                    pathData = PATH_KEYBOARD_ARROW_UP_FILL,
+                ).also { keyboardArrowUpFilled = it }
+
+    private var keyboardFilled: ImageVector? = null
+
+    val KeyboardFilled: ImageVector
+        get() =
+            keyboardFilled
+                ?: symbol(
+                    name = "KeyboardFilled",
+                    autoMirror = false,
+                    pathData = PATH_KEYBOARD_FILL,
+                ).also { keyboardFilled = it }
+
+    private var label: ImageVector? = null
+
+    val Label: ImageVector
+        get() =
+            label
+                ?: symbol(
+                    name = "Label",
+                    autoMirror = true,
+                    pathData = PATH_LABEL,
+                ).also { label = it }
+
+    private var language: ImageVector? = null
+
+    val Language: ImageVector
+        get() =
+            language
+                ?: symbol(
+                    name = "Language",
+                    autoMirror = false,
+                    pathData = PATH_LANGUAGE,
+                ).also { language = it }
+
+    private var libraryAddCheck: ImageVector? = null
+
+    val LibraryAddCheck: ImageVector
+        get() =
+            libraryAddCheck
+                ?: symbol(
+                    name = "LibraryAddCheck",
+                    autoMirror = false,
+                    pathData = PATH_LIBRARY_ADD_CHECK,
+                ).also { libraryAddCheck = it }
+
+    private var libraryBooks: ImageVector? = null
+
+    val LibraryBooks: ImageVector
+        get() =
+            libraryBooks
+                ?: symbol(
+                    name = "LibraryBooks",
+                    autoMirror = true,
+                    pathData = PATH_LIBRARY_BOOKS,
+                ).also { libraryBooks = it }
+
+    private var libraryBooksFilled: ImageVector? = null
+
+    val LibraryBooksFilled: ImageVector
+        get() =
+            libraryBooksFilled
+                ?: symbol(
+                    name = "LibraryBooksFilled",
+                    autoMirror = true,
+                    pathData = PATH_LIBRARY_BOOKS_FILL,
+                ).also { libraryBooksFilled = it }
+
+    private var lightbulb: ImageVector? = null
+
+    val Lightbulb: ImageVector
+        get() =
+            lightbulb
+                ?: symbol(
+                    name = "Lightbulb",
+                    autoMirror = false,
+                    pathData = PATH_LIGHTBULB,
+                ).also { lightbulb = it }
+
+    private var link: ImageVector? = null
+
+    val Link: ImageVector
+        get() =
+            link
+                ?: symbol(
+                    name = "Link",
+                    autoMirror = false,
+                    pathData = PATH_LINK,
+                ).also { link = it }
+
+    private var linkOff: ImageVector? = null
+
+    val LinkOff: ImageVector
+        get() =
+            linkOff
+                ?: symbol(
+                    name = "LinkOff",
+                    autoMirror = false,
+                    pathData = PATH_LINK_OFF,
+                ).also { linkOff = it }
+
+    private var listFilled: ImageVector? = null
+
+    val ListFilled: ImageVector
+        get() =
+            listFilled
+                ?: symbol(
+                    name = "ListFilled",
+                    autoMirror = true,
+                    pathData = PATH_LIST_FILL,
+                ).also { listFilled = it }
+
+    private var localFireDepartment: ImageVector? = null
+
+    val LocalFireDepartment: ImageVector
+        get() =
+            localFireDepartment
+                ?: symbol(
+                    name = "LocalFireDepartment",
+                    autoMirror = false,
+                    pathData = PATH_LOCAL_FIRE_DEPARTMENT,
+                ).also { localFireDepartment = it }
+
+    private var localFireDepartmentFilled: ImageVector? = null
+
+    val LocalFireDepartmentFilled: ImageVector
+        get() =
+            localFireDepartmentFilled
+                ?: symbol(
+                    name = "LocalFireDepartmentFilled",
+                    autoMirror = false,
+                    pathData = PATH_LOCAL_FIRE_DEPARTMENT_FILL,
+                ).also { localFireDepartmentFilled = it }
+
+    private var lock: ImageVector? = null
+
+    val Lock: ImageVector
+        get() =
+            lock
+                ?: symbol(
+                    name = "Lock",
+                    autoMirror = false,
+                    pathData = PATH_LOCK,
+                ).also { lock = it }
+
+    private var lockFilled: ImageVector? = null
+
+    val LockFilled: ImageVector
+        get() =
+            lockFilled
+                ?: symbol(
+                    name = "LockFilled",
+                    autoMirror = false,
+                    pathData = PATH_LOCK_FILL,
+                ).also { lockFilled = it }
+
+    private var lockOpen: ImageVector? = null
+
+    val LockOpen: ImageVector
+        get() =
+            lockOpen
+                ?: symbol(
+                    name = "LockOpen",
+                    autoMirror = false,
+                    pathData = PATH_LOCK_OPEN,
+                ).also { lockOpen = it }
+
+    private var login: ImageVector? = null
+
+    val Login: ImageVector
+        get() =
+            login
+                ?: symbol(
+                    name = "Login",
+                    autoMirror = true,
+                    pathData = PATH_LOGIN,
+                ).also { login = it }
+
+    private var logout: ImageVector? = null
+
+    val Logout: ImageVector
+        get() =
+            logout
+                ?: symbol(
+                    name = "Logout",
+                    autoMirror = true,
+                    pathData = PATH_LOGOUT,
+                ).also { logout = it }
+
+    private var logoutFilled: ImageVector? = null
+
+    val LogoutFilled: ImageVector
+        get() =
+            logoutFilled
+                ?: symbol(
+                    name = "LogoutFilled",
+                    autoMirror = true,
+                    pathData = PATH_LOGOUT_FILL,
+                ).also { logoutFilled = it }
+
+    private var mail: ImageVector? = null
+
+    val Mail: ImageVector
+        get() =
+            mail
+                ?: symbol(
+                    name = "Mail",
+                    autoMirror = false,
+                    pathData = PATH_MAIL,
+                ).also { mail = it }
+
+    private var mailOutline: ImageVector? = null
+
+    val MailOutline: ImageVector
+        get() =
+            mailOutline
+                ?: symbol(
+                    name = "MailOutline",
+                    autoMirror = false,
+                    pathData = PATH_MAIL,
+                ).also { mailOutline = it }
+
+    private var manageSearch: ImageVector? = null
+
+    val ManageSearch: ImageVector
+        get() =
+            manageSearch
+                ?: symbol(
+                    name = "ManageSearch",
+                    autoMirror = true,
+                    pathData = PATH_MANAGE_SEARCH,
+                ).also { manageSearch = it }
+
+    private var menuBook: ImageVector? = null
+
+    val MenuBook: ImageVector
+        get() =
+            menuBook
+                ?: symbol(
+                    name = "MenuBook",
+                    autoMirror = true,
+                    pathData = PATH_MENU_BOOK,
+                ).also { menuBook = it }
+
+    private var menuBookFilled: ImageVector? = null
+
+    val MenuBookFilled: ImageVector
+        get() =
+            menuBookFilled
+                ?: symbol(
+                    name = "MenuBookFilled",
+                    autoMirror = true,
+                    pathData = PATH_MENU_BOOK_FILL,
+                ).also { menuBookFilled = it }
+
+    private var mood: ImageVector? = null
+
+    val Mood: ImageVector
+        get() =
+            mood
+                ?: symbol(
+                    name = "Mood",
+                    autoMirror = false,
+                    pathData = PATH_MOOD,
+                ).also { mood = it }
+
+    private var moodFilled: ImageVector? = null
+
+    val MoodFilled: ImageVector
+        get() =
+            moodFilled
+                ?: symbol(
+                    name = "MoodFilled",
+                    autoMirror = false,
+                    pathData = PATH_MOOD_FILL,
+                ).also { moodFilled = it }
+
+    private var moreVert: ImageVector? = null
+
+    val MoreVert: ImageVector
+        get() =
+            moreVert
+                ?: symbol(
+                    name = "MoreVert",
+                    autoMirror = false,
+                    pathData = PATH_MORE_VERT,
+                ).also { moreVert = it }
+
+    private var moreVertFilled: ImageVector? = null
+
+    val MoreVertFilled: ImageVector
+        get() =
+            moreVertFilled
+                ?: symbol(
+                    name = "MoreVertFilled",
+                    autoMirror = false,
+                    pathData = PATH_MORE_VERT_FILL,
+                ).also { moreVertFilled = it }
+
+    private var musicNoteFilled: ImageVector? = null
+
+    val MusicNoteFilled: ImageVector
+        get() =
+            musicNoteFilled
+                ?: symbol(
+                    name = "MusicNoteFilled",
+                    autoMirror = false,
+                    pathData = PATH_MUSIC_NOTE_FILL,
+                ).also { musicNoteFilled = it }
+
+    private var myLocation: ImageVector? = null
+
+    val MyLocation: ImageVector
+        get() =
+            myLocation
+                ?: symbol(
+                    name = "MyLocation",
+                    autoMirror = false,
+                    pathData = PATH_MY_LOCATION,
+                ).also { myLocation = it }
+
+    private var notifications: ImageVector? = null
+
+    val Notifications: ImageVector
+        get() =
+            notifications
+                ?: symbol(
+                    name = "Notifications",
+                    autoMirror = false,
+                    pathData = PATH_NOTIFICATIONS,
+                ).also { notifications = it }
+
+    private var notificationsActiveFilled: ImageVector? = null
+
+    val NotificationsActiveFilled: ImageVector
+        get() =
+            notificationsActiveFilled
+                ?: symbol(
+                    name = "NotificationsActiveFilled",
+                    autoMirror = false,
+                    pathData = PATH_NOTIFICATIONS_ACTIVE_FILL,
+                ).also { notificationsActiveFilled = it }
+
+    private var notificationsFilled: ImageVector? = null
+
+    val NotificationsFilled: ImageVector
+        get() =
+            notificationsFilled
+                ?: symbol(
+                    name = "NotificationsFilled",
+                    autoMirror = false,
+                    pathData = PATH_NOTIFICATIONS_FILL,
+                ).also { notificationsFilled = it }
+
+    private var notificationsNone: ImageVector? = null
+
+    val NotificationsNone: ImageVector
+        get() =
+            notificationsNone
+                ?: symbol(
+                    name = "NotificationsNone",
+                    autoMirror = false,
+                    pathData = PATH_NOTIFICATIONS,
+                ).also { notificationsNone = it }
+
+    private var openInNew: ImageVector? = null
+
+    val OpenInNew: ImageVector
+        get() =
+            openInNew
+                ?: symbol(
+                    name = "OpenInNew",
+                    autoMirror = true,
+                    pathData = PATH_OPEN_IN_NEW,
+                ).also { openInNew = it }
+
+    private var paletteFilled: ImageVector? = null
+
+    val PaletteFilled: ImageVector
+        get() =
+            paletteFilled
+                ?: symbol(
+                    name = "PaletteFilled",
+                    autoMirror = false,
+                    pathData = PATH_PALETTE_FILL,
+                ).also { paletteFilled = it }
+
+    private var pauseCircle: ImageVector? = null
+
+    val PauseCircle: ImageVector
+        get() =
+            pauseCircle
+                ?: symbol(
+                    name = "PauseCircle",
+                    autoMirror = false,
+                    pathData = PATH_PAUSE_CIRCLE,
+                ).also { pauseCircle = it }
+
+    private var pauseFilled: ImageVector? = null
+
+    val PauseFilled: ImageVector
+        get() =
+            pauseFilled
+                ?: symbol(
+                    name = "PauseFilled",
+                    autoMirror = false,
+                    pathData = PATH_PAUSE_FILL,
+                ).also { pauseFilled = it }
+
+    private var pendingFilled: ImageVector? = null
+
+    val PendingFilled: ImageVector
+        get() =
+            pendingFilled
+                ?: symbol(
+                    name = "PendingFilled",
+                    autoMirror = false,
+                    pathData = PATH_PENDING_FILL,
+                ).also { pendingFilled = it }
+
+    private var person: ImageVector? = null
+
+    val Person: ImageVector
+        get() =
+            person
+                ?: symbol(
+                    name = "Person",
+                    autoMirror = false,
+                    pathData = PATH_PERSON,
+                ).also { person = it }
+
+    private var personAdd: ImageVector? = null
+
+    val PersonAdd: ImageVector
+        get() =
+            personAdd
+                ?: symbol(
+                    name = "PersonAdd",
+                    autoMirror = false,
+                    pathData = PATH_PERSON_ADD,
+                ).also { personAdd = it }
+
+    private var personFilled: ImageVector? = null
+
+    val PersonFilled: ImageVector
+        get() =
+            personFilled
+                ?: symbol(
+                    name = "PersonFilled",
+                    autoMirror = false,
+                    pathData = PATH_PERSON_FILL,
+                ).also { personFilled = it }
+
+    private var personOffFilled: ImageVector? = null
+
+    val PersonOffFilled: ImageVector
+        get() =
+            personOffFilled
+                ?: symbol(
+                    name = "PersonOffFilled",
+                    autoMirror = false,
+                    pathData = PATH_PERSON_OFF_FILL,
+                ).also { personOffFilled = it }
+
+    private var personSearch: ImageVector? = null
+
+    val PersonSearch: ImageVector
+        get() =
+            personSearch
+                ?: symbol(
+                    name = "PersonSearch",
+                    autoMirror = false,
+                    pathData = PATH_PERSON_SEARCH,
+                ).also { personSearch = it }
+
+    private var playArrow: ImageVector? = null
+
+    val PlayArrow: ImageVector
+        get() =
+            playArrow
+                ?: symbol(
+                    name = "PlayArrow",
+                    autoMirror = false,
+                    pathData = PATH_PLAY_ARROW,
+                ).also { playArrow = it }
+
+    private var playArrowFilled: ImageVector? = null
+
+    val PlayArrowFilled: ImageVector
+        get() =
+            playArrowFilled
+                ?: symbol(
+                    name = "PlayArrowFilled",
+                    autoMirror = false,
+                    pathData = PATH_PLAY_ARROW_FILL,
+                ).also { playArrowFilled = it }
+
+    private var playlistAdd: ImageVector? = null
+
+    val PlaylistAdd: ImageVector
+        get() =
+            playlistAdd
+                ?: symbol(
+                    name = "PlaylistAdd",
+                    autoMirror = true,
+                    pathData = PATH_PLAYLIST_ADD,
+                ).also { playlistAdd = it }
+
+    private var playlistAddFilled: ImageVector? = null
+
+    val PlaylistAddFilled: ImageVector
+        get() =
+            playlistAddFilled
+                ?: symbol(
+                    name = "PlaylistAddFilled",
+                    autoMirror = true,
+                    pathData = PATH_PLAYLIST_ADD_FILL,
+                ).also { playlistAddFilled = it }
+
+    private var playlistPlayFilled: ImageVector? = null
+
+    val PlaylistPlayFilled: ImageVector
+        get() =
+            playlistPlayFilled
+                ?: symbol(
+                    name = "PlaylistPlayFilled",
+                    autoMirror = true,
+                    pathData = PATH_PLAYLIST_PLAY_FILL,
+                ).also { playlistPlayFilled = it }
+
+    private var radioButtonUnchecked: ImageVector? = null
+
+    val RadioButtonUnchecked: ImageVector
+        get() =
+            radioButtonUnchecked
+                ?: symbol(
+                    name = "RadioButtonUnchecked",
+                    autoMirror = false,
+                    pathData = PATH_RADIO_BUTTON_UNCHECKED,
+                ).also { radioButtonUnchecked = it }
+
+    private var recordVoiceOver: ImageVector? = null
+
+    val RecordVoiceOver: ImageVector
+        get() =
+            recordVoiceOver
+                ?: symbol(
+                    name = "RecordVoiceOver",
+                    autoMirror = false,
+                    pathData = PATH_RECORD_VOICE_OVER,
+                ).also { recordVoiceOver = it }
+
+    private var recordVoiceOverFilled: ImageVector? = null
+
+    val RecordVoiceOverFilled: ImageVector
+        get() =
+            recordVoiceOverFilled
+                ?: symbol(
+                    name = "RecordVoiceOverFilled",
+                    autoMirror = false,
+                    pathData = PATH_RECORD_VOICE_OVER_FILL,
+                ).also { recordVoiceOverFilled = it }
+
+    private var refresh: ImageVector? = null
+
+    val Refresh: ImageVector
+        get() =
+            refresh
+                ?: symbol(
+                    name = "Refresh",
+                    autoMirror = false,
+                    pathData = PATH_REFRESH,
+                ).also { refresh = it }
+
+    private var refreshFilled: ImageVector? = null
+
+    val RefreshFilled: ImageVector
+        get() =
+            refreshFilled
+                ?: symbol(
+                    name = "RefreshFilled",
+                    autoMirror = false,
+                    pathData = PATH_REFRESH_FILL,
+                ).also { refreshFilled = it }
+
+    private var remove: ImageVector? = null
+
+    val Remove: ImageVector
+        get() =
+            remove
+                ?: symbol(
+                    name = "Remove",
+                    autoMirror = false,
+                    pathData = PATH_REMOVE,
+                ).also { remove = it }
+
+    private var removeFilled: ImageVector? = null
+
+    val RemoveFilled: ImageVector
+        get() =
+            removeFilled
+                ?: symbol(
+                    name = "RemoveFilled",
+                    autoMirror = false,
+                    pathData = PATH_REMOVE_FILL,
+                ).also { removeFilled = it }
+
+    private var replay10Filled: ImageVector? = null
+
+    val Replay10Filled: ImageVector
+        get() =
+            replay10Filled
+                ?: symbol(
+                    name = "Replay10Filled",
+                    autoMirror = false,
+                    pathData = PATH_REPLAY_10_FILL,
+                ).also { replay10Filled = it }
+
+    private var replay30Filled: ImageVector? = null
+
+    val Replay30Filled: ImageVector
+        get() =
+            replay30Filled
+                ?: symbol(
+                    name = "Replay30Filled",
+                    autoMirror = false,
+                    pathData = PATH_REPLAY_30_FILL,
+                ).also { replay30Filled = it }
+
+    private var replay5Filled: ImageVector? = null
+
+    val Replay5Filled: ImageVector
+        get() =
+            replay5Filled
+                ?: symbol(
+                    name = "Replay5Filled",
+                    autoMirror = false,
+                    pathData = PATH_REPLAY_5_FILL,
+                ).also { replay5Filled = it }
+
+    private var replayFilled: ImageVector? = null
+
+    val ReplayFilled: ImageVector
+        get() =
+            replayFilled
+                ?: symbol(
+                    name = "ReplayFilled",
+                    autoMirror = false,
+                    pathData = PATH_REPLAY_FILL,
+                ).also { replayFilled = it }
+
+    private var restartAlt: ImageVector? = null
+
+    val RestartAlt: ImageVector
+        get() =
+            restartAlt
+                ?: symbol(
+                    name = "RestartAlt",
+                    autoMirror = false,
+                    pathData = PATH_RESTART_ALT,
+                ).also { restartAlt = it }
+
+    private var restartAltFilled: ImageVector? = null
+
+    val RestartAltFilled: ImageVector
+        get() =
+            restartAltFilled
+                ?: symbol(
+                    name = "RestartAltFilled",
+                    autoMirror = false,
+                    pathData = PATH_RESTART_ALT_FILL,
+                ).also { restartAltFilled = it }
+
+    private var restaurantFilled: ImageVector? = null
+
+    val RestaurantFilled: ImageVector
+        get() =
+            restaurantFilled
+                ?: symbol(
+                    name = "RestaurantFilled",
+                    autoMirror = false,
+                    pathData = PATH_RESTAURANT_FILL,
+                ).also { restaurantFilled = it }
+
+    private var restore: ImageVector? = null
+
+    val Restore: ImageVector
+        get() =
+            restore
+                ?: symbol(
+                    name = "Restore",
+                    autoMirror = false,
+                    pathData = PATH_HISTORY,
+                ).also { restore = it }
+
+    private var rocketLaunchFilled: ImageVector? = null
+
+    val RocketLaunchFilled: ImageVector
+        get() =
+            rocketLaunchFilled
+                ?: symbol(
+                    name = "RocketLaunchFilled",
+                    autoMirror = false,
+                    pathData = PATH_ROCKET_LAUNCH_FILL,
+                ).also { rocketLaunchFilled = it }
+
+    private var saveFilled: ImageVector? = null
+
+    val SaveFilled: ImageVector
+        get() =
+            saveFilled
+                ?: symbol(
+                    name = "SaveFilled",
+                    autoMirror = false,
+                    pathData = PATH_SAVE_FILL,
+                ).also { saveFilled = it }
+
+    private var schedule: ImageVector? = null
+
+    val Schedule: ImageVector
+        get() =
+            schedule
+                ?: symbol(
+                    name = "Schedule",
+                    autoMirror = false,
+                    pathData = PATH_SCHEDULE,
+                ).also { schedule = it }
+
+    private var scheduleFilled: ImageVector? = null
+
+    val ScheduleFilled: ImageVector
+        get() =
+            scheduleFilled
+                ?: symbol(
+                    name = "ScheduleFilled",
+                    autoMirror = false,
+                    pathData = PATH_SCHEDULE_FILL,
+                ).also { scheduleFilled = it }
+
+    private var schoolFilled: ImageVector? = null
+
+    val SchoolFilled: ImageVector
+        get() =
+            schoolFilled
+                ?: symbol(
+                    name = "SchoolFilled",
+                    autoMirror = false,
+                    pathData = PATH_SCHOOL_FILL,
+                ).also { schoolFilled = it }
+
+    private var scienceFilled: ImageVector? = null
+
+    val ScienceFilled: ImageVector
+        get() =
+            scienceFilled
+                ?: symbol(
+                    name = "ScienceFilled",
+                    autoMirror = false,
+                    pathData = PATH_SCIENCE_FILL,
+                ).also { scienceFilled = it }
+
+    private var search: ImageVector? = null
+
+    val Search: ImageVector
+        get() =
+            search
+                ?: symbol(
+                    name = "Search",
+                    autoMirror = false,
+                    pathData = PATH_SEARCH,
+                ).also { search = it }
+
+    private var searchFilled: ImageVector? = null
+
+    val SearchFilled: ImageVector
+        get() =
+            searchFilled
+                ?: symbol(
+                    name = "SearchFilled",
+                    autoMirror = false,
+                    pathData = PATH_SEARCH_FILL,
+                ).also { searchFilled = it }
+
+    private var searchOff: ImageVector? = null
+
+    val SearchOff: ImageVector
+        get() =
+            searchOff
+                ?: symbol(
+                    name = "SearchOff",
+                    autoMirror = false,
+                    pathData = PATH_SEARCH_OFF,
+                ).also { searchOff = it }
+
+    private var searchOffFilled: ImageVector? = null
+
+    val SearchOffFilled: ImageVector
+        get() =
+            searchOffFilled
+                ?: symbol(
+                    name = "SearchOffFilled",
+                    autoMirror = false,
+                    pathData = PATH_SEARCH_OFF_FILL,
+                ).also { searchOffFilled = it }
+
+    private var selectAll: ImageVector? = null
+
+    val SelectAll: ImageVector
+        get() =
+            selectAll
+                ?: symbol(
+                    name = "SelectAll",
+                    autoMirror = false,
+                    pathData = PATH_SELECT_ALL,
+                ).also { selectAll = it }
+
+    private var selfImprovementFilled: ImageVector? = null
+
+    val SelfImprovementFilled: ImageVector
+        get() =
+            selfImprovementFilled
+                ?: symbol(
+                    name = "SelfImprovementFilled",
+                    autoMirror = false,
+                    pathData = PATH_SELF_IMPROVEMENT_FILL,
+                ).also { selfImprovementFilled = it }
+
+    private var sell: ImageVector? = null
+
+    val Sell: ImageVector
+        get() =
+            sell
+                ?: symbol(
+                    name = "Sell",
+                    autoMirror = false,
+                    pathData = PATH_SELL,
+                ).also { sell = it }
+
+    private var send: ImageVector? = null
+
+    val Send: ImageVector
+        get() =
+            send
+                ?: symbol(
+                    name = "Send",
+                    autoMirror = true,
+                    pathData = PATH_SEND,
+                ).also { send = it }
+
+    private var settings: ImageVector? = null
+
+    val Settings: ImageVector
+        get() =
+            settings
+                ?: symbol(
+                    name = "Settings",
+                    autoMirror = false,
+                    pathData = PATH_SETTINGS,
+                ).also { settings = it }
+
+    private var settingsFilled: ImageVector? = null
+
+    val SettingsFilled: ImageVector
+        get() =
+            settingsFilled
+                ?: symbol(
+                    name = "SettingsFilled",
+                    autoMirror = false,
+                    pathData = PATH_SETTINGS_FILL,
+                ).also { settingsFilled = it }
+
+    private var share: ImageVector? = null
+
+    val Share: ImageVector
+        get() =
+            share
+                ?: symbol(
+                    name = "Share",
+                    autoMirror = false,
+                    pathData = PATH_SHARE,
+                ).also { share = it }
+
+    private var shareFilled: ImageVector? = null
+
+    val ShareFilled: ImageVector
+        get() =
+            shareFilled
+                ?: symbol(
+                    name = "ShareFilled",
+                    autoMirror = false,
+                    pathData = PATH_SHARE_FILL,
+                ).also { shareFilled = it }
+
+    private var shield: ImageVector? = null
+
+    val Shield: ImageVector
+        get() =
+            shield
+                ?: symbol(
+                    name = "Shield",
+                    autoMirror = false,
+                    pathData = PATH_SHIELD,
+                ).also { shield = it }
+
+    private var shieldFilled: ImageVector? = null
+
+    val ShieldFilled: ImageVector
+        get() =
+            shieldFilled
+                ?: symbol(
+                    name = "ShieldFilled",
+                    autoMirror = false,
+                    pathData = PATH_SHIELD_FILL,
+                ).also { shieldFilled = it }
+
+    private var shuffleFilled: ImageVector? = null
+
+    val ShuffleFilled: ImageVector
+        get() =
+            shuffleFilled
+                ?: symbol(
+                    name = "ShuffleFilled",
+                    autoMirror = false,
+                    pathData = PATH_SHUFFLE_FILL,
+                ).also { shuffleFilled = it }
+
+    private var skipNext: ImageVector? = null
+
+    val SkipNext: ImageVector
+        get() =
+            skipNext
+                ?: symbol(
+                    name = "SkipNext",
+                    autoMirror = false,
+                    pathData = PATH_SKIP_NEXT,
+                ).also { skipNext = it }
+
+    private var skipNextFilled: ImageVector? = null
+
+    val SkipNextFilled: ImageVector
+        get() =
+            skipNextFilled
+                ?: symbol(
+                    name = "SkipNextFilled",
+                    autoMirror = false,
+                    pathData = PATH_SKIP_NEXT_FILL,
+                ).also { skipNextFilled = it }
+
+    private var skipPreviousFilled: ImageVector? = null
+
+    val SkipPreviousFilled: ImageVector
+        get() =
+            skipPreviousFilled
+                ?: symbol(
+                    name = "SkipPreviousFilled",
+                    autoMirror = false,
+                    pathData = PATH_SKIP_PREVIOUS_FILL,
+                ).also { skipPreviousFilled = it }
+
+    private var smartphone: ImageVector? = null
+
+    val Smartphone: ImageVector
+        get() =
+            smartphone
+                ?: symbol(
+                    name = "Smartphone",
+                    autoMirror = false,
+                    pathData = PATH_SMARTPHONE,
+                ).also { smartphone = it }
+
+    private var sortByAlphaFilled: ImageVector? = null
+
+    val SortByAlphaFilled: ImageVector
+        get() =
+            sortByAlphaFilled
+                ?: symbol(
+                    name = "SortByAlphaFilled",
+                    autoMirror = false,
+                    pathData = PATH_SORT_BY_ALPHA_FILL,
+                ).also { sortByAlphaFilled = it }
+
+    private var sortFilled: ImageVector? = null
+
+    val SortFilled: ImageVector
+        get() =
+            sortFilled
+                ?: symbol(
+                    name = "SortFilled",
+                    autoMirror = true,
+                    pathData = PATH_SORT_FILL,
+                ).also { sortFilled = it }
+
+    private var speaker: ImageVector? = null
+
+    val Speaker: ImageVector
+        get() =
+            speaker
+                ?: symbol(
+                    name = "Speaker",
+                    autoMirror = false,
+                    pathData = PATH_SPEAKER,
+                ).also { speaker = it }
+
+    private var speedFilled: ImageVector? = null
+
+    val SpeedFilled: ImageVector
+        get() =
+            speedFilled
+                ?: symbol(
+                    name = "SpeedFilled",
+                    autoMirror = false,
+                    pathData = PATH_SPEED_FILL,
+                ).also { speedFilled = it }
+
+    private var sportsBasketballFilled: ImageVector? = null
+
+    val SportsBasketballFilled: ImageVector
+        get() =
+            sportsBasketballFilled
+                ?: symbol(
+                    name = "SportsBasketballFilled",
+                    autoMirror = false,
+                    pathData = PATH_SPORTS_BASKETBALL_FILL,
+                ).also { sportsBasketballFilled = it }
+
+    private var star: ImageVector? = null
+
+    val Star: ImageVector
+        get() =
+            star
+                ?: symbol(
+                    name = "Star",
+                    autoMirror = false,
+                    pathData = PATH_STAR,
+                ).also { star = it }
+
+    private var starBorderFilled: ImageVector? = null
+
+    val StarBorderFilled: ImageVector
+        get() =
+            starBorderFilled
+                ?: symbol(
+                    name = "StarBorderFilled",
+                    autoMirror = false,
+                    pathData = PATH_STAR,
+                ).also { starBorderFilled = it }
+
+    private var starFilled: ImageVector? = null
+
+    val StarFilled: ImageVector
+        get() =
+            starFilled
+                ?: symbol(
+                    name = "StarFilled",
+                    autoMirror = false,
+                    pathData = PATH_STAR_FILL,
+                ).also { starFilled = it }
+
+    private var starHalfFilled: ImageVector? = null
+
+    val StarHalfFilled: ImageVector
+        get() =
+            starHalfFilled
+                ?: symbol(
+                    name = "StarHalfFilled",
+                    autoMirror = true,
+                    pathData = PATH_STAR_HALF_FILL,
+                ).also { starHalfFilled = it }
+
+    private var starOutline: ImageVector? = null
+
+    val StarOutline: ImageVector
+        get() =
+            starOutline
+                ?: symbol(
+                    name = "StarOutline",
+                    autoMirror = false,
+                    pathData = PATH_STAR,
+                ).also { starOutline = it }
+
+    private var storage: ImageVector? = null
+
+    val Storage: ImageVector
+        get() =
+            storage
+                ?: symbol(
+                    name = "Storage",
+                    autoMirror = false,
+                    pathData = PATH_STORAGE,
+                ).also { storage = it }
+
+    private var storefront: ImageVector? = null
+
+    val Storefront: ImageVector
+        get() =
+            storefront
+                ?: symbol(
+                    name = "Storefront",
+                    autoMirror = false,
+                    pathData = PATH_STOREFRONT,
+                ).also { storefront = it }
+
+    private var swapVertFilled: ImageVector? = null
+
+    val SwapVertFilled: ImageVector
+        get() =
+            swapVertFilled
+                ?: symbol(
+                    name = "SwapVertFilled",
+                    autoMirror = false,
+                    pathData = PATH_SWAP_VERT_FILL,
+                ).also { swapVertFilled = it }
+
+    private var sync: ImageVector? = null
+
+    val Sync: ImageVector
+        get() =
+            sync
+                ?: symbol(
+                    name = "Sync",
+                    autoMirror = false,
+                    pathData = PATH_SYNC,
+                ).also { sync = it }
+
+    private var syncProblem: ImageVector? = null
+
+    val SyncProblem: ImageVector
+        get() =
+            syncProblem
+                ?: symbol(
+                    name = "SyncProblem",
+                    autoMirror = false,
+                    pathData = PATH_SYNC_PROBLEM,
+                ).also { syncProblem = it }
+
+    private var tabletMac: ImageVector? = null
+
+    val TabletMac: ImageVector
+        get() =
+            tabletMac
+                ?: symbol(
+                    name = "TabletMac",
+                    autoMirror = false,
+                    pathData = PATH_TABLET_MAC,
+                ).also { tabletMac = it }
+
+    private var tagFilled: ImageVector? = null
+
+    val TagFilled: ImageVector
+        get() =
+            tagFilled
+                ?: symbol(
+                    name = "TagFilled",
+                    autoMirror = false,
+                    pathData = PATH_TAG_FILL,
+                ).also { tagFilled = it }
+
+    private var taskAlt: ImageVector? = null
+
+    val TaskAlt: ImageVector
+        get() =
+            taskAlt
+                ?: symbol(
+                    name = "TaskAlt",
+                    autoMirror = false,
+                    pathData = PATH_TASK_ALT,
+                ).also { taskAlt = it }
+
+    private var theaterComedyFilled: ImageVector? = null
+
+    val TheaterComedyFilled: ImageVector
+        get() =
+            theaterComedyFilled
+                ?: symbol(
+                    name = "TheaterComedyFilled",
+                    autoMirror = false,
+                    pathData = PATH_THEATER_COMEDY_FILL,
+                ).also { theaterComedyFilled = it }
+
+    private var timeline: ImageVector? = null
+
+    val Timeline: ImageVector
+        get() =
+            timeline
+                ?: symbol(
+                    name = "Timeline",
+                    autoMirror = false,
+                    pathData = PATH_TIMELINE,
+                ).also { timeline = it }
+
+    private var timerFilled: ImageVector? = null
+
+    val TimerFilled: ImageVector
+        get() =
+            timerFilled
+                ?: symbol(
+                    name = "TimerFilled",
+                    autoMirror = false,
+                    pathData = PATH_TIMER_FILL,
+                ).also { timerFilled = it }
+
+    private var tune: ImageVector? = null
+
+    val Tune: ImageVector
+        get() =
+            tune
+                ?: symbol(
+                    name = "Tune",
+                    autoMirror = false,
+                    pathData = PATH_TUNE,
+                ).also { tune = it }
+
+    private var tv: ImageVector? = null
+
+    val Tv: ImageVector
+        get() =
+            tv
+                ?: symbol(
+                    name = "Tv",
+                    autoMirror = false,
+                    pathData = PATH_TV,
+                ).also { tv = it }
+
+    private var undo: ImageVector? = null
+
+    val Undo: ImageVector
+        get() =
+            undo
+                ?: symbol(
+                    name = "Undo",
+                    autoMirror = true,
+                    pathData = PATH_UNDO,
+                ).also { undo = it }
+
+    private var undoFilled: ImageVector? = null
+
+    val UndoFilled: ImageVector
+        get() =
+            undoFilled
+                ?: symbol(
+                    name = "UndoFilled",
+                    autoMirror = true,
+                    pathData = PATH_UNDO_FILL,
+                ).also { undoFilled = it }
+
+    private var unfoldLess: ImageVector? = null
+
+    val UnfoldLess: ImageVector
+        get() =
+            unfoldLess
+                ?: symbol(
+                    name = "UnfoldLess",
+                    autoMirror = false,
+                    pathData = PATH_UNFOLD_LESS,
+                ).also { unfoldLess = it }
+
+    private var unfoldMore: ImageVector? = null
+
+    val UnfoldMore: ImageVector
+        get() =
+            unfoldMore
+                ?: symbol(
+                    name = "UnfoldMore",
+                    autoMirror = false,
+                    pathData = PATH_UNFOLD_MORE,
+                ).also { unfoldMore = it }
+
+    private var verifiedFilled: ImageVector? = null
+
+    val VerifiedFilled: ImageVector
+        get() =
+            verifiedFilled
+                ?: symbol(
+                    name = "VerifiedFilled",
+                    autoMirror = false,
+                    pathData = PATH_VERIFIED_FILL,
+                ).also { verifiedFilled = it }
+
+    private var verifiedUser: ImageVector? = null
+
+    val VerifiedUser: ImageVector
+        get() =
+            verifiedUser
+                ?: symbol(
+                    name = "VerifiedUser",
+                    autoMirror = false,
+                    pathData = PATH_VERIFIED_USER,
+                ).also { verifiedUser = it }
+
+    private var vibrationFilled: ImageVector? = null
+
+    val VibrationFilled: ImageVector
+        get() =
+            vibrationFilled
+                ?: symbol(
+                    name = "VibrationFilled",
+                    autoMirror = false,
+                    pathData = PATH_VIBRATION_FILL,
+                ).also { vibrationFilled = it }
+
+    private var visibility: ImageVector? = null
+
+    val Visibility: ImageVector
+        get() =
+            visibility
+                ?: symbol(
+                    name = "Visibility",
+                    autoMirror = false,
+                    pathData = PATH_VISIBILITY,
+                ).also { visibility = it }
+
+    private var visibilityFilled: ImageVector? = null
+
+    val VisibilityFilled: ImageVector
+        get() =
+            visibilityFilled
+                ?: symbol(
+                    name = "VisibilityFilled",
+                    autoMirror = false,
+                    pathData = PATH_VISIBILITY_FILL,
+                ).also { visibilityFilled = it }
+
+    private var visibilityOff: ImageVector? = null
+
+    val VisibilityOff: ImageVector
+        get() =
+            visibilityOff
+                ?: symbol(
+                    name = "VisibilityOff",
+                    autoMirror = false,
+                    pathData = PATH_VISIBILITY_OFF,
+                ).also { visibilityOff = it }
+
+    private var visibilityOffFilled: ImageVector? = null
+
+    val VisibilityOffFilled: ImageVector
+        get() =
+            visibilityOffFilled
+                ?: symbol(
+                    name = "VisibilityOffFilled",
+                    autoMirror = false,
+                    pathData = PATH_VISIBILITY_OFF_FILL,
+                ).also { visibilityOffFilled = it }
+
+    private var volumeUpFilled: ImageVector? = null
+
+    val VolumeUpFilled: ImageVector
+        get() =
+            volumeUpFilled
+                ?: symbol(
+                    name = "VolumeUpFilled",
+                    autoMirror = true,
+                    pathData = PATH_VOLUME_UP_FILL,
+                ).also { volumeUpFilled = it }
+
+    private var warning: ImageVector? = null
+
+    val Warning: ImageVector
+        get() =
+            warning
+                ?: symbol(
+                    name = "Warning",
+                    autoMirror = false,
+                    pathData = PATH_WARNING,
+                ).also { warning = it }
+
+    private var warningAmber: ImageVector? = null
+
+    val WarningAmber: ImageVector
+        get() =
+            warningAmber
+                ?: symbol(
+                    name = "WarningAmber",
+                    autoMirror = false,
+                    pathData = PATH_WARNING,
+                ).also { warningAmber = it }
+
+    private var warningFilled: ImageVector? = null
+
+    val WarningFilled: ImageVector
+        get() =
+            warningFilled
+                ?: symbol(
+                    name = "WarningFilled",
+                    autoMirror = false,
+                    pathData = PATH_WARNING_FILL,
+                ).also { warningFilled = it }
+
+    private var watch: ImageVector? = null
+
+    val Watch: ImageVector
+        get() =
+            watch
+                ?: symbol(
+                    name = "Watch",
+                    autoMirror = false,
+                    pathData = PATH_WATCH,
+                ).also { watch = it }
+
+    private var wifiFilled: ImageVector? = null
+
+    val WifiFilled: ImageVector
+        get() =
+            wifiFilled
+                ?: symbol(
+                    name = "WifiFilled",
+                    autoMirror = false,
+                    pathData = PATH_WIFI_FILL,
+                ).also { wifiFilled = it }
+
+    private var wifiOff: ImageVector? = null
+
+    val WifiOff: ImageVector
+        get() =
+            wifiOff
+                ?: symbol(
+                    name = "WifiOff",
+                    autoMirror = false,
+                    pathData = PATH_WIFI_OFF,
+                ).also { wifiOff = it }
+
+    private var zoomInFilled: ImageVector? = null
+
+    val ZoomInFilled: ImageVector
+        get() =
+            zoomInFilled
+                ?: symbol(
+                    name = "ZoomInFilled",
+                    autoMirror = false,
+                    pathData = PATH_ZOOM_IN_FILL,
+                ).also { zoomInFilled = it }
+
+    private var zoomOutFilled: ImageVector? = null
+
+    val ZoomOutFilled: ImageVector
+        get() =
+            zoomOutFilled
+                ?: symbol(
+                    name = "ZoomOutFilled",
+                    autoMirror = false,
+                    pathData = PATH_ZOOM_OUT_FILL,
+                ).also { zoomOutFilled = it }
 }
 
 private const val SYMBOLS_VIEWPORT = 960f

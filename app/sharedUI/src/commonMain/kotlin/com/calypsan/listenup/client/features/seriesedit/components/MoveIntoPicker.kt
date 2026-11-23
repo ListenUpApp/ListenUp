@@ -127,7 +127,7 @@ internal fun MoveIntoPicker(
             modifier = Modifier.fillMaxWidth().padding(horizontal = horizontalPadding, vertical = 12.dp),
         )
         LazyColumn(modifier = Modifier.weight(1f, fill = false), contentPadding = PaddingValues(bottom = 24.dp)) {
-            item(key = "top-level") {
+            item(key = "top-level", contentType = "top-level-action") {
                 val isTopLevel = state.parentId == null
                 PickerRowLayout(
                     title = stringResource(Res.string.series_top_level_no_parent),
@@ -143,7 +143,7 @@ internal fun MoveIntoPicker(
                     },
                 )
             }
-            item(key = "new-parent") {
+            item(key = "new-parent", contentType = "new-parent-action") {
                 PickerRowLayout(
                     title = stringResource(Res.string.series_new_parent),
                     meta = null,
@@ -159,7 +159,7 @@ internal fun MoveIntoPicker(
                 )
             }
             if (searching && rows.isEmpty()) {
-                item(key = "empty") {
+                item(key = "empty", contentType = "empty") {
                     Text(
                         text = stringResource(Res.string.series_merge_no_matches),
                         style = MaterialTheme.typography.bodyMedium,
@@ -168,7 +168,7 @@ internal fun MoveIntoPicker(
                     )
                 }
             }
-            items(rows, key = { it.id }) { row ->
+            items(rows, key = { it.id }, contentType = { "tree-row" }) { row ->
                 TreeRow(
                     row = row,
                     seriesName = state.name,

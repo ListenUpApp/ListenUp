@@ -140,7 +140,7 @@ private fun CollectionPickerContent(
         ) {
             // Create new collection option (admin-only, always shown first when present)
             if (canCreate) {
-                item(key = "create_new") {
+                item(key = "create_new", contentType = "create-new") {
                     CreateNewCollectionRow(
                         onClick = onCreateClick,
                         enabled = !isLoading,
@@ -152,13 +152,14 @@ private fun CollectionPickerContent(
             }
 
             if (collections.isEmpty()) {
-                item(key = "empty_hint") {
+                item(key = "empty_hint", contentType = "empty") {
                     CollectionPickerEmptyState(showCreateHint = !canCreate)
                 }
             } else {
                 items(
                     items = collections,
                     key = { it.id },
+                    contentType = { "collection" },
                 ) { collection ->
                     CollectionRow(
                         collection = collection,

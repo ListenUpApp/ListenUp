@@ -262,7 +262,7 @@ private fun ReadyContent(
             horizontalArrangement = Arrangement.spacedBy(ResultGap),
             verticalArrangement = Arrangement.spacedBy(ResultGap),
         ) {
-            fullWidth {
+            fullWidth(contentType = "search-header") {
                 Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
                     ListenUpSearchField(
                         state = queryState,
@@ -301,15 +301,17 @@ private fun LazyGridScope.searchBody(
 ) {
     when (val search = state.search) {
         HardcoverSearchState.Searching -> {
-            fullWidth { SearchingSkeleton() }
+            fullWidth(contentType = "searching") { SearchingSkeleton() }
         }
 
         HardcoverSearchState.NoResults -> {
-            fullWidth { NoResults(query = state.query, suggestions = state.suggestions, onSearchFor = onSearchFor) }
+            fullWidth(contentType = "no-results") {
+                NoResults(query = state.query, suggestions = state.suggestions, onSearchFor = onSearchFor)
+            }
         }
 
         is HardcoverSearchState.Failed -> {
-            fullWidth {
+            fullWidth(contentType = "failed") {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
                     CenteredNote(stringResource(Res.string.hardcover_match_failed))
                     TextButton(onClick = onSearch, modifier = Modifier.heightIn(min = 48.dp)) {
@@ -323,7 +325,9 @@ private fun LazyGridScope.searchBody(
             val enabled = state.linkingId == null && !state.isRemoving
             if (search.byAuthor.isEmpty()) {
                 if (state.bookAuthors.isNotBlank()) {
-                    fullWidth { WeakResultsHint(state.bookAuthors, state.suggestions, onSearchFor) }
+                    fullWidth(
+                        contentType = "weak-hint",
+                    ) { WeakResultsHint(state.bookAuthors, state.suggestions, onSearchFor) }
                 }
                 groupHeader { GroupHeader(stringResource(Res.string.hardcover_match_results), strong = false) }
                 resultGroup(
@@ -367,12 +371,15 @@ private fun LazyGridScope.searchBody(
     }
 }
 
-private fun LazyGridScope.fullWidth(content: @Composable () -> Unit) {
-    item(span = { GridItemSpan(maxLineSpan) }) { content() }
+private fun LazyGridScope.fullWidth(
+    contentType: String,
+    content: @Composable () -> Unit,
+) {
+    item(key = contentType, span = { GridItemSpan(maxLineSpan) }, contentType = contentType) { content() }
 }
 
 private fun LazyGridScope.groupHeader(content: @Composable () -> Unit) {
-    item(span = { GridItemSpan(maxLineSpan) }) {
+    item(span = { GridItemSpan(maxLineSpan) }, contentType = "group-header") {
         Box(modifier = Modifier.padding(top = Spacing.lg, bottom = Spacing.sm)) { content() }
     }
 }
@@ -385,7 +392,11 @@ private fun LazyGridScope.resultGroup(
     enabled: Boolean,
     onPick: (hcBookId: Long) -> Unit,
 ) {
-    itemsIndexed(rows, key = { _, row -> "${row.hcBookId}:$strong" }) { index, row ->
+    itemsIndexed(
+        rows,
+        key = { _, row -> "${row.hcBookId}:$strong" },
+        contentType = { _, _ -> "candidate" },
+    ) { index, row ->
         CandidateRow(
             row = row,
             strong = strong,

@@ -230,7 +230,11 @@ private fun StorageMediumLayout(
         horizontalArrangement = Arrangement.spacedBy(Spacing.itemGap),
         verticalArrangement = Arrangement.spacedBy(Spacing.itemGap),
     ) {
-        item(span = { GridItemSpan(maxLineSpan) }) {
+        item(
+            key = "summary",
+            span = { GridItemSpan(maxLineSpan) },
+            contentType = CONTENT_TYPE_SUMMARY,
+        ) {
             StorageSummaryCard(
                 totalUsed = state.totalStorageUsed,
                 available = state.availableStorage,
@@ -238,22 +242,32 @@ private fun StorageMediumLayout(
             )
         }
         if (state.downloadedBooks.isEmpty() && state.inProgressBooks.isEmpty()) {
-            item(span = { GridItemSpan(maxLineSpan) }) {
+            item(
+                key = "empty",
+                span = { GridItemSpan(maxLineSpan) },
+                contentType = CONTENT_TYPE_EMPTY,
+            ) {
                 EmptyDownloadsMessage()
             }
         } else {
-            item(span = { GridItemSpan(maxLineSpan) }) {
+            item(
+                key = "downloaded-heading",
+                span = { GridItemSpan(maxLineSpan) },
+                contentType = CONTENT_TYPE_HEADING,
+            ) {
                 DownloadedBooksHeading(modifier = Modifier.padding(top = 8.dp))
             }
             items(
                 items = state.inProgressBooks,
                 key = { "active-${it.bookId}" },
+                contentType = { CONTENT_TYPE_IN_PROGRESS },
             ) { download ->
                 InProgressDownloadItem(download = download, wifiBlocked = state.isWifiBlocked)
             }
             items(
                 items = state.downloadedBooks,
                 key = { it.bookId },
+                contentType = { CONTENT_TYPE_DOWNLOADED },
             ) { book ->
                 DownloadedBookItem(
                     book = book,
@@ -277,7 +291,7 @@ private fun StoragePhoneLayout(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         // Storage summary card
-        item {
+        item(key = "summary", contentType = CONTENT_TYPE_SUMMARY) {
             StorageSummaryCard(
                 totalUsed = state.totalStorageUsed,
                 available = state.availableStorage,
@@ -286,23 +300,25 @@ private fun StoragePhoneLayout(
         }
 
         if (state.downloadedBooks.isEmpty() && state.inProgressBooks.isEmpty()) {
-            item {
+            item(key = "empty", contentType = CONTENT_TYPE_EMPTY) {
                 EmptyDownloadsMessage()
             }
         } else {
-            item {
+            item(key = "downloaded-heading", contentType = CONTENT_TYPE_HEADING) {
                 DownloadedBooksHeading(modifier = Modifier.padding(top = 8.dp))
             }
 
             items(
                 items = state.inProgressBooks,
                 key = { "active-${it.bookId}" },
+                contentType = { CONTENT_TYPE_IN_PROGRESS },
             ) { download ->
                 InProgressDownloadItem(download = download, wifiBlocked = state.isWifiBlocked)
             }
             items(
                 items = state.downloadedBooks,
                 key = { it.bookId },
+                contentType = { CONTENT_TYPE_DOWNLOADED },
             ) { book ->
                 DownloadedBookItem(
                     book = book,
@@ -346,18 +362,24 @@ private fun StorageWideLayout(
                 horizontalArrangement = Arrangement.spacedBy(Spacing.itemGap),
                 verticalArrangement = Arrangement.spacedBy(Spacing.itemGap),
             ) {
-                item(span = { GridItemSpan(maxLineSpan) }) {
+                item(
+                    key = "downloaded-heading",
+                    span = { GridItemSpan(maxLineSpan) },
+                    contentType = CONTENT_TYPE_HEADING,
+                ) {
                     DownloadedBooksHeading()
                 }
                 items(
                     items = state.inProgressBooks,
                     key = { "active-${it.bookId}" },
+                    contentType = { CONTENT_TYPE_IN_PROGRESS },
                 ) { download ->
                     InProgressDownloadItem(download = download, wifiBlocked = state.isWifiBlocked)
                 }
                 items(
                     items = state.downloadedBooks,
                     key = { it.bookId },
+                    contentType = { CONTENT_TYPE_DOWNLOADED },
                 ) { book ->
                     DownloadedBookItem(
                         book = book,
@@ -369,6 +391,12 @@ private fun StorageWideLayout(
         }
     }
 }
+
+private const val CONTENT_TYPE_SUMMARY = "summary"
+private const val CONTENT_TYPE_EMPTY = "empty"
+private const val CONTENT_TYPE_HEADING = "heading"
+private const val CONTENT_TYPE_IN_PROGRESS = "in-progress"
+private const val CONTENT_TYPE_DOWNLOADED = "downloaded"
 
 /**
  * The narrowest a downloaded-book card gets before the column count drops — narrow enough that a
