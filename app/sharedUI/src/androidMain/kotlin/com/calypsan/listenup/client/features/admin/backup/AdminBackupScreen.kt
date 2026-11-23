@@ -66,6 +66,7 @@ import com.calypsan.listenup.core.BackupId
 import kotlinx.io.asSink
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
+import com.calypsan.listenup.client.design.components.LoadFailed
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.BackupInfo
 import com.calypsan.listenup.client.presentation.admin.ABSImportHubViewModel
@@ -202,6 +203,7 @@ fun AdminBackupScreen(
                 onABSImportClick = onABSImportHubClick,
                 onDeleteImportClick = { deleteConfirmImport = it },
                 onUploadABSBackup = onNewImportClick,
+                onRetry = backupViewModel::loadBackups,
             )
         }
     }
@@ -260,6 +262,7 @@ private fun AdminBackupBody(
     onABSImportClick: (String) -> Unit,
     onDeleteImportClick: (ImportSummary) -> Unit,
     onUploadABSBackup: () -> Unit,
+    onRetry: () -> Unit,
 ) {
     when (state) {
         is AdminBackupUiState.Loading -> {
@@ -267,16 +270,7 @@ private fun AdminBackupBody(
         }
 
         is AdminBackupUiState.Error -> {
-            Box(
-                modifier = modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = state.error.localized(),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.error,
-                )
-            }
+            LoadFailed(message = state.error.localized(), onRetry = onRetry, modifier = modifier)
         }
 
         is AdminBackupUiState.Ready -> {

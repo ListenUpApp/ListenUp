@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -46,6 +47,7 @@ import com.calypsan.listenup.client.design.components.SectionColumns
 import com.calypsan.listenup.client.design.components.SectionGroup
 import com.calypsan.listenup.client.design.components.SettingToggleRow
 import com.calypsan.listenup.client.design.components.TonalLabel
+import com.calypsan.listenup.client.design.components.LoadFailed
 import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.design.util.rememberUnsavedWorkGuard
@@ -76,11 +78,12 @@ import listenup.composeapp.generated.resources.common_permissions
 import listenup.composeapp.generated.resources.common_save
 import org.jetbrains.compose.resources.stringResource
 
-/** The screen's callbacks, threaded as one value instead of three lambdas. */
+/** The screen's callbacks, threaded as one value instead of four lambdas. */
 internal data class PermissionsActions(
     val onSelectPreset: (PermissionPreset) -> Unit,
     val onSetPermission: (Permission, Boolean) -> Unit,
     val onRequestRole: (UserRole) -> Unit,
+    val onRetry: () -> Unit,
 )
 
 /**
@@ -99,7 +102,12 @@ fun UserPermissionsScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val actions =
         remember(viewModel) {
-            PermissionsActions(viewModel::selectPreset, viewModel::setPermission, viewModel::requestRole)
+            PermissionsActions(
+                onSelectPreset = viewModel::selectPreset,
+                onSetPermission = viewModel::setPermission,
+                onRequestRole = viewModel::requestRole,
+                onRetry = viewModel::retry,
+            )
         }
 
     val requestLeave =
@@ -134,25 +142,7 @@ fun UserPermissionsScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
-        when (val current = state) {
-            UserPermissionsUiState.Loading -> {
-                FullScreenLoadingIndicator()
-            }
-
-            is UserPermissionsUiState.Error -> {
-                Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                    Text(
-                        text = current.error.localized(),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                }
-            }
-
-            is UserPermissionsUiState.Ready -> {
-                UserPermissionsContent(state = current, actions = actions, modifier = Modifier.padding(padding))
-            }
-        }
+        UserPermissionsBody(state = state, actions = actions, padding = padding)
     }
 
     if (ready?.isConfirmingAdminPromotion == true) {
@@ -166,6 +156,32 @@ fun UserPermissionsScreen(
             onDismiss = viewModel::cancelAdminPromotion,
             icon = ListenUpIcons.VerifiedUser,
         )
+    }
+}
+
+/** What the screen shows under its bars, for each [UserPermissionsUiState]. */
+@Composable
+internal fun UserPermissionsBody(
+    state: UserPermissionsUiState,
+    actions: PermissionsActions,
+    padding: PaddingValues,
+) {
+    when (state) {
+        UserPermissionsUiState.Loading -> {
+            FullScreenLoadingIndicator()
+        }
+
+        is UserPermissionsUiState.Error -> {
+            LoadFailed(
+                message = state.error.localized(),
+                onRetry = actions.onRetry,
+                modifier = Modifier.padding(padding),
+            )
+        }
+
+        is UserPermissionsUiState.Ready -> {
+            UserPermissionsContent(state = state, actions = actions, modifier = Modifier.padding(padding))
+        }
     }
 }
 

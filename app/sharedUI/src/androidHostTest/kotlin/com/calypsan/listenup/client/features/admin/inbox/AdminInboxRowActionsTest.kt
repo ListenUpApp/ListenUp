@@ -98,6 +98,7 @@ class AdminInboxRowActionsTest {
                     onSelectAll = {},
                     onClearSelection = {},
                     onRelease = {},
+                    onRetry = {},
                 )
             }
         }

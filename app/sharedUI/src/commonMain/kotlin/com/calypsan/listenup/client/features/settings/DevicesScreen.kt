@@ -32,7 +32,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -46,6 +45,7 @@ import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSm
 import com.calypsan.listenup.client.design.components.SectionGroup
 import com.calypsan.listenup.client.design.components.SectionSegment
 import com.calypsan.listenup.client.design.components.TonalIconTile
+import com.calypsan.listenup.client.design.components.LoadFailed
 import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.design.theme.extendedColors
@@ -58,7 +58,6 @@ import kotlin.time.Clock
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_back
 import listenup.composeapp.generated.resources.common_cancel
-import listenup.composeapp.generated.resources.common_retry
 import listenup.composeapp.generated.resources.devices_active
 import listenup.composeapp.generated.resources.devices_current_session
 import listenup.composeapp.generated.resources.devices_empty
@@ -147,28 +146,7 @@ private fun DevicesBody(
         }
 
         is DevicesUiState.Error -> {
-            Box(
-                modifier =
-                    modifier
-                        .fillMaxSize()
-                        .padding(horizontal = Spacing.screenMargin),
-                contentAlignment = Alignment.Center,
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                ) {
-                    Text(
-                        text = state.error.localized(),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.error,
-                        textAlign = TextAlign.Center,
-                    )
-                    Button(onClick = onRetry) {
-                        Text(stringResource(Res.string.common_retry))
-                    }
-                }
-            }
+            LoadFailed(message = state.error.localized(), onRetry = onRetry, modifier = modifier)
         }
 
         is DevicesUiState.Ready -> {

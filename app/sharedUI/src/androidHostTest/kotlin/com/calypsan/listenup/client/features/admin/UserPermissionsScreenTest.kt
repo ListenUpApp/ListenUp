@@ -36,6 +36,7 @@ class UserPermissionsScreenTest {
             onSelectPreset = { presses += "preset:$it" },
             onSetPermission = { permission, granted -> presses += "set:$permission=$granted" },
             onRequestRole = { presses += "role:$it" },
+            onRetry = { presses += "retry" },
         )
 
     private fun show(state: UserPermissionsUiState.Ready) {

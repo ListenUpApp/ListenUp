@@ -40,6 +40,7 @@ class AdminCollectionDetailRestrictedTest {
                         onAddBooksClick = {},
                         onAddMemberClick = {},
                         onRemoveMemberClick = {},
+                        onRetry = {},
                     )
                 }
             }

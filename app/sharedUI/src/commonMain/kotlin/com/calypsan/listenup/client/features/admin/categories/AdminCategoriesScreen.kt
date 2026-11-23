@@ -11,7 +11,6 @@ import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -23,15 +22,12 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.dp
@@ -40,6 +36,7 @@ import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpFab
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
+import com.calypsan.listenup.client.design.components.LoadFailed
 import com.calypsan.listenup.client.presentation.admin.AdminCategoriesUiState
 import com.calypsan.listenup.client.presentation.admin.AdminCategoriesViewModel
 import com.calypsan.listenup.client.presentation.error.localized
@@ -127,6 +124,7 @@ fun AdminCategoriesScreen(
         CategoriesScreenBody(
             state = state,
             innerPadding = innerPadding,
+            onRetry = viewModel::retry,
             onToggleExpanded = viewModel::toggleExpanded,
             onAddChild = { id, name ->
                 createParentIdState.value = id
@@ -247,6 +245,7 @@ private fun CategoriesTopBar(
 private fun CategoriesScreenBody(
     state: AdminCategoriesUiState,
     innerPadding: PaddingValues,
+    onRetry: () -> Unit,
     onToggleExpanded: (String) -> Unit,
     onAddChild: (String, String) -> Unit,
     onRename: (String, String) -> Unit,
@@ -262,16 +261,7 @@ private fun CategoriesScreenBody(
         }
 
         is AdminCategoriesUiState.Error -> {
-            Box(
-                modifier = Modifier.fillMaxSize().padding(innerPadding),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = s.error.localized(),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.error,
-                )
-            }
+            LoadFailed(message = s.error.localized(), onRetry = onRetry, modifier = Modifier.padding(innerPadding))
         }
 
         is AdminCategoriesUiState.Ready -> {
