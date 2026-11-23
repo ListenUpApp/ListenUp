@@ -28,6 +28,7 @@ private class OutboxRig(
         sql.seedTestUser(USER)
         sql.seedTestLibraryAndFolder()
         listOf("book-1", "book-2").forEach { sql.seedTestBook(it) }
+        sql.seedHardcoverConnectionRow(USER)
     }
 
     suspend fun connectAs(hcUserId: Long) =
@@ -39,6 +40,18 @@ private fun outboxTest(block: suspend OutboxRig.() -> Unit) = withSqlDatabase { 
 /** The outbox keeps order per book, coalesces PROGRESS, honours due times and parks unmatched books. */
 class HardcoverOutboxTest :
     FunSpec({
+
+        test("nothing is queued for a user with no connection row, whoever asks") {
+            outboxTest {
+                connections.delete(USER)
+
+                outbox.enqueueStart(USER, "book-1", listenThrough = T0, startedAt = T0, isReread = false)
+                outbox.enqueueProgress(USER, "book-1", listenThrough = T0, positionSeconds = 60L, notBefore = T0)
+                outbox.enqueueFinish(USER, "book-1", listenThrough = T0, finishedAt = T0)
+
+                outbox.pendingFor(USER) shouldBe emptyList()
+            }
+        }
 
         test("queued PROGRESS for one book collapses to the newest position, keeping its place behind START") {
             outboxTest {

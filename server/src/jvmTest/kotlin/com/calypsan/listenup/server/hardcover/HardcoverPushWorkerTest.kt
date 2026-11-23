@@ -61,12 +61,12 @@ private class WorkerRig(
             "https://hc.test",
         )
     val connections = HardcoverConnectionStore(sql, HardcoverTokenCipher(HardcoverTokenCipher.deriveKey("secret")), clock)
-    private val linker = HardcoverLinker(oauth, graphQl, connections, CoroutineScope(Dispatchers.Unconfined), clock)
+    val gate = HardcoverUserGate()
+    private val linker = HardcoverLinker(oauth, graphQl, connections, CoroutineScope(Dispatchers.Unconfined), gate, clock)
     private val tokens = HardcoverTokenProvider(oauth, connections, linker, clock)
     val links = HardcoverBookLinkStore(sql, clock)
     val outbox = HardcoverOutbox(sql, clock)
     var identity: BookIdentity? = HAIL_MARY_IDENTITY
-    val gate = HardcoverUserGate()
     val progress = HardcoverHistoryProgress(sql, clock)
     val sender = HardcoverHistorySender(sql, clock)
     val worker =

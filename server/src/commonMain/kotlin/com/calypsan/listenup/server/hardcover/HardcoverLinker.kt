@@ -57,6 +57,7 @@ class HardcoverLinker(
     private val graphQl: HardcoverGraphQlClient,
     private val store: HardcoverConnectionStore,
     private val applicationScope: CoroutineScope,
+    private val gate: HardcoverUserGate,
     private val clock: Clock = Clock.System,
     private val activity: HardcoverSyncActivity = HardcoverSyncActivity(),
 ) {
@@ -139,14 +140,21 @@ class HardcoverLinker(
      * a failure or an outage on Hardcover's side never keeps someone connected against their wish.
      * The row is read, revoked and deleted under [withUserLock], so an in-flight refresh commits its
      * rotated pair first and that pair is the one revoked. Idempotent.
+     *
+     * Runs as the user's Hardcover conversation ([HardcoverUserGate.withUser], taken before the user lock,
+     * the lanes' order), so a pull or push step in flight finishes first and finds no connection on its
+     * next step — a pull page can never land in the tables this purge just emptied. Not reentrant: a lane
+     * must not call it from inside its own step.
      */
     suspend fun disconnect(userId: String) {
         synchronized(lock) { pollJobs.remove(userId) }?.cancelAndJoin()
-        withUserLock(userId) {
-            store.connectionFor(userId)?.credentials?.let { revokeBestEffort(it.accessToken, it.refreshToken) }
-            store.delete(userId)
-            stateFor(userId).value = HardcoverConnection.NotConnected()
-            activity.forget(userId)
+        gate.withUser(userId) {
+            withUserLock(userId) {
+                store.connectionFor(userId)?.credentials?.let { revokeBestEffort(it.accessToken, it.refreshToken) }
+                store.delete(userId)
+                stateFor(userId).value = HardcoverConnection.NotConnected()
+                activity.forget(userId)
+            }
         }
     }
 

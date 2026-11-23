@@ -42,7 +42,8 @@ class HardcoverTokenRejectionTest :
                     "listenup-test",
                     "https://hc.test",
                 )
-            val linker = HardcoverLinker(oauth, FakeHardcoverLibrary().client(), store, CoroutineScope(Dispatchers.Unconfined))
+            val linker =
+                HardcoverLinker(oauth, FakeHardcoverLibrary().client(), store, CoroutineScope(Dispatchers.Unconfined), HardcoverUserGate())
             return HardcoverTokenProvider(oauth, store, linker) to store
         }
 

@@ -114,6 +114,7 @@ fun hardcoverModule(
                 graphQl = get(),
                 store = get(),
                 applicationScope = applicationScope,
+                gate = get(),
                 clock = get(),
                 activity = get(),
             )

@@ -10,6 +10,7 @@ import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.MutableClock
 import com.calypsan.listenup.server.testing.SqlTestDatabases
+import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.withSqlDatabase
@@ -34,6 +35,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicInteger
@@ -68,11 +70,19 @@ private class PullWorkerRig(
             "listenup-test",
             "https://hc.test",
         )
-    val connections = HardcoverConnectionStore(sql, HardcoverTokenCipher(HardcoverTokenCipher.deriveKey("secret")), clock)
-    private val linker = HardcoverLinker(oauth, graphQl, connections, CoroutineScope(Dispatchers.Unconfined), clock)
+    private val wantToRead = testWantToRead(dbs, clock)
+    val connections =
+        HardcoverConnectionStore(
+            sql,
+            HardcoverTokenCipher(HardcoverTokenCipher.deriveKey("secret")),
+            clock,
+            wantToRead = wantToRead,
+        )
+    val gate = HardcoverUserGate()
+    val linker = HardcoverLinker(oauth, graphQl, connections, CoroutineScope(Dispatchers.Unconfined), gate, clock)
     val store = HardcoverPullStore(sql, clock)
     val links = HardcoverBookLinkStore(sql, clock)
-    val gate = HardcoverUserGate()
+    val shelfEntries = HardcoverShelfEntryStore(sql, clock)
     val pushNudges = CopyOnWriteArrayList<String>()
     val activity = HardcoverSyncActivity()
     val worker =
@@ -83,7 +93,7 @@ private class PullWorkerRig(
                     store = store,
                     resolver = HardcoverShelfResolver(sql, BookAccessPolicy(sql, dbs.driver), HardcoverExclusions(sql)),
                     links = links,
-                    wantToRead = testWantToRead(dbs, clock),
+                    wantToRead = wantToRead,
                     ratingImport =
                         HardcoverRatingImport(
                             sql,
@@ -210,6 +220,52 @@ class HardcoverPullWorkerTest :
                 gate.pause(USER, T0 + INTERVAL_MS + 120_000L)
                 worker.step(USER) shouldBe LaneStep.Sleep(T0 + INTERVAL_MS + 120_000L)
                 pulls() shouldBe 1
+            }
+        }
+
+        test("a disconnect during a pull waits for its page, then purges it: nothing stays for a user who left") {
+            pullWorkerTest {
+                connect()
+                sql.seedTestBook("book-read", asin = "B0READ0001")
+                sql.seedTestBook("book-tbr", asin = "B0TBR00001")
+                listOf(Triple(9_001L, 501L, "B0READ0001"), Triple(9_002L, 502L, "B0TBR00001")).forEach { (edition, book, asin) ->
+                    hardcover.addEdition(
+                        FakeHardcoverLibrary.Edition(
+                            id = edition,
+                            bookId = book,
+                            title = asin,
+                            authors = listOf("An Author"),
+                            asin = asin,
+                            readingFormatId = 2,
+                            defaultAudioEditionId = edition,
+                        ),
+                    )
+                }
+                hardcover.seedShelf(501L, HardcoverStatus.READ, "2017-01-02" to "2017-03-01", editionId = 9_001L)
+                hardcover.seedShelf(502L, HardcoverStatus.WANT_TO_READ, null to null, editionId = 9_002L)
+                val inFlight = CompletableDeferred<Unit>()
+                val release = CompletableDeferred<Unit>()
+                hardcover.whileInFlight = {
+                    hardcover.whileInFlight = null
+                    inFlight.complete(Unit)
+                    release.await()
+                }
+
+                coroutineScope {
+                    val stepping = async { worker.step(USER) }
+                    inFlight.await()
+                    val disconnecting = async { linker.disconnect(USER) }
+                    // Give a disconnect that does not wait for the pull (real SQLite and HTTP threads) time to finish.
+                    withContext(Dispatchers.Default) { withTimeoutOrNull(500.milliseconds) { disconnecting.join() } }
+                    release.complete(Unit)
+                    stepping.await()
+                    disconnecting.await()
+                }
+
+                store.pulledReads(USER) shouldBe emptyList()
+                links.linkFor(USER, "book-read") shouldBe null
+                links.linkFor(USER, "book-tbr") shouldBe null
+                shelfEntries.recordFor(USER, "book-tbr") shouldBe null
             }
         }
 

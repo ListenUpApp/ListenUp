@@ -49,7 +49,8 @@ class HardcoverMatchBackfillTest :
             val clock = MutableClock(Instant.fromEpochMilliseconds(1_779_451_200_000L))
             val connections = HardcoverConnectionStore(dbs.sql, HardcoverTokenCipher(HardcoverTokenCipher.deriveKey("secret")), clock)
             val oauth = HardcoverOAuthClient(HttpClient(), "id", "https://hc.test")
-            val linker = HardcoverLinker(oauth, hardcover.client(), connections, CoroutineScope(Dispatchers.Unconfined), clock)
+            val linker =
+                HardcoverLinker(oauth, hardcover.client(), connections, CoroutineScope(Dispatchers.Unconfined), HardcoverUserGate(), clock)
             val backfill =
                 HardcoverMatchBackfill(
                     links = HardcoverBookLinkStore(dbs.sql, clock),

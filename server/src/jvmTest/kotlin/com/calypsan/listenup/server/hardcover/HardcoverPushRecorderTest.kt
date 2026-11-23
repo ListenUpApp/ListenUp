@@ -172,6 +172,19 @@ class HardcoverPushRecorderTest :
             }
         }
 
+        test("a listen after a disconnect queues nothing") {
+            recorderTest {
+                connect()
+                restart(T0)
+                connections.delete(USER)
+
+                listen("e1", endedAtMs = T0 + 90_000L, wallMs = 90_000L, endPositionMs = 90_000L)
+                finish(T0 + 120_000L)
+
+                queued().shouldBeEmpty()
+            }
+        }
+
         test("later sessions coalesce into the one queued PROGRESS, holding the newest position") {
             recorderTest {
                 connect()

@@ -72,7 +72,8 @@ private class LinkingRig(
             "id",
             "https://hc.test",
         )
-    private val linker = HardcoverLinker(oauth, hardcover.client(), connections, CoroutineScope(Dispatchers.Unconfined), clock)
+    private val linker =
+        HardcoverLinker(oauth, hardcover.client(), connections, CoroutineScope(Dispatchers.Unconfined), HardcoverUserGate(), clock)
     val pulls = RecordingPullRequests()
     val catalog = HardcoverCatalogCache(hardcover.client(), NoWaitRateLimiter())
     val linking =

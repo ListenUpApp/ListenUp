@@ -40,6 +40,7 @@ class HardcoverCatalogRig(
             HardcoverGraphQlClient(HttpClient(MockEngine { respond("{}") })),
             connections,
             CoroutineScope(Dispatchers.Unconfined),
+            HardcoverUserGate(),
         )
     val connection = HardcoverRatingConnection(connections, HardcoverTokenProvider(oauth, connections, linker))
     val catalog = HardcoverCatalogToken(apiTokens, connection)

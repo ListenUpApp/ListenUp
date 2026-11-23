@@ -148,7 +148,7 @@ private class Rig(
     val store = HardcoverConnectionStore(sql, cipherFor("the-real-jwt-secret"), clock)
     private val oauth = HardcoverOAuthClient(HttpClient(MockEngine(fake.handler)), "listenup-test", "https://hc.test")
     private val graphQl = HardcoverGraphQlClient(HttpClient(MockEngine(fake.handler)), "https://hc.test")
-    val linker = HardcoverLinker(oauth, graphQl, store, scope.backgroundScope, clock)
+    val linker = HardcoverLinker(oauth, graphQl, store, scope.backgroundScope, HardcoverUserGate(), clock)
     val provider = HardcoverTokenProvider(oauth, store, linker, clock)
 
     fun virtualMs() = scope.testScheduler.currentTime
