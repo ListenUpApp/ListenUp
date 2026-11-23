@@ -9,8 +9,9 @@ import com.calypsan.listenup.server.auth.isAdmin
  * Deliberately violates [com.calypsan.listenup.server.konsist.OneAdminCheckRule], so the self-test can
  * prove the rule fires. Lives under `jvmTest`, so production scope never sees it.
  *
- * Four private admin checks, one per spelling — ROOT-first, ADMIN-first, a set, a `when` branch — and
- * one that defers to the shared `isAdmin()`, which passes.
+ * Six private admin checks, one per spelling — ROOT-first, ADMIN-first, a set, a `when` branch, a check
+ * by negation against MEMBER and one with its `||` wrapped onto the next line — and one that defers to
+ * the shared `isAdmin()`, which passes.
  */
 internal object RogueAdminChecksFixture {
     fun rootFirst(role: UserRole): Boolean = role == UserRole.ROOT || role == UserRole.ADMIN
@@ -24,6 +25,12 @@ internal object RogueAdminChecksFixture {
             ROOT, ADMIN -> true
             UserRole.MEMBER -> false
         }
+
+    fun byNegation(role: UserRole): Boolean = role != UserRole.MEMBER
+
+    fun wrapped(role: UserRole): Boolean =
+        role == UserRole.ROOT ||
+            role == UserRole.ADMIN
 
     fun shared(role: UserRole): Boolean = role.isAdmin()
 }
