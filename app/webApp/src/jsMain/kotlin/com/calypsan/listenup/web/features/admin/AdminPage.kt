@@ -56,6 +56,7 @@ fun AdminPage(
     onSetRegistrationPolicy: (RegistrationPolicy) -> Unit,
     onClearError: () -> Unit,
     onRetry: () -> Unit,
+    onCopyInviteLink: (String) -> Unit,
     onOpenLibrarySettings: () -> Unit = {},
     onOpenInbox: () -> Unit = {},
     onOpenServerSettings: () -> Unit = {},
@@ -106,6 +107,7 @@ fun AdminPage(
                     onSetRegistrationPolicy = onSetRegistrationPolicy,
                     onClearError = onClearError,
                     onRetry = onRetry,
+                    onCopyInviteLink = onCopyInviteLink,
                     onOpenUser = onOpenUser,
                     landOnPending = landOnPending,
                 )
@@ -155,6 +157,7 @@ private fun ReadyContent(
     onSetRegistrationPolicy: (RegistrationPolicy) -> Unit,
     onClearError: () -> Unit,
     onRetry: () -> Unit,
+    onCopyInviteLink: (String) -> Unit,
     onOpenUser: (String) -> Unit,
     landOnPending: Boolean,
 ) {
@@ -193,7 +196,7 @@ private fun ReadyContent(
         onAskDecline = { declining = it },
     )
     MembersSection(state, onAskRemove = { deleting = it }, onOpenUser = onOpenUser)
-    InvitesSection(state) { revoking = it }
+    InvitesSection(state, onAskRevoke = { revoking = it }, onCopyLink = onCopyInviteLink)
 
     DenyAndDeclineDialogs(
         denying = denying,
@@ -379,6 +382,7 @@ private fun MembersSection(
 private fun InvitesSection(
     state: AdminUiState.Ready,
     onAskRevoke: (InviteInfo) -> Unit,
+    onCopyLink: (String) -> Unit,
 ) {
     if (state.pendingInvites.isEmpty()) return
 
@@ -391,6 +395,13 @@ private fun InvitesSection(
                         Span(attrs = { classes("adm-row-sub") }) { Text(invite.email) }
                     }
                     Div(attrs = { classes("adm-row-actions") }) {
+                        // The link is otherwise shown once, on the page that made it; an admin who
+                        // left that page would have to revoke and re-invite to send it again.
+                        Button(
+                            kind = ButtonKind.Secondary,
+                            onClick = { onCopyLink(invite.url) },
+                            label = "Copy the invite link for ${invite.email}",
+                        ) { Text("Copy link") }
                         Button(
                             kind = ButtonKind.Secondary,
                             onClick = { onAskRevoke(invite) },

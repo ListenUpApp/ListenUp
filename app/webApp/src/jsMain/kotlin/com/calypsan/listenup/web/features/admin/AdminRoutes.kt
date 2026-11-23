@@ -56,6 +56,7 @@ internal fun AdminRoute(
     onOpenOrganize: () -> Unit,
     onOpenUser: (String) -> Unit,
     landOnPending: Boolean,
+    onToast: (String) -> Unit,
 ) {
     val session = rememberSession { openAdmin() }
     val nowMs = remember { currentEpochMilliseconds() }
@@ -72,6 +73,7 @@ internal fun AdminRoute(
         onSetRegistrationPolicy = session.onSetRegistrationPolicy,
         onClearError = session.onClearError,
         onRetry = session.onRetry,
+        onCopyInviteLink = { url -> copyInviteLink(url, onToast) },
         onOpenLibrarySettings = onOpenLibrarySettings,
         onOpenInbox = onOpenInbox,
         onOpenServerSettings = onOpenServerSettings,
@@ -285,18 +287,26 @@ private fun CreateInviteRoute(
         onCreate = session.onCreate,
         onClearError = session.onClearError,
         onCreateAnother = session.onReset,
-        // ⛔ The toast reports what actually happened, not what was attempted. `navigator.clipboard`
-        // is absent outside a secure context — which a LAN server over plain http is — and a page
-        // that said "Copied!" either way would send an admin off to paste nothing.
-        onCopy = { url ->
-            copyToClipboard(url) { copied ->
-                onToast(
-                    if (copied) "Link copied." else "Couldn't reach the clipboard — select the link to copy it.",
-                )
-            }
-        },
+        onCopy = { url -> copyInviteLink(url, onToast) },
         onOpenAdmin = { router.navigate(Routes.Admin.root) },
     )
+}
+
+/**
+ * Copies an invite's link and says what happened — from the page that made it, or from its row on
+ * People.
+ *
+ * ⛔ The toast reports what actually happened, not what was attempted. `navigator.clipboard` is
+ * absent outside a secure context — which a LAN server over plain http is — and a page that said
+ * "Copied!" either way would send an admin off to paste nothing.
+ */
+private fun copyInviteLink(
+    url: String,
+    onToast: (String) -> Unit,
+) {
+    copyToClipboard(url) { copied ->
+        onToast(if (copied) "Link copied." else "Couldn't reach the clipboard — select the link to copy it.")
+    }
 }
 
 /** Opens one member's page and collects it. */

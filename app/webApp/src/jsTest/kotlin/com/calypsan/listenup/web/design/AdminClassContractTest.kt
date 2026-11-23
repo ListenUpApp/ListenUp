@@ -557,7 +557,7 @@ private fun adminShapes(): Map<String, @Composable () -> Unit> {
         createdAt = "2026-01-01",
     )
 
-    fun page(state: AdminUiState): @Composable () -> Unit = { AdminPage(state, 0L, {}, {}, {}, {}, { _, _ -> }, {}, {}, {}, {}) }
+    fun page(state: AdminUiState): @Composable () -> Unit = { AdminPage(state, 0L, {}, {}, {}, {}, { _, _ -> }, {}, {}, {}, {}, {}) }
 
     return shapes(
         "admin #1: page(AdminUiState.Loading)" to page(AdminUiState.Loading),

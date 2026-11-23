@@ -76,6 +76,7 @@ private fun page(
     onDecidePasswordReset: (String, Boolean) -> Unit = { _, _ -> },
     onDismissResetCode: () -> Unit = {},
     onSetRegistrationPolicy: (RegistrationPolicy) -> Unit = {},
+    onCopyInviteLink: (String) -> Unit = {},
     landOnPending: Boolean = false,
 ) {
     AdminPage(
@@ -88,6 +89,7 @@ private fun page(
         onDecidePasswordReset = onDecidePasswordReset,
         onDismissResetCode = onDismissResetCode,
         onSetRegistrationPolicy = onSetRegistrationPolicy,
+        onCopyInviteLink = onCopyInviteLink,
         onClearError = {},
         onRetry = {},
         landOnPending = landOnPending,
@@ -173,7 +175,7 @@ class AdminPageTest :
             // Different weights should not share a prompt: nobody has used the invite yet.
             val host = mounts.mount { page(AdminUiState.Ready(pendingInvites = listOf(invite("i1")))) }
 
-            (host.querySelector(".adm-row-actions button") as HTMLElement).click()
+            (host.querySelector("[aria-label='Revoke the invite for alan@example.com']") as HTMLElement).click()
             awaitFrame()
 
             val dialog = host.querySelector("dialog.dlg").shouldNotBeNull()
@@ -315,6 +317,29 @@ class AdminPageTest :
             awaitFrame()
 
             denied shouldBe listOf("u3")
+        }
+
+        test("an open invite's link can be copied again, from a button that names the invitee") {
+            val copied = mutableListOf<String>()
+            val host =
+                mounts.mount {
+                    page(
+                        state = AdminUiState.Ready(pendingInvites = listOf(invite("i1"))),
+                        onCopyInviteLink = { copied += it },
+                    )
+                }
+
+            val copy =
+                host
+                    .querySelectorAll(".adm-row-actions button")
+                    .asList()
+                    .map { it as HTMLElement }
+                    .firstOrNull { it.getAttribute("aria-label") == "Copy the invite link for alan@example.com" }
+                    .shouldNotBeNull()
+            copy.textContent shouldBe "Copy link"
+            copy.click()
+
+            copied shouldBe listOf("https://listenup.example/i/ABC")
         }
 
         test("a minted reset code is shown once, and says so") {
