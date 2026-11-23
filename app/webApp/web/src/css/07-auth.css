@@ -484,7 +484,7 @@ a.cd-site { display:inline-block; font-weight:600; color:var(--coral-text); }
 .search-results { display: flex; flex-direction: column; }
 .search-group + .search-group { margin-top: 22px; }
 .search-group-h { display: flex; align-items: baseline; gap: var(--sp-8); margin: 0 0 var(--sp-8) 3px; }
-.search-group-label { font-family: var(--mono); font-size: var(--fs-caption); letter-spacing: .11em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; }
+.search-group-label { margin: 0; font-family: var(--mono); font-size: var(--fs-caption); letter-spacing: .11em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; }
 .search-group-count { font-family: var(--mono); font-size: var(--fs-caption); color: var(--ink-3); }
 
 .search-row { display: flex; align-items: center; gap: 14px; padding: 9px 10px; border-radius: 14px; cursor: pointer; }

@@ -48,7 +48,16 @@ fun CommandPalette(
         showTitle = false,
     ) {
         Div(attrs = { classes("cmdk-field") }) {
-            SearchField(query = state.query, onQueryChanged = onQueryChanged, autoFocus = true)
+            SearchField(
+                query = state.query,
+                onQueryChanged = onQueryChanged,
+                autoFocus = true,
+                listbox =
+                    SearchListbox(
+                        hasOptions = (state as? SearchUiState.Results)?.result?.hits?.isNotEmpty() == true,
+                        highlighted = highlighted,
+                    ),
+            )
         }
 
         Div(attrs = { classes("cmdk-body") }) {
@@ -79,6 +88,7 @@ fun CommandPalette(
                             onOpenHit = onOpenHit,
                             onSeeAll = onSeeAll,
                             highlighted = highlighted,
+                            asListbox = true,
                         )
                     }
                 }

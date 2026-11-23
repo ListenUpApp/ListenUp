@@ -304,6 +304,41 @@ class CommandPaletteTest :
             }
         }
 
+        test("the field is a combobox that tells a screen reader which result is highlighted") {
+            val result =
+                searchResult(
+                    query = "abc",
+                    hits = listOf(bookHit("b1", "Alpha"), bookHit("b2", "Bravo")),
+                )
+            val (host, router, composition) = mountAt("/", openSearch = hitNavigatingSearch(result))
+
+            try {
+                press("k", metaKey = true)
+                awaitFrame()
+
+                val input = host.querySelector(".cmdk-panel .f-input") as HTMLInputElement
+                val listbox = host.querySelector(".cmdk-panel [role=listbox]") as HTMLElement
+                val options = host.querySelectorAll(".cmdk-panel [role=option]")
+                val first = options.item(0) as HTMLElement
+                val second = options.item(1) as HTMLElement
+
+                input.getAttribute("role") shouldBe "combobox"
+                input.getAttribute("aria-controls") shouldBe listbox.id
+                input.getAttribute("aria-activedescendant") shouldBe first.id
+                first.getAttribute("aria-selected") shouldBe "true"
+                second.getAttribute("aria-selected") shouldBe "false"
+
+                press("ArrowDown")
+                awaitFrame()
+
+                input.getAttribute("aria-activedescendant") shouldBe second.id
+                second.getAttribute("aria-selected") shouldBe "true"
+            } finally {
+                composition.dispose()
+                router.dispose()
+            }
+        }
+
         test("Enter opens the highlighted BOOK hit, navigating to /book/{id}") {
             val result =
                 searchResult(query = "dune", hits = listOf(bookHit("b1", "Dune"), contributorHit("c1", "Frank Herbert")))
