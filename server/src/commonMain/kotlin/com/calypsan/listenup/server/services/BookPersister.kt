@@ -21,6 +21,7 @@ import com.calypsan.listenup.server.cover.PendingCover
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.scanner.CoverSpool
+import com.calypsan.listenup.server.scanner.PersistRetryLedger
 import com.calypsan.listenup.server.scanner.toSummary
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.FirehoseSuppressed
@@ -136,6 +137,7 @@ class BookPersister internal constructor(
     private val coverImageStore: CoverImageStore? = null,
     private val coverSpool: CoverSpool? = null,
     private val isOnDisk: (Path) -> Boolean = { SystemFileSystem.exists(it) },
+    private val persistRetries: PersistRetryLedger = PersistRetryLedger(),
 ) {
     /** Launch the collector. Idempotent only in the sense that it should be called once at bootstrap. */
     fun start() {
@@ -164,8 +166,25 @@ class BookPersister internal constructor(
             log.error(
                 e,
             ) { "Persisting scan result corr=${result.correlationId} failed — skipping it, still collecting" }
+            markChangesUnwritten(result)
             reportAbandoned(result)
         }
+    }
+
+    /** None of an abandoned result's changed books may be taken as written by the next scan. */
+    private fun markChangesUnwritten(result: ScanResult) {
+        result.changes
+            .mapNotNull { change ->
+                when (change) {
+                    is ChangeEventDto.Added -> change.book
+                    is ChangeEventDto.Modified -> change.book
+                    is ChangeEventDto.Moved -> change.book
+                    is ChangeEventDto.Removed -> null
+                }
+            }.groupBy { it.folderRootPath ?: result.rootPath }
+            .forEach { (folderRoot, books) ->
+                persistRetries.markUnwritten(folderRoot, books.map { it.candidate.rootRelPath })
+            }
     }
 
     private suspend fun reportAbandoned(result: ScanResult) {
@@ -440,6 +459,13 @@ class BookPersister internal constructor(
                 persisted += sliceResult.persisted
                 failedBase += sliceResult.failed
                 processedBase += slice.size
+                // The scanner already counts these books as seen; only the ledger makes the next scan
+                // offer the unwritten ones again.
+                persistRetries.markUnwritten(folderRoot, sliceResult.failedRootRelPaths)
+                persistRetries.markSettled(
+                    folderRoot,
+                    slice.map { it.candidate.rootRelPath } - sliceResult.failedRootRelPaths,
+                )
             }
         }
         failed = failedBase
@@ -545,6 +571,7 @@ class BookPersister internal constructor(
             }
             try {
                 tombstoned += ingest.softDeleteByPath(folderId, change.rootRelPath)
+                persistRetries.markSettled(root, listOf(change.rootRelPath))
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Throwable) {

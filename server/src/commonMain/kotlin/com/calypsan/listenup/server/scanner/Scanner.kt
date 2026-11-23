@@ -86,6 +86,7 @@ internal class Scanner(
     private val correlationIdFactory: () -> String = { Uuid.random().toString() },
     private val coverSpool: CoverSpool? = null,
     private val listenUpSidecarReader: ListenUpSidecarReader? = null,
+    private val persistRetries: PersistRetryLedger = PersistRetryLedger(),
 ) : ScannerResultPort {
     @Volatile
     private var lastResult: ScanResult? = null
@@ -141,7 +142,8 @@ internal class Scanner(
         // keyed within that folder only — a bare-rootRelPath cache aliases a book to a same-relpath
         // book in ANOTHER folder, reusing the wrong analysis (A11). Each pass below builds its own
         // path-keyed map from its folder's bucket.
-        val previousByFolder = lastResult?.books.orEmpty().groupBy { it.folderRootPath }
+        val previousBooks = previousSnapshot()
+        val previousByFolder = previousBooks.groupBy { it.folderRootPath }
 
         // Analyze each folder with an Analyzer anchored to that folder's root.
         // Aggregated books and errors replace the single-pass result; the Differ
@@ -195,7 +197,7 @@ internal class Scanner(
         // Strip artwork from both diff sides so unchanged books don't falsely show as Modified.
         // lastResult is already artwork-free (stripped at the end of the previous scan); strip
         // the new books for the diff so both sides are comparable without artwork bytes.
-        val previousStripped = lastResult?.books.orEmpty() // already stripped from previous scan
+        val previousStripped = previousBooks // already stripped from previous scan
         val booksStripped = allBooks.map { it.withoutArtwork() }
         unread.failedBooks += allFailedPaths
         val (changes, withheld) =
@@ -341,9 +343,7 @@ internal class Scanner(
         // analysis is reused (or a genuine cache hit is evicted). Mirrors the full-scan bucketing
         // (A11); M9 extends the same guard to the incremental path.
         val previousByPath =
-            lastResult
-                ?.books
-                .orEmpty()
+            previousSnapshot()
                 .filter { it.folderRootPath == folderRootPath }
                 .associateBy { it.candidate.rootRelPath }
         val pass =
@@ -376,7 +376,8 @@ internal class Scanner(
             diffVouched(
                 correlationId = correlationId,
                 current = booksStripped,
-                previous = previousAffected,
+                // A book still owed a write is diffed as new, so the persister writes it.
+                previous = previousAffected.filterNot { it.isOwedAWrite(persistRetries.unwritten()) },
                 unread = unread,
             )
 
@@ -422,6 +423,20 @@ internal class Scanner(
         scanResultBus.emit(incrementalResult)
         return incrementalResult
     }
+
+    /**
+     * The previous scan's books, minus any the persister has not managed to write
+     * ([PersistRetryLedger]). Leaving those out makes this scan analyze them afresh and report them
+     * as added, instead of trusting a fingerprint-cache hit for a book the library does not hold.
+     */
+    private fun previousSnapshot(): List<AnalyzedBook> {
+        val owed = persistRetries.unwritten()
+        val books = lastResult?.books.orEmpty()
+        return if (owed.isEmpty()) books else books.filterNot { it.isOwedAWrite(owed) }
+    }
+
+    private fun AnalyzedBook.isOwedAWrite(owed: Set<Pair<String, String>>): Boolean =
+        folderRootPath?.let { it to candidate.rootRelPath in owed } == true
 
     /** An [Analyzer] anchored to [folderRoot], configured from this scanner. */
     private fun analyzerFor(folderRoot: Path): Analyzer =

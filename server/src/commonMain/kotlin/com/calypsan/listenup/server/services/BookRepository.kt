@@ -925,6 +925,7 @@ class BookRepository(
         // Books rejected in the prepare phase (e.g. an absolute rootRelPath) are already counted failed.
         var failed = prepareFailed
         val resolvedIds = mutableSetOf<BookId>()
+        val writtenRootRelPaths = mutableSetOf<String>()
 
         for (chunk in prepared.chunked(PERSIST_CHUNK_SIZE)) {
             // OOM mid-chunk wraps the partial counts: prior chunks (persisted/failed/resolvedIds) plus
@@ -939,7 +940,10 @@ class BookRepository(
                 }
             persisted += succeeded.size
             failed += chunk.size - succeeded.size
-            succeeded.forEach { resolvedIds += it.bookId }
+            succeeded.forEach { book ->
+                resolvedIds += book.bookId
+                writtenRootRelPaths += book.payload.rootRelPath
+            }
 
             // Scan tags reconcile AFTER the chunk's book rows commit, as a suspend post-pass — exactly
             // the per-book path's unconditional post-success writeScanTags. Add-only, so each call opens
@@ -962,7 +966,13 @@ class BookRepository(
 
             onProgress(persisted + failed, failed)
         }
-        return PersistResult(persisted = persisted, failed = failed, resolvedIds = resolvedIds)
+        return PersistResult(
+            persisted = persisted,
+            failed = failed,
+            resolvedIds = resolvedIds,
+            // Every book not written, whichever phase dropped it, so the next scan offers it again.
+            failedRootRelPaths = books.mapTo(mutableSetOf()) { it.candidate.rootRelPath } - writtenRootRelPaths,
+        )
     }
 
     /**
