@@ -27,7 +27,7 @@ import kotlinx.io.files.Path as IoPath
 class ImportAnalyzerTest :
     FunSpec({
 
-        test("analyze matches progress-bearing items, persists matches.json, and emits events") {
+        test("analyze matches items with listening history, persists matches.json, and emits events") {
             withSqlDatabase {
                 val dbs = this
                 val (paths, importId) = stageImport()
@@ -114,6 +114,35 @@ class ImportAnalyzerTest :
 
                     // usersMatched: 1 user (simon) with STRONG match.
                     finalMatching.usersMatched shouldBe 1
+                }
+            }
+        }
+
+        test("a book whose progress was reset but whose sessions remain is matched, and its sessions are importable") {
+            withSqlDatabase {
+                val dbs = this
+                val (paths, importId) = stageImport()
+                addSessionOnlyBook(
+                    java.nio.file.Path
+                        .of(paths.absDbFor(importId.value).toString()),
+                )
+                val analyzer = analyzerFor(dbs, paths)
+
+                runTest {
+                    dbs.sql.seedTestLibraryAndFolder()
+                    val libId = LibraryRegistry(dbs.sql).currentLibrary()
+                    dbs.sql.transaction {
+                        seedAnalyzerBooks(dbs.sql, libId.value)
+                        seedListenUpElantris(dbs.sql, libId.value)
+                        seedAnalyzerUser(dbs.sql)
+                    }
+                    val analysis = analyzer.analyze(importId) {}.shouldBeInstanceOf<AppResult.Success<ImportAnalysis>>()
+
+                    analysis.data.unmatched.size shouldBe 0
+                    // kings + mist×2, plus Elantris' session.
+                    analysis.data.importableSessionCount shouldBe 4
+                    ImportStore(paths).readMatches(importId).shouldNotBeNull().itemMatches[AbsItemId("book-3")] shouldBe
+                        BookId("lu-elantris")
                 }
             }
         }

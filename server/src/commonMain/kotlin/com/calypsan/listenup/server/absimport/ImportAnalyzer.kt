@@ -22,14 +22,15 @@ import kotlinx.coroutines.withContext
 import kotlinx.io.files.SystemFileSystem
 
 /**
- * Read-only analyze stage of an ABS import: parse the staged backup, match its users and
- * progress-bearing items against the ListenUp library, and produce the [ImportAnalysis] preview
+ * Read-only analyze stage of an ABS import: parse the staged backup, match its users and the items
+ * with listening history against the ListenUp library, and produce the [ImportAnalysis] preview
  * (plus the server-internal `matches.json` apply needs).
  *
  * Analyze never writes progress and never auto-resolves a doubtful match — ambiguous and unmatched
- * items are surfaced for admin review. Only items that actually have a progress row are matched:
- * matching the whole library would be wasteful and pointless, since an item with no listening history
- * has nothing to import.
+ * items are surfaced for admin review. Only items with listening history — a progress row or a
+ * playback session — are matched: matching the whole library would be wasteful and pointless, since
+ * an item with no history has nothing to import. A session alone counts, because ABS deletes the
+ * progress row when a listener discards progress but keeps the sessions.
  */
 class ImportAnalyzer internal constructor(
     private val reader: AbsBackupReader,
@@ -77,10 +78,10 @@ class ImportAnalyzer internal constructor(
                 val userMatches = absData.users.map { userMatcher.match(it, listenupUsers) }
                 val usersMatched = userMatches.count { it.confidence == MatchTier.STRONG }
 
-                val itemsWithProgress = itemsWithProgress(absData.items, absData.progress)
+                val itemsWithHistory = itemsWithHistory(absData.items, absData.progress, absData.sessions)
                 val matches =
                     matchItems(
-                        items = itemsWithProgress,
+                        items = itemsWithHistory,
                         libraryId = libraryId,
                         usersMatched = usersMatched,
                         onEvent = onEvent,
@@ -117,16 +118,17 @@ class ImportAnalyzer internal constructor(
             }
         }
 
-    /** The subset of [items] that have at least one progress row (only these need matching). */
-    private fun itemsWithProgress(
+    /** The subset of [items] with a progress row or a playback session (only these need matching). */
+    private fun itemsWithHistory(
         items: List<AbsItem>,
         progress: List<AbsProgress>,
+        sessions: List<AbsSession>,
     ): List<AbsItem> {
-        val progressed = progress.mapTo(mutableSetOf()) { it.itemId }
-        return items.filter { it.id in progressed }
+        val listened = progress.mapTo(mutableSetOf()) { it.itemId } + sessions.map { it.itemId }
+        return items.filter { it.id in listened }
     }
 
-    /** Matches each progress-bearing item, emitting [ImportEvent.Matching] progress. */
+    /** Matches each item with listening history, emitting [ImportEvent.Matching] progress. */
     private suspend fun matchItems(
         items: List<AbsItem>,
         libraryId: LibraryId,

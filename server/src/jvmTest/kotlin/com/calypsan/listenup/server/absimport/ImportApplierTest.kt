@@ -362,6 +362,26 @@ class ImportApplierTest :
             }
         }
 
+        test("a book whose progress was reset imports its sessions and is not counted as not in the library") {
+            withSqlDatabase {
+                val dbs = this
+                runTest {
+                    val staged = stageAnalyzedImport(dbs, withSessionOnlyBook = true)
+                    val applier = applierFor(staged)
+
+                    confirmSimonMapping(staged.paths, staged.importId)
+                    val result = (applier.apply(staged.importId) {} as AppResult.Success).data
+
+                    listeningEventIdsFor(dbs.sql, LU_USER) shouldContain "abs:sess-elantris"
+                    // kings, mist, fidelity and Elantris' session; no progress row means no position.
+                    result.sessionsImported shouldBe 4
+                    result.importedCount shouldBe 2
+                    // Only `book-unmatched` is absent from the library.
+                    result.booksNotInLibrary shouldBe 1
+                }
+            }
+        }
+
         test("a null book override skips that item — its progress is not written") {
             withSqlDatabase {
                 val dbs = this
@@ -732,6 +752,7 @@ private data class StagedImport(
 private suspend fun stageAnalyzedImport(
     dbs: SqlTestDatabases,
     withExtraProgressUser: Boolean = false,
+    withSessionOnlyBook: Boolean = false,
 ): StagedImport {
     val home = Files.createTempDirectory("abs-apply-")
     val paths = ImportPaths(IoPath(home.toString())).apply { ensureDirs() }
@@ -751,8 +772,18 @@ private suspend fun stageAnalyzedImport(
         )
     }
 
+    if (withSessionOnlyBook) {
+        addSessionOnlyBook(
+            java.nio.file.Path
+                .of(paths.absDbFor(importId.value).toString()),
+        )
+    }
+
     val libId = seedLibraryUser(dbs)
-    dbs.sql.transaction { seedApplierBooks(dbs.sql, libId.value) }
+    dbs.sql.transaction {
+        seedApplierBooks(dbs.sql, libId.value)
+        if (withSessionOnlyBook) seedListenUpElantris(dbs.sql, libId.value)
+    }
 
     val bus = ChangeBus()
     val registry = SyncRegistry()
