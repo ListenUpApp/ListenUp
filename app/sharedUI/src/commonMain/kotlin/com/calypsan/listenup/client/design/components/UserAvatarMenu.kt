@@ -35,6 +35,10 @@ import listenup.composeapp.generated.resources.common_loading
 import listenup.composeapp.generated.resources.common_my_profile
 import listenup.composeapp.generated.resources.common_settings
 import listenup.composeapp.generated.resources.common_sign_out
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick
+import listenup.composeapp.generated.resources.common_profile
 
 /**
  * Circular avatar for the logged-in user with a dropdown menu.
@@ -146,10 +150,22 @@ private fun UserAvatarCircle(
     onClick: () -> Unit,
 ) {
     val haptics = LocalHaptics.current
+    // On its own the circle reads as the user's initials; it is the way into the profile menu.
+    val profileLabel = stringResource(Res.string.common_profile)
+    val anchorSemantics =
+        Modifier.clearAndSetSemantics {
+            contentDescription = profileLabel
+            role = Role.Button
+            onClick {
+                onClick()
+                true
+            }
+        }
     if (user != null) {
         UserAvatar(
             userId = user.id.value,
             size = AvatarSize.Medium,
+            modifier = anchorSemantics,
             onClick = onClick,
             fallbackName = user.displayName,
         )
@@ -157,7 +173,7 @@ private fun UserAvatarCircle(
         Box(
             contentAlignment = Alignment.Center,
             modifier =
-                Modifier
+                anchorSemantics
                     .size(AvatarSize.Medium.dp)
                     .clip(CircleShape)
                     .background(MaterialTheme.colorScheme.surfaceContainerHighest)
