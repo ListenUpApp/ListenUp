@@ -610,6 +610,7 @@ private fun seeAllShapes(): Map<String, @Composable () -> Unit> {
                 openableTypes = SearchHitType.entries.toSet(),
                 onOpenHit = {},
                 onOpenSearch = {},
+                onRetry = {},
             )
         }
 

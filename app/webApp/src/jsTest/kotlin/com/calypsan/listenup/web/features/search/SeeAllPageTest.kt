@@ -48,6 +48,7 @@ class SeeAllPageTest :
             state: SeeAllSearchUiState,
             onOpenHit: (SearchHit) -> Unit = {},
             onOpenSearch: () -> Unit = {},
+            onRetry: () -> Unit = {},
         ): HTMLElement =
             mounts.mount {
                 SeeAllPage(
@@ -55,8 +56,22 @@ class SeeAllPageTest :
                     openableTypes = SearchHitType.entries.toSet(),
                     onOpenHit = onOpenHit,
                     onOpenSearch = onOpenSearch,
+                    onRetry = onRetry,
                 )
             }
+
+        test("a failed see-all search offers Try again, which runs it again") {
+            var retries = 0
+            val host = page(SeeAllSearchUiState.Error("Search unavailable. Please try again."), onRetry = { retries++ })
+
+            val tryAgain =
+                (0 until host.querySelectorAll("button").length)
+                    .map { host.querySelectorAll("button").item(it) as HTMLElement }
+                    .single { it.textContent?.trim() == "Try again" }
+            tryAgain.click()
+
+            retries shouldBe 1
+        }
 
         test("the caps are the shared ones, so three platforms cannot disagree about list length") {
             // ⛔ Read from SearchResultCaps rather than redeclared. A web-only constant would drift

@@ -22,10 +22,7 @@ import org.koin.core.Koin
  * moves only in response to [onQueryChanged] / [onToggleType], so this session exposes those as
  * plain callbacks rather than handing the page a raw ViewModel to call methods on.
  *
- * [retry] exists because the ViewModel has no dedicated retry entry point: its query pipeline is
- * `distinctUntilChanged`, so resubmitting the same string is a no-op. Clearing the query and
- * resubmitting it is the only way through the ViewModel's own public API to force the exact same
- * search to run again — the honest "try again" for a page whose only knob is the query.
+ * [retry] runs the same search again after a failure ([SearchViewModel.retry]).
  */
 class SearchSession(
     val state: StateFlow<SearchUiState>,
@@ -71,11 +68,7 @@ fun graphSearch(koin: Koin): OpenSearch =
             onToggleType = viewModel::toggleTypeFilter,
             onClearTypes = viewModel::clearTypeFilters,
             onOpenHit = viewModel::onResultClicked,
-            retry = {
-                val currentQuery = viewModel.state.value.query
-                viewModel.clearQuery()
-                viewModel.onQueryChanged(currentQuery)
-            },
+            retry = viewModel::retry,
             navActions = viewModel.navActions,
             close = store::clear,
         )

@@ -15,6 +15,7 @@ import org.koin.core.Koin
 class SeeAllSession(
     val state: StateFlow<SeeAllSearchUiState>,
     val onOpenHit: (SearchHit) -> Unit,
+    val onRetry: () -> Unit,
     val navActions: Flow<SearchNavAction>,
     override val close: () -> Unit,
 ) : RouteSession
@@ -35,6 +36,7 @@ fun graphSeeAll(koin: Koin): OpenSeeAll =
         SeeAllSession(
             state = viewModel.state,
             onOpenHit = viewModel::onResultClicked,
+            onRetry = viewModel::retry,
             navActions = viewModel.navActions,
             close = store::clear,
         )
