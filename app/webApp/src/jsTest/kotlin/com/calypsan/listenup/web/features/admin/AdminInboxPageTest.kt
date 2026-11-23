@@ -591,6 +591,13 @@ class AdminInboxPageTest :
         // ⛔ Assert the whole string, never `shouldContain`. "Released 1 books" CONTAINS
         // "Released 1 book", so a receipt that always used the plural passed the containment
         // version of this test — sabotage proved it.
+        test("a failure is announced as an alert, a release receipt as a status") {
+            val host = page(readyInbox(error = "No library available", lastReleasedCount = 2))
+
+            host.querySelector(".inbox-err")?.getAttribute("role") shouldBe "alert"
+            host.querySelector(".inbox-note")?.getAttribute("role") shouldBe "status"
+        }
+
         test("the release receipt counts, and agrees with itself about the plural") {
             val one = page(readyInbox(lastReleasedCount = 1))
             val many = page(readyInbox(lastReleasedCount = 4))

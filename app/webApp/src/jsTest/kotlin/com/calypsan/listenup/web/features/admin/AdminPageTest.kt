@@ -332,6 +332,12 @@ class AdminPageTest :
             host.textContent.orEmpty() shouldContain "Ada"
         }
 
+        test("a load failure is announced") {
+            val host = mounts.mount { page(AdminUiState.Ready(error = "Invites unavailable")) }
+
+            host.querySelector(".adm-error")?.getAttribute("role") shouldBe "alert"
+        }
+
         test("sections with nothing in them are not announced") {
             // An admin with no pending anything should not read four empty headings.
             val host = mounts.mount { page(AdminUiState.Ready(users = listOf(user("u2", "Ada")))) }

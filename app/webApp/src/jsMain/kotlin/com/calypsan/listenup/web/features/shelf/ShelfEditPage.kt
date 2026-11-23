@@ -114,7 +114,10 @@ fun ShelfEditPage(
             )
 
             (state as? CreateEditShelfUiState.Error)?.let { error ->
-                P(attrs = { classes("shelf-form-error") }) { Text(error.message) }
+                P(attrs = {
+                    classes("shelf-form-error")
+                    attr("role", "alert")
+                }) { Text(error.message) }
                 Button(kind = ButtonKind.Secondary, onClick = { onDismissError() }) { Text("Dismiss") }
             }
 

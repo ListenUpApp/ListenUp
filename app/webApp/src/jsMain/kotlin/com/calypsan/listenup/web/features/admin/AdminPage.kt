@@ -240,7 +240,10 @@ private fun ErrorBanner(
 ) {
     if (message == null) return
 
-    Div(attrs = { classes("adm-error") }) {
+    Div(attrs = {
+        classes("adm-error")
+        attr("role", "alert")
+    }) {
         Span(attrs = { classes("adm-error-t") }) { Text(message) }
         Button(kind = ButtonKind.Secondary, onClick = { onRetry() }) { Text("Try again") }
         Button(kind = ButtonKind.Secondary, onClick = { onClearError() }) { Text("Dismiss") }

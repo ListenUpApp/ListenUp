@@ -173,7 +173,10 @@ private fun ReadyContent(
     // contributor on screen looking untouched, so the only thing that can say otherwise is a line
     // the reader cannot miss on their way back to the page.
     state.deleteError?.let { message ->
-        Div(attrs = { classes("banner", "err") }) {
+        Div(attrs = {
+            classes("banner", "err")
+            attr("role", "alert")
+        }) {
             Span { Text(message) }
             Button(
                 kind = ButtonKind.Secondary,

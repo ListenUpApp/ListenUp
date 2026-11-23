@@ -129,6 +129,12 @@ class ContributorDetailPageTest :
             dismissed shouldBe 1
         }
 
+        test("a failed delete is announced") {
+            val root = contributorDetailPage(readyContributor(deleteError = "That contributor still has books."))
+
+            root.querySelector(".banner.err")?.getAttribute("role") shouldBe "alert"
+        }
+
         test("a contributor with no trouble shows no error banner") {
             val root = contributorDetailPage(readyContributor())
 

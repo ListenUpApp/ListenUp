@@ -284,6 +284,40 @@ class ShelfPagesTest :
             host.querySelector(".shelf-notice") shouldBe null
         }
 
+        test("a refused reorder or removal is announced") {
+            val host =
+                mounts.mount {
+                    ShelfDetailPage(
+                        ready(listOf(book("a", "A"))),
+                        "Could not reorder this shelf.",
+                        {},
+                        {},
+                        {},
+                        {},
+                        {},
+                        {},
+                    )
+                }
+
+            host.querySelector(".shelf-notice")?.getAttribute("role") shouldBe "alert"
+        }
+
+        test("a refused save on the edit form is announced") {
+            val host =
+                mounts.mount {
+                    ShelfEditPage(
+                        CreateEditShelfUiState.Error("That shelf could not be saved."),
+                        true,
+                        { _, _, _ -> },
+                        {},
+                        {},
+                        {},
+                    )
+                }
+
+            host.querySelector(".shelf-form-error")?.getAttribute("role") shouldBe "alert"
+        }
+
         test("dismissing the notice reports it once") {
             var dismissed = 0
             val host =
