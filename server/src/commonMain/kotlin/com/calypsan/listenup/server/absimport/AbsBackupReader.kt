@@ -98,7 +98,9 @@ internal class AbsBackupReader {
                     "${AbsSchema.PROGRESS_FINISHED_AT} AS finishedAt, " +
                     "${AbsSchema.PROGRESS_UPDATED_AT} AS updatedAt " +
                     "FROM ${AbsSchema.MEDIA_PROGRESSES} " +
-                    "WHERE ${AbsSchema.PROGRESS_MEDIA_ITEM_TYPE} = ?"
+                    "WHERE ${AbsSchema.PROGRESS_MEDIA_ITEM_TYPE} = ? " +
+                    "AND ${AbsSchema.PROGRESS_USER_ID} IS NOT NULL " +
+                    "AND ${AbsSchema.PROGRESS_MEDIA_ITEM_ID} IS NOT NULL"
             return read(sql, { bindString(1, AbsSchema.MEDIA_TYPE_BOOK) }) { row ->
                 val currentTime = row.getDouble("currentTime")
                 val duration = row.getDouble("duration")
@@ -131,7 +133,9 @@ internal class AbsBackupReader {
                     "${AbsSchema.SESSION_STARTED_AT} AS startedAt, " +
                     "${AbsSchema.SESSION_DEVICE} AS deviceLabel " +
                     "FROM ${AbsSchema.PLAYBACK_SESSIONS} " +
-                    "WHERE ${AbsSchema.SESSION_MEDIA_ITEM_TYPE} = ?"
+                    "WHERE ${AbsSchema.SESSION_MEDIA_ITEM_TYPE} = ? " +
+                    "AND ${AbsSchema.SESSION_USER_ID} IS NOT NULL " +
+                    "AND ${AbsSchema.SESSION_MEDIA_ITEM_ID} IS NOT NULL"
             return read(sql, { bindString(1, AbsSchema.MEDIA_TYPE_BOOK) }) { row ->
                 AbsSession(
                     id = row.requiredString("id"),
@@ -155,7 +159,14 @@ internal class AbsBackupReader {
             }
         }
 
-        /** A key column ABS never leaves null; a null one is a malformed row, surfaced by [read]. */
+        /**
+         * A key column that must be present; a null one is a malformed row, surfaced by [read].
+         *
+         * The owner columns ABS does leave null are filtered in SQL instead, so a row without an owner is
+         * skipped rather than failing the whole read: ABS sets `userId` to NULL on the playback sessions of
+         * a user it deletes (keeping the sessions), and `mediaItemId` is an unconstrained column. A session
+         * or progress row missing its user or its item has nothing to import.
+         */
         private fun SqlRow.requiredString(column: String): String =
             checkNotNull(getString(column)) { "ABS row has no $column" }
 

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.absimport
 
+import com.calypsan.listenup.api.dto.imports.ImportAnalysis
 import com.calypsan.listenup.api.dto.imports.ImportEvent
 import com.calypsan.listenup.api.dto.imports.MatchTier
 import com.calypsan.listenup.api.error.ImportError
@@ -113,6 +114,26 @@ class ImportAnalyzerTest :
 
                     // usersMatched: 1 user (simon) with STRONG match.
                     finalMatching.usersMatched shouldBe 1
+                }
+            }
+        }
+
+        test("a backup holding a deleted user's sessions analyzes, and those sessions are not importable") {
+            withSqlDatabase {
+                val dbs = this
+                val (paths, importId) = stageImport()
+                val analyzer = analyzerFor(dbs, paths)
+
+                runTest {
+                    dbs.sql.seedTestLibraryAndFolder()
+                    val libId = LibraryRegistry(dbs.sql).currentLibrary()
+                    dbs.sql.transaction {
+                        seedAnalyzerBooks(dbs.sql, libId.value)
+                        seedAnalyzerUser(dbs.sql)
+                    }
+                    // The fixture's sess-deleted-user (NULL userId, on book-1) and sess-no-item are skipped.
+                    val analysis = analyzer.analyze(importId) {}.shouldBeInstanceOf<AppResult.Success<ImportAnalysis>>()
+                    analysis.data.importableSessionCount shouldBe 3
                 }
             }
         }

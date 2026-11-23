@@ -183,6 +183,16 @@ private fun java.sql.Connection.insertAbsRows() {
                     finished = false,
                     "2022-01-18T04:33:12.000Z",
                 ),
+                // A row naming no item — skipped by the reader, never fatal.
+                ProgressRow(
+                    "mp-no-item",
+                    null,
+                    AbsSchema.MEDIA_TYPE_BOOK,
+                    10.0,
+                    100.0,
+                    finished = false,
+                    "2022-01-18T04:33:12.000Z",
+                ),
             ).forEach { insertProgress(ps, it) }
         }
 
@@ -197,6 +207,10 @@ private fun java.sql.Connection.insertAbsRows() {
  *    follow `timeListening`, not the wall clock.
  *  - `sess-unresolved` (book-unmatched) — its item never matches a ListenUp book → skipped on apply.
  *  - `sess-podcast` (podcastEpisode) — excluded by the reader's media-type filter.
+ *
+ * And two ownerless rows the reader skips: `sess-deleted-user` (ABS nulls `userId` on the sessions of
+ * a user it deletes — `server/controllers/UserController.js` in the ABS source) and `sess-no-item`
+ * (no `mediaItemId`).
  */
 private fun java.sql.Connection.insertAbsSessions() {
     prepareStatement(
@@ -266,6 +280,28 @@ private fun java.sql.Connection.insertAbsSessions() {
                 startedAt = "2022-01-21T04:33:12.000Z",
                 device = "Web",
             ),
+            SessionRow(
+                "sess-deleted-user",
+                null,
+                "book-1",
+                AbsSchema.MEDIA_TYPE_BOOK,
+                startTime = 0.0,
+                currentTime = 600.0,
+                timeListening = 600,
+                startedAt = "2022-01-22T04:33:12.000Z",
+                device = "Web",
+            ),
+            SessionRow(
+                "sess-no-item",
+                "user-simon",
+                null,
+                AbsSchema.MEDIA_TYPE_BOOK,
+                startTime = 0.0,
+                currentTime = 600.0,
+                timeListening = 600,
+                startedAt = "2022-01-22T04:33:12.000Z",
+                device = "Web",
+            ),
         ).forEach { insertSession(ps, it) }
     }
 }
@@ -301,7 +337,7 @@ internal fun zipOf(vararg entries: Pair<String, ByteArray>): ByteArray {
 
 private data class ProgressRow(
     val id: String,
-    val itemId: String,
+    val itemId: String?,
     val mediaItemType: String,
     val currentTime: Double,
     val duration: Double,
@@ -311,8 +347,8 @@ private data class ProgressRow(
 
 private data class SessionRow(
     val id: String,
-    val userId: String,
-    val itemId: String,
+    val userId: String?,
+    val itemId: String?,
     val mediaItemType: String,
     val startTime: Double,
     val currentTime: Double,

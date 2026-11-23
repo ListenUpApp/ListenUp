@@ -81,6 +81,17 @@ class AbsBackupReaderTest :
             }
         }
 
+        test("rows ABS left without an owner or an item are skipped, not fatal") {
+            val absDb = Files.createTempDirectory("abs-ownerless-").resolve(AbsSchema.DB_FILENAME)
+            buildSyntheticAbsDb(absDb)
+
+            AbsBackupReader().open(absDb.toAbsolutePath().toString()).use { handle ->
+                handle.playbackSessions().map { it.id } shouldContainExactlyInAnyOrder
+                    listOf("sess-kings", "sess-mist", "sess-fidelity", "sess-unresolved")
+                handle.progress().map { it.itemId } shouldContainExactlyInAnyOrder listOf("book-1", "book-2")
+            }
+        }
+
         test("real ABS offset timestamps survive to true epochs, not 1970 (the #532 stats path)") {
             // Regression: imported listening stats stayed empty because session/progress timestamps in
             // ABS's "2024-06-12 02:48:10.063 +00:00" form parsed to 0L → every listening_event landed
