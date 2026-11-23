@@ -193,6 +193,67 @@ class AdminBackupViewModelTest :
             }
         }
 
+        test("backupCreated emits once when a backup is created") {
+            runTest(testDispatcher) {
+                val repo =
+                    FakeBackupRepository(
+                        listResult = AppResult.Success(emptyList()),
+                        createResult = AppResult.Success(summary(id = "new-backup")),
+                    )
+                val viewModel = AdminBackupViewModel(repo, errorBus = ErrorBus())
+                advanceUntilIdle()
+
+                viewModel.backupCreated.test {
+                    viewModel.createBackup(includeImages = false)
+                    advanceUntilIdle()
+
+                    awaitItem() shouldBe Unit
+                    expectNoEvents()
+                }
+            }
+        }
+
+        test("backupCreated does not emit when creating the backup fails") {
+            runTest(testDispatcher) {
+                val repo =
+                    FakeBackupRepository(
+                        listResult = AppResult.Success(emptyList()),
+                        createResult = AppResult.Failure(TransportError.Server4xx(statusCode = 507)),
+                    )
+                val viewModel = AdminBackupViewModel(repo, errorBus = ErrorBus())
+                advanceUntilIdle()
+
+                viewModel.backupCreated.test {
+                    viewModel.createBackup(includeImages = false)
+                    advanceUntilIdle()
+
+                    expectNoEvents()
+                }
+            }
+        }
+
+        test("createBackup before the list has loaded does nothing") {
+            runTest(testDispatcher) {
+                val repo =
+                    FakeBackupRepository(
+                        listResult = AppResult.Success(emptyList()),
+                        createResult = AppResult.Success(summary(id = "new-backup")),
+                    )
+                repo.listGate = CompletableDeferred()
+                val viewModel = AdminBackupViewModel(repo, errorBus = ErrorBus())
+                advanceUntilIdle()
+                viewModel.state.value shouldBe AdminBackupUiState.Loading
+
+                viewModel.backupCreated.test {
+                    viewModel.createBackup(includeImages = true)
+                    advanceUntilIdle()
+
+                    expectNoEvents()
+                }
+                repo.createImagesArg shouldBe null
+            }
+        }
+
         test("deleteBackup removes the backup from the list") {
             runTest(testDispatcher) {
                 val repo =

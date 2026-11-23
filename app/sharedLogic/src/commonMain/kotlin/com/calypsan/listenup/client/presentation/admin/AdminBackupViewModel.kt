@@ -69,6 +69,11 @@ class AdminBackupViewModel(
     /** One-shot signal that a backup finished streaming to the device — drives a "saved" confirmation. */
     val downloadSaved: Flow<Unit> = downloadSavedChannel.receiveAsFlow()
 
+    private val backupCreatedChannel = Channel<Unit>(Channel.BUFFERED)
+
+    /** One-shot signal that [createBackup] made a backup — the create screen's cue to confirm and close. */
+    val backupCreated: Flow<Unit> = backupCreatedChannel.receiveAsFlow()
+
     init {
         loadBackups()
     }
@@ -113,7 +118,13 @@ class AdminBackupViewModel(
         }
     }
 
+    /**
+     * Create a backup, emitting [backupCreated] once it exists. A no-op until the backup list has
+     * loaded ([AdminBackupUiState.Ready]): the creating state lives on `Ready`, so a create started
+     * earlier could never show progress or report its outcome.
+     */
     fun createBackup(includeImages: Boolean) {
+        if (state.value !is AdminBackupUiState.Ready) return
         viewModelScope.launch {
             updateReady { it.copy(isCreating = true, error = null) }
 
@@ -122,6 +133,7 @@ class AdminBackupViewModel(
                     // Reload list to show new backup
                     loadBackups()
                     updateReady { it.copy(isCreating = false) }
+                    backupCreatedChannel.trySend(Unit)
                 }
 
                 is AppResult.Failure -> {
