@@ -7415,6 +7415,17 @@
         }
       }
     },
+    "book.detail_share_unavailable": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't create a link to share. Try again in a moment."
+          }
+        }
+      }
+    },
     "book.detail_social_finished_many": {
       "extractionState": "manual",
       "localizations": {

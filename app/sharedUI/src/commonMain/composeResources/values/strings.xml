@@ -675,6 +675,7 @@ One beautiful library.</string>
     <string name="book_detail_see_all_readers">See all %1$d readers</string>
     <string name="book_detail_see_all_readers_ios">See All %1$d Readers</string>
     <string name="book_detail_series_pill_a11y">Series, %1$s</string>
+    <string name="book_detail_share_unavailable">Couldn't create a link to share. Try again in a moment.</string>
     <string name="book_detail_social_finished_many">%1$s, %2$s and %3$d others finished it</string>
     <string name="book_detail_social_finished_many_one">%1$s, %2$s and 1 other finished it</string>
     <string name="book_detail_social_finished_one">%1$s finished it</string>

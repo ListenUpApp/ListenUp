@@ -449,6 +449,7 @@
     "detail_edit_book": "Edit book",
     "detail_abridged": "Abridged",
     "detail_more_options": "More options",
+    "detail_share_unavailable": "Couldn't create a link to share. Try again in a moment.",
     "detail_close": "Close book",
     "detail_narrated_by": "Narrated by",
     "detail_narrated_by_prefix": "Narrated by ",
