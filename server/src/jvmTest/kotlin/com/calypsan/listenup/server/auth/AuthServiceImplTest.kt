@@ -559,29 +559,6 @@ class AuthServiceImplTest :
             }
         }
 
-        test("logoutAll revokes every session for the caller") {
-            val svc = newSvc()
-            runTest {
-                svc.setupRoot(RegisterRequest("root@x", "x".repeat(8), "Root")).shouldSucceed()
-                val authed =
-                    svc
-                        .register(RegisterRequest("alice@x", "x".repeat(8), "Alice"))
-                        .shouldSucceed()
-                        .shouldBeInstanceOf<RegisterResult.Authenticated>()
-                val a = authed.session
-                val b = svc.login(LoginRequest("alice@x", "x".repeat(8))).shouldSucceed()
-
-                svc.copyWith(callerOf(a.user.id, a.sessionId)).logoutAll().shouldSucceed()
-
-                svc
-                    .refreshSession(RefreshRequest(a.refreshToken))
-                    .shouldFail<AuthError.InvalidRefreshToken>()
-                svc
-                    .refreshSession(RefreshRequest(b.refreshToken))
-                    .shouldFail<AuthError.InvalidRefreshToken>()
-            }
-        }
-
         test("login throttles after the LOGIN ceiling from one host") {
             runTest {
                 val svc = newSvcWithRateLimiter("10.0.0.8")

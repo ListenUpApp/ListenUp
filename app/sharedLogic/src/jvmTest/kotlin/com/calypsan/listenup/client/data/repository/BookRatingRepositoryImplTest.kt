@@ -373,9 +373,6 @@ class BookRatingRepositoryImplTest :
                             return AppResult.Success(Unit)
                         }
 
-                        override suspend fun ensureExternalRatings(bookId: com.calypsan.listenup.core.BookId): AppResult<Unit> =
-                            AppResult.Success(Unit)
-
                         override fun checkExternalRatings(
                             bookId: com.calypsan.listenup.core.BookId,
                         ): kotlinx.coroutines.flow.Flow<

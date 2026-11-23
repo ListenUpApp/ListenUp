@@ -31,8 +31,8 @@ import com.calypsan.listenup.server.auth.requireAdmin
  * neighbours in [AdminSettingsServiceImpl]. [fetcher] is nullable — non-null in production, absent
  * in the direct-construction unit tests that never call this method, where it is a no-op.
  *
- * [ensureExternalRatings] and [checkExternalRatings] are open to any listener who can open the book;
- * they only ever start (or follow) a background fetch.
+ * [checkExternalRatings] is open to any listener who can open the book; it only ever starts (or
+ * follows) a background fetch.
  */
 class BookRatingServiceImpl(
     private val ratings: BookRatingRepository,
@@ -83,14 +83,6 @@ class BookRatingServiceImpl(
         }
     }
 
-    /** Returns a copy scoped to [principal]; the route handler calls this per request. */
-    @OpenToAllMembers(reason = "starts a fetch of public scores for a book the caller can see")
-    override suspend fun ensureExternalRatings(bookId: BookId): AppResult<Unit> {
-        callerWithAccessTo(bookId) ?: return notFound(bookId)
-        onOpen?.ensure(bookId)
-        return AppResult.Success(Unit)
-    }
-
     @OpenToAllMembers(reason = "starts a fetch of public scores for a book the caller can see")
     override fun checkExternalRatings(bookId: BookId): Flow<RpcEvent<ExternalRatingsCheck>> =
         flow {
@@ -101,6 +93,7 @@ class BookRatingServiceImpl(
             emit(RpcEvent.Data(ExternalRatingsCheck.DONE))
         }
 
+    /** Returns a copy scoped to [principal]; the route handler calls this per request. */
     fun copyWith(principal: PrincipalProvider): BookRatingServiceImpl =
         BookRatingServiceImpl(
             ratings = ratings,

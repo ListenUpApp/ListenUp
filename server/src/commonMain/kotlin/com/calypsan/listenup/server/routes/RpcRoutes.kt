@@ -103,7 +103,7 @@ internal fun <T> guardedConstruction(block: () -> T): T =
  *  - `/api/rpc/public` — anonymous; routes [AuthServicePublic] (login/register/
  *    setupRoot/refresh) and [PingService].
  *  - `/api/rpc/authed` — gated behind [JWT_PROVIDER]; routes [AuthServiceAuthed]
- *    (logout/logoutAll/currentUser/listSessions/decide) and [BookService]
+ *    (logout/currentUser/listSessions/decide) and [BookService]
  *    (getBook/searchBooks).
  *
  * The split mirrors the contract's trust boundary structurally — the URL

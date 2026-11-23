@@ -633,13 +633,6 @@ class AuthServiceImpl(
     }
 
     @OpenToAllMembers(reason = "acts only on the caller's own sessions")
-    override suspend fun logoutAll(): AppResult<Unit> {
-        val p = principalProvider.current() ?: return AppResult.Failure(AuthError.SessionExpired())
-        sessions.revokeAll(p.userId)
-        return AppResult.Success(Unit)
-    }
-
-    @OpenToAllMembers(reason = "acts only on the caller's own sessions")
     override suspend fun revokeOtherSessions(): AppResult<Unit> {
         val p = principalProvider.current() ?: return AppResult.Failure(AuthError.SessionExpired())
         sessions.revokeAllExcept(p.userId, p.sessionId)
