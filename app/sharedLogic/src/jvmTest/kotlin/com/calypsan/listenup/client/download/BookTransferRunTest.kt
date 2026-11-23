@@ -29,6 +29,8 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.currentTime
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.io.files.Path
 import java.io.File
@@ -71,9 +73,14 @@ class BookTransferRunTest :
             override val transport = DownloadTransport.UIDT
             override val foreground = true
             val progress = mutableListOf<BookTransferProgress>()
+            val ends = mutableListOf<BookTransferEnd>()
 
             override suspend fun onProgress(progress: BookTransferProgress) {
                 this.progress += progress
+            }
+
+            override suspend fun onEnded(end: BookTransferEnd) {
+                ends += end
             }
 
             override fun platformStopCause(): StopCause = stopCause
@@ -88,6 +95,9 @@ class BookTransferRunTest :
             val registry = BookTransferRegistry()
             val errorBus = ErrorBus()
             val downloader = ScriptedDownloader { repository }
+
+            /** The exits the platform recorded for earlier processes of the app. */
+            var processExits = emptyList<ProcessExit>()
             val root = File(System.getProperty("java.io.tmpdir"), "btr-${System.nanoTime()}").apply { mkdirs() }
             val fileManager =
                 DownloadFileManager(
@@ -104,7 +114,12 @@ class BookTransferRunTest :
                     downloader = downloader,
                     registry = registry,
                     errorBus = errorBus,
-                    deviceState = { DownloadDeviceSnapshot(sdkInt = 35, standbyBucket = 40, notificationsEnabled = true) },
+                    deviceState =
+                        object : DownloadDeviceState {
+                            override fun snapshot() = DownloadDeviceSnapshot(sdkInt = 35, standbyBucket = 40, notificationsEnabled = true)
+
+                            override fun processDeathCode(startedAt: Long?): Int? = exitThatEnded(processExits, startedAt)?.reason
+                        },
                     now = { 5_000L },
                 )
 
@@ -171,7 +186,14 @@ class BookTransferRunTest :
                     run.run("b1", host)
 
                     host.progress.first() shouldBe
-                        BookTransferProgress("b1", downloadedBytes = 100, totalBytes = 200, fileNumber = 2, fileCount = 2, resolving = true)
+                        BookTransferProgress(
+                            "b1",
+                            downloadedBytes = 100,
+                            totalBytes = 200,
+                            fileNumber = 2,
+                            fileCount = 2,
+                            resolving = false,
+                        )
                     host.progress.last() shouldBe
                         BookTransferProgress(
                             "b1",
@@ -181,6 +203,20 @@ class BookTransferRunTest :
                             fileCount = 2,
                             resolving = false,
                         )
+                }
+            }
+        }
+
+        // Android 11 drew the bar indeterminate at every file start, so a many-file book flickered all the way through.
+        test("progress is indeterminate only before the book's first byte, not at each file's start") {
+            runTest {
+                withRig {
+                    dao.insertAll(rows("f0" to DownloadState.QUEUED, "f1" to DownloadState.QUEUED))
+                    val host = RecordingHost()
+
+                    run.run("b1", host)
+
+                    host.progress.filter { it.resolving }.map { it.fileNumber } shouldContainExactly listOf(1)
                 }
             }
         }
@@ -201,14 +237,74 @@ class BookTransferRunTest :
             }
         }
 
-        test("a file already downloading elsewhere is not claimed twice") {
+        // The platform restarts a job after a process death before the app's own start sweeps, so the run itself has to
+        // take back what the dead process left mid-transfer.
+        test("a run in a fresh process takes back a file a dead process left downloading, records that death, and resumes it") {
             runTest {
                 withRig {
-                    dao.insertAll(rows("f0" to DownloadState.DOWNLOADING, "f1" to DownloadState.QUEUED))
+                    dao.insertAll(
+                        rows("f0" to DownloadState.DOWNLOADING, "f1" to DownloadState.QUEUED).map {
+                            if (it.audioFileId == "f0") it.copy(startedAt = 1_000L, downloadedBytes = 40) else it
+                        },
+                    )
+                    processExits = listOf(ProcessExit(at = 4_000L, reason = 13), ProcessExit(at = 2_000L, reason = 10))
+                    val host = RecordingHost()
 
-                    run.run("b1", RecordingHost())
+                    run.run("b1", host) shouldBe BookTransferOutcome.COMPLETED
 
-                    downloader.order shouldContainExactly listOf("f1")
+                    downloader.order shouldContainExactly listOf("f0", "f1")
+                    host.progress.first().downloadedBytes shouldBe 40
+                    row("f0").state shouldBe DownloadState.COMPLETED
+                    row("f0").stopReason shouldBe DownloadStopReason.PROCESS_DEATH
+                    row("f0").stopReasonCode shouldBe 10
+                    val death = db.downloadStopEventDao().recentStopEvents(10).single()
+                    death.reason shouldBe DownloadStopReason.PROCESS_DEATH
+                    death.reasonCode shouldBe 10
+                }
+            }
+        }
+
+        test("each orphan is charged to the death that ended it, and is left waiting to resume when no run takes it") {
+            runTest {
+                withRig {
+                    dao.insertAll(
+                        rows("f0" to DownloadState.DOWNLOADING).map { it.copy(startedAt = 1_000L) } +
+                            rows("g0" to DownloadState.DOWNLOADING).map { it.copy(bookId = "b2", startedAt = 3_000L) },
+                    )
+                    processExits = listOf(ProcessExit(at = 4_000L, reason = 13), ProcessExit(at = 2_000L, reason = 10))
+
+                    run.releaseOrphans(DownloadTransport.UIDT).map { it.audioFileId } shouldContainExactly listOf("f0", "g0")
+
+                    row("f0").state shouldBe DownloadState.PAUSED
+                    row("f0").pauseReason shouldBe DownloadPauseReason.INTERRUPTED
+                    row("f0").stopReasonCode shouldBe 10
+                    row("g0").stopReasonCode shouldBe 13
+                    run.releaseOrphans(DownloadTransport.UIDT) shouldBe emptyList()
+                }
+            }
+        }
+
+        test("a file a run in this process is transferring is neither taken back nor claimed twice") {
+            runTest {
+                withRig {
+                    dao.insertAll(rows("g0" to DownloadState.QUEUED).map { it.copy(bookId = "b2") })
+                    val started = CompletableDeferred<Unit>()
+                    val release = CompletableDeferred<Unit>()
+                    downloader.scripts["g0"] = {
+                        started.complete(Unit)
+                        release.await()
+                        val _ = repository.markCompleted("g0", "/books/b2/g0.mp3", completedAt = 1L)
+                        AppResult.Success(Unit)
+                    }
+                    val transferring = async { run.run("b2", RecordingHost()) }
+                    started.await()
+
+                    run.releaseOrphans(DownloadTransport.UIDT) shouldBe emptyList()
+                    row("g0").state shouldBe DownloadState.DOWNLOADING
+
+                    release.complete(Unit)
+                    transferring.await() shouldBe BookTransferOutcome.COMPLETED
+                    downloader.order shouldContainExactly listOf("g0")
                 }
             }
         }
@@ -429,6 +525,99 @@ class BookTransferRunTest :
 
                     shouldThrow<CancellationException> { run.run("b1", RecordingHost()) }
                     registry.isRunning("b1") shouldBe false
+                }
+            }
+        }
+
+        // Wi-Fi going under Wi-Fi only stops every queued job too, a moment after the running one notices. Handing the
+        // turn on at once let the next book start, be stopped, and be announced as the one waiting.
+        test("a lost network keeps the turn a moment before the next book may start, and announces its own wait") {
+            runTest {
+                withRig {
+                    dao.insertAll(rows("f0" to DownloadState.QUEUED))
+                    dao.insertAll(rows("g0" to DownloadState.QUEUED).map { it.copy(bookId = "b2") })
+                    downloader.scripts["f0"] = { AppResult.Failure(TransportError.NetworkUnavailable(debugInfo = "reset")) }
+                    var secondStartedAt = -1L
+                    downloader.scripts["g0"] = {
+                        secondStartedAt = currentTime
+                        val _ = repository.markCompleted("g0", "/books/b2/g0.mp3", completedAt = 1L)
+                        AppResult.Success(Unit)
+                    }
+                    val firstHost = RecordingHost()
+
+                    val first = async { run.run("b1", firstHost) }
+                    val second = async { run.run("b2", RecordingHost()) }
+
+                    first.await() shouldBe BookTransferOutcome.RETRY_LATER
+                    second.await() shouldBe BookTransferOutcome.COMPLETED
+                    secondStartedAt shouldBe TURN_HANDOFF_GRACE_MS
+                    firstHost.ends.single() shouldBe BookTransferEnd(BookTransferOutcome.RETRY_LATER, appStop = null)
+                    firstHost.ends.single().announcesWait shouldBe true
+                }
+            }
+        }
+
+        test("a queued run stopped while it waits for its turn leaves its book queued and announces nothing") {
+            runTest {
+                withRig {
+                    dao.insertAll(rows("f0" to DownloadState.QUEUED))
+                    dao.insertAll(rows("g0" to DownloadState.QUEUED).map { it.copy(bookId = "b2") })
+                    val firstStarted = CompletableDeferred<Unit>()
+                    val releaseFirst = CompletableDeferred<Unit>()
+                    downloader.scripts["f0"] = {
+                        firstStarted.complete(Unit)
+                        releaseFirst.await()
+                        val _ = repository.markCompleted("f0", "/books/b1/f0.mp3", completedAt = 1L)
+                        AppResult.Success(Unit)
+                    }
+                    val secondHost = RecordingHost()
+
+                    val first = async { run.run("b1", RecordingHost()) }
+                    firstStarted.await()
+                    val second = launch { run.run("b2", secondHost) }
+                    runCurrent()
+                    second.cancelAndJoin()
+                    releaseFirst.complete(Unit)
+
+                    first.await() shouldBe BookTransferOutcome.COMPLETED
+                    downloader.order shouldContainExactly listOf("f0")
+                    row("g0").state shouldBe DownloadState.QUEUED
+                    row("g0").pauseReason shouldBe null
+                    secondHost.ends shouldBe emptyList()
+                }
+            }
+        }
+
+        test("a platform stop keeps the turn a moment; the app's own stop hands it on at once and announces nothing") {
+            runTest {
+                withRig {
+                    dao.insertAll(rows("f0" to DownloadState.QUEUED, "f1" to DownloadState.QUEUED))
+                    val started = CompletableDeferred<Unit>()
+                    downloader.scripts["f0"] = {
+                        started.complete(Unit)
+                        awaitCancellation()
+                    }
+                    val platformHost = RecordingHost()
+                    val platform = launch { run.run("b1", platformHost) }
+                    started.await()
+                    val before = currentTime
+                    platform.cancelAndJoin()
+                    (currentTime - before >= TURN_HANDOFF_GRACE_MS) shouldBe true
+                    platformHost.ends.single().announcesWait shouldBe true
+
+                    val restarted = CompletableDeferred<Unit>()
+                    downloader.scripts["f0"] = {
+                        restarted.complete(Unit)
+                        awaitCancellation()
+                    }
+                    val cancelledHost = RecordingHost()
+                    val cancelled = launch { run.run("b1", cancelledHost) }
+                    restarted.await()
+                    registry.expectStop("b1", DownloadStopReason.USER_CANCELLED)
+                    val cancelledAt = currentTime
+                    cancelled.cancelAndJoin()
+                    currentTime shouldBe cancelledAt
+                    cancelledHost.ends.single().announcesWait shouldBe false
                 }
             }
         }

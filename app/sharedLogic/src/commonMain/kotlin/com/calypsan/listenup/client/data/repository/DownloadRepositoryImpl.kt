@@ -82,12 +82,19 @@ internal class DownloadRepositoryImpl(
                 }
             }.distinctUntilChanged()
 
-    /** Finished files per book: what [observeDownloadedBooks] shows, and nothing a progress write moves. */
+    /**
+     * The downloaded books' finished files: what [observeDownloadedBooks] shows, and nothing a progress write moves. A
+     * book is downloaded when [aggregateBookDownloadStatus] says so, every file of it finished; a book with any file
+     * still to come is in flight, listed by [observeInProgressBooks] instead, so the two lists never share a book.
+     */
     private fun completedFilesByBook(downloads: List<DownloadEntity>): Map<String, CompletedFiles> =
         downloads
-            .filter { it.state == DownloadState.COMPLETED }
             .groupBy { it.bookId }
-            .mapValues { (_, files) -> CompletedFiles(count = files.size, bytes = files.sumOf { it.downloadedBytes }) }
+            .filter { (bookId, files) -> aggregateBookDownloadStatus(bookId, files) is BookDownloadStatus.Completed }
+            .mapValues { (_, files) ->
+                val finished = files.filter { it.state == DownloadState.COMPLETED }
+                CompletedFiles(count = finished.size, bytes = finished.sumOf { it.downloadedBytes })
+            }
 
     private fun summarize(
         completedByBook: Map<String, CompletedFiles>,

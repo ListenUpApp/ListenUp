@@ -14,6 +14,9 @@ import kotlinx.coroutines.sync.withLock
  * Books download one at a time: a run waits for its [withTurn] before it transfers anything, and turns are handed out
  * first come, first served, so the queue moves in the order books were started.
  *
+ * It knows which files this process is transferring ([claim]), so a file left DOWNLOADING by a process that died can be
+ * told from one a run here is moving ([withOwnedFiles]).
+ *
  * It also carries what the app meant by a stop it caused ([expectStop]): the platform reports a pause, a cancel and a
  * preference change all as "cancelled by the app", and only the app knows which it was.
  */
@@ -29,6 +32,9 @@ internal class BookTransferRegistry {
     private val lock = Mutex()
     private val turn = Mutex()
     private val running = mutableMapOf<String, Token>()
+
+    /** The files runs in this process have claimed and are transferring. */
+    private val owned = mutableSetOf<String>()
 
     /** Register a run of [bookId]. A newer run replaces an older one's registration. */
     suspend fun register(bookId: String): Token = lock.withLock { Token(bookId).also { running[bookId] = it } }
@@ -61,6 +67,23 @@ internal class BookTransferRegistry {
         lock.withLock {
             next().also { if (it == null && running[token.bookId] === token) running.remove(token.bookId) }
         }
+
+    /**
+     * Claim [audioFileId] through [claim] (the database's guarded claim) and, when it succeeds, record that this
+     * process is transferring it, both under the lock [withOwnedFiles] takes: a file is never seen claimed but unowned.
+     */
+    suspend fun claim(
+        audioFileId: String,
+        claim: suspend () -> Boolean,
+    ): Boolean = lock.withLock { claim().also { claimed -> if (claimed) owned += audioFileId } }
+
+    /** This process is no longer transferring [audioFileId]: its run recorded how the file ended. */
+    suspend fun release(audioFileId: String) {
+        lock.withLock { owned -= audioFileId }
+    }
+
+    /** Run [block] with the files this process is transferring, under the lock a claim takes. */
+    suspend fun <T> withOwnedFiles(block: suspend (Set<String>) -> T): T = lock.withLock { block(owned.toSet()) }
 
     /** Run [block] once it is this run's turn: one book transfers at a time, in the order runs asked. */
     suspend fun <T> withTurn(block: suspend () -> T): T = turn.withLock { block() }

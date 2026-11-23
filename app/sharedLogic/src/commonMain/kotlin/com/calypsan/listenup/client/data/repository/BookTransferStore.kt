@@ -2,7 +2,6 @@ package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.client.data.local.db.DownloadDao
 import com.calypsan.listenup.client.data.local.db.DownloadEntity
-import com.calypsan.listenup.client.data.local.db.DownloadState
 import com.calypsan.listenup.client.data.local.db.DownloadStopEventDao
 import com.calypsan.listenup.client.data.local.db.DownloadStopEventEntity
 import com.calypsan.listenup.client.data.local.db.MAX_DOWNLOAD_RETRIES
@@ -33,9 +32,6 @@ internal class BookTransferStore(
     /** Every row of [bookId], in file order. */
     suspend fun rowsFor(bookId: String): List<DownloadEntity> = downloadDao.getForBook(bookId)
 
-    /** Every unfinished row, of every book: what a start of the app has to account for. */
-    suspend fun incompleteRows(): List<DownloadEntity> = downloadDao.getIncomplete()
-
     /** The books with something a run could still transfer, in the order they were queued. */
     suspend fun runnableBooks(): List<String> = downloadDao.booksWithRunnableFiles(MAX_DOWNLOAD_RETRIES)
 
@@ -48,9 +44,14 @@ internal class BookTransferStore(
     /** Forget every file of [bookId] (the caller removes them from disk). */
     suspend fun discard(bookId: String) = downloadDao.discardBook(bookId)
 
-    /** Requeue a row a dead process left DOWNLOADING, so the next run picks it up. */
-    suspend fun requeueStale(audioFileId: String) =
-        downloadDao.updateStateIfTransferring(audioFileId, DownloadState.QUEUED)
+    /**
+     * Pause every DOWNLOADING file not in [excluding] (the files this process is transferring) to resume from its
+     * partial: the process that was transferring it died. Returns the rows it released, as they were.
+     */
+    suspend fun releaseOrphans(excluding: Set<String>): List<DownloadEntity> =
+        downloadDao
+            .getDownloading()
+            .filter { row -> row.audioFileId !in excluding && downloadDao.releaseOrphan(row.audioFileId) > 0 }
 
     /**
      * Record [stop]: on its file's row (reason, code, time, count, transport) when it names one, and in the bounded

@@ -6,6 +6,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import androidx.core.app.NotificationCompat
 import com.calypsan.listenup.api.result.onSuccess
 import com.calypsan.listenup.client.MainActivity
@@ -84,7 +85,14 @@ class AndroidDownloadNotifications(
                 .setProgress(PROGRESS_MAX, permille(notice.downloadedBytes, notice.totalBytes), notice.resolving)
                 .addAction(action(notice.bookId, DownloadActionReceiver.ACTION_PAUSE, w.pause))
                 .addAction(action(notice.bookId, DownloadActionReceiver.ACTION_CANCEL, w.cancel))
-        if (notice.totalBytes > 0) builder.setContentText(progress)
+        if (notice.totalBytes > 0) {
+            builder.setContentText(progress)
+            // Up to Android 11 a progress notification sets its text on the title's line, where "Downloading <title>"
+            // leaves it no room. The big-text template gives the line its own row below the title, above the bar.
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+                builder.setStyle(NotificationCompat.BigTextStyle().bigText(progress))
+            }
+        }
         if (notice.queuedBehind > 0) builder.setSubText(w.queued.format(Locale.getDefault(), notice.queuedBehind))
         return builder.build()
     }

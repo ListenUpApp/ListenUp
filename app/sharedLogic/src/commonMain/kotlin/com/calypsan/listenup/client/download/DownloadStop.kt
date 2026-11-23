@@ -25,6 +25,12 @@ internal data class DownloadDeviceSnapshot(
 internal fun interface DownloadDeviceState {
     /** The device as it is now. */
     fun snapshot(): DownloadDeviceSnapshot
+
+    /**
+     * The platform's code for the process death that ended a transfer started at [startedAt] (on Android,
+     * `ApplicationExitInfo.reason`), or null when the platform kept no record of it.
+     */
+    fun processDeathCode(startedAt: Long?): Int? = null
 }
 
 /** One stop of a book's download, as recorded on the row and in the stop history. */

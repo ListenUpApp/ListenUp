@@ -76,6 +76,46 @@ class QueuedDownloadRowsTest :
             row.transport shouldBe DownloadTransport.UIDT
         }
 
+        // Cancel and Remove delete the partial with the row's state; carrying its count forward made a fresh download
+        // read "579 of 583 MB" with almost nothing on disk.
+        test("a file cancelled or removed starts again from zero, while a failed one keeps its partial's bytes") {
+            val files = listOf(audioFile("af1", index = 0), audioFile("af2", index = 1), audioFile("af3", index = 2))
+
+            fun prior(
+                id: String,
+                state: DownloadState,
+            ) = DownloadEntity(
+                audioFileId = id,
+                bookId = "b1",
+                filename = "$id.m4b",
+                fileIndex = 0,
+                state = state,
+                localPath = null,
+                totalBytes = 1_000L,
+                downloadedBytes = 900L,
+                queuedAt = 1L,
+                startedAt = 2L,
+                completedAt = null,
+                errorMessage = null,
+            )
+
+            val rows =
+                queuedDownloadRows(
+                    bookId = "b1",
+                    audioFiles = files,
+                    toDownload = files,
+                    existing =
+                        listOf(
+                            prior("af1", DownloadState.CANCELLED),
+                            prior("af2", DownloadState.DELETED),
+                            prior("af3", DownloadState.FAILED),
+                        ),
+                    queuedAt = 10L,
+                ).associate { it.audioFileId to it.downloadedBytes }
+
+            rows shouldBe mapOf("af1" to 0L, "af2" to 0L, "af3" to 900L)
+        }
+
         test("a file with no row yet starts from zero at its position in the book") {
             val first = audioFile("af1", index = 0)
             val second = audioFile("af2", index = 1)

@@ -341,25 +341,30 @@ class DownloadDaoTest :
             }
         }
 
-        test("updateStateIfTransferring moves between QUEUED and DOWNLOADING only") {
+        test("releasing an orphan pauses a transferring file to resume, once, and touches nothing else") {
             val db = createInMemoryTestDatabase()
             val dao = db.downloadDao()
             try {
                 runTest {
                     dao.insertAll(
                         listOf(
+                            entity("file-live", state = DownloadState.DOWNLOADING).copy(downloadedBytes = 40L),
                             entity("file-queued", state = DownloadState.QUEUED),
-                            entity("file-live", state = DownloadState.DOWNLOADING),
                             entity("file-cancelled", state = DownloadState.CANCELLED),
                         ),
                     )
 
-                    dao.updateStateIfTransferring("file-queued", DownloadState.DOWNLOADING)
-                    dao.updateStateIfTransferring("file-live", DownloadState.QUEUED)
-                    dao.updateStateIfTransferring("file-cancelled", DownloadState.DOWNLOADING)
+                    dao.getDownloading().map { it.audioFileId } shouldBe listOf("file-live")
+                    dao.releaseOrphan("file-live") shouldBe 1
+                    dao.releaseOrphan("file-live") shouldBe 0
+                    dao.releaseOrphan("file-queued") shouldBe 0
+                    dao.releaseOrphan("file-cancelled") shouldBe 0
 
-                    dao.getByAudioFileId("file-queued")!!.state shouldBe DownloadState.DOWNLOADING
-                    dao.getByAudioFileId("file-live")!!.state shouldBe DownloadState.QUEUED
+                    val released = dao.getByAudioFileId("file-live")!!
+                    released.state shouldBe DownloadState.PAUSED
+                    released.pauseReason shouldBe DownloadPauseReason.INTERRUPTED
+                    released.downloadedBytes shouldBe 40L
+                    dao.getByAudioFileId("file-queued")!!.state shouldBe DownloadState.QUEUED
                     dao.getByAudioFileId("file-cancelled")!!.state shouldBe DownloadState.CANCELLED
                 }
             } finally {
@@ -529,6 +534,34 @@ class DownloadDaoTest :
                     dao.getByAudioFileId("done")?.localPath shouldBe null
                     dao.getByAudioFileId("moving")?.state shouldBe DownloadState.CANCELLED
                     dao.getByAudioFileId("tomb")?.state shouldBe DownloadState.DELETED
+                }
+            } finally {
+                db.close()
+            }
+        }
+
+        // The notification's "1 more queued": a book stopped by the system still waits its turn, so it still counts.
+        test("the queue behind a book counts books waiting on the system, not those the person paused or that failed") {
+            val db = createInMemoryTestDatabase()
+            val dao = db.downloadDao()
+            try {
+                runTest {
+                    dao.insertAll(
+                        listOf(
+                            entity("current", bookId = "current", state = DownloadState.DOWNLOADING),
+                            entity("queued", bookId = "queued"),
+                            entity("lost", bookId = "lost", state = DownloadState.DOWNLOADING),
+                            entity("stopped", bookId = "stopped", state = DownloadState.DOWNLOADING),
+                            entity("yours", bookId = "yours", state = DownloadState.DOWNLOADING),
+                            entity("failed", bookId = "failed", state = DownloadState.FAILED),
+                            entity("done", bookId = "done", state = DownloadState.COMPLETED),
+                        ),
+                    )
+                    dao.markPausedIfNotTerminal("lost", DownloadPauseReason.NETWORK_LOST)
+                    dao.markPausedIfNotTerminal("stopped", DownloadPauseReason.INTERRUPTED)
+                    dao.markPausedIfNotTerminal("yours", DownloadPauseReason.PAUSED_BY_YOU)
+
+                    dao.countOtherActiveBooks("current") shouldBe 3
                 }
             } finally {
                 db.close()

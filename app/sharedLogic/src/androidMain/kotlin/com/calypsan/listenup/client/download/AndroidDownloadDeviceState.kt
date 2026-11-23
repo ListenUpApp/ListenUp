@@ -33,13 +33,17 @@ internal class AndroidDownloadDeviceState(
     }
 
     /**
-     * Why the previous process of this app ended (`ApplicationExitInfo.reason`), for a download found still running at
-     * the next start: a Task Manager stop, a low-memory kill, a crash. Null when the platform kept no record.
+     * Why the process that was transferring a file started at [startedAt] ended (`ApplicationExitInfo.reason`): a Task
+     * Manager stop, a low-memory kill, a crash. Each orphan is charged to the first exit after its start, so two deaths
+     * in a row are each recorded against their own file. Null when the platform kept no record of it.
      */
-    fun lastExitReason(): Int? =
-        context
-            .getSystemService(ActivityManager::class.java)
-            ?.getHistoricalProcessExitReasons(context.packageName, 0, 1)
-            ?.firstOrNull()
-            ?.reason
+    override fun processDeathCode(startedAt: Long?): Int? {
+        val exits =
+            context
+                .getSystemService(ActivityManager::class.java)
+                ?.getHistoricalProcessExitReasons(context.packageName, 0, 0)
+                .orEmpty()
+                .map { exit -> ProcessExit(at = exit.timestamp, reason = exit.reason) }
+        return exitThatEnded(exits, startedAt)?.reason
+    }
 }

@@ -9,10 +9,12 @@ import com.calypsan.listenup.client.data.local.db.DownloadState
  * already complete or in flight. [audioFiles] is the whole book, in order, and gives each file its
  * position.
  *
- * A file that already has a row ([existing]) keeps the bytes it has: its `.tmp` partial survives a
- * pause or a failure and the transfer resumes from it, so zeroing the row would make the progress
- * lie until the next write. Everything else starts afresh, including the retry budget, because the
- * person has just asked for the download again. Its stop history (why and how often it stopped) is kept.
+ * A file paused or failed ([existing]) keeps the bytes it has: its partial survives a pause or a
+ * failure and the transfer resumes from it, so zeroing the row would make the progress lie until the
+ * next write. A file cancelled or removed starts from zero: its partial went with it, and carrying its
+ * count forward made a fresh download read almost finished. Everything else starts afresh too,
+ * including the retry budget, because the person has just asked for the download again. Its stop
+ * history (why and how often it stopped) is kept.
  */
 internal fun queuedDownloadRows(
     bookId: String,
@@ -32,7 +34,7 @@ internal fun queuedDownloadRows(
             state = DownloadState.QUEUED,
             localPath = null,
             totalBytes = file.size,
-            downloadedBytes = prior?.downloadedBytes ?: 0L,
+            downloadedBytes = prior?.takeIf { it.keepsPartial() }?.downloadedBytes ?: 0L,
             queuedAt = queuedAt,
             startedAt = null,
             completedAt = null,
@@ -47,3 +49,6 @@ internal fun queuedDownloadRows(
         )
     }
 }
+
+/** Whether this row's partial is still on the device: a pause or a failure keeps it, a cancel or a removal does not. */
+private fun DownloadEntity.keepsPartial(): Boolean = state == DownloadState.PAUSED || state == DownloadState.FAILED

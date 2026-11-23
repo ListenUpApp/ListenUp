@@ -473,7 +473,8 @@ class DownloadRepositoryImplTest :
 
         // The Storage screen walks the whole downloads tree per emission, and progress is written
         // every 256 KB or 500 ms while anything downloads; only a finished file changes the list.
-        test("progress on an in-flight file does not re-emit; finishing it does, once") {
+        // A book is downloaded when every file of it is on the device: one finished file of fifty is a book in flight.
+        test("a book with a file still in flight is not downloaded; progress does not re-emit, and finishing lists it once") {
             val db = createInMemoryTestDatabase()
             val downloadDao = db.downloadDao()
             try {
@@ -490,7 +491,7 @@ class DownloadRepositoryImplTest :
                     downloadDao.insert(makeDownload(id = "f2", bookId = "b1", state = DownloadState.DOWNLOADING, bytes = 0L))
 
                     sut.observeDownloadedBooks().test {
-                        awaitItem().single().fileCount shouldBe 1
+                        awaitItem() shouldBe emptyList()
 
                         repeat(5) { tick ->
                             downloadDao.updateProgress("f2", downloaded = (tick + 1) * 100L, total = 2_000L)
@@ -499,6 +500,44 @@ class DownloadRepositoryImplTest :
                         val _ = downloadDao.markCompleted("f2", localPath = "/audio/f2.mp3", completedAt = 1L)
 
                         awaitItem().single().fileCount shouldBe 2
+                        cancelAndIgnoreRemainingEvents()
+                    }
+                }
+            } finally {
+                db.close()
+            }
+        }
+
+        test("Storage's two lists are disjoint: a part-downloaded book is in flight, never also downloaded") {
+            val db = createInMemoryTestDatabase()
+            val downloadDao = db.downloadDao()
+            try {
+                runTest {
+                    val bookRepository = FakeBookRepository()
+                    val sut = DownloadRepositoryImpl(downloadDao, bookRepository, FakeDownloadEnqueuer())
+                    bookRepository.books =
+                        listOf(
+                            fakeBook(id = "b1", title = "Dune", authors = listOf("Frank Herbert")),
+                            fakeBook(id = "b2", title = "Circe", authors = listOf("Madeline Miller")),
+                            fakeBook(id = "b3", title = "Emma", authors = listOf("Jane Austen")),
+                        )
+                    downloadDao.insertAll(
+                        listOf(
+                            makeDownload(id = "a1", bookId = "b1", state = DownloadState.COMPLETED, bytes = 100L),
+                            makeDownload(id = "a2", bookId = "b1", state = DownloadState.QUEUED, bytes = 100L),
+                            makeDownload(id = "c1", bookId = "b2", state = DownloadState.COMPLETED, bytes = 100L),
+                            makeDownload(id = "c2", bookId = "b2", state = DownloadState.PAUSED, bytes = 100L),
+                            makeDownload(id = "e1", bookId = "b3", state = DownloadState.COMPLETED, bytes = 100L),
+                            makeDownload(id = "e2", bookId = "b3", state = DownloadState.COMPLETED, bytes = 100L),
+                        ),
+                    )
+
+                    sut.observeDownloadedBooks().test {
+                        awaitItem().map { it.bookId } shouldBe listOf("b3")
+                        cancelAndIgnoreRemainingEvents()
+                    }
+                    sut.observeInProgressBooks().test {
+                        awaitItem().map { it.bookId }.toSet() shouldBe setOf("b1", "b2")
                         cancelAndIgnoreRemainingEvents()
                     }
                 }
