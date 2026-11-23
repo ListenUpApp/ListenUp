@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.bookdetail
 
+import com.calypsan.listenup.web.design.AppLink
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -13,7 +14,6 @@ import com.calypsan.listenup.client.presentation.bookdetail.GroupedChapters
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.WebIcon
 import kotlin.time.Duration.Companion.seconds
-import org.jetbrains.compose.web.dom.A
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.H2
@@ -62,13 +62,9 @@ internal fun BookChaptersSection(
                 Span(attrs = { classes("bd-ch-count") }) { Text(chapters.size.toString()) }
             }
             // The href is for a middle-click or a copied link; a plain click goes through the router.
-            A(href = "/book/$bookId/map", attrs = {
-                classes("bd-chmap-link")
-                onClick {
-                    it.preventDefault()
-                    onOpenChapterMap()
-                }
-            }) { Text("Chapter map") }
+            AppLink(href = "/book/$bookId/map", onOpen = onOpenChapterMap, attrs = { classes("bd-chmap-link") }) {
+                Text("Chapter map")
+            }
         }
         val lines =
             grouped?.let { (if (expanded) it.rows else it.previewRows).toChapterLines(chapters) }

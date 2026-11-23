@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.bookdetail
 
+import com.calypsan.listenup.web.design.AppLink
 import com.calypsan.listenup.client.presentation.bookdetail.byteSizeLabel
 import com.calypsan.listenup.web.design.ButtonSize
 import com.calypsan.listenup.web.design.ButtonKind
@@ -858,13 +859,7 @@ private fun FilesLink(
     text: String,
     onOpenFiles: () -> Unit,
 ) {
-    A(href = "/book/$bookId/files", attrs = {
-        classes("bd-detail-link")
-        onClick {
-            it.preventDefault()
-            onOpenFiles()
-        }
-    }) {
+    AppLink(href = "/book/$bookId/files", onOpen = onOpenFiles, attrs = { classes("bd-detail-link") }) {
         Text(text)
         Span(attrs = { attr("aria-hidden", "true") }) { Text("→") }
     }

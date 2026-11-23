@@ -9,6 +9,23 @@ import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.asList
+import org.w3c.dom.events.Event
+import org.w3c.dom.events.MouseEvent
+import org.w3c.dom.events.MouseEventInit
+
+/** Dispatches a Ctrl-click on [link] and reports whether the page prevented it; never follows the href. */
+private fun ctrlClickPrevented(link: HTMLElement): Boolean {
+    var prevented = false
+    val host = link.parentElement!!
+    val listener: (Event) -> Unit = { event ->
+        prevented = event.defaultPrevented
+        event.preventDefault()
+    }
+    host.addEventListener("click", listener)
+    link.dispatchEvent(MouseEvent("click", MouseEventInit(bubbles = true, cancelable = true, ctrlKey = true)))
+    host.removeEventListener("click", listener)
+    return prevented
+}
 
 /**
  * The Details panel on the web (spec §3.2.1 D31): the shared rule's rows in order, then All credits, Files & audio and
@@ -106,6 +123,13 @@ class BookDetailDetailsTest :
             files.click()
             awaitFrame()
             opened shouldBe 1
+        }
+
+        test("a Ctrl-click on Files & audio is left to the browser, for a new tab") {
+            var opened = 0
+            val files = link(rendered(onOpenFiles = { opened++ }), "Files & audio")
+            ctrlClickPrevented(files) shouldBe false
+            opened shouldBe 0
         }
 
         test("two documents go to the Files view") {
