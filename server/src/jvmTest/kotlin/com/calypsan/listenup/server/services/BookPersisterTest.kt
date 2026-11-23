@@ -44,6 +44,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.test.runTest
+import kotlinx.io.files.Path
 import io.kotest.assertions.throwables.shouldThrow
 
 class BookPersisterTest :
@@ -558,7 +559,7 @@ class BookPersisterTest :
             withSqlDatabase {
                 runTest {
                     val fake = FakeBookIngest()
-                    val persister = persister(fake, scope = this)
+                    val persister = persister(fake, scope = this, isOnDisk = goneAt("deleted-book"))
 
                     // Incremental scan: bookRoot subtree had "deleted-book" previously,
                     // now it is gone — the Differ emits Removed. The full-scan sweep does NOT run.
@@ -582,7 +583,8 @@ class BookPersisterTest :
             withSqlDatabase {
                 runTest {
                     val fake = FakeBookIngest()
-                    val persister = persister(fake, scope = this)
+                    // The removed book's folder is really gone from disk.
+                    val persister = persister(fake, scope = this, isOnDisk = goneAt("gone-book"))
 
                     // Full scan where one book was removed: the Differ emits Removed and the sweep runs.
                     persister.persist(
@@ -648,7 +650,7 @@ class BookPersisterTest :
                     )
 
                     val fake = FakeBookIngest()
-                    val persister = persister(fake, scope = this)
+                    val persister = persister(fake, scope = this, isOnDisk = goneAt("Shared/Book", root = "/mnt/B"))
 
                     persister.persist(
                         scanResult(
@@ -666,6 +668,69 @@ class BookPersisterTest :
                     // Resolved to folder B (the vanished book's owning folder), NOT folder A (primary root),
                     // so a same-relpath book in folder A is never tombstoned.
                     fake.softDeleteByPathFolderIds["Shared/Book"] shouldBe FolderId("folder-b")
+                }
+            }
+        }
+
+        test("a Removed for a book whose analysis failed this scan is not tombstoned (full and subtree)") {
+            withSqlDatabase {
+                runTest {
+                    val fake = FakeBookIngest()
+                    // The disk probe says the book is gone, so only the failedPaths guard can hold it back.
+                    val persister = persister(fake, scope = this, isOnDisk = goneAt("b"))
+                    val failed = listOf(FailedScanPath(folderRootPath = "/lib", rootRelPath = "b"))
+
+                    for (scope in listOf(ScanScope.Full, ScanScope.Subtree("b"))) {
+                        persister.persist(
+                            scanResult(
+                                books = listOf(analyzedBook("a")),
+                                changes = listOf(ChangeEventDto.Removed(rootRelPath = "b", folderRootPath = "/lib")),
+                                scope = scope,
+                                failedPaths = failed,
+                            ),
+                        )
+                    }
+
+                    fake.softDeleteByPathCalls.shouldBeEmpty()
+                }
+            }
+        }
+
+        test("a Removed is not tombstoned on a non-authoritative full scan") {
+            withSqlDatabase {
+                runTest {
+                    val fake = FakeBookIngest()
+                    val persister = persister(fake, scope = this, isOnDisk = goneAt("b"))
+
+                    persister.persist(
+                        scanResult(
+                            books = listOf(analyzedBook("a")),
+                            changes = listOf(ChangeEventDto.Removed(rootRelPath = "b", folderRootPath = "/lib")),
+                            scope = ScanScope.Full,
+                            fullScanAuthoritative = false,
+                        ),
+                    )
+
+                    fake.softDeleteByPathCalls.shouldBeEmpty()
+                }
+            }
+        }
+
+        test("a Removed whose book root is still on disk is not tombstoned") {
+            withSqlDatabase {
+                runTest {
+                    val fake = FakeBookIngest()
+                    val persister = persister(fake, scope = this, isOnDisk = { true })
+
+                    persister.persist(
+                        scanResult(
+                            books = emptyList(),
+                            changes = listOf(ChangeEventDto.Removed(rootRelPath = "b", folderRootPath = "/lib")),
+                            scope = ScanScope.Subtree("b"),
+                        ),
+                    )
+
+                    fake.softDeleteByPathCalls.shouldBeEmpty()
                 }
             }
         }
@@ -895,6 +960,7 @@ internal suspend fun SqlTestDatabases.persister(
     eventBus: MutableSharedFlow<ScanEvent> = MutableSharedFlow(),
     changeBus: ChangeBus = ChangeBus(),
     coverImageStore: com.calypsan.listenup.server.cover.CoverImageStore? = null,
+    isOnDisk: (Path) -> Boolean = { true },
 ): BookPersister {
     // Seed a library_folders row at the default scanResult rootPath ("/lib") so folder resolution
     // finds a REAL folder rather than the "unknown" sentinel — which now (finding 5) skips the
@@ -925,8 +991,9 @@ internal suspend fun SqlTestDatabases.persister(
         scope = scope,
         layoutLock = LibraryLayoutLock(),
         coverImageStore = coverImageStore,
-        // These scan results are synthetic: no files stand behind them, so every walked book is "present".
-        isOnDisk = { true },
+        // These scan results are synthetic: no files stand behind them, so by default every path is
+        // "present". A test whose Removed must be acted on says which book roots are gone ([goneAt]).
+        isOnDisk = isOnDisk,
     )
 }
 
@@ -950,6 +1017,15 @@ internal fun SqlTestDatabases.inertCollectionService(): CollectionServiceImpl {
         bookRevisionTouch = FakeBookRevisionTouch(),
         principal = PrincipalProvider { null },
     )
+}
+
+/** A disk probe for synthetic scans: every path is present except these book roots under [root]. */
+internal fun goneAt(
+    vararg rootRelPaths: String,
+    root: String = "/lib",
+): (Path) -> Boolean {
+    val gone = rootRelPaths.map { Path(root, it) }.toSet()
+    return { it !in gone }
 }
 
 internal fun scanResult(

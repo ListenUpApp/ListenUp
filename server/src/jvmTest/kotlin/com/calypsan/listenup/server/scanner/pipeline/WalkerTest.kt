@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.attribute.PosixFilePermissions
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.io.files.Path as IoPath
 
@@ -192,6 +193,33 @@ class WalkerTest :
                     byName.getValue("metadata.json").fileType shouldBe FileType.METADATA
                     byName.getValue("desc.txt").fileType shouldBe FileType.TEXT
                     byName.getValue("README").fileType shouldBe FileType.UNKNOWN
+                }
+            }
+        }
+
+        test("reports a directory it cannot list instead of skipping it silently") {
+            audioLibrary {
+                book("Locked/Book") { tracks(count = 1) }
+                audio("loose.mp3")
+            }.use { fixture ->
+                if (System.getProperty("user.name") == "root") return@use
+                val locked = fixture.root.resolve("Locked")
+                val original = Files.getPosixFilePermissions(locked)
+                Files.setPosixFilePermissions(locked, PosixFilePermissions.fromString("---------"))
+                try {
+                    if (Files.isReadable(locked)) return@use
+                    runTest {
+                        val unreadable = mutableListOf<IoPath>()
+                        val paths =
+                            walker
+                                .walk(IoPath(fixture.root.toString()), onUnreadable = { unreadable += it })
+                                .toList()
+                                .map { it.relPath }
+                        paths shouldContainExactlyInAnyOrder listOf("loose.mp3")
+                        unreadable shouldContainExactlyInAnyOrder listOf(IoPath(locked.toString()))
+                    }
+                } finally {
+                    Files.setPosixFilePermissions(locked, original)
                 }
             }
         }

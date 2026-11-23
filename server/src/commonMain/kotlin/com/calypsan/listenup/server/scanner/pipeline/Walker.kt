@@ -3,6 +3,7 @@ package com.calypsan.listenup.server.scanner.pipeline
 import com.calypsan.listenup.api.dto.scanner.FileEntry
 import com.calypsan.listenup.server.io.fileIoDispatcher
 import com.calypsan.listenup.server.io.isSymlink
+import com.calypsan.listenup.server.io.listDirectory
 import com.calypsan.listenup.server.io.relativeTo
 import com.calypsan.listenup.server.io.statFile
 import com.calypsan.listenup.server.librarywrite.isRegularFileInsideAnyRoot
@@ -23,7 +24,7 @@ private val logger = loggerFor<Walker>()
  * root and emits one [FileEntry] per file the [SkipRules] don't filter out.
  *
  * Implementation notes:
- *  - Built on a recursive `SystemFileSystem.list` descent (kotlinx-io), so the
+ *  - Built on a recursive [listDirectory] descent (kotlinx-io paths), so the
  *    same code compiles for the JVM server and the Kotlin/Native server. The
  *    descent prunes `@eaDir` directories and `.ignore`-flagged subtrees the
  *    moment [SkipRules] rejects them, never recursing beneath.
@@ -48,14 +49,26 @@ internal class Walker(
     private val skipByName: (Path) -> Boolean = SkipRules::shouldSkipByName,
     private val hasIgnoreSentinel: (Path) -> Boolean = SkipRules::hasIgnoreSentinel,
 ) {
+    /**
+     * Walks [root]. Every directory that cannot be listed and every file that cannot be stat'ed is
+     * skipped and handed to [onUnreadable]: the walk must not fail on one of them, but a caller that
+     * treats "not walked" as "gone" has to know the difference between the two.
+     */
     fun walk(
         root: Path,
         containmentRoots: List<Path> = listOf(root),
+        onUnreadable: (Path) -> Unit = {},
     ): Flow<FileEntry> =
         flow {
             if (SystemFileSystem.metadataOrNull(root)?.isDirectory != true) return@flow
             val collected = mutableListOf<FileEntry>()
-            descend(root = root, dir = root, containmentRoots = containmentRoots, out = collected)
+            descend(
+                root = root,
+                dir = root,
+                containmentRoots = containmentRoots,
+                out = collected,
+                onUnreadable = onUnreadable,
+            )
             collected.forEach { emit(it) }
         }.flowOn(fileIoDispatcher)
 
@@ -64,16 +77,18 @@ internal class Walker(
         dir: Path,
         containmentRoots: List<Path>,
         out: MutableList<FileEntry>,
+        onUnreadable: (Path) -> Unit,
     ) {
         // `.ignore` sentinel: one probe as we enter the directory prunes the whole subtree, instead
         // of an exists() syscall for every walked entry (100k+ redundant probes on a large NAS).
         if (hasIgnoreSentinel(dir)) return
         val children =
             try {
-                SystemFileSystem.list(dir).sortedBy { it.name }
+                listDirectory(dir).sortedBy { it.name }
             } catch (e: IOException) {
                 // Never stranded: one unreadable directory must not fail the scan.
                 logger.warn(e) { "walk: failed to list $dir — skipping subtree" }
+                onUnreadable(dir)
                 return
             }
         for (child in children) {
@@ -82,7 +97,7 @@ internal class Walker(
             // linked directory would otherwise look recursable and a linked file would look plain.
             if (isSymlink(child)) {
                 if (isRegularFileInsideAnyRoot(child, containmentRoots)) {
-                    emitFile(root, child, out)
+                    emitFile(root = root, file = child, out = out, onUnreadable = onUnreadable)
                 } else {
                     logger.warn { "walk: $child is a link that does not lead to a file inside the library — skipping" }
                 }
@@ -96,11 +111,12 @@ internal class Walker(
                         dir = child,
                         containmentRoots = containmentRoots,
                         out = out,
+                        onUnreadable = onUnreadable,
                     )
                 }
 
                 meta?.isRegularFile == true -> {
-                    emitFile(root, child, out)
+                    emitFile(root = root, file = child, out = out, onUnreadable = onUnreadable)
                 }
 
                 else -> {
@@ -114,10 +130,12 @@ internal class Walker(
         root: Path,
         file: Path,
         out: MutableList<FileEntry>,
+        onUnreadable: (Path) -> Unit,
     ) {
         val attrs = statFile(file)
         if (attrs == null) {
             logger.warn { "walk: failed to stat $file — skipping" }
+            onUnreadable(file)
             return
         }
         val name = file.name

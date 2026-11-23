@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.dto.scanner.AnalyzedBook
 import com.calypsan.listenup.api.dto.scanner.CandidateBook
 import com.calypsan.listenup.api.dto.scanner.ChangeEventDto
 import com.calypsan.listenup.api.dto.scanner.EmbeddedScanCounters
+import com.calypsan.listenup.api.dto.scanner.FileEntry
 import com.calypsan.listenup.api.dto.scanner.MetadataStatus
 import com.calypsan.listenup.api.dto.scanner.ScanPhase
 import com.calypsan.listenup.api.dto.scanner.FailedScanPath
@@ -111,53 +112,18 @@ internal class Scanner(
         val primaryRootPath = library.folders.firstOrNull()?.rootPath ?: library.id.value
         eventBus.emit(ScanEvent.Started(correlationId, library.id, primaryRootPath))
 
-        // Walk and group each folder independently so each Analyzer below can be
-        // anchored to the correct folder root. Each file's relPath is relative to
-        // the folder root it was walked from; using the wrong root causes
-        // Path(root, relPath) to resolve a nonexistent path, failing embedded-
-        // metadata parsing for every book in non-first folders.
-        var totalFileCount = 0
-        var totalCandidateCount = 0
-        val folderRoots = mutableListOf<Path>()
-        // The ORIGINAL configured root-path string per folder — stamped onto each book below so the
-        // persister resolves folder_id by an exact library_folders.root_path match (a Path round-trip
-        // could differ). Parallel to [folderRoots].
-        val folderRootPaths = mutableListOf<String>()
-        val candidatesPerFolder = mutableListOf<List<CandidateBook>>()
-        // A full scan is authoritative for library-wide absence ONLY if every configured root was
-        // actually walked. An unreachable/unreadable root (a dropped NAS/SMB mount, a permission
-        // change) walks empty — treating that as authoritative would let BookPersister sweep every
-        // live book under it into a tombstone. Track reachability and surface the failure honestly.
-        var fullScanAuthoritative = true
+        // A full scan is authoritative for library-wide absence ONLY if it read everything: every
+        // configured root reachable and every directory under it listable. An unreachable root (a
+        // dropped NAS/SMB mount, a permission change) or an unlistable directory walks empty —
+        // treating that as authoritative would let BookPersister sweep every live book under it into
+        // a tombstone. What this pass could not read also withholds the Removed of any previous book
+        // under it, below.
         val rootErrors = mutableListOf<ScanError>()
-        // A link from one library folder into another is a legitimate layout; a link out of all of them is not.
-        val libraryRoots = library.folders.mapNotNull { it.rootPath }.map { Path(it) }
-
-        for (folder in library.folders) {
-            val rootPath = folder.rootPath ?: continue
-            val folderRoot = Path(rootPath)
-            // Reachability gate: if the root is not a readable directory right now, skip it, surface a
-            // typed warning, and mark the whole full scan NON-AUTHORITATIVE so the tombstone sweep is
-            // suppressed downstream. This is the disk-reachability analogue of BookPersister's
-            // folder-row sentinel guard. A reachable-but-empty root is NOT flagged — an emptied
-            // library is a legitimate sweep.
-            if (SystemFileSystem.metadataOrNull(folderRoot)?.isDirectory != true) {
-                logger.error {
-                    "scan: configured root '$rootPath' is unreachable or unreadable — skipping it and " +
-                        "marking this scan non-authoritative (tombstone sweep suppressed) corr=$correlationId"
-                }
-                rootErrors += ScanError.LibraryPathNotFound(correlationId = correlationId, path = rootPath)
-                fullScanAuthoritative = false
-                continue
-            }
-            val files = Walker().walk(folderRoot, containmentRoots = libraryRoots).toList()
-            val candidates = Grouper().group(files.asFlow()).toList()
-            totalFileCount += files.size
-            totalCandidateCount += candidates.size
-            folderRoots += folderRoot
-            folderRootPaths += rootPath
-            candidatesPerFolder += candidates
-        }
+        val unread = UnreadPaths()
+        val walked = walkFolders(correlationId, unread, rootErrors)
+        val fullScanAuthoritative = unread.isEmpty()
+        val totalFileCount = walked.sumOf { it.fileCount }
+        val totalCandidateCount = walked.sumOf { it.candidates.size }
 
         emitProgress(correlationId, ScanPhase.WALKING, totalFileCount)
 
@@ -188,35 +154,25 @@ internal class Scanner(
         var currentFile: String? = null
         var recentBooks: List<ScanBookRef> = emptyList()
 
-        for (i in folderRoots.indices) {
+        for (folder in walked) {
             val previousByPath =
-                previousByFolder[folderRootPaths[i]]
+                previousByFolder[folder.folderRootPath]
                     .orEmpty()
                     .associateBy { it.candidate.rootRelPath }
-            val analyzer =
-                Analyzer(
-                    rootPath = folderRoots[i],
-                    metadataReader = metadataReader,
-                    embeddedMetadataParser = embeddedMetadataParser,
-                    parseSubtitle = parseSubtitle,
-                    sidecarParsers = sidecarParsers,
-                    precedence = metadataPrecedence,
-                    listenUpSidecarReader = listenUpSidecarReader,
-                )
             val pass =
                 collectAnalyzed(
-                    analyzer = analyzer,
-                    candidates = candidatesPerFolder[i],
+                    analyzer = analyzerFor(folder.folderRoot),
+                    candidates = folder.candidates,
                     correlationId = correlationId,
                     fileCount = totalFileCount,
-                    errorRoot = folderRoots[i],
+                    errorRoot = folder.folderRoot,
                     previousByPath = previousByPath,
                 )
             // Stamp every book in this pass (fresh AND fingerprint-cache reuses) with its owning
             // folder's root so the persister attributes it to the correct library_folders row.
-            allBooks += pass.books.map { it.copy(folderRootPath = folderRootPaths[i]) }
+            allBooks += pass.books.map { it.copy(folderRootPath = folder.folderRootPath) }
             allErrors += pass.errors
-            allFailedPaths += pass.failedPaths.map { FailedScanPath(folderRootPaths[i], it) }
+            allFailedPaths += pass.failedPaths.map { FailedScanPath(folder.folderRootPath, it) }
             authorsMatched += pass.authorsMatched
             totalDurationMs += pass.totalDurationMs
             if (pass.currentFile != null) currentFile = pass.currentFile
@@ -241,8 +197,14 @@ internal class Scanner(
         // the new books for the diff so both sides are comparable without artwork bytes.
         val previousStripped = lastResult?.books.orEmpty() // already stripped from previous scan
         val booksStripped = allBooks.map { it.withoutArtwork() }
-        val changes = Differ().diff(booksStripped.asFlow(), previousStripped).toList()
-        changes.forEach { eventBus.emit(ScanEvent.Change(correlationId, library.id, it)) }
+        unread.failedBooks += allFailedPaths
+        val (changes, withheld) =
+            diffVouched(
+                correlationId = correlationId,
+                current = booksStripped,
+                previous = previousStripped,
+                unread = unread,
+            )
 
         val result =
             ScanResult(
@@ -255,12 +217,13 @@ internal class Scanner(
                 filesWalked = totalFileCount,
                 filesSkipped = 0,
                 scope = ScanScope.Full,
-                // Non-authoritative when any configured root was unreachable — suppresses the sweep.
+                // Non-authoritative when anything was unread — suppresses the sweep.
                 fullScanAuthoritative = fullScanAuthoritative,
                 failedPaths = allFailedPaths,
             )
-        // Store a stripped copy in lastResult so artwork bytes are not retained between scans.
-        lastResult = result.withoutArtwork()
+        // Store a stripped copy in lastResult so artwork bytes are not retained between scans. A book
+        // whose removal was withheld stays in it, so the next pass that can read it still diffs it.
+        lastResult = result.withoutArtwork().let { it.copy(books = it.books + withheld) }
         return publishFullScanResult(result, correlationId)
     }
 
@@ -315,7 +278,6 @@ internal class Scanner(
         val correlationId = correlationIdFactory()
         val started = clock()
         logger.info { "incremental scan started: library=${library.id.value} root=$bookRoot corr=$correlationId" }
-        eventBus.emit(ScanEvent.Started(correlationId, library.id, bookRoot.toString()))
 
         // Identify which folder owns this subtree to compute the relative path.
         val owningFolder =
@@ -330,9 +292,30 @@ internal class Scanner(
                 ?: bookRoot.toString()
         val folderRoot = Path(folderRootPath)
 
-        val walker = Walker()
+        // Reachability gate: with the folder root itself gone (a dropped mount), every book under the
+        // subtree walks absent. Nothing this pass could say is trustworthy, so it is discarded before
+        // it starts — no Started event, nothing to the persister, lastResult untouched.
+        if (SystemFileSystem.metadataOrNull(folderRoot)?.isDirectory != true) {
+            logger.error {
+                "incremental scan: folder root '$folderRootPath' is unreachable — discarding $bookRoot corr=$correlationId"
+            }
+            return null
+        }
+        eventBus.emit(ScanEvent.Started(correlationId, library.id, bookRoot.toString()))
+
+        val unread = UnreadPaths()
+        val walkErrors = mutableListOf<ScanError>()
         val libraryRoots = library.folders.mapNotNull { it.rootPath }.map { Path(it) }
-        val rawFiles = walker.walk(bookRoot, containmentRoots = libraryRoots).toList()
+        val rawFiles =
+            walkRecordingUnread(
+                walkRoot = bookRoot,
+                folderRoot = folderRoot,
+                folderRootPath = folderRootPath,
+                libraryRoots = libraryRoots,
+                unread = unread,
+                errors = walkErrors,
+                correlationId = correlationId,
+            )
         val prefix = (bookRoot.relativeTo(folderRoot) ?: bookRoot.toString()).replace('\\', '/')
         val rebasedFiles =
             rawFiles.map { entry ->
@@ -350,16 +333,7 @@ internal class Scanner(
             filesWalked = rebasedFiles.size,
             totalFiles = rebasedFiles.size,
         )
-        val analyzer =
-            Analyzer(
-                rootPath = folderRoot,
-                metadataReader = metadataReader,
-                embeddedMetadataParser = embeddedMetadataParser,
-                parseSubtitle = parseSubtitle,
-                sidecarParsers = sidecarParsers,
-                precedence = metadataPrecedence,
-                listenUpSidecarReader = listenUpSidecarReader,
-            )
+        val analyzer = analyzerFor(folderRoot)
         // For incremental scans the dirty-check only covers the affected subtree;
         // the untouched books are preserved via previousUntouched below.
         // Scope the fingerprint cache to THIS folder only — a bare-rootRelPath map aliases a book to
@@ -383,7 +357,9 @@ internal class Scanner(
             )
         // Stamp each book with its owning folder's root so the persister attributes it correctly.
         val books = pass.books.map { it.copy(folderRootPath = folderRootPath) }
-        val errors = pass.errors
+        val errors = pass.errors + walkErrors
+        // This pass's own failures only — never the previous full scan's.
+        val failedPaths = pass.failedPaths.map { FailedScanPath(folderRootPath, it) }
 
         val (previousAffected, previousUntouched) =
             partitionBooksUnder(
@@ -395,29 +371,27 @@ internal class Scanner(
         // Strip artwork from the new books before diffing so both sides are comparable without
         // artwork bytes (previousAffected is already stripped; strip books to match).
         val booksStripped = books.map { it.withoutArtwork() }
-        val changes = Differ().diff(booksStripped.asFlow(), previousAffected).toList()
-        changes.forEach { eventBus.emit(ScanEvent.Change(correlationId, library.id, it)) }
+        unread.failedBooks += failedPaths
+        val (changes, withheld) =
+            diffVouched(
+                correlationId = correlationId,
+                current = booksStripped,
+                previous = previousAffected,
+                unread = unread,
+            )
 
-        val patchedStripped = previousUntouched + booksStripped
+        // A book whose removal was withheld stays in the snapshot, so a later pass still diffs it.
+        val patchedStripped = previousUntouched + booksStripped + withheld
         val durationMs = clock() - started
-        val rootRelPath = (bookRoot.relativeTo(folderRoot) ?: bookRoot.toString()).replace('\\', '/')
-        val subtreeScope = ScanScope.Subtree(rootRelPath)
+        val subtreeScope = ScanScope.Subtree(prefix)
         val primaryRootPath = library.folders.firstOrNull()?.rootPath ?: library.id.value
 
         // Build the artwork-bearing result for BookPersister (so covers get written to disk).
+        // Built fresh, never copied from lastResult: a copy inherited the previous scan's correlation id
+        // (leaking the live spool dir and mis-keying ScanEvent.Completed) and the previous full scan's
+        // failedPaths and authority flag.
         val incrementalResult =
-            lastResult?.copy(
-                // Stamp THIS scan's id — never inherit lastResult's. Inheriting it made the
-                // incremental spool to its real correlationId but clear/report the previous full
-                // scan's, leaking the live spool dir and mis-keying ScanEvent.Completed.
-                correlationId = correlationId,
-                books = books, // artwork-bearing for persist
-                changes = changes,
-                errors = errors,
-                durationMs = durationMs,
-                filesWalked = rebasedFiles.size,
-                scope = subtreeScope,
-            ) ?: ScanResult(
+            ScanResult(
                 correlationId = correlationId,
                 rootPath = primaryRootPath,
                 books = books, // artwork-bearing for persist
@@ -427,6 +401,7 @@ internal class Scanner(
                 filesWalked = rebasedFiles.size,
                 filesSkipped = 0,
                 scope = subtreeScope,
+                failedPaths = failedPaths,
             )
         // Store a stripped copy in lastResult so artwork bytes are not retained between scans.
         lastResult = incrementalResult.copy(books = patchedStripped)
@@ -446,6 +421,150 @@ internal class Scanner(
         // BookPersister emits ScanEvent.Completed after persisting this incremental result.
         scanResultBus.emit(incrementalResult)
         return incrementalResult
+    }
+
+    /** An [Analyzer] anchored to [folderRoot], configured from this scanner. */
+    private fun analyzerFor(folderRoot: Path): Analyzer =
+        Analyzer(
+            rootPath = folderRoot,
+            metadataReader = metadataReader,
+            embeddedMetadataParser = embeddedMetadataParser,
+            parseSubtitle = parseSubtitle,
+            sidecarParsers = sidecarParsers,
+            precedence = metadataPrecedence,
+            listenUpSidecarReader = listenUpSidecarReader,
+        )
+
+    /**
+     * Walks and groups each configured folder independently, so each Analyzer can be anchored to the
+     * correct folder root: each file's relPath is relative to the folder it was walked from, and the
+     * wrong root makes Path(root, relPath) resolve a nonexistent path for every book in non-first
+     * folders.
+     *
+     * Reachability gate: a root that is not a readable directory right now is skipped, recorded in
+     * [unread] and surfaced as a typed warning in [errors] — the disk-reachability analogue of
+     * BookPersister's folder-row sentinel guard. A reachable-but-empty root is not flagged: an
+     * emptied library is a legitimate sweep.
+     */
+    private suspend fun walkFolders(
+        correlationId: String,
+        unread: UnreadPaths,
+        errors: MutableList<ScanError>,
+    ): List<WalkedFolder> {
+        // A link from one library folder into another is a legitimate layout; a link out of all of them is not.
+        val libraryRoots = library.folders.mapNotNull { it.rootPath }.map { Path(it) }
+        return library.folders.mapNotNull { folder ->
+            val rootPath = folder.rootPath ?: return@mapNotNull null
+            val folderRoot = Path(rootPath)
+            if (SystemFileSystem.metadataOrNull(folderRoot)?.isDirectory != true) {
+                logger.error {
+                    "scan: configured root '$rootPath' is unreachable or unreadable — skipping it and " +
+                        "marking this scan non-authoritative (tombstone sweep suppressed) corr=$correlationId"
+                }
+                errors += ScanError.LibraryPathNotFound(correlationId = correlationId, path = rootPath)
+                unread.roots += rootPath
+                return@mapNotNull null
+            }
+            val files =
+                walkRecordingUnread(
+                    walkRoot = folderRoot,
+                    folderRoot = folderRoot,
+                    // The ORIGINAL configured root-path string — stamped onto each book so the persister
+                    // resolves folder_id by an exact library_folders.root_path match (a Path round-trip
+                    // could differ).
+                    folderRootPath = rootPath,
+                    libraryRoots = libraryRoots,
+                    unread = unread,
+                    errors = errors,
+                    correlationId = correlationId,
+                )
+            WalkedFolder(
+                folderRoot = folderRoot,
+                folderRootPath = rootPath,
+                fileCount = files.size,
+                candidates = Grouper().group(files.asFlow()).toList(),
+            )
+        }
+    }
+
+    /** One folder's walk: its root, its configured root-path string, and its grouped candidates. */
+    private data class WalkedFolder(
+        val folderRoot: Path,
+        val folderRootPath: String,
+        val fileCount: Int,
+        val candidates: List<CandidateBook>,
+    )
+
+    /**
+     * Walks [walkRoot] (under [folderRoot]) and records in [unread] — and as a [ScanError.FileUnreadable]
+     * in [errors] — every directory it could not list and every file it could not stat.
+     */
+    private suspend fun walkRecordingUnread(
+        walkRoot: Path,
+        folderRoot: Path,
+        folderRootPath: String,
+        libraryRoots: List<Path>,
+        unread: UnreadPaths,
+        errors: MutableList<ScanError>,
+        correlationId: String,
+    ): List<FileEntry> {
+        val unreadable = mutableListOf<Path>()
+        val files = Walker().walk(walkRoot, containmentRoots = libraryRoots, onUnreadable = unreadable::add).toList()
+        for (path in unreadable) {
+            unread.paths += folderRootPath to (path.relativeTo(folderRoot) ?: path.toString())
+            errors +=
+                ScanError.FileUnreadable(
+                    correlationId = correlationId,
+                    path = path.toString(),
+                    debugInfo = "the walk could not list or stat it",
+                )
+        }
+        return files
+    }
+
+    /**
+     * Removals the scan can vouch for. A previous book is absent from this pass for one of two
+     * reasons: it is gone, or this pass could not read it — its analysis failed, or its folder root
+     * or a directory over it was unreadable ([unread]). Only the first is a removal.
+     *
+     * Diffs [current] against [previous], announces the vouched changes on the event bus — so clients
+     * are never told about a removal that will not happen — and returns them with the previous books
+     * whose removal was withheld.
+     */
+    private suspend fun diffVouched(
+        correlationId: String,
+        current: List<AnalyzedBook>,
+        previous: List<AnalyzedBook>,
+        unread: UnreadPaths,
+    ): Pair<List<ChangeEventDto>, List<AnalyzedBook>> {
+        val (changes, withheld) = vouchedChanges(Differ().diff(current.asFlow(), previous).toList(), previous, unread)
+        changes.forEach { eventBus.emit(ScanEvent.Change(correlationId, library.id, it)) }
+        return changes to withheld
+    }
+
+    private fun vouchedChanges(
+        changes: List<ChangeEventDto>,
+        previous: List<AnalyzedBook>,
+        unread: UnreadPaths,
+    ): Pair<List<ChangeEventDto>, List<AnalyzedBook>> {
+        val withheldKeys =
+            changes
+                .filterIsInstance<ChangeEventDto.Removed>()
+                .map { it.folderRootPath to it.rootRelPath }
+                .filterTo(
+                    mutableSetOf(),
+                ) { (folderRootPath, rootRelPath) -> unread.covers(folderRootPath, rootRelPath) }
+        if (withheldKeys.isEmpty()) return changes to emptyList()
+        logger.warn {
+            "scan: withholding ${withheldKeys.size} removal(s) this pass could not confirm (unreadable or failed " +
+                "analysis): ${withheldKeys.map { it.second }}"
+        }
+        val trusted =
+            changes.filterNot { change ->
+                change is ChangeEventDto.Removed && change.folderRootPath to change.rootRelPath in withheldKeys
+            }
+        val withheld = previous.filter { book -> book.folderRootPath to book.candidate.rootRelPath in withheldKeys }
+        return trusted to withheld
     }
 
     /**
@@ -703,6 +822,37 @@ internal class Scanner(
             ScanError.FileUnreadable(path = path, debugInfo = detail)
         }
     }
+}
+
+/**
+ * What one scan pass could not read: folder roots it could not reach at all, paths — relative to
+ * their folder root — it could not list or stat, and book roots whose analysis failed.
+ */
+private class UnreadPaths {
+    val roots = mutableSetOf<String>()
+    val paths = mutableSetOf<Pair<String, String>>()
+    val failedBooks = mutableSetOf<FailedScanPath>()
+
+    /** True when the walk read everything it was pointed at (analysis failures aside). */
+    fun isEmpty(): Boolean = roots.isEmpty() && paths.isEmpty()
+
+    /**
+     * True when the book at [rootRelPath] may be hidden by something unread: its whole folder root,
+     * or an unread path inside the book or above it. An unread directory elsewhere in the folder (a
+     * root-owned `lost+found`) says nothing about this book.
+     */
+    fun covers(
+        folderRootPath: String?,
+        rootRelPath: String,
+    ): Boolean =
+        folderRootPath in roots ||
+            (folderRootPath != null && FailedScanPath(folderRootPath, rootRelPath) in failedBooks) ||
+            paths.any { (root, unreadRel) -> root == folderRootPath && overlaps(unreadRel, rootRelPath) }
+
+    private fun overlaps(
+        a: String,
+        b: String,
+    ): Boolean = a.isEmpty() || b.isEmpty() || a == b || a.startsWith("$b/") || b.startsWith("$a/")
 }
 
 internal fun ScanResult.toSummary(): ScanResultSummary =

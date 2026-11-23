@@ -410,7 +410,7 @@ class BookPersister internal constructor(
         // without waiting for the next Full scan. For Full scans the softDeleteAbsentByPaths sweep below
         // would catch it too, so the overlap is harmless. The tombstone count feeds the reconcile-nudge
         // gate so a delete-only suppressed scan still broadcasts.
-        var removed = applyIncrementalRemovals(result, folderIdByRoot)
+        var removed = applyIncrementalRemovals(result, folderIdByRoot, seenPaths)
 
         // Final tick at the total so the bar lands on 100% before the terminal Completed, even if the
         // last chunk boundary didn't fall exactly on the final book.
@@ -465,13 +465,26 @@ class BookPersister internal constructor(
      *
      * Returns the number of books actually tombstoned (a no-op removal — already gone — counts 0),
      * so the caller can broadcast the reconcile nudge for a delete-only suppressed scan.
+     *
+     * The scanner only emits removals it can vouch for; this is the second line of defence. A Removed
+     * is refused when the scan was a non-authoritative full scan, when its path is in [seenPaths] (it
+     * was walked, or its analysis failed this scan), or when its book root is still on disk — whatever
+     * the scan concluded, a book whose folder or file is still there is not gone.
      */
     private suspend fun applyIncrementalRemovals(
         result: ScanResult,
         folderIdByRoot: Map<String, FolderId>,
+        seenPaths: Set<FolderScopedPath>,
     ): Int {
         val removedChanges = result.changes.filterIsInstance<ChangeEventDto.Removed>()
         if (removedChanges.isEmpty()) return 0
+        if (result.scope is ScanScope.Full && !result.fullScanAuthoritative) {
+            log.warn {
+                "Refusing ${removedChanges.size} removal(s) from a non-authoritative full scan — part of the " +
+                    "library could not be read, so absence there proves nothing."
+            }
+            return 0
+        }
         val folderIdForRemoved: Map<String, FolderId> =
             removedChanges
                 .mapTo(mutableSetOf()) { it.folderRootPath ?: result.rootPath }
@@ -479,8 +492,21 @@ class BookPersister internal constructor(
         var tombstoned = 0
         for (change in removedChanges) {
             val root = change.folderRootPath ?: result.rootPath
+            val folderId = folderIdForRemoved.getValue(root)
+            // A book root is never empty or "." (the Grouper roots a loose file at its own relative
+            // path and a folder book at its directory), so the probe always names the book itself.
+            val refusal =
+                when {
+                    FolderScopedPath(folderId, change.rootRelPath) in seenPaths -> "this scan walked it"
+                    isOnDisk(Path(root, change.rootRelPath)) -> "its book root is still on disk"
+                    else -> null
+                }
+            if (refusal != null) {
+                log.warn { "Refusing removal of ${change.rootRelPath}: $refusal." }
+                continue
+            }
             try {
-                tombstoned += ingest.softDeleteByPath(folderIdForRemoved.getValue(root), change.rootRelPath)
+                tombstoned += ingest.softDeleteByPath(folderId, change.rootRelPath)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Throwable) {
