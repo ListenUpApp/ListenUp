@@ -32,10 +32,6 @@ import com.calypsan.listenup.client.features.setup.SetupCheckFailedScreen
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CoroutineScope
-import org.jetbrains.compose.resources.stringResource
-import listenup.composeapp.generated.resources.Res
-import listenup.composeapp.generated.resources.error_book_not_connected
-import listenup.composeapp.generated.resources.error_book_wrong_server
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
@@ -44,19 +40,14 @@ import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
-import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.client.features.admin.AdminFocus
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.data.repository.DeepLinkManager
 import com.calypsan.listenup.client.design.transitions.LocalHeroTransitionScope
-import com.calypsan.listenup.client.share.ShareResolution
 import com.calypsan.listenup.client.share.ShareTarget
-import com.calypsan.listenup.client.share.ShareTargetResolver
 import com.calypsan.listenup.client.data.repository.ShortcutAction
 import com.calypsan.listenup.client.data.repository.ShortcutActionManager
 import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.domain.usecase.auth.LogoutUseCase
-import io.github.oshai.kotlinlogging.KotlinLogging
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import com.calypsan.listenup.client.design.components.LocalSnackbarHostState
 import com.calypsan.listenup.client.design.components.ProvideRestrictedBookIds
@@ -67,9 +58,6 @@ import com.calypsan.listenup.client.design.components.latchFootprint
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.model.isInShell
-import com.calypsan.listenup.client.features.connect.ServerSelectScreen
-import com.calypsan.listenup.client.features.connect.ServerSetupScreen
-import com.calypsan.listenup.client.features.invite.JoinScreen
 import com.calypsan.listenup.client.domain.repository.HomeRepository
 import com.calypsan.listenup.client.features.nowplaying.NowPlayingHost
 import com.calypsan.listenup.client.presentation.player.PlayerUiState
@@ -79,13 +67,8 @@ import com.calypsan.listenup.client.features.shell.ShellDestination
 import com.calypsan.listenup.client.features.shell.components.ConnectionHealthBanner
 import com.calypsan.listenup.client.features.shell.shellDestinationSaver
 import com.calypsan.listenup.client.presentation.auth.ForgotPasswordViewModel
-import com.calypsan.listenup.client.presentation.auth.PendingApprovalViewModel
 import com.calypsan.listenup.client.presentation.connection.ConnectionHealthViewModel
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeoutOrNull
-import kotlin.time.Duration.Companion.seconds
-import com.calypsan.listenup.client.playback.SleepTimerMode
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 import com.calypsan.listenup.client.presentation.startup.AppStartupViewModel
@@ -94,7 +77,6 @@ import com.calypsan.listenup.client.design.LocalDeviceContext
 import com.calypsan.listenup.client.design.util.LocalUnsavedWorkHolds
 import com.calypsan.listenup.client.design.util.UnsavedWorkHolds
 import com.calypsan.listenup.client.device.DeviceContext
-import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.navigation.entries.adminEntries
 import com.calypsan.listenup.client.navigation.entries.bookEntries
 import com.calypsan.listenup.client.navigation.entries.contributorEntries
@@ -107,8 +89,6 @@ import com.calypsan.listenup.client.navigation.entries.settingsEntries
 import com.calypsan.listenup.client.navigation.entries.shelfEntries
 import com.calypsan.listenup.client.navigation.entries.discoverEntries
 import com.calypsan.listenup.client.navigation.entries.shellEntry
-
-private val logger = KotlinLogging.logger {}
 
 /**
  * Initial mini-player clearance before the bar reports its first measurement; every bar now reports its own (the
@@ -185,7 +165,7 @@ fun ListenUpNavigation(
         }
 
         AuthState.NeedsServerUrl -> {
-            ServerSetupNavigation()
+            AndroidServerSetupNavigation()
         }
 
         AuthState.CheckingServer -> {
@@ -193,15 +173,15 @@ fun ListenUpNavigation(
         }
 
         AuthState.NeedsSetup -> {
-            SetupNavigation()
+            AndroidSetupNavigation()
         }
 
         is AuthState.NeedsLogin -> {
-            LoginNavigation(authSession, currentAuthState.openRegistration)
+            AndroidLoginNavigation(authSession, currentAuthState.openRegistration)
         }
 
         is AuthState.PendingApproval -> {
-            PendingApprovalNavigation(
+            AndroidPendingApprovalNavigation(
                 userId = currentAuthState.userId.value,
                 email = currentAuthState.email,
             )
@@ -212,415 +192,6 @@ fun ListenUpNavigation(
         is AuthState.Authenticated, is AuthState.SessionLapsed -> {}
     }
 }
-
-/**
- * Navigation for pending approval screen.
- *
- * Shows the pending approval screen for users who have registered
- * but are waiting for admin approval. Handles:
- * - RPC watch for real-time approval notification
- * - Auto-login on approval
- * - Cancel to return to login
- */
-@Composable
-private fun PendingApprovalNavigation(
-    userId: String,
-    email: String,
-) {
-    val viewModel: PendingApprovalViewModel =
-        koinViewModel {
-            org.koin.core.parameter
-                .parametersOf(userId, email)
-        }
-
-    com.calypsan.listenup.client.features.auth.PendingApprovalScreen(
-        viewModel = viewModel,
-        onNavigateToLogin = {
-            // Auth state automatically updates after clearPendingRegistration.
-        },
-    )
-}
-
-/**
- * Navigation for the invite-claim flow.
- *
- * Shows [JoinScreen] and handles completion/cancellation. The RPC invite vertical
- * reads the server URL from [ServerConfig]; the deep link carries its own URL, so
- * [JoinScreen] hands both URL and code to the ViewModel's `start`, which
- * persists the URL before the lookup runs (one coroutine, deterministic order —
- * no race on a fresh install). On a successful claim the repository persists the
- * issued session (AuthState → Authenticated); once [JoinScreen] reports the claim
- * via `onClaimed`, the invite is consumed and auth-state routing takes over.
- */
-@Composable
-private fun JoinNavigation(
-    serverUrl: String,
-    inviteCode: String,
-    remoteUrl: String?,
-    onComplete: () -> Unit,
-    onCancel: () -> Unit,
-) {
-    JoinScreen(
-        onClaimed = onComplete,
-        onCancel = onCancel,
-        initialCode = inviteCode,
-        serverUrl = serverUrl,
-        remoteUrl = remoteUrl,
-    )
-}
-
-/**
- * Loading screen shown during auth state initialization.
- * Displayed briefly on app start while checking for stored credentials.
- */
-@Composable
-private fun LoadingScreen() {
-    FullScreenLoadingIndicator()
-}
-
-/**
- * Server setup navigation - shown when no server URL is configured.
- *
- * Flow:
- * 1. ServerSelectScreen - shows discovered servers + manual option
- * 2. ServerSetupScreen - manual URL entry (if user clicks "Add Manually")
- *
- * After successful selection/verification, AuthState changes trigger automatic navigation.
- */
-@Composable
-private fun ServerSetupNavigation() {
-    val backStack = rememberNavBackStack(ServerSelect)
-
-    NavDisplay(
-        backStack = backStack,
-        entryDecorators =
-            listOf(
-                rememberSaveableStateHolderNavEntryDecorator(),
-                rememberViewModelStoreNavEntryDecorator(),
-            ),
-        onBack = {
-            if (backStack.size > 1) {
-                backStack.removeAt(backStack.lastIndex)
-            }
-        },
-        entryProvider =
-            entryProvider {
-                entry<ServerSelect> {
-                    ServerSelectScreen(
-                        onServerActivated = {
-                            // Server is selected, AuthState will change automatically
-                        },
-                        onManualEntryRequested = {
-                            backStack.add(ServerSetup)
-                        },
-                    )
-                }
-                entry<ServerSetup> {
-                    ServerSetupScreen(
-                        onServerVerified = {
-                            // URL is saved, AuthState will change automatically
-                            // Pop back to select; the auth screen takes over once AuthState updates
-                        },
-                        onBack = {
-                            backStack.popFrom(ServerSetup)
-                        },
-                    )
-                }
-            },
-    )
-}
-
-/**
- * Setup navigation - shown when server needs initial root user.
- * After successful setup, AuthState.Authenticated triggers automatic navigation.
- */
-@Composable
-private fun SetupNavigation() {
-    val backStack = rememberNavBackStack(Setup)
-
-    NavDisplay(
-        backStack = backStack,
-        entryDecorators =
-            listOf(
-                rememberSaveableStateHolderNavEntryDecorator(),
-                rememberViewModelStoreNavEntryDecorator(),
-            ),
-        entryProvider =
-            entryProvider {
-                entry<Setup> {
-                    com.calypsan.listenup.client.features.auth
-                        .SetupScreen()
-                }
-            },
-    )
-}
-
-/**
- * Login navigation - shown when server is configured but user needs to authenticate.
- * After successful login, AuthState.Authenticated triggers automatic navigation.
- *
- * @param openRegistration Whether the server allows public registration
- */
-@Composable
-private fun LoginNavigation(
-    authSession: AuthSession,
-    openRegistration: Boolean,
-) {
-    val scope = rememberCoroutineScope()
-    val backStack = rememberNavBackStack(Login)
-    val serverConfig: com.calypsan.listenup.client.domain.repository.ServerConfig = koinInject()
-    val instanceRepository: com.calypsan.listenup.client.domain.repository.InstanceRepository = koinInject()
-    var rootResetArmed by remember { mutableStateOf(false) }
-
-    // Refresh open registration value from server
-    // This ensures the "Create Account" link appears if admin enabled it
-    LaunchedEffect(Unit) {
-        authSession.refreshOpenRegistration()
-        // Live probe, never cached: the root-reset hatch is a 15-minute window armed by a server
-        // restart, so only a fresh answer is meaningful. On failure the entry simply stays hidden.
-        rootResetArmed =
-            (instanceRepository.getServerInfo(forceRefresh = true) as? AppResult.Success)
-                ?.run { data.rootResetArmed } == true
-    }
-
-    NavDisplay(
-        backStack = backStack,
-        entryDecorators =
-            listOf(
-                rememberSaveableStateHolderNavEntryDecorator(),
-                rememberViewModelStoreNavEntryDecorator(),
-            ),
-        // Guarded like AuthNavigation's: popping the last entry would empty the stack and leave
-        // NavDisplay in an undefined state (a frozen composition over cleared ViewModel stores).
-        onBack = {
-            if (backStack.size > 1) {
-                backStack.removeAt(backStack.lastIndex)
-            }
-        },
-        entryProvider =
-            entryProvider {
-                entry<Login> {
-                    com.calypsan.listenup.client.features.auth
-                        .LoginScreen(
-                            openRegistration = openRegistration,
-                            onChangeServer = {
-                                scope.launch {
-                                    // Clear server URL to go back to server selection
-                                    serverConfig.disconnectFromServer()
-                                }
-                            },
-                            onRegister = {
-                                backStack.add(Register)
-                            },
-                            onForgotPassword = {
-                                backStack.add(ForgotPassword)
-                            },
-                            showRootResetEntry = rootResetArmed,
-                        )
-                }
-                entry<Register> {
-                    com.calypsan.listenup.client.features.auth
-                        .RegisterScreen(
-                            onBackClick = {
-                                backStack.popFrom(Register)
-                            },
-                        )
-                }
-                entry<ForgotPassword> {
-                    val viewModel: ForgotPasswordViewModel = koinViewModel()
-                    // Complete and Denied both render "Back to Sign In" through onBack — that is
-                    // what returns the user to Login instead of dead-ending on a terminal message.
-                    com.calypsan.listenup.client.features.auth
-                        .ForgotPasswordScreen(
-                            viewModel = viewModel,
-                            onBack = {
-                                backStack.popFrom(ForgotPassword)
-                            },
-                        )
-                }
-            },
-    )
-}
-
-/**
- * Whether the shell-level connection banner is drawn over [top]. Not over Login: its "Sign in"
- * would point at the page already open, and the banner, pinned above the navigation stack, reads
- * as floating loose while Login slides in beneath it. (iOS presents sign-in as a sheet over its
- * banner; web signs in inline — neither shows the banner over a login page.)
- */
-internal fun showsConnectionBannerOver(top: NavKey?): Boolean = top != Login
-
-/**
- * Resets navigation to the [Shell] root, clearing any detail screens on the way. No-op when the
- * shell is already the top of the back stack. Shared by shortcut routing and share-link routing so
- * "land the user on a known root before pushing a detail" has exactly one definition.
- */
-private fun resetToShell(backStack: NavBackStack<NavKey>) {
-    if (backStack.lastOrNull() != Shell) {
-        backStack.clear()
-        backStack.add(Shell)
-    }
-}
-
-/**
- * Shows the Library tab for a shortcut that needs the shell on top, returning whether it did.
- *
- * While a screen holds unsaved work (an upload in flight, an edit not yet saved) the stack is left
- * alone: resetting it would discard that work, and the shortcut's effect can wait until the admin
- * is done.
- */
-private fun showLibraryUnlessWorkHeld(
-    backStack: NavBackStack<NavKey>,
-    onSelectShellDestination: (ShellDestination) -> Unit,
-    holdsUnsavedWork: Boolean,
-): Boolean {
-    if (holdsUnsavedWork) {
-        logger.info { "Shortcut left the open screen alone: it holds unsaved work" }
-        return false
-    }
-    resetToShell(backStack)
-    onSelectShellDestination(ShellDestination.Library)
-    return true
-}
-
-/**
- * Routes a launcher/shortcut [ShortcutAction] to the right playback or navigation effect.
- *
- * Extracted from [AuthenticatedNavigation] so the composable's cyclomatic complexity stays
- * within budget — this is plain control flow with no Compose surface of its own. [backStack]
- * mutations and [onSelectShellDestination] are invoked from the caller's `LaunchedEffect`
- * coroutine, preserving the original ordering and threading.
- */
-internal suspend fun handleShortcutAction(
-    action: ShortcutAction,
-    homeRepository: HomeRepository,
-    playback: ShortcutPlayback,
-    backStack: NavBackStack<NavKey>,
-    onSelectShellDestination: (ShellDestination) -> Unit,
-    onOpenSearch: () -> Unit,
-    holdsUnsavedWork: () -> Boolean,
-) {
-    val showLibrary: () -> Unit = { showLibraryUnlessWorkHeld(backStack, onSelectShellDestination, holdsUnsavedWork()) }
-    when (action) {
-        is ShortcutAction.Resume -> {
-            // Get the most recent book and play it
-            val result = homeRepository.getContinueListening(1)
-            if (result is AppResult.Success && result.data.isNotEmpty()) {
-                val book = result.data.first()
-                logger.info { "Resuming book: ${book.title}" }
-                playback.playBook(BookId(book.bookId))
-                playback.expand()
-            } else {
-                logger.warn { "No recent book to resume" }
-                showLibrary()
-            }
-        }
-
-        is ShortcutAction.PlayBook -> {
-            logger.info { "Playing book: ${action.bookId}" }
-            playback.playBook(BookId(action.bookId))
-            playback.expand()
-        }
-
-        is ShortcutAction.Search -> {
-            playback.collapse()
-            if (showLibraryUnlessWorkHeld(backStack, onSelectShellDestination, holdsUnsavedWork())) onOpenSearch()
-        }
-
-        is ShortcutAction.NavigateToBook,
-        is ShortcutAction.NavigateToAbsImport,
-        is ShortcutAction.NavigateToPendingApprovals,
-        is ShortcutAction.NavigateToUserProfile,
-        -> {
-            logger.info { "Navigating for shortcut: $action" }
-            playback.collapse()
-            backStack.openFromOutside(Shell, action.screensAboveShell(), holdsUnsavedWork())
-        }
-
-        is ShortcutAction.SleepTimer -> {
-            startSleepTimerFromShortcut(
-                action = action,
-                homeRepository = homeRepository,
-                playback = playback,
-                showLibrary = showLibrary,
-            )
-        }
-    }
-}
-
-/** Minutes the launcher's "Set sleep timer" shortcut uses when it carries no preset of its own. */
-private const val DEFAULT_SHORTCUT_SLEEP_MINUTES = 30
-
-/** How long the sleep-timer shortcut waits for the book it started to become the player's current one. */
-private val SHORTCUT_BOOK_LOAD_TIMEOUT = 10.seconds
-
-/**
- * Sets the sleep timer the launcher's "Set sleep timer" shortcut promises, resuming the latest book
- * first when nothing is loaded.
- *
- * The timer is set only once the book is current: changing the player's book cancels a running
- * timer, so one set before the book loads would be cancelled a moment later.
- */
-private suspend fun startSleepTimerFromShortcut(
-    action: ShortcutAction.SleepTimer,
-    homeRepository: HomeRepository,
-    playback: ShortcutPlayback,
-    showLibrary: () -> Unit,
-) {
-    val timer = SleepTimerMode.Duration(action.timerMinutes ?: DEFAULT_SHORTCUT_SLEEP_MINUTES)
-    if (playback.activeBookId != null) {
-        playback.setSleepTimer(timer)
-        playback.expand()
-        return
-    }
-
-    val latest = homeRepository.getContinueListening(1)
-    val recent = if (latest is AppResult.Success) latest.data.firstOrNull() else null
-    if (recent == null) {
-        logger.warn { "No recent book to start a sleep timer on" }
-        showLibrary()
-        return
-    }
-
-    playback.playBook(BookId(recent.bookId))
-    playback.expand()
-    val current =
-        withTimeoutOrNull(SHORTCUT_BOOK_LOAD_TIMEOUT) {
-            playback.activeBookIds.first { it == recent.bookId }
-        }
-    if (current == null) {
-        logger.warn { "Book ${recent.bookId} did not become current in time; no sleep timer set" }
-        return
-    }
-    playback.setSleepTimer(timer)
-}
-
-/**
- * The screens a navigating [ShortcutAction] stacks on the shell, bottom first — empty for the
- * actions that play rather than navigate.
- *
- * The last hop of every notification tap, shade tap and launcher shortcut: the target mapping
- * before it (`toShortcutAction`) has its own specs, and this is the half that decides which screen
- * actually opens.
- */
-internal fun ShortcutAction.screensAboveShell(): List<Route> =
-    when (this) {
-        is ShortcutAction.NavigateToBook -> listOf(BookDetail(bookId))
-
-        is ShortcutAction.NavigateToAbsImport -> listOf(AdminBackups, ImportFlow)
-
-        // Admin carries the pending list and its approve/deny controls — the point of the
-        // notification is to make the decision reachable in one tap, so it opens on that list.
-        is ShortcutAction.NavigateToPendingApprovals -> listOf(Admin(focus = AdminFocus.PENDING_REGISTRATIONS))
-
-        is ShortcutAction.NavigateToUserProfile -> listOf(UserProfile(userId))
-
-        ShortcutAction.Resume,
-        is ShortcutAction.PlayBook,
-        ShortcutAction.Search,
-        is ShortcutAction.SleepTimer,
-        -> emptyList()
-    }
 
 /**
  * Navigation graph for authenticated users.
@@ -829,131 +400,6 @@ private fun AuthenticatedNavigation(
         }
     }
 }
-
-/**
- * Resolves a pending BOOK share-link target against the connected server. Invite targets are
- * handled at the top level; this ignores them.
- *
- * Extracted from [AuthenticatedNavigation] to keep the orchestrator within complexity budget.
- */
-@Composable
-private fun ShareLinkEffect(
-    serverConfig: ServerConfig,
-    backStack: NavBackStack<NavKey>,
-    snackbarHostState: SnackbarHostState,
-    holdsUnsavedWork: () -> Boolean,
-    collapseNowPlaying: () -> Unit,
-    deepLinkManager: DeepLinkManager = koinInject(),
-) {
-    val pendingTarget by deepLinkManager.pendingTarget.collectAsStateWithLifecycle()
-    val wrongServerMessage = stringResource(Res.string.error_book_wrong_server)
-    val notConnectedMessage = stringResource(Res.string.error_book_not_connected)
-    LaunchedEffect(pendingTarget) {
-        val book = pendingTarget as? ShareTarget.Book ?: return@LaunchedEffect
-        when (val resolution = ShareTargetResolver.resolve(book, serverConfig.getConnectedServerId())) {
-            is ShareResolution.OpenBook -> {
-                collapseNowPlaying()
-                backStack.openFromOutside(Shell, listOf(BookDetail(resolution.bookId.value)), holdsUnsavedWork())
-            }
-
-            is ShareResolution.WrongServer -> {
-                snackbarHostState.showSnackbar(wrongServerMessage)
-            }
-
-            is ShareResolution.NotConnected -> {
-                snackbarHostState.showSnackbar(notConnectedMessage)
-            }
-
-            // OpenInviteClaim handled at top level; NoAccess not produced by the pure resolver
-            // (an inaccessible book opens Book Detail, which shows its own empty state).
-            else -> {}
-        }
-        // consumeTarget after showSnackbar (which suspends until dismissed) so the link stays live
-        // until the user has actually seen the error.
-        deepLinkManager.consumeTarget()
-    }
-}
-
-/**
- * The app's root surface, answering the hardware-keyboard shortcuts ([ShellKeyboardShortcuts]) with
- * the player and the shell's search. The search requests the `/` shortcut makes reach the shell
- * through [LocalShellSearchRequests]. Not on TV, where the D-pad's arrows and centre key must only
- * move focus.
- */
-@Composable
-private fun AppKeyboardShortcuts(
-    nowPlayingViewModel: PlayerViewModel,
-    backStack: NavBackStack<NavKey>,
-    searchRequests: ShellSearchRequests,
-    content: @Composable BoxScope.() -> Unit,
-) {
-    val playerState by nowPlayingViewModel.uiState.collectAsStateWithLifecycle()
-    val playerExpanded by nowPlayingViewModel.expanded.collectAsStateWithLifecycle()
-    ShellKeyboardShortcuts(
-        enabled = !LocalDeviceContext.current.isLeanback,
-        onShortcut = { shortcut ->
-            answerShellShortcut(
-                shortcut = shortcut,
-                nowPlayingViewModel = nowPlayingViewModel,
-                hasBook = playerState is PlayerUiState.Loaded,
-                canOpenSearch = backStack.lastOrNull() == Shell && !playerExpanded,
-                searchRequests = searchRequests,
-            )
-        },
-        modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface),
-    ) {
-        CompositionLocalProvider(LocalShellSearchRequests provides searchRequests.requests) {
-            content()
-        }
-    }
-}
-
-/**
- * Acts on a keyboard [shortcut], returning whether it did. The transport shortcuts need a loaded
- * book, and skip by the user's configured intervals (the view model's own [PlayerViewModel.skipBack]
- * and [PlayerViewModel.skipForward]). Search opens only where the shell's search is on screen.
- */
-private fun answerShellShortcut(
-    shortcut: ShellShortcut,
-    nowPlayingViewModel: PlayerViewModel,
-    hasBook: Boolean,
-    canOpenSearch: Boolean,
-    searchRequests: ShellSearchRequests,
-): Boolean =
-    when (shortcut) {
-        ShellShortcut.PlayPause -> hasBook.also { if (it) nowPlayingViewModel.playPause() }
-        ShellShortcut.SkipBack -> hasBook.also { if (it) nowPlayingViewModel.skipBack() }
-        ShellShortcut.SkipForward -> hasBook.also { if (it) nowPlayingViewModel.skipForward() }
-        ShellShortcut.OpenSearch -> canOpenSearch.also { if (it) searchRequests.request() }
-    }
-
-/**
- * Builds the dispatch lambda the notification inbox entries consume: every action routes through
- * [handleShortcutAction] — the SAME handler the shade's [ShortcutActionEffect] uses — so the two
- * entry points cannot disagree on where a notification lands.
- */
-private fun shortcutActionDispatcher(
-    scope: CoroutineScope,
-    homeRepository: HomeRepository,
-    nowPlayingViewModel: PlayerViewModel,
-    backStack: NavBackStack<NavKey>,
-    onSelectShellDestination: (ShellDestination) -> Unit,
-    onOpenSearch: () -> Unit,
-    holdsUnsavedWork: () -> Boolean,
-): (ShortcutAction) -> Unit =
-    { action ->
-        scope.launch {
-            handleShortcutAction(
-                action = action,
-                homeRepository = homeRepository,
-                playback = nowPlayingViewModel.asShortcutPlayback(),
-                backStack = backStack,
-                onSelectShellDestination = onSelectShellDestination,
-                onOpenSearch = onOpenSearch,
-                holdsUnsavedWork = holdsUnsavedWork,
-            )
-        }
-    }
 
 /**
  * The shell's live wiring, read lazily so tab and readiness changes recompose the Shell entry
@@ -1198,42 +644,5 @@ private fun BoxScope.AuthenticatedNavOverlays(
 
         // Populating renders inside the Shell entry; Ready shows the shell — no overlay for either.
         is LibraryReadiness.Populating, LibraryReadiness.Ready -> {}
-    }
-}
-
-/**
- * Reads the pending [ShortcutAction] and routes it to the appropriate playback or navigation
- * effect via [handleShortcutAction].
- *
- * Extracted from [AuthenticatedNavigation] to keep the orchestrator within complexity budget.
- */
-@Composable
-private fun ShortcutActionEffect(
-    shortcutActionManager: ShortcutActionManager,
-    homeRepository: HomeRepository,
-    nowPlayingViewModel: PlayerViewModel,
-    backStack: NavBackStack<NavKey>,
-    onSelectShellDestination: (ShellDestination) -> Unit,
-    onOpenSearch: () -> Unit,
-    holdsUnsavedWork: () -> Boolean,
-) {
-    val pendingAction by shortcutActionManager.pendingAction.collectAsStateWithLifecycle()
-    LaunchedEffect(pendingAction) {
-        val action = pendingAction ?: return@LaunchedEffect
-
-        logger.info { "Processing shortcut action: $action" }
-
-        handleShortcutAction(
-            action = action,
-            homeRepository = homeRepository,
-            playback = nowPlayingViewModel.asShortcutPlayback(),
-            backStack = backStack,
-            onSelectShellDestination = onSelectShellDestination,
-            onOpenSearch = onOpenSearch,
-            holdsUnsavedWork = holdsUnsavedWork,
-        )
-
-        // Consume the action after processing
-        shortcutActionManager.consumeAction()
     }
 }
