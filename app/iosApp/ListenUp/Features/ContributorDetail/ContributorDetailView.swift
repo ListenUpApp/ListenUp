@@ -87,6 +87,7 @@ struct ContributorDetailView: View {
                         }
                     } label: {
                         Image(systemName: "ellipsis.circle")
+                            .accessibilityLabel(String(localized: "common.more_actions"))
                     }
                 }
             }
