@@ -76,6 +76,7 @@ private fun page(
     onDecidePasswordReset: (String, Boolean) -> Unit = { _, _ -> },
     onDismissResetCode: () -> Unit = {},
     onSetRegistrationPolicy: (RegistrationPolicy) -> Unit = {},
+    onCopyInviteLink: (String) -> Unit = {},
     landOnPending: Boolean = false,
 ) {
     AdminPage(
@@ -88,6 +89,7 @@ private fun page(
         onDecidePasswordReset = onDecidePasswordReset,
         onDismissResetCode = onDismissResetCode,
         onSetRegistrationPolicy = onSetRegistrationPolicy,
+        onCopyInviteLink = onCopyInviteLink,
         onClearError = {},
         onRetry = {},
         landOnPending = landOnPending,
@@ -173,7 +175,7 @@ class AdminPageTest :
             // Different weights should not share a prompt: nobody has used the invite yet.
             val host = mounts.mount { page(AdminUiState.Ready(pendingInvites = listOf(invite("i1")))) }
 
-            (host.querySelector(".adm-row-actions button") as HTMLElement).click()
+            (host.querySelector("[aria-label='Revoke the invite for alan@example.com']") as HTMLElement).click()
             awaitFrame()
 
             val dialog = host.querySelector("dialog.dlg").shouldNotBeNull()
@@ -264,9 +266,80 @@ class AdminPageTest :
                     )
                 }
 
-            (host.querySelectorAll(".adm-row-actions button").item(1) as HTMLElement).click()
+            (host.querySelectorAll(".adm-row-actions button").item(0) as HTMLElement).click()
 
-            decision shouldBe ("r1" to false)
+            decision shouldBe ("r1" to true)
+        }
+
+        test("declining a password reset asks first; confirming declines it once") {
+            val decisions = mutableListOf<Pair<String, Boolean>>()
+            val host =
+                mounts.mount {
+                    page(
+                        state = AdminUiState.Ready(pendingPasswordResets = listOf(resetRequest("r1"))),
+                        onDecidePasswordReset = { id, approved -> decisions += id to approved },
+                    )
+                }
+
+            (host.querySelectorAll(".adm-row-actions button").item(1) as HTMLElement).click()
+            awaitFrame()
+
+            decisions shouldBe emptyList()
+            val dialog = host.querySelector("dialog.dlg").shouldNotBeNull()
+            dialog.textContent.orEmpty() shouldContain "Are you sure you want to deny the password reset for Ada?"
+
+            (dialog.querySelectorAll(".dlg-actions button").item(1) as HTMLElement).click()
+            awaitFrame()
+
+            decisions shouldBe listOf("r1" to false)
+            host.querySelector("dialog.dlg") shouldBe null
+        }
+
+        test("denying a registration asks first; confirming denies it once") {
+            val denied = mutableListOf<String>()
+            val host =
+                mounts.mount {
+                    page(
+                        state = AdminUiState.Ready(pendingUsers = listOf(user("u3", "Grace"))),
+                        onDenyUser = { denied += it },
+                    )
+                }
+
+            (host.querySelectorAll(".adm-row-actions button").item(1) as HTMLElement).click()
+            awaitFrame()
+
+            denied shouldBe emptyList()
+            val dialog = host.querySelector("dialog.dlg").shouldNotBeNull()
+            dialog.textContent.orEmpty() shouldContain
+                "Are you sure you want to deny the registration request from Grace? They will need to register again."
+
+            (dialog.querySelectorAll(".dlg-actions button").item(1) as HTMLElement).click()
+            awaitFrame()
+
+            denied shouldBe listOf("u3")
+        }
+
+        test("an open invite's link can be copied again, from a button that names the invitee") {
+            val copied = mutableListOf<String>()
+            val host =
+                mounts.mount {
+                    page(
+                        state = AdminUiState.Ready(pendingInvites = listOf(invite("i1"))),
+                        onCopyInviteLink = { copied += it },
+                    )
+                }
+
+            val copy =
+                host
+                    .querySelectorAll(".adm-row-actions button")
+                    .asList()
+                    .map { it as HTMLElement }
+                    .firstOrNull { it.getAttribute("aria-label") == "Copy the invite link for alan@example.com" }
+                    .shouldNotBeNull()
+            copy.textContent shouldBe "Copy link"
+            copy.click()
+
+            copied shouldBe listOf("https://listenup.example/i/ABC")
         }
 
         test("a minted reset code is shown once, and says so") {
@@ -330,6 +403,12 @@ class AdminPageTest :
 
             host.textContent.orEmpty() shouldContain "Invites unavailable"
             host.textContent.orEmpty() shouldContain "Ada"
+        }
+
+        test("a load failure is announced") {
+            val host = mounts.mount { page(AdminUiState.Ready(error = "Invites unavailable")) }
+
+            host.querySelector(".adm-error")?.getAttribute("role") shouldBe "alert"
         }
 
         test("sections with nothing in them are not announced") {

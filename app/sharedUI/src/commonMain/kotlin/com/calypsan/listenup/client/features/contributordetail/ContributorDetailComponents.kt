@@ -49,10 +49,6 @@ import com.calypsan.listenup.client.design.transitions.contributorHeroKey
 import com.calypsan.listenup.client.design.transitions.heroElement
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.features.contributoredit.components.ContributorColorScheme
-import com.calypsan.listenup.client.util.formatDateLong
-import kotlinx.datetime.LocalDate
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.atStartOfDayIn
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_detail_more_options
 import listenup.composeapp.generated.resources.common_about
@@ -492,40 +488,3 @@ internal fun roleChipLabel(role: String): String =
         "editor" -> "Editor"
         else -> role.replaceFirstChar { it.uppercase() }
     }
-
-internal fun formatLifeDates(
-    birthDate: String?,
-    deathDate: String?,
-): String? {
-    val birth = birthDate?.let { formatDateForDisplay(it) }
-    val death = deathDate?.let { formatDateForDisplay(it) }
-
-    return when {
-        birth != null && death != null -> "$birth – $death"
-        birth != null -> "Born $birth"
-        death != null -> "Died $death"
-        else -> null
-    }
-}
-
-private fun formatDateForDisplay(isoDate: String): String? {
-    return try {
-        val parts = isoDate.split("-")
-        if (parts.size != 3) return null
-        val year = parts[0].toIntOrNull() ?: return null
-        val month = parts[1].toIntOrNull() ?: return null
-        val day = parts[2].toIntOrNull() ?: return null
-        if (month < 1 || month > MONTHS_IN_YEAR) return null
-        val epochMillis =
-            LocalDate(year, month, day)
-                .atStartOfDayIn(TimeZone.UTC)
-                .toEpochMilliseconds()
-        formatDateLong(epochMillis)
-    } catch (
-        @Suppress("SwallowedException") e: Exception,
-    ) {
-        null
-    }
-}
-
-private const val MONTHS_IN_YEAR = 12

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.chaptereditor
 
+import com.calypsan.listenup.web.design.DialogForm
 import com.calypsan.listenup.client.core.ChapterTimeFormat
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -70,15 +71,18 @@ internal fun RenameChapterDialog(
     var title by remember(initialTitle) { mutableStateOf(initialTitle) }
 
     ModalDialog(open = true, title = "Rename chapter", onDismiss = onDismiss) {
-        Field(label = "Title", value = title, onInput = { title = it }, id = "ced-chapter-title")
-        DialogActions(
-            confirmLabel = "Rename",
-            onConfirm = { onConfirm(title) },
-            onDismiss = onDismiss,
-            // ⛔ A blank title is refused here rather than stored and caught at save. The ViewModel
-            // refuses it too, but a Save that fails three edits later cannot say which one did it.
-            confirmEnabled = title.isNotBlank(),
-        )
+        // ⛔ A blank title is refused here rather than stored and caught at save. The ViewModel
+        // refuses it too, but a Save that fails three edits later cannot say which one did it.
+        DialogForm(enabled = title.isNotBlank(), onSubmit = { onConfirm(title) }) {
+            Field(label = "Title", value = title, onInput = { title = it }, id = "ced-chapter-title")
+            DialogActions(
+                confirmLabel = "Rename",
+                onConfirm = { onConfirm(title) },
+                onDismiss = onDismiss,
+                confirmEnabled = title.isNotBlank(),
+                submit = true,
+            )
+        }
     }
 }
 
@@ -105,13 +109,17 @@ internal fun MarkerNameDialog(
         title = if (isNew) "New $tierName" else "Rename $tierName",
         onDismiss = onDismiss,
     ) {
-        Field(label = "Name", value = name, onInput = { name = it }, id = "ced-marker-name")
-        DialogActions(
-            confirmLabel = if (isNew) "Start $tierName" else "Rename",
-            onConfirm = { onConfirm(trimmed) },
-            onDismiss = onDismiss,
-            confirmEnabled = trimmed.isNotEmpty() && trimmed.length <= ChapterInput.MAX_SECTION_TITLE,
-        )
+        val acceptable = trimmed.isNotEmpty() && trimmed.length <= ChapterInput.MAX_SECTION_TITLE
+        DialogForm(enabled = acceptable, onSubmit = { onConfirm(trimmed) }) {
+            Field(label = "Name", value = name, onInput = { name = it }, id = "ced-marker-name")
+            DialogActions(
+                confirmLabel = if (isNew) "Start $tierName" else "Rename",
+                onConfirm = { onConfirm(trimmed) },
+                onDismiss = onDismiss,
+                confirmEnabled = acceptable,
+                submit = true,
+            )
+        }
     }
 }
 
@@ -190,18 +198,21 @@ internal fun ChapterTimeDialog(
     val parsed = ChapterTimeFormat.parsePrecise(text)
 
     ModalDialog(open = true, title = "Set start time", onDismiss = onDismiss) {
-        Field(
-            label = "Start time",
-            value = text,
-            onInput = { text = it },
-            id = "ced-chapter-time",
-            errorText = "Type a time like 1:02:03.4.".takeIf { parsed == null },
-        )
-        DialogActions(
-            confirmLabel = "Set",
-            onConfirm = { parsed?.let(onConfirm) },
-            onDismiss = onDismiss,
-            confirmEnabled = parsed != null,
-        )
+        DialogForm(enabled = parsed != null, onSubmit = { parsed?.let(onConfirm) }) {
+            Field(
+                label = "Start time",
+                value = text,
+                onInput = { text = it },
+                id = "ced-chapter-time",
+                errorText = "Type a time like 1:02:03.4.".takeIf { parsed == null },
+            )
+            DialogActions(
+                confirmLabel = "Set",
+                onConfirm = { parsed?.let(onConfirm) },
+                onDismiss = onDismiss,
+                confirmEnabled = parsed != null,
+                submit = true,
+            )
+        }
     }
 }

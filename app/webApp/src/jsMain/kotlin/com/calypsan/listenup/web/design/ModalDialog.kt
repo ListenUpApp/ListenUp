@@ -1,8 +1,12 @@
 package com.calypsan.listenup.web.design
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
 import org.jetbrains.compose.web.dom.Button
+import org.jetbrains.compose.web.attributes.onSubmit
 import org.jetbrains.compose.web.dom.Div
+import org.jetbrains.compose.web.dom.Form
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.Text
@@ -38,6 +42,9 @@ import org.w3c.dom.events.Event
  * player's bottom sheet (`panel-sheet`). [headerAction] shares a row with the heading (`.dlg-head`), for a panel whose
  * way out sits beside its title rather than at its foot.
  *
+ * Escape asks the caller rather than closing: the native `cancel` is refused and [onDismiss] runs,
+ * so a dialog holding unsaved work can ask before it goes. Every caller closes in its [onDismiss].
+ *
  * Closing hands focus back to whatever opened it — Cancel, Escape and the confirming verb alike. The
  * dialog is torn down rather than closed in place, so the browser's own restore never runs, and focus
  * fell to `<body>`: the reader's next Tab started again from the top of the page. When the opener has
@@ -57,6 +64,10 @@ fun ModalDialog(
     if (!open) return
 
     val titleId = panelClass?.let { "$it-title" } ?: DIALOG_TITLE_ID
+    // `ref` runs once per element, so a listener registered there would keep the FIRST
+    // composition's `onDismiss` for the dialog's whole life — a rule like "ask before discarding
+    // a changed draft" would be judged against the draft as it opened.
+    val currentOnDismiss by rememberUpdatedState(onDismiss)
 
     Dialog(attrs = {
         classes("dlg")
@@ -67,11 +78,20 @@ fun ModalDialog(
             val dialog = element as HTMLDialogElement
             val returnTo = FocusReturn.from(dialog)
             if (!dialog.open) dialog.showModal()
-            // Escape and the backdrop both fire `cancel`/`close` without touching our buttons, so
-            // the caller has to hear about it or its `open` flag drifts out of step with reality.
-            val onClose: (Event) -> Unit = { onDismiss() }
+            // Escape fires `cancel`, then `close`. Refusing the `cancel` keeps the dialog open and
+            // hands the decision to the caller's dismiss rule, which either closes it (`open =
+            // false`) or asks first ("Discard your changes?") — by `close` it is too late to ask.
+            val onCancel: (Event) -> Unit = { event ->
+                event.preventDefault()
+                currentOnDismiss()
+            }
+            // A close the browser makes without a `cancel` first: the caller has to hear about it
+            // or its `open` flag drifts out of step with reality.
+            val onClose: (Event) -> Unit = { currentOnDismiss() }
+            dialog.addEventListener("cancel", onCancel)
             dialog.addEventListener("close", onClose)
             onDispose {
+                dialog.removeEventListener("cancel", onCancel)
                 dialog.removeEventListener("close", onClose)
                 if (dialog.open) dialog.close()
                 returnTo.restore()
@@ -146,6 +166,10 @@ private class FocusReturn(
  * [confirmEnabled] false renders a genuinely `disabled` button. The alternative is accepting the
  * press and letting the server refuse, which arrives as a toast over a dialog still holding the
  * same unusable input.
+ *
+ * [submit] is for actions inside a [DialogForm]: the verb becomes the form's submit button and
+ * [onConfirm] is not called from here — the form's submit is the one path, for a click and for
+ * Enter alike. Keeping a click handler as well would fire the action twice for a click.
  */
 @Composable
 fun DialogActions(
@@ -154,15 +178,43 @@ fun DialogActions(
     onDismiss: () -> Unit,
     confirmEnabled: Boolean = true,
     confirmKind: ButtonKind = ButtonKind.Primary,
+    submit: Boolean = false,
 ) {
     Div(attrs = { classes("dlg-actions") }) {
         Button(kind = ButtonKind.Secondary, onClick = { onDismiss() }) { Text("Cancel") }
         Button(
             kind = confirmKind,
-            onClick = { if (confirmEnabled) onConfirm() },
+            onClick = { if (confirmEnabled && !submit) onConfirm() },
             enabled = confirmEnabled,
+            submit = submit,
         ) { Text(confirmLabel) }
     }
+}
+
+/**
+ * A dialog's field and its actions as a real `<form>`, so Enter in the field does what the verb
+ * does — the browser's implicit submission, which no key listener reproduces. Pair it with
+ * `DialogActions(submit = true)`; a form with no submit button gives Enter nothing to press.
+ *
+ * [onSubmit] runs only while [enabled]: Enter must not do what the disabled verb would refuse.
+ * The form lays its children out as if it were not there (`display: contents`), so the dialog's
+ * spacing is unchanged.
+ */
+@Composable
+fun DialogForm(
+    enabled: Boolean,
+    onSubmit: () -> Unit,
+    content: @Composable () -> Unit,
+) {
+    val submit = onSubmit
+    Form(attrs = {
+        classes("dlg-form")
+        // `this.` is load-bearing: the parameter `onSubmit` shadows the attribute builder's.
+        this.onSubmit { event ->
+            event.preventDefault()
+            if (enabled) submit()
+        }
+    }) { content() }
 }
 
 /** A paragraph inside a dialog: what the thing about to happen actually does. */

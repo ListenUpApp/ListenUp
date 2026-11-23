@@ -122,11 +122,13 @@ private fun ReadyContent(
     var confirmingRelease by remember { mutableStateOf(false) }
 
     state.error?.let { message ->
-        Notice(classes = "inbox-err", text = message, onDismiss = onClearError)
+        Notice(classes = "inbox-err", role = "alert", text = message, onDismiss = onClearError)
     }
     state.lastReleasedCount?.let { count ->
         Notice(
             classes = "inbox-note",
+            // A receipt, not a failure: polite, so it never interrupts what is being read.
+            role = "status",
             text = releaseReceipt(released = count, unreleased = state.lastUnreleasedCount),
             onDismiss = onClearReleaseResult,
         )
@@ -360,10 +362,14 @@ private fun IssueRow(
 @Composable
 private fun Notice(
     classes: String,
+    role: String,
     text: String,
     onDismiss: () -> Unit,
 ) {
-    Div(attrs = { classes(classes) }) {
+    Div(attrs = {
+        classes(classes)
+        attr("role", role)
+    }) {
         Span(attrs = { classes("inbox-notice-t") }) { Text(text) }
         Button(attrs = {
             classes("inbox-notice-x")

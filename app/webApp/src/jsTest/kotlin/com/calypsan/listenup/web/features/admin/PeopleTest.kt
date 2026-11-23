@@ -123,6 +123,15 @@ private fun text(
     selector: String,
 ): String? = (host.querySelector(selector) as? HTMLElement)?.textContent?.trim()
 
+/**
+ * Enter in [field], through `requestSubmit()` — the path implicit submission takes (see
+ * `EnterSubmitsTest`). A field outside any form is a field Enter cannot submit, and fails here.
+ */
+private fun pressEnterIn(field: HTMLInputElement) {
+    val form = field.form ?: error("not in a form — Enter cannot submit it")
+    form.asDynamic().requestSubmit()
+}
+
 private fun type(
     host: HTMLElement,
     value: String,
@@ -512,6 +521,44 @@ class PeopleTest :
 
             text(host, ".empty").shouldNotBeNull()
             host.querySelector("[role=switch]").shouldBeNull()
+        }
+
+        test("permissions that could not be loaded say so, inside the panel") {
+            val failure = InternalError(debugInfo = "boom")
+            val host = userPage(readyUser(), permissions = UserPermissionsUiState.Error(failure))
+
+            val panel = host.querySelector(".perm").shouldNotBeNull()
+            panel.textContent.orEmpty() shouldContain "Permissions"
+            panel.textContent.orEmpty() shouldContain failure.message
+            host.querySelector("[role=switch]").shouldBeNull()
+        }
+
+        test("permissions on their way show a loading placeholder that says so") {
+            val host = userPage(readyUser(), permissions = UserPermissionsUiState.Loading)
+
+            host.querySelector(".perm [role=status]").shouldNotBeNull()
+        }
+
+        test("Enter in the email field creates the invite, once") {
+            val made = mutableListOf<String>()
+            val host = invitePage(idle, onCreate = { email, _, _ -> made += email })
+            type(host, "ada@example.com")
+            awaitFrame()
+
+            pressEnterIn(host.querySelector("input[type=email]") as HTMLInputElement)
+            awaitFrame()
+
+            made shouldBe listOf("ada@example.com")
+        }
+
+        test("Enter in an empty email field creates nothing") {
+            val made = mutableListOf<String>()
+            val host = invitePage(idle, onCreate = { email, _, _ -> made += email })
+
+            pressEnterIn(host.querySelector("input[type=email]") as HTMLInputElement)
+            awaitFrame()
+
+            made shouldBe emptyList()
         }
 
         test("the trail names the member once known, and the page until then") {

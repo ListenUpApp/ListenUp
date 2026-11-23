@@ -46,6 +46,7 @@ import com.calypsan.listenup.client.features.contributoredit.components.remember
 import com.calypsan.listenup.client.features.library.BookCard
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailUiState
 import com.calypsan.listenup.client.presentation.contributordetail.RoleSection
+import com.calypsan.listenup.client.presentation.contributordetail.formatLifeDates
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_book_count
 import listenup.composeapp.generated.resources.common_books_count

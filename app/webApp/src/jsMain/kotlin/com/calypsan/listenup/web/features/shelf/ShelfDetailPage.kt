@@ -289,7 +289,10 @@ private fun ShelfNotice(
 ) {
     if (message == null) return
 
-    Div(attrs = { classes("shelf-notice") }) {
+    Div(attrs = {
+        classes("shelf-notice")
+        attr("role", "alert")
+    }) {
         Span(attrs = { classes("shelf-notice-t") }) { Text(message) }
         Button(attrs = {
             classes("shelf-notice-x")

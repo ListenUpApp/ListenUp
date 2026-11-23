@@ -12,6 +12,9 @@ import com.calypsan.listenup.client.presentation.admin.UserPermissionsUiState
 import com.calypsan.listenup.web.design.Button
 import com.calypsan.listenup.web.design.ButtonKind
 import com.calypsan.listenup.web.design.ConfirmDialog
+import com.calypsan.listenup.web.design.EmptyLook
+import com.calypsan.listenup.web.design.EmptyState
+import com.calypsan.listenup.web.design.LoadingState
 import com.calypsan.listenup.web.design.Panel
 import com.calypsan.listenup.web.design.SelectField
 import com.calypsan.listenup.web.design.SelectOption
@@ -50,7 +53,33 @@ fun PermissionsPanel(
     state: UserPermissionsUiState,
     actions: PermissionsPanelActions,
 ) {
-    val ready = state as? UserPermissionsUiState.Ready ?: return
+    val ready =
+        when (state) {
+            is UserPermissionsUiState.Ready -> {
+                state
+            }
+
+            // Drawn in the panel's own frame, so the member page never shows "Details" beside an
+            // empty column that could be either still coming or never coming.
+            UserPermissionsUiState.Loading -> {
+                Div(attrs = { classes("perm") }) { Panel(title = "Permissions") { LoadingState() } }
+                return
+            }
+
+            is UserPermissionsUiState.Error -> {
+                Div(attrs = { classes("perm") }) {
+                    Panel(title = "Permissions") {
+                        EmptyState(
+                            title = "These permissions can't be shown",
+                            body = state.error.message,
+                            look = EmptyLook.Inset,
+                            announce = true,
+                        )
+                    }
+                }
+                return
+            }
+        }
     val locked = ready.isProtected || ready.isSaving
     val name = ready.user.displayableName
 

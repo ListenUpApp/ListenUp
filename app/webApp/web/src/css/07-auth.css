@@ -339,6 +339,10 @@
 }
 .cd-role-chip.is-muted { background:var(--surface-3); color:var(--ink-2); }
 .cd-alias { font-size:var(--fs-small); font-weight:500; color:var(--ink-3); }
+/* Who the person is, under the name: other names, life dates, website — each its own quiet line. */
+.cd-aka, .cd-life, .cd-site { margin:6px 0 0; font-size:var(--fs-small); color:var(--ink-3); overflow-wrap:anywhere; }
+.cd-aka { font-weight:600; color:var(--ink-2); }
+a.cd-site { display:inline-block; font-weight:600; color:var(--coral-text); }
 .cd-stats { display:flex; flex-wrap:wrap; gap:10px; margin-top:14px; }
 .cd-stat {
   display:inline-flex; align-items:center; gap:7px; height:36px; padding:0 14px 0 11px; border-radius:var(--r-pill);
@@ -347,7 +351,9 @@
 .cd-stat-label { font-size:var(--fs-ui); font-weight:700; color:var(--ink); }
 /* Panel wrappers carry no look of their own — Panel draws the card — but need to shrink inside
    the page's flex column the same way `.bd-main`/`.bd-side` do. */
-.cd-role-section, .cd-series-section { min-width:0; }
+.cd-about, .cd-role-section, .cd-series-section { min-width:0; }
+/* A biography keeps the paragraphs it was typed with. */
+.cd-bio { margin:0; line-height:1.6; color:var(--ink-2); white-space:pre-line; }
 .cd-count-badge {
   min-width:24px; height:22px; padding:0 var(--sp-8); border-radius:var(--r-pill);
   background:var(--coral-soft); color:var(--coral-text);

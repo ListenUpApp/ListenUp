@@ -8,6 +8,23 @@ import io.kotest.matchers.shouldBe
 import org.w3c.dom.HTMLButtonElement
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.asList
+import org.w3c.dom.events.Event
+import org.w3c.dom.events.MouseEvent
+import org.w3c.dom.events.MouseEventInit
+
+/** Dispatches a Ctrl-click on [link] and reports whether the page prevented it; never follows the href. */
+private fun ctrlClickPrevented(link: HTMLElement): Boolean {
+    var prevented = false
+    val host = link.parentElement!!
+    val listener: (Event) -> Unit = { event ->
+        prevented = event.defaultPrevented
+        event.preventDefault()
+    }
+    host.addEventListener("click", listener)
+    link.dispatchEvent(MouseEvent("click", MouseEventInit(bubbles = true, cancelable = true, ctrlKey = true)))
+    host.removeEventListener("click", listener)
+    return prevented
+}
 
 /** Chapters that play from the chapter they name (spec §2.5): rows on a phone, a table with start times on a desktop. */
 class BookChaptersSectionTest :
@@ -112,6 +129,13 @@ class BookChaptersSectionTest :
             started shouldBe null
             mount(wide = false, canPlay = true).querySelector("button[aria-label^='Play from chapter']")!!.hasAttribute("disabled") shouldBe
                 false
+        }
+
+        test("a Ctrl-click on Chapter map is left to the browser, for a new tab") {
+            var opened = 0
+            val link = mount(wide = true, onOpenMap = { opened++ }).querySelector("a.bd-chmap-link") as HTMLElement
+            ctrlClickPrevented(link) shouldBe false
+            opened shouldBe 0
         }
 
         test("the header links to the chapter map") {

@@ -9,10 +9,14 @@ import com.calypsan.listenup.client.presentation.shelf.CreateEditShelfUiState
 import com.calypsan.listenup.client.presentation.shelf.ShelfDetailUiState
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ShelfId
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
+import org.w3c.dom.EventInit
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLInputElement
 import org.w3c.dom.HTMLTextAreaElement
@@ -280,6 +284,40 @@ class ShelfPagesTest :
             host.querySelector(".shelf-notice") shouldBe null
         }
 
+        test("a refused reorder or removal is announced") {
+            val host =
+                mounts.mount {
+                    ShelfDetailPage(
+                        ready(listOf(book("a", "A"))),
+                        "Could not reorder this shelf.",
+                        {},
+                        {},
+                        {},
+                        {},
+                        {},
+                        {},
+                    )
+                }
+
+            host.querySelector(".shelf-notice")?.getAttribute("role") shouldBe "alert"
+        }
+
+        test("a refused save on the edit form is announced") {
+            val host =
+                mounts.mount {
+                    ShelfEditPage(
+                        CreateEditShelfUiState.Error("That shelf could not be saved."),
+                        true,
+                        { _, _, _ -> },
+                        {},
+                        {},
+                        {},
+                    )
+                }
+
+            host.querySelector(".shelf-form-error")?.getAttribute("role") shouldBe "alert"
+        }
+
         test("dismissing the notice reports it once") {
             var dismissed = 0
             val host =
@@ -346,6 +384,46 @@ class ShelfPagesTest :
             // stays empty for a value Compose set as a property.
             (host.querySelector("textarea") as HTMLTextAreaElement).value shouldBe "Sleepy books"
             (host.querySelector("input[type=checkbox]") as HTMLInputElement).checked shouldBe true
+        }
+
+        test("a refused save keeps what was typed, and the form still counts as changed") {
+            var state: CreateEditShelfUiState by mutableStateOf(CreateEditShelfUiState.Loaded("A", "d", true))
+            var cancelled = 0
+            val host =
+                mounts.mount {
+                    ShelfEditPage(
+                        state = state,
+                        isEditing = true,
+                        onSave = { _, _, _ -> },
+                        onDelete = {},
+                        onDismissError = {},
+                        onCancel = { cancelled++ },
+                        hasChanges = { name, description, isPrivate ->
+                            name != "A" || description != "d" || !isPrivate
+                        },
+                    )
+                }
+            val nameInput = host.querySelector("input[type=text]") as HTMLInputElement
+            nameInput.value = "B"
+            nameInput.dispatchEvent(Event("input", EventInit(bubbles = true)))
+            awaitFrame()
+
+            // What the shared ViewModel emits for a save the server refuses.
+            state = CreateEditShelfUiState.Saving
+            awaitFrame()
+            state = CreateEditShelfUiState.Error("That shelf could not be saved.")
+            awaitFrame()
+            state = CreateEditShelfUiState.Idle
+            awaitFrame()
+
+            (host.querySelector("input[type=text]") as HTMLInputElement).value shouldBe "B"
+            (host.querySelector("textarea") as HTMLTextAreaElement).value shouldBe "d"
+            (host.querySelector("input[type=checkbox]") as HTMLInputElement).checked shouldBe true
+
+            (host.querySelector(".shelf-form-actions button[type=button]") as HTMLElement).click()
+            awaitFrame()
+            cancelled shouldBe 0
+            host.querySelector("dialog.dlg").shouldNotBeNull()
         }
 
         test("creating offers no way to delete something that does not exist yet") {

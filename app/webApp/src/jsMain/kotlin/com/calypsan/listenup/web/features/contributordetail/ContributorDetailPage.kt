@@ -19,9 +19,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.calypsan.listenup.api.dto.image.ImageFrame
 import com.calypsan.listenup.client.domain.model.BookListItem
+import com.calypsan.listenup.client.domain.model.Contributor
 import com.calypsan.listenup.client.domain.model.ContributorRole
 import com.calypsan.listenup.client.domain.model.SeriesWithBooks
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailUiState
+import com.calypsan.listenup.client.presentation.contributordetail.formatLifeDates
 import com.calypsan.listenup.web.design.Breadcrumb
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.Panel
@@ -34,9 +36,12 @@ import com.calypsan.listenup.web.design.PhotoFramingDialog
 import com.calypsan.listenup.web.design.contributorPhotoUrl
 import com.calypsan.listenup.web.design.rememberPhotoFraming
 import com.calypsan.listenup.web.design.tintGradient
+import com.calypsan.listenup.web.design.isSafeHref
 import org.jetbrains.compose.web.css.width
+import org.jetbrains.compose.web.dom.A
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
+import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
 import com.calypsan.listenup.web.design.PageHeader
@@ -173,7 +178,10 @@ private fun ReadyContent(
     // contributor on screen looking untouched, so the only thing that can say otherwise is a line
     // the reader cannot miss on their way back to the page.
     state.deleteError?.let { message ->
-        Div(attrs = { classes("banner", "err") }) {
+        Div(attrs = {
+            classes("banner", "err")
+            attr("role", "alert")
+        }) {
             Span { Text(message) }
             Button(
                 kind = ButtonKind.Secondary,
@@ -220,6 +228,16 @@ private fun ReadyContent(
         },
         onDismiss = { confirming = false },
     )
+
+    // Where Android puts the biography: after the hero's facts, before the work.
+    state.contributor.description?.takeIf { it.isNotBlank() }?.let { biography ->
+        Div(attrs = { classes("cd-about") }) {
+            Panel(title = "About") {
+                // Plain text, as on Android and iOS: a biography is not book-description markdown.
+                P(attrs = { classes("cd-bio") }) { Text(biography) }
+            }
+        }
+    }
 
     state.roleSections.forEach { section ->
         key(section.role) {
@@ -315,6 +333,8 @@ private fun Hero(
                     Span(attrs = { classes("cd-alias") }) { Text(line) }
                 }
             }
+
+            PersonLines(state.contributor)
 
             Div(attrs = { classes("cd-stats") }) {
                 StatPill(WebIcon.Book, bookCountLabel(state.bookCount))
@@ -572,6 +592,35 @@ private const val FAN_FIRST_LIGHTNESS = 34
 private const val FAN_SECOND_SATURATION = 32
 
 private const val FAN_SECOND_LIGHTNESS = 14
+
+/**
+ * Under the name, in Android's order: the other names they write as, their life dates, their
+ * website. Each line is drawn only when there is something to say.
+ *
+ * ⛔ The website is user-typed text: it becomes a link only with an http(s) scheme ([isSafeHref]),
+ * and is never written through an HTML sink.
+ */
+@Composable
+private fun PersonLines(contributor: Contributor) {
+    contributor.aliases.takeIf { it.isNotEmpty() }?.let { aliases ->
+        // en.json's contributor.aka
+        P(attrs = { classes("cd-aka") }) { Text("aka ${aliases.joinToString(", ")}") }
+    }
+    formatLifeDates(contributor.birthDate, contributor.deathDate)?.let { dates ->
+        P(attrs = { classes("cd-life") }) { Text(dates) }
+    }
+    contributor.website?.trim()?.takeIf { it.isNotEmpty() }?.let { site ->
+        if (isSafeHref(site)) {
+            A(href = site, attrs = {
+                classes("cd-site")
+                attr("target", "_blank")
+                attr("rel", "noopener noreferrer")
+            }) { Text(site) }
+        } else {
+            P(attrs = { classes("cd-site") }) { Text(site) }
+        }
+    }
+}
 
 /** Every button here is an action, never a form submit. */
 private const val BUTTON_VALUE = "button"

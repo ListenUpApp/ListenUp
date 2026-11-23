@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.admin
 
+import com.calypsan.listenup.web.design.DialogForm
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -75,19 +76,23 @@ internal fun NameDialog(
 
     ModalDialog(open = true, title = title, onDismiss = onDismiss) {
         hint?.let { DialogText(it) }
-        Field(
-            label = "Name",
-            value = name,
-            onInput = { name = it },
-            id = "cat-name",
-        )
-        // A genre with no name is not a genre, so the verb is disabled rather than pressable.
-        DialogActions(
-            confirmLabel = confirmLabel,
-            onConfirm = { onConfirm(trimmed) },
-            onDismiss = onDismiss,
-            confirmEnabled = trimmed.isNotEmpty(),
-        )
+        // A genre with no name is not a genre, so the verb is disabled rather than pressable — and
+        // Enter, which presses the same verb, is refused with it.
+        DialogForm(enabled = trimmed.isNotEmpty(), onSubmit = { onConfirm(trimmed) }) {
+            Field(
+                label = "Name",
+                value = name,
+                onInput = { name = it },
+                id = "cat-name",
+            )
+            DialogActions(
+                confirmLabel = confirmLabel,
+                onConfirm = { onConfirm(trimmed) },
+                onDismiss = onDismiss,
+                confirmEnabled = trimmed.isNotEmpty(),
+                submit = true,
+            )
+        }
     }
 }
 

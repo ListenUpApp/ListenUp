@@ -199,6 +199,7 @@ internal fun AccountRouteContent(
                 onOpenOrganize = { router.navigate(Routes.Admin.organize) },
                 onOpenUser = { id -> router.navigate(Routes.Admin.user(id)) },
                 landOnPending = route.query[SECTION_QUERY_KEY] == PENDING_SECTION,
+                onToast = onToast,
             )
         }
 

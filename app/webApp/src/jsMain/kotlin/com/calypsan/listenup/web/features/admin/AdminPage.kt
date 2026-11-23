@@ -56,6 +56,7 @@ fun AdminPage(
     onSetRegistrationPolicy: (RegistrationPolicy) -> Unit,
     onClearError: () -> Unit,
     onRetry: () -> Unit,
+    onCopyInviteLink: (String) -> Unit,
     onOpenLibrarySettings: () -> Unit = {},
     onOpenInbox: () -> Unit = {},
     onOpenServerSettings: () -> Unit = {},
@@ -106,6 +107,7 @@ fun AdminPage(
                     onSetRegistrationPolicy = onSetRegistrationPolicy,
                     onClearError = onClearError,
                     onRetry = onRetry,
+                    onCopyInviteLink = onCopyInviteLink,
                     onOpenUser = onOpenUser,
                     landOnPending = landOnPending,
                 )
@@ -155,6 +157,7 @@ private fun ReadyContent(
     onSetRegistrationPolicy: (RegistrationPolicy) -> Unit,
     onClearError: () -> Unit,
     onRetry: () -> Unit,
+    onCopyInviteLink: (String) -> Unit,
     onOpenUser: (String) -> Unit,
     landOnPending: Boolean,
 ) {
@@ -165,6 +168,8 @@ private fun ReadyContent(
     // each needs to name its subject in the copy.
     var deleting by remember { mutableStateOf<AdminUserInfo?>(null) }
     var revoking by remember { mutableStateOf<InviteInfo?>(null) }
+    var denying by remember { mutableStateOf<AdminUserInfo?>(null) }
+    var declining by remember { mutableStateOf<PasswordResetRequest?>(null) }
 
     ErrorBanner(state.error, onRetry, onClearError)
 
@@ -182,11 +187,33 @@ private fun ReadyContent(
         land = landingPending,
         onLanded = { landingPending = false },
         onApprove = onApproveUser,
-        onDeny = onDenyUser,
+        onAskDeny = { denying = it },
     )
-    ResetsSection(state, nowMs, onDecidePasswordReset)
+    ResetsSection(
+        state,
+        nowMs,
+        onApprove = { id -> onDecidePasswordReset(id, true) },
+        onAskDecline = { declining = it },
+    )
     MembersSection(state, onAskRemove = { deleting = it }, onOpenUser = onOpenUser)
-    InvitesSection(state) { revoking = it }
+    InvitesSection(state, onAskRevoke = { revoking = it }, onCopyLink = onCopyInviteLink)
+
+    DenyAndDeclineDialogs(
+        denying = denying,
+        declining = declining,
+        onDeny = { user ->
+            denying = null
+            onDenyUser(user.id)
+        },
+        onDecline = { request ->
+            declining = null
+            onDecidePasswordReset(request.id, false)
+        },
+        onDismiss = {
+            denying = null
+            declining = null
+        },
+    )
 
     ConfirmDialog(
         open = deleting != null,
@@ -240,7 +267,10 @@ private fun ErrorBanner(
 ) {
     if (message == null) return
 
-    Div(attrs = { classes("adm-error") }) {
+    Div(attrs = {
+        classes("adm-error")
+        attr("role", "alert")
+    }) {
         Span(attrs = { classes("adm-error-t") }) { Text(message) }
         Button(kind = ButtonKind.Secondary, onClick = { onRetry() }) { Text("Try again") }
         Button(kind = ButtonKind.Secondary, onClick = { onClearError() }) { Text("Dismiss") }
@@ -260,7 +290,7 @@ private fun PendingSection(
     land: Boolean,
     onLanded: () -> Unit,
     onApprove: (String) -> Unit,
-    onDeny: (String) -> Unit,
+    onAskDeny: (AdminUserInfo) -> Unit,
 ) {
     if (state.pendingUsers.isEmpty()) return
 
@@ -287,7 +317,7 @@ private fun PendingSection(
                     ) { Text(if (state.approvingUserId == user.id) "Approving…" else "Approve") }
                     Button(
                         kind = ButtonKind.Secondary,
-                        onClick = { onDeny(user.id) },
+                        onClick = { onAskDeny(user) },
                         attrs = {
                             if (state.denyingUserId == user.id) attr(ATTR_DISABLED, "")
                         },
@@ -302,14 +332,15 @@ private fun PendingSection(
 private fun ResetsSection(
     state: AdminUiState.Ready,
     nowMs: Long,
-    onDecide: (String, Boolean) -> Unit,
+    onApprove: (String) -> Unit,
+    onAskDecline: (PasswordResetRequest) -> Unit,
 ) {
     if (state.pendingPasswordResets.isEmpty()) return
 
     Section("Password reset requests") {
         state.pendingPasswordResets.forEach { request ->
             key(request.id) {
-                ResetRow(request, nowMs, state.decidingPasswordResetId == request.id, onDecide)
+                ResetRow(request, nowMs, state.decidingPasswordResetId == request.id, onApprove, onAskDecline)
             }
         }
     }
@@ -351,6 +382,7 @@ private fun MembersSection(
 private fun InvitesSection(
     state: AdminUiState.Ready,
     onAskRevoke: (InviteInfo) -> Unit,
+    onCopyLink: (String) -> Unit,
 ) {
     if (state.pendingInvites.isEmpty()) return
 
@@ -363,6 +395,13 @@ private fun InvitesSection(
                         Span(attrs = { classes("adm-row-sub") }) { Text(invite.email) }
                     }
                     Div(attrs = { classes("adm-row-actions") }) {
+                        // The link is otherwise shown once, on the page that made it; an admin who
+                        // left that page would have to revoke and re-invite to send it again.
+                        Button(
+                            kind = ButtonKind.Secondary,
+                            onClick = { onCopyLink(invite.url) },
+                            label = "Copy the invite link for ${invite.email}",
+                        ) { Text("Copy link") }
                         Button(
                             kind = ButtonKind.Secondary,
                             onClick = { onAskRevoke(invite) },
@@ -376,6 +415,40 @@ private fun InvitesSection(
             }
         }
     }
+}
+
+/**
+ * The two refusals on this page, each asked first: neither can be undone — the person has to
+ * register, or ask for a reset, all over again. Android's and iOS's wording, so the question reads
+ * the same on every client.
+ */
+@Composable
+private fun DenyAndDeclineDialogs(
+    denying: AdminUserInfo?,
+    declining: PasswordResetRequest?,
+    onDeny: (AdminUserInfo) -> Unit,
+    onDecline: (PasswordResetRequest) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    ConfirmDialog(
+        open = denying != null,
+        title = "Deny registration",
+        body =
+            "Are you sure you want to deny the registration request from " +
+                "${denying?.displayName ?: denying?.email}? They will need to register again.",
+        confirmLabel = "Deny",
+        onConfirm = { denying?.let(onDeny) },
+        onDismiss = onDismiss,
+    )
+
+    ConfirmDialog(
+        open = declining != null,
+        title = "Deny reset",
+        body = "Are you sure you want to deny the password reset for ${declining?.displayName}?",
+        confirmLabel = "Deny",
+        onConfirm = { declining?.let(onDecline) },
+        onDismiss = onDismiss,
+    )
 }
 
 /**
@@ -409,7 +482,8 @@ private fun ResetRow(
     request: PasswordResetRequest,
     nowMs: Long,
     deciding: Boolean,
-    onDecide: (String, Boolean) -> Unit,
+    onApprove: (String) -> Unit,
+    onAskDecline: (PasswordResetRequest) -> Unit,
 ) {
     Div(attrs = { classes("adm-row") }) {
         Div(attrs = { classes(ROW_TEXT) }) {
@@ -420,14 +494,14 @@ private fun ResetRow(
         Div(attrs = { classes("adm-row-actions") }) {
             Button(
                 kind = ButtonKind.Primary,
-                onClick = { onDecide(request.id, true) },
+                onClick = { onApprove(request.id) },
                 attrs = {
                     if (deciding) attr(ATTR_DISABLED, "")
                 },
             ) { Text("Approve") }
             Button(
                 kind = ButtonKind.Secondary,
-                onClick = { onDecide(request.id, false) },
+                onClick = { onAskDecline(request) },
                 attrs = {
                     if (deciding) attr(ATTR_DISABLED, "")
                 },
