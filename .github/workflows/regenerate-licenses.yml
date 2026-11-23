@@ -1,11 +1,9 @@
-# Keeps the OSS license manifest (app/sharedUI/.../aboutlibraries.json) in sync with the dependency
-# catalog automatically. Dependabot bumps `gradle/libs.versions.toml` but cannot run Gradle, so it
-# never regenerates the manifest — which then fails the `verifyLicenses` gate on main. This workflow
-# regenerates it and opens a fix PR whenever it drifts. (The manifest is the same on any machine,
-# so a contributor can also run `./gradlew :app:sharedUI:exportLibraryDefinitions` and commit it.)
+# Keeps the OSS license manifests (app/sharedUI/.../aboutlibraries.json and app/webApp/web/public/licences.json)
+# in sync with the dependency catalog and web lockfile automatically. Dependabot bumps dependencies
+# without regenerating the manifests — which fails `verifyLicenses` / `verifyWebLicences` on main.
+# This workflow regenerates both and opens a fix PR whenever either drifts.
 #
-# Runs on: a dependency/build change landing on main (the Dependabot-merge case), or on demand
-# (workflow_dispatch — use this to heal main right now).
+# Runs on: a dependency/build change landing on main, or on demand via workflow_dispatch.
 name: Regenerate License Manifest
 
 on:
@@ -14,6 +12,8 @@ on:
     paths:
       - 'gradle/libs.versions.toml'
       - '**/build.gradle.kts'
+      - 'app/webApp/web/package.json'
+      - 'app/webApp/web/pnpm-lock.yaml'
   workflow_dispatch: {}
 
 permissions:
@@ -26,7 +26,7 @@ concurrency:
 
 jobs:
   regenerate:
-    name: Regenerate aboutlibraries.json
+    name: Regenerate license manifests
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -42,21 +42,38 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
 
-      # Rewrites app/sharedUI/src/commonMain/composeResources/files/aboutlibraries.json in place from the
-      # current dependency graph. Deterministic (sorted entries, timestamp metadata disabled), so a
-      # clean run leaves no diff.
-      - name: Regenerate license manifest (Linux is authoritative)
-        run: ./gradlew :app:sharedUI:exportLibraryDefinitions --no-daemon
+      - name: Set up pnpm
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+        with:
+          package_json_file: app/webApp/web/package.json
 
-      - name: Open a fix PR if the manifest drifted
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: pnpm
+          cache-dependency-path: app/webApp/web/pnpm-lock.yaml
+
+      - name: Install JS toolchain
+        working-directory: app/webApp/web
+        run: pnpm install --frozen-lockfile
+
+      # Rewrites both committed manifests in place from the current dependency graphs:
+      # - app/sharedUI/src/commonMain/composeResources/files/aboutlibraries.json
+      # - app/webApp/web/public/licences.json
+      - name: Regenerate license manifests (Linux is authoritative)
+        run: ./gradlew :app:sharedUI:exportLibraryDefinitions :app:webApp:mergeWebLicences --no-daemon
+
+      - name: Open a fix PR if any manifest drifted
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          MANIFEST="app/sharedUI/src/commonMain/composeResources/files/aboutlibraries.json"
+          ANDROID_MANIFEST="app/sharedUI/src/commonMain/composeResources/files/aboutlibraries.json"
+          WEB_MANIFEST="app/webApp/web/public/licences.json"
 
-          if git diff --quiet -- "$MANIFEST"; then
-            echo "License manifest already in sync with the dependency catalog — nothing to do."
+          if git diff --quiet -- "$ANDROID_MANIFEST" "$WEB_MANIFEST"; then
+            echo "License manifests already in sync with the dependency graphs — nothing to do."
             exit 0
           fi
 
@@ -65,12 +82,12 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -b "$BRANCH"
-          git add "$MANIFEST"
-          git commit -m "🔖 chore(licenses): regenerate aboutlibraries.json for dependency changes"
+          git add "$ANDROID_MANIFEST" "$WEB_MANIFEST"
+          git commit -m "🔖 chore(licenses): regenerate OSS license manifests for dependency changes"
           git push origin "$BRANCH"
 
           gh pr create \
             --base main \
             --head "$BRANCH" \
-            --title "🔖 chore(licenses): regenerate aboutlibraries.json (dependency bump)" \
-            --body "Automated — a dependency change altered the OSS license set, so \`exportLibraryDefinitions\` regenerated the manifest. Merging this makes \`verifyLicenses\` pass again."
+            --title "🔖 chore(licenses): regenerate OSS license manifests (dependency bump)" \
+            --body "Automated — a dependency change altered the OSS license set, so \`exportLibraryDefinitions\` / \`mergeWebLicences\` regenerated the manifest(s). Merging this makes \`verifyLicenses\` and \`verifyWebLicences\` pass again."
