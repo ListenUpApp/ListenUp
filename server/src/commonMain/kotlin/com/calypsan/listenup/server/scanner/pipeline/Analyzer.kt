@@ -1004,7 +1004,8 @@ internal fun groupingScanWarning(
 }
 
 /**
- * Validates embedded chapter bounds at ingest (A9), re-indexing survivors 1-based and contiguous.
+ * Validates chapter bounds at ingest (A9) — embedded or `metadata.json` chapters — re-indexing
+ * survivors 1-based and contiguous.
  *
  * Always dropped, regardless of [durationMs] — structurally impossible chapters a mistagged file can
  * carry: a negative start, or an end before its own start.
@@ -1135,16 +1136,18 @@ private fun pickChapters(
     perTrackMetadata: Map<TrackEntry, EmbeddedAudioMetadata?>,
     bookTitle: String,
 ): Pair<List<Chapter>, BookChapterSource> {
-    val sidecar = metadata?.chapters.orEmpty()
+    // Clamp against the file's own duration ONLY for a single-file book, where `embedded.durationMs`
+    // is the authoritative end-of-book. For a multi-file book the primary file's duration is not the
+    // book's, so a valid whole-book chapter set would be wrongly truncated — there we only drop
+    // structurally-impossible chapters (null bound).
+    val clampBound = if (tracks.size <= 1) embedded?.durationMs else null
+    // metadata.json chapters are held to the same bounds: a stale file written for a longer encode
+    // would otherwise put chapters past the end. Clamped to nothing, the next source decides.
+    val sidecar = clampEmbeddedChapters(metadata?.chapters.orEmpty().toDomainChapters(), clampBound)
     if (sidecar.isNotEmpty()) {
-        return sidecar.toDomainChapters() to BookChapterSource.AbsMetadata
+        return sidecar to BookChapterSource.AbsMetadata
     }
     if (embedded != null && embedded.chapters.isNotEmpty()) {
-        // Clamp against the file's own duration ONLY for a single-file book, where
-        // `embedded.durationMs` is the authoritative end-of-book. For a multi-file book the
-        // primary file's duration is not the book's, so a valid whole-book chapter set would be
-        // wrongly truncated — there we only drop structurally-impossible chapters (null bound).
-        val clampBound = if (tracks.size <= 1) embedded.durationMs else null
         return clampEmbeddedChapters(embedded.chapters, clampBound) to
             BookChapterSource.Embedded(embedded.chaptersSource)
     }
