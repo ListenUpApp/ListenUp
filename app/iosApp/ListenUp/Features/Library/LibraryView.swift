@@ -230,6 +230,10 @@ struct LibraryView: View {
                 sections: observer.seriesSections,
                 seriesProgress: observer.seriesProgress,
                 letters: observer.seriesLetters,
+                isLoading: observer.isLoading,
+                isArriving: observer.isLibraryArriving,
+                errorMessage: observer.errorMessage,
+                onRefresh: { observer.refresh() },
                 picker: sectionPicker
             )
         case .authors:
@@ -237,6 +241,10 @@ struct LibraryView: View {
                 sections: observer.authorSections,
                 indexLetters: LetterRun.railLetters(observer.authorLetters),
                 roleKind: .author,
+                isLoading: observer.isLoading,
+                isArriving: observer.isLibraryArriving,
+                errorMessage: observer.errorMessage,
+                onRefresh: { observer.refresh() },
                 picker: sectionPicker
             )
         case .narrators:
@@ -244,6 +252,10 @@ struct LibraryView: View {
                 sections: observer.narratorSections,
                 indexLetters: LetterRun.railLetters(observer.narratorLetters),
                 roleKind: .narrator,
+                isLoading: observer.isLoading,
+                isArriving: observer.isLibraryArriving,
+                errorMessage: observer.errorMessage,
+                onRefresh: { observer.refresh() },
                 picker: sectionPicker
             )
         }
