@@ -50,7 +50,8 @@ struct DeviceRowModelTests {
                     isCurrent: false, deviceType: "browser"
                 )
             ],
-            signingOut: []
+            signingOut: [],
+            signingOutOthers: false
         )
         #expect(ready.devices.map(\.glyph) == [.Tablet, .Browser])
         let models = ready.devices.map(DeviceRowModel.init)

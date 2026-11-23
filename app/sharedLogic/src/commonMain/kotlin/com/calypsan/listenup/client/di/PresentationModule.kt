@@ -786,7 +786,7 @@ internal val settingsPresentationModule =
             )
         }
         // DevicesViewModel for the Devices (active sessions) screen
-        factory { DevicesViewModel(authRepository = get()) }
+        factory { DevicesViewModel(authRepository = get(), errorBus = get()) }
         // factory (NOT single) — same cancelled-viewModelScope hazard as the Library VMs above.
         factory { SyncIndicatorViewModel(pendingOperationRepository = get(), syncRepository = get(), manualSyncRefresh = get()) }
         // Shell connection-health banner VM, projecting ConnectionHealthStore.state.

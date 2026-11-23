@@ -65,6 +65,7 @@ import listenup.composeapp.generated.resources.devices_empty
 import listenup.composeapp.generated.resources.devices_note_sign_out_effect
 import listenup.composeapp.generated.resources.devices_other_devices
 import listenup.composeapp.generated.resources.devices_sign_out_all_others
+import listenup.composeapp.generated.resources.devices_signing_out_others
 import listenup.composeapp.generated.resources.devices_sign_out_all_others_confirm
 import listenup.composeapp.generated.resources.devices_sign_out_device
 import listenup.composeapp.generated.resources.devices_signed_in_count
@@ -243,7 +244,7 @@ private fun DevicesPhoneLayout(
                 DevicesNoteRow()
                 Spacer(modifier = Modifier.height(22.dp))
                 Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    SignOutAllOthersButton(onClick = onSignOutOthers)
+                    SignOutAllOthersButton(onClick = onSignOutOthers, isBusy = state.signingOutOthers)
                 }
             }
         }
@@ -269,6 +270,7 @@ private fun DevicesWideLayout(
             totalCount = state.devices.size,
             onBack = onBack,
             onSignOutOthers = onSignOutOthers,
+            isSigningOutOthers = state.signingOutOthers,
         )
 
         // Two-column body: left = current session card, right = other devices list
@@ -384,6 +386,7 @@ private fun DevicesWideHero(
     totalCount: Int,
     onBack: () -> Unit,
     onSignOutOthers: () -> Unit,
+    isSigningOutOthers: Boolean,
     modifier: Modifier = Modifier,
 ) {
     Surface(
@@ -443,26 +446,11 @@ private fun DevicesWideHero(
             Spacer(modifier = Modifier.weight(1f))
 
             // Sign out all others — destructive tonal
-            Button(
+            SignOutAllOthersButton(
                 onClick = onSignOutOthers,
-                colors =
-                    ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer,
-                        contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                    ),
+                isBusy = isSigningOutOthers,
                 contentPadding = PaddingValues(horizontal = 20.dp, vertical = 14.dp),
-            ) {
-                Icon(
-                    imageVector = ListenUpIcons.Logout,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp),
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = stringResource(Res.string.devices_sign_out_all_others),
-                    fontWeight = FontWeight.Bold,
-                )
-            }
+            )
         }
     }
 }
@@ -764,26 +752,36 @@ private fun DevicesNoteRow(modifier: Modifier = Modifier) {
 @Composable
 private fun SignOutAllOthersButton(
     onClick: () -> Unit,
+    isBusy: Boolean,
     modifier: Modifier = Modifier,
+    contentPadding: PaddingValues = PaddingValues(horizontal = Spacing.lg, vertical = 10.dp),
 ) {
     Button(
         onClick = onClick,
+        enabled = !isBusy,
         modifier = modifier,
         colors =
             ButtonDefaults.buttonColors(
                 containerColor = MaterialTheme.colorScheme.errorContainer,
                 contentColor = MaterialTheme.colorScheme.onErrorContainer,
             ),
-        contentPadding = PaddingValues(horizontal = Spacing.lg, vertical = 10.dp),
+        contentPadding = contentPadding,
     ) {
-        Icon(
-            imageVector = ListenUpIcons.Logout,
-            contentDescription = null,
-            modifier = Modifier.size(20.dp),
-        )
+        if (isBusy) {
+            ListenUpLoadingIndicatorSmall()
+        } else {
+            Icon(
+                imageVector = ListenUpIcons.Logout,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+            )
+        }
         Spacer(modifier = Modifier.width(8.dp))
         Text(
-            text = stringResource(Res.string.devices_sign_out_all_others),
+            text =
+                stringResource(
+                    if (isBusy) Res.string.devices_signing_out_others else Res.string.devices_sign_out_all_others,
+                ),
             fontWeight = FontWeight.Bold,
         )
     }

@@ -29,7 +29,8 @@ data class DeviceRow(
  * Sealed hierarchy:
  * - [Loading] before the first `listSessions` response.
  * - [Ready] once sessions have loaded; carries the resolved device rows and the
- *   set of session ids currently being signed out (`signingOut`) for per-row overlays.
+ *   set of session ids currently being signed out (`signingOut`) for per-row overlays, and whether
+ *   "sign out all other devices" is in flight (`signingOutOthers`).
  * - [Error] when the load fails — the screen offers a retry.
  */
 sealed interface DevicesUiState {
@@ -40,6 +41,7 @@ sealed interface DevicesUiState {
     data class Ready(
         val devices: List<DeviceRow>,
         val signingOut: Set<String> = emptySet(),
+        val signingOutOthers: Boolean = false,
     ) : DevicesUiState
 
     /** Terminal state when the session load fails; carries the typed [error] for the UI to localize. */

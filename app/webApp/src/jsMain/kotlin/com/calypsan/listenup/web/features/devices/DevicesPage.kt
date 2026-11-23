@@ -93,9 +93,15 @@ fun DevicesPage(
                     }
                 }
 
-                Div(attrs = { classes("dev-danger") }) {
-                    Button(kind = ButtonKind.Secondary, onClick = { confirming = true }) {
-                        Text("Sign out all other devices")
+                if (others.isNotEmpty()) {
+                    Div(attrs = { classes("dev-danger") }) {
+                        Button(
+                            kind = ButtonKind.Secondary,
+                            onClick = { confirming = true },
+                            enabled = !state.signingOutOthers,
+                        ) {
+                            Text(if (state.signingOutOthers) "Signing out other devices…" else "Sign out all other devices")
+                        }
                     }
                 }
 

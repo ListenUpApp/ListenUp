@@ -1559,6 +1559,7 @@
     "sign_out": "Sign out",
     "sign_out_all_others": "Sign out all other devices",
     "sign_out_all_others_confirm": "Sign out of all other devices? This device stays signed in.",
+    "signing_out_others": "Signing out other devices…",
     "sign_out_device": "Sign out device",
     "signed_in_count": "%1$d signed in",
     "this_device": "This device",
