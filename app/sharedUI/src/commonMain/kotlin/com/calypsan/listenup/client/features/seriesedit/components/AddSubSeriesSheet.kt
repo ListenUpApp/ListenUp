@@ -8,25 +8,20 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.BottomSheetDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.semantics.disabled
-import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.components.AdaptiveSheet
 import com.calypsan.listenup.client.design.components.ListenUpSearchField
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.icons.ListenUpIcons
@@ -62,7 +57,6 @@ import org.jetbrains.compose.resources.stringResource
  * dialog. A refusal is already on the global snackbar (the ViewModel sends it to the error bus), so
  * the sheet only acknowledges it.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddSubSeriesSheet(
     state: AddSubSeriesUiState,
@@ -73,16 +67,16 @@ fun AddSubSeriesSheet(
     }
     val open = state as? AddSubSeriesUiState.Open ?: return
 
-    ModalBottomSheet(
-        onDismissRequest = { onEvent(AddSubSeriesEvent.Dismissed) },
-        sheetState =
-            rememberBottomSheetState(
-                initialValue = SheetValue.Hidden,
-                enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
-            ),
-        shape = BottomSheetDefaults.ExpandedShape,
-    ) {
-        AddSubSeriesSheetContent(state = open, onEvent = onEvent)
+    AdaptiveSheet(
+        title = stringResource(Res.string.series_add_subseries_to, open.parentName),
+        onDismiss = { onEvent(AddSubSeriesEvent.Dismissed) },
+        scrollable = false,
+    ) { _ ->
+        AddSubSeriesSheetContent(
+            state = open,
+            onEvent = onEvent,
+            modifier = Modifier.weight(1f, fill = false),
+        )
     }
 
     open.pendingMove?.let { move ->
@@ -118,30 +112,25 @@ fun AddSubSeriesSheet(
     }
 }
 
-/** The sheet's body: title, search, "New series…", and the candidates. */
+/** The sheet's body: search, "New series…", and the candidates. */
 @Composable
 internal fun AddSubSeriesSheetContent(
     state: AddSubSeriesUiState.Open,
     onEvent: (AddSubSeriesEvent) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val haptics = LocalHaptics.current
     // The sheet opens blank (Dismissed resets the query) and owns the text while it is open.
     val query = rememberForwardingTextFieldState(state.query) { onEvent(AddSubSeriesEvent.QueryChanged(it)) }
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Text(
-            text = stringResource(Res.string.series_add_subseries_to, state.parentName),
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(horizontal = Spacing.screenMargin).semantics { heading() },
-        )
+    Column(modifier = modifier.fillMaxWidth()) {
         ListenUpSearchField(
             state = query,
             onSubmit = {},
             placeholder = stringResource(Res.string.series_merge_search_placeholder),
             clearable = true,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.screenMargin, vertical = 12.dp),
+            modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
         )
-        LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
+        LazyColumn(modifier = Modifier.weight(1f, fill = false), contentPadding = PaddingValues(bottom = 24.dp)) {
             item(key = "new") {
                 ListItem(
                     headlineContent = {

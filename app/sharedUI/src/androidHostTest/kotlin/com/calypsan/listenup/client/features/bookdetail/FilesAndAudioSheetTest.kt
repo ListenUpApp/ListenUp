@@ -4,7 +4,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import com.calypsan.listenup.client.domain.model.AudioFile
-import com.calypsan.listenup.client.features.bookdetail.components.FilesAndAudioContent
+import com.calypsan.listenup.client.features.bookdetail.components.FilesAndAudioSheet
 import io.kotest.matchers.shouldBe
 import org.junit.Rule
 import org.junit.Test
@@ -21,7 +21,7 @@ class FilesAndAudioSheetTest {
     fun `the sheet lists each file, then Format, Bitrate, Sample rate and Channels`() {
         composeRule.setContent {
             MaterialTheme {
-                FilesAndAudioContent(
+                FilesAndAudioSheet(
                     audioFiles =
                         listOf(
                             AudioFile(
@@ -37,6 +37,7 @@ class FilesAndAudioSheetTest {
                                 channels = 2,
                             ),
                         ),
+                    onDismiss = {},
                 )
             }
         }

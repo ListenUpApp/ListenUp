@@ -4,8 +4,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 import com.calypsan.listenup.client.design.components.ForwardEdits
 import androidx.compose.foundation.text.input.rememberTextFieldState
-import androidx.compose.material3.SheetValue
-import androidx.compose.material3.rememberBottomSheetState
 import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import listenup.composeapp.generated.resources.common_remove_name
 import androidx.compose.ui.semantics.Role
@@ -22,7 +20,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -38,10 +35,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
-import androidx.compose.material3.SheetState
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
@@ -61,6 +56,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import com.calypsan.listenup.client.design.TwoPaneMinWidth
+import com.calypsan.listenup.client.design.components.AdaptiveSheet
 import com.calypsan.listenup.client.design.components.AvatarSize
 import com.calypsan.listenup.client.design.components.BookCoverImage
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
@@ -160,11 +156,6 @@ fun AdminCollectionDetailScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
-    val sheetState =
-        rememberBottomSheetState(
-            initialValue = SheetValue.Hidden,
-            enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
-        )
 
     var bookToRemove by remember { mutableStateOf<CollectionBookItem?>(null) }
     var shareToRemove by remember { mutableStateOf<CollectionShareItem?>(null) }
@@ -213,7 +204,6 @@ fun AdminCollectionDetailScreen(
     // Add member bottom sheet
     if (ready?.showAddMemberSheet == true) {
         AddMemberBottomSheet(
-            sheetState = sheetState,
             isLoading = ready.isLoadingUsers,
             isSharing = ready.isSharing,
             users = ready.availableUsers,
@@ -819,33 +809,19 @@ private fun MemberRow(
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AddMemberBottomSheet(
-    sheetState: SheetState,
     isLoading: Boolean,
     isSharing: Boolean,
     users: List<AdminUserInfo>,
     onDismiss: () -> Unit,
     onUserSelected: (String) -> Unit,
 ) {
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        shape = MaterialTheme.shapes.large,
-    ) {
-        Column(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .navigationBarsPadding()
-                    .padding(bottom = 16.dp),
-        ) {
-            Text(
-                text = stringResource(Res.string.admin_add_member),
-                style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.padding(horizontal = Spacing.screenMargin, vertical = Spacing.lg),
-            )
+    AdaptiveSheet(
+        title = stringResource(Res.string.admin_add_member),
+        onDismiss = onDismiss,
+    ) { _ ->
+        Column(modifier = Modifier.fillMaxWidth().padding(top = Spacing.sm)) {
             when {
                 isLoading -> AddMemberLoadingPanel()
                 users.isEmpty() -> AddMemberEmptyPanel()
@@ -925,7 +901,6 @@ private fun AddMemberUserList(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AddBooksToCollectionSheet(
     query: String,
@@ -938,58 +913,41 @@ private fun AddBooksToCollectionSheet(
     // The sheet opens on a blank query (closeAddBooks resets it) and owns the text while it is open.
     val queryState = rememberTextFieldState(query)
     queryState.ForwardEdits(onQueryChange)
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState =
-            rememberBottomSheetState(
-                initialValue = SheetValue.Hidden,
-                enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
-            ),
-        shape = MaterialTheme.shapes.large,
-    ) {
-        Column(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .navigationBarsPadding()
-                    .padding(bottom = 16.dp),
-        ) {
+    AdaptiveSheet(
+        title = stringResource(Res.string.admin_add_books),
+        onDismiss = onDismiss,
+        scrollable = false,
+    ) { _ ->
+        ListenUpSearchField(
+            state = queryState,
+            onSubmit = {},
+            placeholder = stringResource(Res.string.admin_add_books_search_placeholder),
+            isLoading = isSearching,
+            clearable = true,
+            modifier = Modifier.fillMaxWidth().padding(top = Spacing.sm),
+        )
+        if (query.isNotBlank() && results.isEmpty() && !isSearching) {
             Text(
-                text = stringResource(Res.string.admin_add_books),
-                style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.padding(horizontal = Spacing.screenMargin, vertical = Spacing.lg),
+                text = stringResource(Res.string.import_book_search_no_results),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.fillMaxWidth().padding(vertical = EMPTY_PANEL_PADDING_DP.dp),
             )
-            ListenUpSearchField(
-                state = queryState,
-                onSubmit = {},
-                placeholder = stringResource(Res.string.admin_add_books_search_placeholder),
-                isLoading = isSearching,
-                clearable = true,
-                modifier = Modifier.padding(horizontal = Spacing.lg),
-            )
-            if (query.isNotBlank() && results.isEmpty() && !isSearching) {
-                Text(
-                    text = stringResource(Res.string.import_book_search_no_results),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.fillMaxWidth().padding(EMPTY_PANEL_PADDING_DP.dp),
+        }
+        LazyColumn(modifier = Modifier.weight(1f, fill = false)) {
+            items(items = results, key = { it.id }) { hit ->
+                ListItem(
+                    headlineContent = { Text(hit.name) },
+                    supportingContent = hit.author?.let { author -> { Text(author) } },
+                    trailingContent = {
+                        Icon(
+                            imageVector = ListenUpIcons.Add,
+                            contentDescription = stringResource(Res.string.admin_add_books),
+                        )
+                    },
+                    colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surface),
+                    modifier = Modifier.clickable { onBookSelected(hit.id) },
                 )
-            }
-            LazyColumn {
-                items(items = results, key = { it.id }) { hit ->
-                    ListItem(
-                        headlineContent = { Text(hit.name) },
-                        supportingContent = hit.author?.let { author -> { Text(author) } },
-                        trailingContent = {
-                            Icon(
-                                imageVector = ListenUpIcons.Add,
-                                contentDescription = stringResource(Res.string.admin_add_books),
-                            )
-                        },
-                        colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surface),
-                        modifier = Modifier.clickable { onBookSelected(hit.id) },
-                    )
-                }
             }
         }
     }

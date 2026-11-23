@@ -3,11 +3,10 @@ package com.calypsan.listenup.client.features.library
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 import androidx.compose.foundation.text.input.rememberTextFieldState
-import androidx.compose.material3.SheetValue
-import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.Role
+import com.calypsan.listenup.client.design.components.AdaptiveSheet
 import com.calypsan.listenup.client.design.components.ListenUpAlertDialog
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -16,18 +15,15 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -59,7 +55,6 @@ import listenup.composeapp.generated.resources.library_create_new_collection
 import listenup.composeapp.generated.resources.common_no_items_yet
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.BottomSheetDefaults
 
 /**
  * Bottom sheet for selecting a collection to add books to.
@@ -78,7 +73,6 @@ import androidx.compose.material3.BottomSheetDefaults
  * @param isLoading Whether an add operation is in progress
  * @param canCreate Whether the inline "create new collection" affordance is shown (admin-only)
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CollectionPickerSheet(
     collections: List<Collection>,
@@ -91,55 +85,28 @@ fun CollectionPickerSheet(
 ) {
     var showCreateDialog by rememberSaveable { mutableStateOf(false) }
 
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState =
-            rememberBottomSheetState(
-                initialValue = SheetValue.Hidden,
-                enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
-            ),
-        shape = BottomSheetDefaults.ExpandedShape,
-    ) {
-        Column(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .navigationBarsPadding(),
-        ) {
-            // Header
-            Column(
-                modifier = Modifier.padding(horizontal = Spacing.screenMargin, vertical = Spacing.sm),
-            ) {
-                Text(
-                    text = stringResource(Res.string.book_detail_add_to_collection),
-                    style = MaterialTheme.typography.titleLarge,
-                )
-                Text(
-                    text =
-                        if (selectedBookCount == 1) {
-                            "1 book selected"
-                        } else {
-                            "$selectedBookCount books selected"
-                        },
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+    AdaptiveSheet(
+        title = stringResource(Res.string.book_detail_add_to_collection),
+        subtitle =
+            if (selectedBookCount == 1) {
+                "1 book selected"
+            } else {
+                "$selectedBookCount books selected"
+            },
+        onDismiss = onDismiss,
+        scrollable = false,
+    ) { _ ->
+        HorizontalDivider(modifier = Modifier.padding(top = Spacing.sm))
 
-            HorizontalDivider()
-
-            // Loading overlay or collection list
-            CollectionPickerContent(
-                collections = collections,
-                isLoading = isLoading,
-                canCreate = canCreate,
-                onCollectionSelected = onCollectionSelected,
-                onCreateClick = { showCreateDialog = true },
-                modifier = Modifier.weight(1f, fill = false),
-            )
-
-            Spacer(Modifier.height(16.dp))
-        }
+        // Loading overlay or collection list
+        CollectionPickerContent(
+            collections = collections,
+            isLoading = isLoading,
+            canCreate = canCreate,
+            onCollectionSelected = onCollectionSelected,
+            onCreateClick = { showCreateDialog = true },
+            modifier = Modifier.weight(1f, fill = false),
+        )
     }
 
     // Create collection dialog (only reachable when canCreate gates the create row)
@@ -179,10 +146,7 @@ private fun CollectionPickerContent(
                         enabled = !isLoading,
                     )
                     if (collections.isNotEmpty()) {
-                        HorizontalDivider(
-                            modifier = Modifier.padding(horizontal = Spacing.screenMargin),
-                            color = MaterialTheme.colorScheme.outlineVariant,
-                        )
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     }
                 }
             }
@@ -276,7 +240,7 @@ private fun CreateNewCollectionRow(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = Spacing.screenMargin, vertical = 14.dp),
+                    .padding(vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // Plus icon
@@ -331,7 +295,7 @@ private fun CollectionRow(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = Spacing.screenMargin, vertical = 14.dp),
+                    .padding(vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(

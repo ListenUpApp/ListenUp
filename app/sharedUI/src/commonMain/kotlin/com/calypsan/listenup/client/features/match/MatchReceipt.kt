@@ -7,21 +7,15 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -34,13 +28,13 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.LiveRegionMode
-import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.api.dto.match.AppliedChange
+import com.calypsan.listenup.client.design.components.AdaptiveSheet
 import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.motion.LocalTouchExplorationActive
 import com.calypsan.listenup.client.design.theme.Spacing
@@ -259,32 +253,21 @@ internal fun receiptText(receipt: MatchReceiptUi): String {
 }
 
 /** See what changed: every change the match made, each with where it came from. */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun WhatChangedSheet(
     receipt: MatchReceiptUi,
     onDismiss: () -> Unit,
 ) {
     val title = stringResource(Res.string.match_what_changed_title)
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState =
-            rememberBottomSheetState(
-                initialValue = SheetValue.Hidden,
-                enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
-            ),
+    AdaptiveSheet(
+        title = title,
+        onDismiss = onDismiss,
         modifier = Modifier.semantics { paneTitle = title },
-    ) {
+    ) { _ ->
         Column(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = Spacing.screenMargin)
-                    .padding(bottom = Spacing.xl),
+            modifier = Modifier.fillMaxWidth().padding(top = Spacing.xs),
             verticalArrangement = Arrangement.spacedBy(Spacing.sm),
         ) {
-            Text(title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.semantics { heading() })
             receipt.changes.forEach { change ->
                 change.lines().forEach { line ->
                     Text(

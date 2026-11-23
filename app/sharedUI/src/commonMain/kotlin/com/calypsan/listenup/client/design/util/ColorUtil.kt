@@ -38,10 +38,10 @@ fun parseHexColor(hex: String): Color =
  * Used where the backend supplies an owner identity but no avatar color — the same
  * id always maps to the same color, so shelf cards stay visually consistent.
  */
-fun stableColorForId(id: String): Color = idColorPalette[id.hashCode().mod(idColorPalette.size)]
+fun stableColorForId(id: String): Color = SharedIdentityPalette[id.hashCode().mod(SharedIdentityPalette.size)]
 
-/** Twelve-color Material 3 palette mirroring the avatar palette used elsewhere. */
-private val idColorPalette =
+/** Twelve-color Material 3 palette shared by [stableColorForId] and `UserAvatar`. */
+internal val SharedIdentityPalette =
     listOf(
         Color(0xFFE53935L),
         Color(0xFFD81B60L),

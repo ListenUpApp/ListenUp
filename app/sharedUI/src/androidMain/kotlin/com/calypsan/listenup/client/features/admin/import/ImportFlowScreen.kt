@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -51,6 +50,7 @@ import com.calypsan.listenup.api.dto.imports.ImportResult
 import com.calypsan.listenup.api.dto.imports.MatchTier
 import com.calypsan.listenup.client.design.components.ColorBlockHero
 import com.calypsan.listenup.client.design.components.ListenUpButton
+import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpTextField
 import com.calypsan.listenup.client.design.components.ScallopBadge
 import com.calypsan.listenup.client.design.components.StatTile
@@ -948,7 +948,7 @@ private fun BookSearchPanel(
                 modifier = Modifier.weight(1f),
                 trailingContent = {
                     if (bookSearch.isSearching) {
-                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                        ListenUpLoadingIndicator(size = 18.dp)
                     }
                 },
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),

@@ -3,12 +3,11 @@ package com.calypsan.listenup.client.features.library
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 import androidx.compose.foundation.text.input.rememberTextFieldState
-import androidx.compose.material3.SheetValue
-import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.stateDescription
+import com.calypsan.listenup.client.design.components.AdaptiveSheet
 import com.calypsan.listenup.client.design.components.ListenUpAlertDialog
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -16,19 +15,15 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -62,7 +57,6 @@ import listenup.composeapp.generated.resources.library_shelf_name
 import listenup.composeapp.generated.resources.library_you_dont_have_any_shelves
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.BottomSheetDefaults
 
 /**
  * Bottom sheet for selecting a shelf to add books to.
@@ -79,7 +73,6 @@ import androidx.compose.material3.BottomSheetDefaults
  * @param shelvesContainingBook Shelves that already hold the book (single-book flow only) — marked
  *   with a check, as iOS does. A mark, not a toggle: tapping one still adds, a server no-op.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ShelfPickerSheet(
     shelves: List<Shelf>,
@@ -94,108 +87,78 @@ fun ShelfPickerSheet(
     val holdingIds = remember(shelvesContainingBook) { shelvesContainingBook.mapTo(HashSet()) { it.id } }
     var showCreateDialog by rememberSaveable { mutableStateOf(false) }
 
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState =
-            rememberBottomSheetState(
-                initialValue = SheetValue.Hidden,
-                enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
-            ),
-        shape = BottomSheetDefaults.ExpandedShape,
-    ) {
-        Column(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .navigationBarsPadding(),
+    AdaptiveSheet(
+        title = stringResource(Res.string.book_detail_add_to_shelf),
+        subtitle =
+            if (selectedBookCount == 1) {
+                "1 book selected"
+            } else {
+                "$selectedBookCount books selected"
+            },
+        onDismiss = onDismiss,
+        scrollable = false,
+    ) { _ ->
+        HorizontalDivider(modifier = Modifier.padding(top = Spacing.sm))
+
+        // Content
+        Box(
+            modifier = Modifier.weight(1f, fill = false),
         ) {
-            // Header
-            Column(
-                modifier = Modifier.padding(horizontal = Spacing.screenMargin, vertical = Spacing.sm),
+            LazyColumn(
+                modifier = Modifier.fillMaxWidth(),
             ) {
-                Text(
-                    text = stringResource(Res.string.book_detail_add_to_shelf),
-                    style = MaterialTheme.typography.titleLarge,
-                )
-                Text(
-                    text =
-                        if (selectedBookCount == 1) {
-                            "1 book selected"
-                        } else {
-                            "$selectedBookCount books selected"
-                        },
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+                // Create new shelf option (always shown first)
+                item(key = "create_new") {
+                    CreateNewShelfRow(
+                        onClick = { showCreateDialog = true },
+                        enabled = !isLoading,
+                    )
+                    if (shelves.isNotEmpty()) {
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    }
+                }
 
-            HorizontalDivider()
-
-            // Content
-            Box(
-                modifier = Modifier.weight(1f, fill = false),
-            ) {
-                LazyColumn(
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    // Create new shelf option (always shown first)
-                    item(key = "create_new") {
-                        CreateNewShelfRow(
-                            onClick = { showCreateDialog = true },
+                // Existing shelves
+                if (shelves.isEmpty()) {
+                    item(key = "empty_hint") {
+                        Text(
+                            text = stringResource(Res.string.library_you_dont_have_any_shelves),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(vertical = Spacing.lg),
+                        )
+                    }
+                } else {
+                    items(
+                        items = shelves,
+                        key = { it.id.value },
+                    ) { shelf ->
+                        ShelfRow(
+                            shelf = shelf,
+                            holdsBook = shelf.id in holdingIds,
+                            onClick = {
+                                haptics.commit()
+                                onShelfSelected(shelf.id.value)
+                            },
                             enabled = !isLoading,
                         )
-                        if (shelves.isNotEmpty()) {
-                            HorizontalDivider(
-                                modifier = Modifier.padding(horizontal = Spacing.screenMargin),
-                                color = MaterialTheme.colorScheme.outlineVariant,
-                            )
-                        }
-                    }
-
-                    // Existing shelves
-                    if (shelves.isEmpty()) {
-                        item(key = "empty_hint") {
-                            Text(
-                                text = stringResource(Res.string.library_you_dont_have_any_shelves),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(horizontal = Spacing.screenMargin, vertical = Spacing.lg),
-                            )
-                        }
-                    } else {
-                        items(
-                            items = shelves,
-                            key = { it.id.value },
-                        ) { shelf ->
-                            ShelfRow(
-                                shelf = shelf,
-                                holdsBook = shelf.id in holdingIds,
-                                onClick = {
-                                    haptics.commit()
-                                    onShelfSelected(shelf.id.value)
-                                },
-                                enabled = !isLoading,
-                            )
-                        }
-                    }
-                }
-
-                // Loading overlay
-                if (isLoading) {
-                    Surface(
-                        modifier = Modifier.matchParentSize(),
-                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
-                    ) {
-                        Box(
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            ListenUpLoadingIndicator()
-                        }
                     }
                 }
             }
 
-            Spacer(Modifier.height(16.dp))
+            // Loading overlay
+            if (isLoading) {
+                Surface(
+                    modifier = Modifier.matchParentSize(),
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
+                ) {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        ListenUpLoadingIndicator()
+                    }
+                }
+            }
         }
     }
 
@@ -230,7 +193,7 @@ private fun CreateNewShelfRow(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = Spacing.screenMargin, vertical = 14.dp),
+                    .padding(vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // Plus icon
@@ -297,7 +260,7 @@ private fun ShelfRow(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = Spacing.screenMargin, vertical = 14.dp),
+                    .padding(vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // Shelf icon with avatar color background

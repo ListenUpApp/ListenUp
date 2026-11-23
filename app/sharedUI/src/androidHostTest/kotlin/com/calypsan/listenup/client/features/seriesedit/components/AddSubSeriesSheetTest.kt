@@ -43,17 +43,13 @@ class AddSubSeriesSheetTest {
         error = null,
     )
 
-    private fun renderContent(state: AddSubSeriesUiState.Open) {
-        composeRule.setContent { MaterialTheme { AddSubSeriesSheetContent(state = state, onEvent = { events += it }) } }
-    }
-
     private fun renderSheet(state: AddSubSeriesUiState) {
         composeRule.setContent { MaterialTheme { AddSubSeriesSheet(state = state, onEvent = { events += it }) } }
     }
 
     @Test
     fun `each candidate says where it sits today`() {
-        renderContent(open())
+        renderSheet(open())
 
         composeRule.onNodeWithText("Add sub-series to Cosmere").assertExists()
         composeRule.onNodeWithText("Top level · 3 books").assertExists()
@@ -63,7 +59,7 @@ class AddSubSeriesSheetTest {
 
     @Test
     fun `choosing a candidate sends it, and the one already here does nothing`() {
-        renderContent(open())
+        renderSheet(open())
 
         composeRule.onNodeWithText("City Watch").performClick()
         composeRule.onNodeWithText("Mistborn").performClick()
@@ -74,7 +70,7 @@ class AddSubSeriesSheetTest {
 
     @Test
     fun `New series opens the name dialog`() {
-        renderContent(open())
+        renderSheet(open())
 
         composeRule.onNodeWithText("New series…").performClick()
 

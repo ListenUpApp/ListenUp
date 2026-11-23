@@ -38,12 +38,13 @@ class ChapterMarkerSheetTest {
     ) {
         composeRule.setContent {
             MaterialTheme {
-                ChapterMarkerSheetContent(
+                ChapterMarkerSheet(
                     edit = ChapterMarkerEdit(chapterId, ChapterMarkerTier.Part, isNew),
                     initialName = name,
                     chapters = chapters,
                     onSave = { title, startsAt -> calls += "save:$title:$startsAt" },
                     onRemove = { calls += "remove" },
+                    onDismiss = {},
                 )
             }
         }

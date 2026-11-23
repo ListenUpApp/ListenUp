@@ -8,15 +8,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -24,11 +19,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.components.AdaptiveSheet
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.BookDocument
@@ -42,29 +37,20 @@ import org.jetbrains.compose.resources.stringResource
  * one calls [onOpen] with its id (the ViewModel dispatches by format). One document opens at once from the Details row
  * and never reaches this sheet.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DocumentsSheet(
     documents: List<BookDocument>,
     onOpen: (docId: String) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    AdaptiveSheet(
+        title = stringResource(Res.string.book_detail_documents_sheet_title),
+        onDismiss = onDismiss,
+    ) { _ ->
         Column(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
-                    .navigationBarsPadding()
-                    .padding(horizontal = Spacing.screenMargin)
-                    .padding(bottom = Spacing.lg),
+            modifier = Modifier.fillMaxWidth().padding(top = Spacing.sm),
             verticalArrangement = Arrangement.spacedBy(Spacing.sm),
         ) {
-            Text(
-                text = stringResource(Res.string.book_detail_documents_sheet_title),
-                style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.semantics { heading() },
-            )
             documents.forEach { doc -> DocumentCard(doc = doc, onClick = { onOpen(doc.id) }) }
         }
     }
