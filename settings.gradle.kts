@@ -18,6 +18,9 @@ plugins {
     id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
 }
 
+// Minimum versions for vulnerable transitive JVM dependencies, shared with the build-logic build.
+apply(from = "gradle/security-floors.settings.gradle.kts")
+
 dependencyResolutionManagement {
     repositories {
         google {
