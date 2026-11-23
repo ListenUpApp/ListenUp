@@ -5,6 +5,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.isHeading
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import org.junit.Rule
 import org.junit.Test
@@ -34,5 +35,22 @@ class GroupHeaderHeadingTest {
         }
 
         composeRule.onNodeWithText("People").assert(isHeading())
+    }
+
+    @Test
+    fun `a group's See all says which group it opens`() {
+        composeRule.setContent {
+            MaterialTheme {
+                GroupHeader(
+                    title = "People",
+                    count = 9,
+                    badgeContainer = Color.Gray,
+                    badgeContent = Color.Black,
+                    onSeeAll = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithContentDescription("See all People").assertExists()
     }
 }

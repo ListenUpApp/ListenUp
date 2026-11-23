@@ -1191,6 +1191,7 @@
     "results_count_for": "%1$d results for “%2$s”",
     "searching": "Searching…",
     "see_all": "See all",
+    "see_all_group_a11y": "See all %1$s",
     "section_count": "(%1$d)",
     "search_placeholder": "Search books, authors, series...",
     "search_your_library": "Search your library",

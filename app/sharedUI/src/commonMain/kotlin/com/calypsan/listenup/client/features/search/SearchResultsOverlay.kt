@@ -103,6 +103,9 @@ import listenup.composeapp.generated.resources.search_try_a_different_search_ter
 import listenup.composeapp.generated.resources.shell_close_search
 import com.calypsan.listenup.client.design.components.RestrictedBookMarker
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import listenup.composeapp.generated.resources.search_see_all_group_a11y
 
 // Stable lazy-list item keys, shared across the compact list, the wide rail, and the See-all page
 // so a single hit keeps the same identity wherever it renders.
@@ -654,7 +657,7 @@ internal fun GroupHeader(
         }
         if (onSeeAll != null) {
             Spacer(modifier = Modifier.weight(1f))
-            SeeAllAction(onClick = onSeeAll)
+            SeeAllAction(groupTitle = title, onClick = onSeeAll)
         }
     }
 }
@@ -662,10 +665,13 @@ internal fun GroupHeader(
 /** Trailing "See all" affordance in a capped group header: a label plus a forward chevron. */
 @Composable
 private fun SeeAllAction(
+    groupTitle: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val haptics = LocalHaptics.current
+    // Every group has a "See all"; TalkBack hears which one this is.
+    val spokenLabel = stringResource(Res.string.search_see_all_group_a11y, groupTitle)
     Surface(
         onClick = {
             haptics.press()
@@ -673,10 +679,17 @@ private fun SeeAllAction(
         },
         shape = MaterialTheme.shapes.extraLarge,
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        modifier = modifier.semantics { role = Role.Button },
+        modifier =
+            modifier.semantics {
+                role = Role.Button
+                contentDescription = spokenLabel
+            },
     ) {
         Row(
-            modifier = Modifier.padding(start = 14.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
+            modifier =
+                Modifier
+                    .padding(start = 14.dp, end = 8.dp, top = 6.dp, bottom = 6.dp)
+                    .clearAndSetSemantics {},
             horizontalArrangement = Arrangement.spacedBy(2.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {

@@ -27578,6 +27578,17 @@
         }
       }
     },
+    "search.see_all_group_a11y": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "See all %1$@"
+          }
+        }
+      }
+    },
     "search.tab_all": {
       "extractionState": "manual",
       "localizations": {
