@@ -44,7 +44,17 @@ class ClientDaoWritesGoThroughDataLayerRuleSelfTest :
 
         test("a @Query is a write when its SQL starts with a write verb") {
             ClientDaoWritesGoThroughDataLayerRule.isWriteSql("@Query(\"UPDATE books SET x = 1\")") shouldBe true
-            ClientDaoWritesGoThroughDataLayerRule.isWriteSql("@Query(\n    \"\"\"\n    delete FROM books\n\"\"\"\n)") shouldBe true
+            // A literal `"""` cannot be written inside a raw string, so build it from a char.
+            val tripleQuote = "${'"'}${'"'}${'"'}"
+            val multiLine =
+                """
+                @Query(
+                    $tripleQuote
+                    delete FROM books
+                $tripleQuote
+                )
+                """.trimIndent()
+            ClientDaoWritesGoThroughDataLayerRule.isWriteSql(multiLine) shouldBe true
             ClientDaoWritesGoThroughDataLayerRule.isWriteSql("@Query(\"SELECT * FROM books\")") shouldBe false
         }
     })

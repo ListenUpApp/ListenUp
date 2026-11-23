@@ -101,7 +101,7 @@ fun writeLabelsIn(source: String): Set<String> {
     val labels = sqLabel.findAll(code).toList()
     return labels
         .mapIndexedNotNull { index, label ->
-            val end = labels.getOrNull(index + 1)?.range?.first ?: code.length
+            val end = labels.getOrNull(index + 1)?.run { range.first } ?: code.length
             val statement = code.substring(label.range.last + 1, end).trim()
             label.groupValues[1].takeUnless { statement.startsWith("SELECT", ignoreCase = true) }
         }.toSet()

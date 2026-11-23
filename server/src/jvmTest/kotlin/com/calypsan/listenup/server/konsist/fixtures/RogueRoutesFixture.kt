@@ -62,7 +62,7 @@ internal fun Route.rogueRoutes() {
     }
 
     put("/rogue/check-can-edit-upload") {
-        checkCanEdit()?.let { return@put call.respond(HttpStatusCode.Forbidden) }
+        if (checkCanEdit() != null) return@put call.respond(HttpStatusCode.Forbidden)
         call.respond(call.receiveFixtureBody())
     }
 

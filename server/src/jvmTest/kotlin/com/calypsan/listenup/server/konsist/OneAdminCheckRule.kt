@@ -88,8 +88,6 @@ class OneAdminCheckRule :
             override fun toString(): String = "$path:$lineNumber: ${line.trim()}"
         }
 
-        private fun Hit.isReviewed(): Boolean = REVIEWED.any { it.matches(this) }
-
         val REVIEWED =
             listOf(
                 Reviewed(
@@ -129,17 +127,21 @@ class OneAdminCheckRule :
                 ),
             )
 
+        private fun Hit.isReviewed(): Boolean = REVIEWED.any { it.matches(this) }
+
         /** Every private admin check in [files], comments blanked, matched across wrapped lines. */
         fun findOffenders(files: List<KoFileDeclaration>): List<Hit> =
             files.flatMap { file ->
                 val text = blankComments(file.text)
                 val lines = text.lines()
                 SPELLINGS
+                    .asSequence()
                     .flatMap { spelling -> spelling.findAll(text).map { it.range.first } }
                     .map { offset -> text.substring(0, offset).count { it == '\n' } }
                     .distinct()
                     .sorted()
                     .map { index -> Hit(file.path, index + 1, lines[index]) }
+                    .toList()
             }
 
         /** Every role literal in the SQL [text] of [path], `--` comments stripped. */

@@ -77,12 +77,6 @@ class ClientDaoWritesGoThroughDataLayerRule :
 
         private val WRITE_ANNOTATIONS = setOf("Insert", "Update", "Delete", "Upsert")
 
-        /**
-         * Every write method declared by a `@Dao` interface in `:app:sharedLogic` — see the class KDoc for what
-         * counts. Read once from the production scope, so a DAO write added tomorrow is covered tomorrow.
-         */
-        val DAO_WRITE_METHODS: Set<String> by lazy { DAO_WRITE_DECLARATIONS.map { it.substringAfter('.') }.toSet() }
-
         /** Every write method of every `@Dao`, as `Dao.method` — one entry per declaration, for the discovery floor. */
         val DAO_WRITE_DECLARATIONS: List<String> by lazy {
             val daoFunctions =
@@ -104,6 +98,12 @@ class ClientDaoWritesGoThroughDataLayerRule :
                     }
             (direct + transactional).map { (dao, fn) -> "$dao.${fn.name}" }.distinct()
         }
+
+        /**
+         * Every write method declared by a `@Dao` interface in `:app:sharedLogic` — see the class KDoc for what
+         * counts. Read once from the production scope, so a DAO write added tomorrow is covered tomorrow.
+         */
+        val DAO_WRITE_METHODS: Set<String> by lazy { DAO_WRITE_DECLARATIONS.map { it.substringAfter('.') }.toSet() }
 
         /** True when the `@Query(…)` annotation [annotationText]'s SQL starts with a write verb. */
         internal fun isWriteSql(annotationText: String): Boolean =

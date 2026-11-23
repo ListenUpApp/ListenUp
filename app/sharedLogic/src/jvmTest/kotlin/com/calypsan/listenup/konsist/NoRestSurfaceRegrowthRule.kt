@@ -70,20 +70,17 @@ internal fun literalRoutesIn(files: List<Pair<String, String>>): Set<String> {
             .filter { (path, _) -> path.substringAfterLast('/').endsWith("RoutePaths.kt") }
             .flatMap { (path, text) ->
                 val objectName = path.substringAfterLast('/').removeSuffix(".kt")
-                ROUTE_PATH_CONSTANT.findAll(stripComments(text)).map {
-                    "$objectName.${it.groupValues[1]}" to
-                        it.groupValues[2]
+                ROUTE_PATH_CONSTANT.findAll(stripComments(text)).map { constant ->
+                    "$objectName.${constant.groupValues[1]}" to constant.groupValues[2]
                 }
             }.toMap()
     return files
         .filter { (path, text) -> "/server/src/" in path && "import io.ktor.server.routing." in text }
         .flatMap { (_, text) ->
             ROUTE_CALL.findAll(stripComments(text)).map { match ->
-                val (verb, literal, pathObject, pathConstant) = match.destructured
-                val routePath =
-                    literal.ifEmpty {
-                        constants["$pathObject.$pathConstant"] ?: "<unresolved $pathObject.$pathConstant>"
-                    }
+                val verb = match.groupValues[1]
+                val constant = "${match.groupValues[3]}.${match.groupValues[4]}"
+                val routePath = match.groupValues[2].ifEmpty { constants[constant] ?: "<unresolved $constant>" }
                 "${verb.uppercase()} $routePath"
             }
         }.toSet()

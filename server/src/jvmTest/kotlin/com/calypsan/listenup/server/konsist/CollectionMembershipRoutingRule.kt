@@ -151,6 +151,7 @@ class CollectionMembershipRoutingRule :
             val wrappers =
                 scope
                     .files
+                    .asSequence()
                     .filter { it.name == "CollectionServiceImpl" }
                     .flatMap { it.functions(includeNested = false) }
                     .filter { it.hasPrivateModifier }

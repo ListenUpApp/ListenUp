@@ -32,10 +32,8 @@ class DtosLiveInCommonMainRule :
         test("every @Serializable class in the api package lives in the contract's commonMain") {
             val offenders =
                 serializableClasses
-                    .filter {
-                        it.packagee?.name?.let { pkg -> pkg == API_PACKAGE || pkg.startsWith("$API_PACKAGE.") } ==
-                            true
-                    }.filterNot { CONTRACT_COMMON_MAIN in it.path }
+                    .filter { cls -> cls.packagee?.name.isInApiPackage() }
+                    .filterNot { CONTRACT_COMMON_MAIN in it.path }
                     .map { "${it.fullyQualifiedName ?: it.name} @ ${it.path}" }
 
             offenders.shouldBeEmpty()
@@ -59,6 +57,9 @@ class DtosLiveInCommonMainRule :
     })
 
 private const val API_PACKAGE = "com.calypsan.listenup.api"
+
+/** True for [API_PACKAGE] and every package below it. */
+private fun String?.isInApiPackage(): Boolean = this == API_PACKAGE || this?.startsWith("$API_PACKAGE.") == true
 
 private const val CONTRACT_COMMON_MAIN = "/contract/src/commonMain/"
 

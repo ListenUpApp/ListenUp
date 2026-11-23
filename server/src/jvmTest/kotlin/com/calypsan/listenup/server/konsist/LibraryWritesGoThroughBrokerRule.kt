@@ -103,13 +103,14 @@ class LibraryWritesGoThroughBrokerRule :
                 }
             val unclassified =
                 writers
+                    .asSequence()
                     .map { it.name }
                     .distinct()
                     .filterNot { name -> FORBIDDEN_WRITE_TOKENS.any { it.endsWith("$name(") } }
                     .filterNot { it in NOT_LIBRARY_WRITES }
                     .map {
                         "$it — an io helper that writes (or an expect): ban it in FORBIDDEN_WRITE_TOKENS or exempt it"
-                    }
+                    }.toList()
             unclassified.shouldBeEmpty()
 
             val staleExemptions = NOT_LIBRARY_WRITES - ioFunctions.map { it.name }.toSet()
