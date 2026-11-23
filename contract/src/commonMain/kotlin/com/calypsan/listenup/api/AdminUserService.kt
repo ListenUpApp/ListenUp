@@ -39,9 +39,6 @@ interface AdminUserService {
     /** Returns the user identified by [id]. Fails when no such user exists. */
     suspend fun getUser(id: UserId): AppResult<User>
 
-    /** Returns users whose display name or email matches [query]. */
-    suspend fun searchUsers(query: String): AppResult<List<User>>
-
     /**
      * Applies the non-null fields of [patch] to the user identified by [id] and
      * returns the updated [User]. ROOT cannot be demoted. Fails when no such

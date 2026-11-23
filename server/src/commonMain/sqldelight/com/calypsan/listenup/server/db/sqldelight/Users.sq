@@ -203,7 +203,7 @@ UPDATE users SET password_hash = :password_hash, updated_at = :updated_at WHERE 
 
 -- ── admin user-lifecycle writes / reads (AdminUserServiceImpl) ────────────────
 
--- Live (non-tombstoned) ACTIVE users, for the admin roster (listUsers / searchUsers).
+-- Live (non-tombstoned) ACTIVE users, for the admin roster (listUsers).
 selectActiveLive:
 SELECT * FROM users WHERE deleted_at IS NULL AND status = 'ACTIVE';
 
