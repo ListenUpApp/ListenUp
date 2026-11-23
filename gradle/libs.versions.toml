@@ -2,7 +2,7 @@
 android-compileSdk = "37"
 android-minSdk = "30"
 android-targetSdk = "37"
-agp = "9.5.1"
+agp = "9.5.2"
 # The NDK AGP 9.5 defaults to, pinned so CI installs exactly this one (release.yml reads it from here).
 # Only :app:androidApp uses it: to strip the AndroidX .so files and extract the symbol tables Play reads.
 android-ndk = "28.2.13676358"
@@ -23,7 +23,7 @@ androidx-graphics-shapes = "1.1.0"
 androidx-material-icons = "1.7.8"
 androidx-compose-ui-test = "1.12.1"
 androidx-core-splashscreen = "1.2.0"
-robolectric = "4.18"
+robolectric = "4.18.1"
 # Compose Multiplatform upgrade UNIT — bump together, never piecemeal:
 #   composeMultiplatform  +  compose-material3 (versioned on its own alpha line, but built
 #   against a SPECIFIC CMP foundation). Skewing them compiles cleanly and then throws
@@ -50,7 +50,7 @@ ktor = "3.6.1"
 auth0-java-jwt = "4.6.2"
 # Test-only (:app:baselineprofile): androidx.benchmark 1.5.0 pulls wire-runtime 6.4.0
 # (GHSA-9rm7-3qhh-h2mc, fixed in 6.4.5), and no stable benchmark release moves past it.
-wire = "7.2.1"
+wire = "7.2.2"
 # Part of the Kotlin upgrade UNIT above.
 kotlinx-rpc = "0.10.4"
 kotest = "6.2.7"
@@ -81,7 +81,7 @@ google-services = "4.6.0"
 firebase-messaging = "26.0.2"
 
 # Server and desktop JVM
-logback = "1.6.7"
+logback = "1.6.8"
 jmdns = "3.6.5"
 javacpp = "1.5.14"
 ffmpeg-javacpp = "8.1.2-1.5.14"
