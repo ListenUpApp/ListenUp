@@ -40,6 +40,7 @@ import com.calypsan.listenup.client.features.seriesdetail.components.bookCountLa
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.series_count_books
 import org.jetbrains.compose.resources.stringResource
+import androidx.compose.ui.semantics.Role
 
 /**
  * Series card with the signature M3 Expressive fanned cover deck.
@@ -116,6 +117,7 @@ fun SeriesCard(
                 ).background(MaterialTheme.colorScheme.surfaceContainerLow)
                 .focusable(interactionSource = interactionSource)
                 .clickable(
+                    role = Role.Button,
                     interactionSource = interactionSource,
                     indication = null,
                 ) {

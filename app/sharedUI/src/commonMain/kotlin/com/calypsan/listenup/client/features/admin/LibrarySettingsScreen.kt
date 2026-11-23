@@ -71,6 +71,7 @@ import listenup.composeapp.generated.resources.admin_select_folder
 import listenup.composeapp.generated.resources.common_cancel
 import listenup.composeapp.generated.resources.common_remove
 import org.jetbrains.compose.resources.stringResource
+import androidx.compose.ui.semantics.Role
 
 /**
  * Screen for viewing and editing a library's settings.
@@ -374,7 +375,7 @@ private fun FolderBrowserDialog(
                                 modifier =
                                     Modifier
                                         .fillMaxWidth()
-                                        .clickable { onNavigate(entry.path) }
+                                        .clickable(role = Role.Button) { onNavigate(entry.path) }
                                         .padding(horizontal = Spacing.lg, vertical = Spacing.md),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(12.dp),

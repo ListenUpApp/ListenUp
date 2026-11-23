@@ -44,6 +44,7 @@ import listenup.composeapp.generated.resources.book_detail_cast_count_authors
 import listenup.composeapp.generated.resources.book_detail_cast_count_narrators
 import listenup.composeapp.generated.resources.book_detail_full_cast
 import org.jetbrains.compose.resources.stringResource
+import androidx.compose.ui.semantics.Role
 
 /** Which contributor role a [FullCastSheet] is showing — selected by a folded hero line. */
 enum class CastRole { Authors, Narrators, All }
@@ -274,7 +275,7 @@ internal fun CastRow(
             modifier
                 .fillMaxWidth()
                 .then(if (spoken != null) Modifier.semantics { contentDescription = spoken } else Modifier)
-                .clickable {
+                .clickable(role = Role.Button) {
                     haptics.press()
                     onClick()
                 }.padding(horizontal = 8.dp, vertical = 8.dp),

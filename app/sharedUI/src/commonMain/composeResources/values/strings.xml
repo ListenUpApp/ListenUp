@@ -1920,6 +1920,7 @@ One beautiful library.</string>
     <string name="library_setup_no_subfolders_select_hint">This folder has no subfolders. You can select it as a library location.</string>
     <string name="library_setup_open_folder">Open folder</string>
     <string name="library_setup_point_at_audiobooks">Point ListenUp at your audiobooks.</string>
+    <string name="library_setup_root_folder">Root folder</string>
     <string name="library_setup_select_at_least_one">Select at least one folder to continue.</string>
     <string name="library_setup_select_one_or_more">Select one or more folders where your audiobooks are stored.</string>
     <string name="library_setup_select_this_folder">Select this folder</string>

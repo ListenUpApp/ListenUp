@@ -31,6 +31,7 @@ import listenup.composeapp.generated.resources.genre_destination_more_options
 import org.jetbrains.compose.resources.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.Role
 
 /**
  * Genre-hued hero band for a genre destination page: the back/search/overflow row, a scalloped
@@ -149,7 +150,7 @@ private fun BreadcrumbRow(
                 text = crumb.name,
                 style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
                 color = FacetHeroInk,
-                modifier = Modifier.clickable { onGenreClick(crumb.genreId.value) },
+                modifier = Modifier.clickable(role = Role.Button) { onGenreClick(crumb.genreId.value) },
             )
         }
     }

@@ -2259,7 +2259,8 @@
     "item_count_one": "%1$d item",
     "folder_selected_count": "%1$d folder selected",
     "folders_selected_count": "%1$d folders selected",
-    "include_folder": "Include %1$s"
+    "include_folder": "Include %1$s",
+    "root_folder": "Root folder"
   },
   "scan": {
     "building_subtitle": "Building your library.",

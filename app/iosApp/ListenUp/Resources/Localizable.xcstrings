@@ -21110,6 +21110,17 @@
         }
       }
     },
+    "library_setup.root_folder": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Root folder"
+          }
+        }
+      }
+    },
     "library_setup.select_at_least_one": {
       "extractionState": "manual",
       "localizations": {

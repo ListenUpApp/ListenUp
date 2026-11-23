@@ -81,6 +81,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.shape.CircleShape
 import com.calypsan.listenup.client.design.theme.ContentShapes
 import listenup.composeapp.generated.resources.admin_collection_created
+import androidx.compose.ui.semantics.Role
 
 private const val CARD_PADDING_DP = 18
 private const val CARD_PADDING_WIDE_DP = 22
@@ -338,7 +339,7 @@ private fun CollectionCard(
 
     Surface(
         modifier =
-            modifier.fillMaxWidth().clickable {
+            modifier.fillMaxWidth().clickable(role = Role.Button) {
                 haptics.press()
                 onClick()
             },
@@ -486,7 +487,7 @@ private fun NewCollectionCard(
 
     Surface(
         modifier =
-            modifier.fillMaxWidth().height(minHeight).clickable {
+            modifier.fillMaxWidth().height(minHeight).clickable(role = Role.Button) {
                 haptics.press()
                 onClick()
             },

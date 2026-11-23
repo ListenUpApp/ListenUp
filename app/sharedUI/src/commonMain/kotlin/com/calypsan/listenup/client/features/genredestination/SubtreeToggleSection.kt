@@ -40,6 +40,7 @@ import listenup.composeapp.generated.resources.genre_destination_tap_to_narrow
 import org.jetbrains.compose.resources.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.Role
 
 /** Max sub-genre names spelled out in the toggle's "off" subtitle before collapsing to "+N excluded". */
 private const val NAMED_SUB_GENRES_IN_SUBTITLE = 2
@@ -194,7 +195,7 @@ private fun SubGenreChip(
             Modifier
                 .clip(shape)
                 .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                .clickable(onClick = onClick)
+                .clickable(role = Role.Button, onClick = onClick)
                 .padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),

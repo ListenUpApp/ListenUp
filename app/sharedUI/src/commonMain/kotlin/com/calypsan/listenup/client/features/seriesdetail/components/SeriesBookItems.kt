@@ -37,6 +37,7 @@ import listenup.composeapp.generated.resources.series_duration_finished
 import listenup.composeapp.generated.resources.series_progress_duration
 import com.calypsan.listenup.domain.BookProgress
 import org.jetbrains.compose.resources.stringResource
+import androidx.compose.ui.semantics.Role
 
 /** A book in the phone list: cover, "Book N", title, and progress or duration. */
 @Composable
@@ -65,7 +66,7 @@ internal fun SeriesBookRow(
                 .fillMaxWidth()
                 .clip(MaterialTheme.shapes.medium)
                 .background(rowColor)
-                .clickable {
+                .clickable(role = Role.Button) {
                     haptics.press()
                     onClick()
                 }.padding(14.dp),
@@ -205,7 +206,7 @@ internal fun SeriesBookCard(
                 .fillMaxWidth()
                 .clip(MaterialTheme.shapes.medium)
                 .background(cardColor)
-                .clickable {
+                .clickable(role = Role.Button) {
                     haptics.press()
                     onClick()
                 }.padding(10.dp),
