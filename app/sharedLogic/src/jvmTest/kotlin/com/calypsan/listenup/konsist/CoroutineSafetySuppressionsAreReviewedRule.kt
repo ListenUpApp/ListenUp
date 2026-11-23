@@ -44,8 +44,6 @@ private val reviewedSuppressions: Map<String, Int> =
         "contract/src/androidMain/kotlin/com/calypsan/listenup/core/Dispatchers.android.kt" to 1,
         "contract/src/jvmMain/kotlin/com/calypsan/listenup/core/Dispatchers.jvm.kt" to 1,
         "server/src/commonMain/kotlin/com/calypsan/listenup/server/util/CpuDispatcher.kt" to 1,
-        "server/src/jvmMain/kotlin/com/calypsan/listenup/server/db/sqldelight/IoDispatcher.jvm.kt" to 1,
-        "server/src/jvmMain/kotlin/com/calypsan/listenup/server/io/IoDispatcher.jvm.kt" to 1,
     )
 
 /**

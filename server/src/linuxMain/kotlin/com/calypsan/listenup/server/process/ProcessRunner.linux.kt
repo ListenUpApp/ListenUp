@@ -81,7 +81,7 @@ private const val MAX_FD_SCAN = 65_536L
  * child. Those `$PATH`-searching variants call `getenv` and build candidate pathnames, which can
  * allocate; POSIX 1003.1-2017 Table 2-4 excludes them from the async-signal-safe function list for
  * exactly that reason. A thread other than the forking one can be holding the C allocator's lock at
- * the instant of `fork()` — `fileIoDispatcher` is `Dispatchers.Default`, a genuinely multithreaded
+ * the instant of `fork()` — `fileIoDispatcher` is `Dispatchers.IO`, a genuinely multithreaded
  * pool, so that thread really exists — and the child would hang forever on a lock it can never see
  * released. `execv()` (plain, no `$PATH` search) IS async-signal-safe.
  *

@@ -4,6 +4,7 @@ import com.calypsan.listenup.server.testing.fileBackedTestDataSource
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldContain
 import java.nio.file.Files
 import javax.sql.DataSource
 
@@ -111,6 +112,34 @@ class MigrationRunnerTest :
             shouldThrow<IllegalStateException> {
                 MigrationRunner(path, listOf(tampered)).migrate()
             }
+        }
+
+        test("refuses to start when the database has a migration newer than the server catalog (downgrade)") {
+            val (path, _) = freshDb()
+            MigrationRunner(path, listOf(m1, m2)).migrate() shouldBe "2"
+
+            val ex =
+                shouldThrow<IllegalStateException> {
+                    MigrationRunner(path, listOf(m1)).migrate()
+                }
+            val msg = checkNotNull(ex.message)
+            msg shouldContain "V2"
+            msg shouldContain "V1"
+            msg shouldContain "downgraded"
+        }
+
+        test("refuses to start when an applied migration was removed from the catalog") {
+            val m3 = Migration(3, "third", "ck3", "CREATE TABLE c (z INTEGER);")
+            val (path, _) = freshDb()
+            MigrationRunner(path, listOf(m1, m2, m3)).migrate() shouldBe "3"
+
+            val ex =
+                shouldThrow<IllegalStateException> {
+                    MigrationRunner(path, listOf(m1, m3)).migrate()
+                }
+            val msg = checkNotNull(ex.message)
+            msg shouldContain "V2"
+            msg shouldContain "missing"
         }
 
         test("currentSchemaVersion is null on an unmigrated database") {
