@@ -19,7 +19,11 @@ import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
 
 /**
  * Tests for [DevicesViewModel].
@@ -36,6 +40,13 @@ import kotlinx.coroutines.test.runTest
  */
 class DevicesViewModelTest :
     FunSpec({
+        // viewModelScope runs on Dispatchers.Main. On the Apple lane that is the real main queue, which
+        // nothing drains while runTest holds the main thread, so any work the ViewModel dispatches
+        // there (combine yields) would never run. A test dispatcher puts it on runTest's scheduler.
+        val testDispatcher = StandardTestDispatcher()
+
+        beforeTest { Dispatchers.setMain(testDispatcher) }
+        afterTest { Dispatchers.resetMain() }
 
         // ========== Pure resolution helpers ==========
 
