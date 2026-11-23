@@ -32,21 +32,6 @@ class LibraryWritesGoThroughBrokerRule :
                 "com.calypsan.listenup.server.sidecar",
             )
 
-        /** The kotlinx-io write surfaces (and the repo's helpers over them) a checked package must not touch. */
-        val forbiddenWriteTokens =
-            listOf(
-                "SystemFileSystem.sink(",
-                "SystemFileSystem.atomicMove(",
-                "SystemFileSystem.delete(",
-                "SystemFileSystem.createDirectories(",
-                ".writeText(",
-                ".writeBytes(",
-                "deleteRecursively(",
-                // The io layer's link-safe single-entry delete: a write primitive like the rest.
-                "deleteEntry(",
-                "createTempFileIn(",
-            )
-
         // Add a path suffix here ONLY with a review note proving the write never lands inside a
         // library folder. This list is a debt ledger, not an escape hatch.
         val allowlist =
@@ -93,12 +78,100 @@ class LibraryWritesGoThroughBrokerRule :
                 checkedFiles
                     .filterNot { file -> allowlist.any { file.path.endsWith(it) } }
                     .flatMap { file ->
-                        val body = stripComments(file.text)
-                        forbiddenWriteTokens
-                            .filter { token -> body.contains(token) }
-                            .map { token -> "${file.path} -> $token" }
+                        forbiddenTokensIn(file.text).map { token -> "${file.path} -> $token" }
                     }
 
             offenders.shouldBeEmpty()
         }
-    })
+
+        test("every io-layer function that writes is a forbidden token, or a reviewed non-library write") {
+            val ioFunctions =
+                Konsist
+                    .scopeFromProduction()
+                    .files
+                    .filter { it.path.contains("server/src/commonMain") && it.packagee?.name == IO_PACKAGE }
+                    .flatMap { it.functions(includeNested = false) }
+                    .filterNot { it.hasPrivateModifier }
+            // Non-vacuous: the io layer declares a few dozen helpers.
+            ioFunctions.size shouldBeGreaterThanOrEqual 20
+
+            val writers =
+                ioFunctions.filter { fn ->
+                    // An `expect` has no body here — its actual lives per platform — so every one is
+                    // classified by name: a write primitive must be forbidden, anything else exempt.
+                    fn.hasExpectModifier || PRIMITIVE_WRITE_TOKENS.any { it in stripComments(fn.text) }
+                }
+            val unclassified =
+                writers
+                    .asSequence()
+                    .map { it.name }
+                    .distinct()
+                    .filterNot { name -> FORBIDDEN_WRITE_TOKENS.any { it.endsWith("$name(") } }
+                    .filterNot { it in NOT_LIBRARY_WRITES }
+                    .map {
+                        "$it — an io helper that writes (or an expect): ban it in FORBIDDEN_WRITE_TOKENS or exempt it"
+                    }.toList()
+            unclassified.shouldBeEmpty()
+
+            val staleExemptions = NOT_LIBRARY_WRITES - ioFunctions.map { it.name }.toSet()
+            staleExemptions.shouldBeEmpty()
+        }
+    }) {
+    companion object {
+        private const val IO_PACKAGE = "com.calypsan.listenup.server.io"
+
+        /** The kotlinx-io calls that put bytes on disk, move or delete them — what makes an io helper a writer. */
+        private val PRIMITIVE_WRITE_TOKENS =
+            listOf(
+                "SystemFileSystem.sink(",
+                ".atomicMove(",
+                ".delete(",
+                ".createDirectories(",
+                "deleteEntry(",
+            )
+
+        /** The kotlinx-io write surfaces (and the repo's helpers over them) a checked package must not touch. */
+        val FORBIDDEN_WRITE_TOKENS =
+            listOf(
+                "SystemFileSystem.sink(",
+                "SystemFileSystem.atomicMove(",
+                "SystemFileSystem.delete(",
+                "SystemFileSystem.createDirectories(",
+                // Any sink, however the file system is reached.
+                ".sink(",
+                ".writeText(",
+                ".writeBytes(",
+                // `.writeBytes(` does not match it: the temp-file-and-rename write is a write too.
+                "writeBytesAtomically(",
+                "copyDirectoryRecursively(",
+                "restrictFileToOwner(",
+                "streamFirstFilePartTo(",
+                "deleteRecursively(",
+                // The io layer's link-safe single-entry delete: a write primitive like the rest.
+                "deleteEntry(",
+                "createTempFileIn(",
+            )
+
+        /**
+         * io-layer `expect` functions (classified by name, since their bodies are per platform) that only
+         * read, stat or resolve — never put bytes in a library folder.
+         */
+        private val NOT_LIBRARY_WRITES =
+            setOf(
+                "creationTimeMillis",
+                "statFile",
+                "isSymlink",
+                "canonicalize",
+                "openSeekableSource",
+                "readEnv",
+                "userHomeDir",
+                "hostname",
+            )
+
+        /** The [FORBIDDEN_WRITE_TOKENS] present in [source], comments stripped — the predicate the self-test drives. */
+        fun forbiddenTokensIn(source: String): List<String> {
+            val body = stripComments(source)
+            return FORBIDDEN_WRITE_TOKENS.filter { body.contains(it) }
+        }
+    }
+}

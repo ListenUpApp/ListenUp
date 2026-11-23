@@ -78,6 +78,35 @@ private fun rootTableOf(queriesName: String): String? {
     return file.readLines().firstNotNullOfOrNull { createTable.find(it)?.run { groupValues[1] } }
 }
 
+/** A `name:` label line in a `.sq` file — the start of one named statement. */
+private val sqLabel = Regex("""^(\w+):\s*$""", RegexOption.MULTILINE)
+
+/**
+ * The labels in the `.sq` file behind [queriesName] (resolved by filename, as [rootTableOf] does) whose statement —
+ * the text up to the next label, `--` comments dropped — does not start with `SELECT`. Empty when the file is missing.
+ */
+fun writeLabelsOf(queriesName: String): Set<String> {
+    val file =
+        sqlDelightDir.walkTopDown().firstOrNull { candidate ->
+            candidate.isFile &&
+                candidate.extension == "sq" &&
+                candidate.nameWithoutExtension.equals(queriesName, ignoreCase = true)
+        } ?: return emptySet()
+    return writeLabelsIn(file.readText())
+}
+
+/** The write labels of one `.sq` [source] — see [writeLabelsOf]. */
+fun writeLabelsIn(source: String): Set<String> {
+    val code = source.lines().joinToString("\n") { it.substringBefore("--") }
+    val labels = sqLabel.findAll(code).toList()
+    return labels
+        .mapIndexedNotNull { index, label ->
+            val end = labels.getOrNull(index + 1)?.run { range.first } ?: code.length
+            val statement = code.substring(label.range.last + 1, end).trim()
+            label.groupValues[1].takeUnless { statement.startsWith("SELECT", ignoreCase = true) }
+        }.toSet()
+}
+
 /** Every concrete `SqlSyncableRepository` subclass in `:server` production code. */
 fun syncableRepositories(): List<SyncableRepositoryFacts> =
     productionScope()

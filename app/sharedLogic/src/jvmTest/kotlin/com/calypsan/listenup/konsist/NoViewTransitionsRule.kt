@@ -1,8 +1,12 @@
 package com.calypsan.listenup.konsist
 
+import com.lemonappdev.konsist.api.Konsist
+import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldNotBeEmpty
+import io.kotest.matchers.ints.shouldBeGreaterThanOrEqual
+import java.io.File
 
 /**
  * The browser's View Transition API may not return to this codebase.
@@ -29,8 +33,11 @@ import io.kotest.matchers.collections.shouldNotBeEmpty
  * FLIP and `PageFade` fades the page; neither cares when any framework renders, which is the whole
  * property the View Transition API cannot offer here.
  *
- * Matched on file text rather than imports, because the call is reached dynamically
- * (`document.asDynamic().startViewTransition`) and so never appears in an import list.
+ * Matched on file text (comments stripped) rather than imports, because the call is reached dynamically
+ * (`document.asDynamic().startViewTransition`) and so never appears in an import list. The CSS
+ * spelling — `property("view-transition-name", …)` in Kotlin, or a `view-transition-*` rule in the
+ * stylesheets — is banned too: it is the same element opt-in, and it is how the last one survived the
+ * deletion, under a comment still describing the browser flying the cover.
  */
 class NoViewTransitionsRule :
     FunSpec({
@@ -47,12 +54,35 @@ class NoViewTransitionsRule :
             val offenders =
                 productionScope()
                     .files
-                    .filter { file -> BANNED_NAMES.any { it in file.text } }
+                    .filter { file -> usesViewTransitions(file.text) }
                     .map { it.path }
 
             offenders.shouldBeEmpty()
         }
+
+        test("no stylesheet names or styles a View Transition") {
+            val stylesheets =
+                File(Konsist.projectRootPath, "app/webApp/web/src/css")
+                    .listFiles { file -> file.extension == "css" }
+                    .orEmpty()
+                    .toList()
+            // Non-vacuous: the web client's stylesheets are split across a couple of dozen files.
+            stylesheets.size shouldBeGreaterThanOrEqual 5
+
+            val offenders =
+                stylesheets
+                    .filter { CSS_VIEW_TRANSITION.containsMatchIn(stripCssComments(it.readText())) }
+                    .map { it.name }
+
+            withClue("Stylesheets with a view-transition rule or property: $offenders") { offenders.shouldBeEmpty() }
+        }
     })
+
+/** True if [source], comments stripped, starts a View Transition or opts an element into one. */
+internal fun usesViewTransitions(source: String): Boolean {
+    val code = stripComments(source)
+    return BANNED_NAMES.any { it in code } || CSS_VIEW_TRANSITION.containsMatchIn(code)
+}
 
 /**
  * The API surface, by name. `startViewTransition` starts one; `viewTransitionName` is how elements
@@ -64,3 +94,8 @@ private val BANNED_NAMES =
         "startViewTransition",
         "viewTransitionName",
     )
+
+/** The CSS spelling — `view-transition-name`, `::view-transition-*`, `@view-transition` — in any case. */
+private val CSS_VIEW_TRANSITION = Regex("""view-transition""", RegexOption.IGNORE_CASE)
+
+private fun stripCssComments(css: String): String = css.replace(Regex("""/\*.*?\*/""", RegexOption.DOT_MATCHES_ALL), "")

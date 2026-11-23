@@ -359,7 +359,6 @@ private fun SharedHeader(
                 imageUrl = coverUrl(id, ready?.book?.coverHash, COVER_RUNG),
                 size = null,
                 radius = COVER_RADIUS,
-                heroName = HERO_COVER,
                 heroKey = id,
                 decorative = true,
                 eager = true,
@@ -1051,9 +1050,6 @@ private const val BYLINE_SEPARATOR = "·"
 
 /** `type="button"` on every `<button>` here, and `role="button"` on the byline's name spans. */
 private const val BUTTON_VALUE = "button"
-
-/** Shared with the library grid's tapped tile, so the cover flies between the two. */
-const val HERO_COVER = "book-cover"
 
 /** The hero cover's derivative rung: covers the 260px desktop box at 1x and the 180px it was at 2x. */
 private const val COVER_RUNG = 360

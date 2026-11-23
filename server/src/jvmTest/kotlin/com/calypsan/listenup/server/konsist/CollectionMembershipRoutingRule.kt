@@ -2,7 +2,10 @@ package com.calypsan.listenup.server.konsist
 
 import com.lemonappdev.konsist.api.Konsist
 import io.kotest.core.spec.style.FunSpec
+import com.lemonappdev.konsist.api.container.KoScope
+import io.kotest.assertions.withClue
 import io.kotest.matchers.collections.shouldBeEmpty
+import io.kotest.matchers.collections.shouldContainAll
 
 /**
  * The **reconcile-routing tripwire** for the ALL_BOOKS exclusivity invariant (#680/#730).
@@ -14,17 +17,19 @@ import io.kotest.matchers.collections.shouldBeEmpty
  * semantic backstop is `AccessInvariantMatrixTest` (G1) — but it fires at the exact line a future
  * membership mutation is written, before any access test even runs.
  *
- * Coverage — the full `CollectionBookRepository` mutation surface, so a bulk re-home can't slip past:
- *  - the two generic mutators (`.upsert(` / `.softDelete(`) are scoped to the known receiver field
- *    names (`collectionBookRepo` **and** `collectionBookRepository` — `BookRepository` uses the long
- *    spelling) so we don't over-match `grantRepo.upsert` / `collectionRepo.softDelete`;
- *  - the three bulk mutators (`softDeleteAllForCollection` / `softDeleteAllForBook` /
- *    `reviveAllForBooks`) are matched receiver-agnostically — those names are unique to
- *    `CollectionBookRepository`, so no scoping is needed and no other repo collides.
+ * Coverage — derived, not listed, so a new write or a new wrapper is seen the day it is written:
+ *  - the membership writes are `CollectionBookRepository`'s own public, non-override functions whose name
+ *    does not read (`find|get|list|select|count|exists|observe|is|has…`), plus the inherited `upsert`;
+ *  - `upsert` / `softDelete` are matched only on the known receiver field names (`collectionBookRepo`
+ *    **and** `collectionBookRepository`) so we don't over-match `grantRepo.upsert` /
+ *    `collectionRepo.softDelete`; every other write name is unique to the repository and is matched
+ *    receiver-agnostically;
+ *  - one level of indirection: every private top-level wrapper in `CollectionServiceImpl.kt` that calls a
+ *    write (`upsertOrLog`, `releaseHeldBook`) is itself a write token, so a function that mutates only
+ *    through a wrapper is still held to the reconcile. A test pins both wrappers so the derivation
+ *    cannot silently shrink.
  *
- * NOTE ON COUPLING: this is a text tripwire, so a mutation via a *newly-named* helper or a fourth bulk
- * method would need adding here. That is the accepted cost of an early tripwire; G1's `canAccess`
- * assertions are the receiver-name-agnostic semantic guard that catches the escape regardless.
+ * G1's `canAccess` assertions remain the receiver-name-agnostic semantic guard behind this tripwire.
  *
  * Allowlisted (matches a token, legitimately does NOT reconcile):
  *  - `reconcileSystemMembership` — it *is* the reconcile.
@@ -44,27 +49,37 @@ import io.kotest.matchers.collections.shouldBeEmpty
  */
 class CollectionMembershipRoutingRule :
     FunSpec({
+        test("the membership write set is derived from the repository, and follows its wrappers") {
+            val derived = membershipWriteTokens(Konsist.scopeFromProduction("server"))
+            withClue("derived membership writes: ${derived.tokens}") {
+                derived.writes shouldContainAll
+                    setOf(
+                        "upsert",
+                        "softDelete",
+                        "softDeleteAllForCollection",
+                        "softDeleteAllForBook",
+                        "reviveAllForBooks",
+                        "releaseFromInbox",
+                    )
+                derived.wrappers shouldContainAll setOf("upsertOrLog", "releaseHeldBook")
+            }
+        }
+
         test("every collection_books membership mutation also calls reconcileSystemMembership (#680 exclusivity)") {
             // Narrowed to the `server` module's production sources — this rule only inspects server
             // repositories/services. A whole-repo `scopeFromProduction()` parsed every module's PSI
             // (the dominant cost of the server suite) for zero added coverage.
             val scope = Konsist.scopeFromProduction("server")
+            val membershipTokens = membershipWriteTokens(scope)
             // Gather class-member functions (the precedent shape — `KoScope.functions()` alone does
             // not descend into classes) plus any top-level ones, so no membership mutation escapes.
             val allFunctions = scope.classes().flatMap { it.functions() } + scope.functions()
             val mutators =
                 allFunctions
+                    .filterNot { it.name in membershipTokens.wrappers }
                     .filter { fn ->
                         val body = stripComments(fn.text)
-                        // Generic mutators — scope to the known receiver fields (both spellings).
-                        "collectionBookRepo.upsert(" in body ||
-                            "collectionBookRepository.upsert(" in body ||
-                            "collectionBookRepo.softDelete(" in body ||
-                            "collectionBookRepository.softDelete(" in body ||
-                            // Bulk mutators — names unique to CollectionBookRepository, receiver-agnostic.
-                            ".softDeleteAllForCollection(" in body ||
-                            ".softDeleteAllForBook(" in body ||
-                            ".reviveAllForBooks(" in body
+                        membershipTokens.tokens.any { it in body }
                     }
             // Vacuity guard: if the scope narrows to nothing (misconfigured module name, an empty
             // parse), the offender set is trivially empty and the rule passes without ever checking
@@ -80,12 +95,78 @@ class CollectionMembershipRoutingRule :
                     .map { mutator ->
                         "${mutator.name} @ ${mutator.path} — mutates collection_books without reconcileSystemMembership; " +
                             "ALL_BOOKS exclusivity (#680) must be maintained by every membership mutation, " +
-                            "or allowlist with a reason"
+                            "or allowlist with a reason (membership writes tracked: ${membershipTokens.tokens})"
                     }
             offenders.shouldBeEmpty()
         }
     }) {
     companion object {
+        /** The repository whose public non-read functions are the membership writes. */
+        private const val REPOSITORY = "CollectionBookRepository"
+
+        /**
+         * Inherited from the syncable base class rather than declared on [REPOSITORY], so not seen by
+         * reading its declarations — the generic upsert every membership insert/revive goes through.
+         */
+        private val INHERITED_WRITES = setOf("upsert")
+
+        /**
+         * Names other repositories share (`grantRepo.upsert`, `collectionRepo.softDelete`), so they are
+         * matched only on the membership repository's own field names, never receiver-agnostically.
+         */
+        private val SHARED_NAMES = setOf("upsert", "softDelete")
+
+        /** The two field spellings a membership repository is held under (`BookRepository` uses the long one). */
+        private val RECEIVERS = listOf("collectionBookRepo", "collectionBookRepository")
+
+        /** A function named like this reads; everything else public on [REPOSITORY] writes membership. */
+        private val READ_NAME = Regex("""^(find|get|list|select|count|exists|observe|is|has)[A-Z]?.*""")
+
+        /** The membership writes, the private wrappers over them, and the call tokens both produce. */
+        private data class MembershipTokens(
+            val writes: Set<String>,
+            val wrappers: Set<String>,
+            val tokens: List<String>,
+        )
+
+        /**
+         * Reads [REPOSITORY]'s public, non-override, non-read functions as the membership writes, then
+         * adds every private top-level wrapper in the collection service whose body calls one of them
+         * (one level of indirection: `upsertOrLog`, `releaseHeldBook`).
+         */
+        private fun membershipWriteTokens(scope: KoScope): MembershipTokens {
+            val repository = scope.classes().single { it.name == REPOSITORY }
+            val writes =
+                repository
+                    .functions(includeNested = false)
+                    .filterNot { it.hasPrivateModifier || it.hasProtectedModifier || it.hasOverrideModifier }
+                    .map { it.name }
+                    .filterNot { READ_NAME.matches(it) }
+                    .toSet() + INHERITED_WRITES
+            val directTokens =
+                writes.flatMap { name ->
+                    val scoped = RECEIVERS.map { "$it.$name(" }
+                    if (name in SHARED_NAMES) scoped else scoped + ".$name("
+                }
+            val wrappers =
+                scope
+                    .files
+                    .asSequence()
+                    .filter { it.name == "CollectionServiceImpl" }
+                    .flatMap { it.functions(includeNested = false) }
+                    .filter { it.hasPrivateModifier }
+                    .filter { fn ->
+                        val body = stripComments(fn.text)
+                        directTokens.any { it in body } ||
+                            (
+                                fn.receiverType?.name == REPOSITORY &&
+                                    writes.any { Regex("""(?<![\w.])$it\(""").containsMatchIn(body) }
+                            )
+                    }.map { it.name }
+                    .toSet()
+            return MembershipTokens(writes, wrappers, directTokens + wrappers.map { ".$it(" })
+        }
+
         /** Functions that touch the token but legitimately do not reconcile — see the class KDoc. */
         val ALLOWLIST =
             setOf(

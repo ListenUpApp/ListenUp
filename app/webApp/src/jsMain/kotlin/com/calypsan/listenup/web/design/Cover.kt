@@ -60,7 +60,6 @@ fun Cover(
     imageUrl: String? = null,
     size: Int? = DEFAULT_COVER_SIZE,
     radius: Int = DEFAULT_COVER_RADIUS,
-    heroName: String? = null,
     heroKey: String? = null,
     decorative: Boolean = false,
     eager: Boolean = false,
@@ -84,7 +83,7 @@ fun Cover(
         heroKey?.let { heroTarget(it) }
         classes("cover")
         style {
-            coverBox(size, radius, heroName, if (showImage) null else title)
+            coverBox(size, radius, if (showImage) null else title)
             place(placement)
         }
         attrs?.invoke(this)
@@ -136,7 +135,6 @@ private fun StyleScope.place(placement: CoverPlacement) {
 private fun StyleScope.coverBox(
     size: Int?,
     radius: Int,
-    heroName: String?,
     fallbackSeed: String?,
 ) {
     if (size == null) {
@@ -152,12 +150,6 @@ private fun StyleScope.coverBox(
     property("border-radius", "${radius}px")
     property("overflow", "hidden")
     property("flex-shrink", "0")
-    // The shared-element handle. When the grid tile the reader tapped carries the same name, the
-    // browser interpolates between the two boxes instead of crossfading the pages — the cover
-    // appears to fly from the grid into this hero, Flutter-Hero style.
-    // ⛔ A `view-transition-name` must be unique at any instant, which is why only ONE grid tile is
-    // ever named: see `HERO_COVER` in the library grid.
-    heroName?.let { property("view-transition-name", it) }
     property(
         "background",
         if (fallbackSeed == null) {

@@ -1,11 +1,14 @@
 package com.calypsan.listenup.konsist
 
-import com.lemonappdev.konsist.api.declaration.KoFileDeclaration
+import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
+import io.kotest.matchers.collections.shouldNotBeEmpty
+import io.kotest.matchers.ints.shouldBeGreaterThanOrEqual
 
 /**
- * Pins the "one RPC frame per `channel.call { }` block" invariant on the repository layer.
+ * Pins the "one RPC frame per `channel.call { }` block" invariant — on every `call { }` and
+ * `callMutation { }` block anywhere in `:app:sharedLogic` production code.
  *
  * The engine ([com.calypsan.listenup.client.data.remote.RpcProxyCache]) retries a `call { }` block
  * **whole** on a provably pre-delivery transport fault — that single at-most-once retry is what makes
@@ -21,8 +24,14 @@ import io.kotest.matchers.collections.shouldBeEmpty
  * `addScanPath` / `denyUser`), so each frame retries independently and only the frame that actually
  * dropped is re-sent.
  *
- * **This is a text heuristic, and its limits are deliberate.** It brace-matches each `.call { }`
- * lambda in a repository `…Impl.kt` file and counts how many times the lambda's service receiver
+ * `callMutation { }` rides the same whole-block retry (`client/data/remote/RpcChannel.kt`), and the offline
+ * outbox's push lambdas in `client/data/sync/OutboxBindings.kt` are call blocks too — the place a double-fired
+ * frame is least welcome. The rule once scanned only the `…Impl.kt` files under `data/repository` and
+ * skipped any `.call` followed by a letter, which dropped `.callMutation` along with `.callback`; it now
+ * scans every production file and asserts it reached both shapes.
+ *
+ * **This is a text heuristic, and its limits are deliberate.** It brace-matches each `.call { }` /
+ * `.callMutation { }` lambda and counts how many times the lambda's service receiver
  * is invoked. For a named receiver (`{ service -> ... }`) it counts every reference minus the
  * declaration, at any depth (a named param is not shadowed, so a second frame can legitimately hide
  * inside a `.flatMap { service.other() }`). For the implicit-`it` receiver it counts only depth-0
@@ -35,26 +44,43 @@ import io.kotest.matchers.collections.shouldBeEmpty
  *    two-frame block (the named param does NOT shadow the outer `it`) that this rule does NOT catch.
  *    Telling that apart from the false-positive case needs real shadowing analysis, not a text
  *    heuristic, so that exotic shape relies on the reviewer's eye.
- * It also keys off the `.call` token — a differently-named dispatch method would slip past. Good enough
+ * It also keys off the `.call` / `.callMutation` tokens — a differently-named dispatch method would slip past. Good enough
  * to catch the mutate-then-read regression class (which uses depth-0 `it`) and block its reintroduction.
  */
 class OneFramePerCallBlockRule :
     FunSpec({
-        test("each channel.call { } block in data/repository/*Impl issues exactly one RPC frame") {
-            val repositoryImplFiles =
+        test("each call { } / callMutation { } block in :app:sharedLogic issues exactly one RPC frame") {
+            val files =
                 productionScope()
                     .files
-                    .filter { it.path.contains("/data/repository/") && it.path.endsWith("Impl.kt") }
+                    .filter { "/app/sharedLogic/src/" in it.path }
 
             assertScopeNotEmpty(
-                repositoryImplFiles,
-                expectedMin = 25,
-                why = "data/repository/*Impl.kt files — every file whose call { } blocks this heuristic scans",
+                files,
+                expectedMin = 500,
+                why = ":app:sharedLogic production files — every file whose call blocks this heuristic scans",
             )
 
+            val blocksByPath = files.associate { file -> file.path to file.text.callBlocks() }
+            val blocks = blocksByPath.values.flatten()
+
+            // Non-vacuous: the real count is ~200; a scanner that silently stopped matching would read zero.
+            withClue("call blocks scanned") { blocks.size shouldBeGreaterThanOrEqual MIN_CALL_BLOCKS }
+            withClue("callMutation blocks scanned") { blocks.filter { it.token == CALL_MUTATION }.shouldNotBeEmpty() }
+            withClue("call blocks scanned in OutboxBindings.kt (the outbox's push lambdas)") {
+                blocksByPath
+                    .filterKeys { it.endsWith("/OutboxBindings.kt") }
+                    .values
+                    .flatten()
+                    .shouldNotBeEmpty()
+            }
+
             val offenders =
-                repositoryImplFiles
-                    .flatMap { file -> file.multiFrameCallBlocks().map { "$it in ${file.path}" } }
+                blocksByPath.flatMap { (path, fileBlocks) ->
+                    fileBlocks
+                        .filter { it.frames > MAX_FRAMES_PER_CALL_BLOCK }
+                        .map { "a ${it.token} { } block issuing ${it.frames} RPC frames in $path" }
+                }
 
             offenders.shouldBeEmpty()
         }
@@ -63,40 +89,49 @@ class OneFramePerCallBlockRule :
 /** The most frames a single `call { }` block may issue before it is a double-apply hazard on retry. */
 private const val MAX_FRAMES_PER_CALL_BLOCK = 1
 
-/**
- * Descriptions of every `.call { }` block in this file whose lambda invokes the service receiver more
- * than [MAX_FRAMES_PER_CALL_BLOCK] times — i.e. more than one RPC frame per block.
- */
-private fun KoFileDeclaration.multiFrameCallBlocks(): List<String> {
-    val source = text
-    val offenders = mutableListOf<String>()
+/** The real block count (about 200) minus a margin, so a scanner that stops matching fails loudly. */
+private const val MIN_CALL_BLOCKS = 180
+
+private const val CALL = "call"
+private const val CALL_MUTATION = "callMutation"
+
+/** One `.call { }` / `.callMutation { }` block: which token opened it, and how many RPC frames its lambda issues. */
+internal data class CallBlock(
+    val token: String,
+    val frames: Int,
+)
+
+/** Every `.call { }` and `.callMutation { }` block in [this] source, with its frame count. */
+internal fun String.callBlocks(): List<CallBlock> {
+    val blocks = mutableListOf<CallBlock>()
     var i = 0
     while (true) {
-        val dotCall = source.indexOf(".call", i)
+        val dotCall = indexOf(".$CALL", i)
         if (dotCall < 0) break
-        val scan = source.scanCallBlockAt(dotCall)
-        scan.offender?.let { offenders += it }
+        val scan = scanCallBlockAt(dotCall)
+        scan.block?.let { blocks += it }
         i = scan.resumeAt
     }
-    return offenders
+    return blocks
 }
 
-/** One resolved `.call` occurrence: where scanning resumes, and the offence found there, if any. */
+/** One resolved `.call…` occurrence: where scanning resumes, and the block found there, if any. */
 private data class CallBlockScan(
     val resumeAt: Int,
-    val offender: String?,
+    val block: CallBlock?,
 )
 
 /**
- * Resolve the `.call` token at [dotCall] — skipping it when it is not really a `call { }` block, and
- * otherwise reporting whether its lambda issues more than [MAX_FRAMES_PER_CALL_BLOCK] frames.
+ * Resolve the `.call` token at [dotCall] — as `.call` or `.callMutation`, skipping it when it is any other
+ * identifier (`.callback`) or not followed by a block — and count its lambda's frames.
  *
  * Handing back a resume index instead of jumping is what keeps the caller's loop to a single exit.
  */
 private fun String.scanCallBlockAt(dotCall: Int): CallBlockScan {
-    val afterToken = dotCall + ".call".length
+    val token = if (startsWith(".$CALL_MUTATION", dotCall)) CALL_MUTATION else CALL
+    val afterToken = dotCall + 1 + token.length
     val skip = CallBlockScan(afterToken, null)
-    // Reject `.callback`, `.calledBack`, etc. — `.call` must be a whole token.
+    // Reject `.callback`, `.calledBack`, `.callMutations`, etc. — the token must be whole.
     if (getOrNull(afterToken)?.let { it.isLetterOrDigit() || it == '_' } == true) return skip
 
     var j = skipWhitespace(afterToken)
@@ -111,10 +146,7 @@ private fun String.scanCallBlockAt(dotCall: Int): CallBlockScan {
     val blockEnd = matchDelimited(j, '{', '}')
     if (blockEnd < 0) return skip
 
-    val frames = substring(j + 1, blockEnd - 1).countServiceFrames()
-    val offender =
-        if (frames > MAX_FRAMES_PER_CALL_BLOCK) "a call { } block issuing $frames RPC frames" else null
-    return CallBlockScan(blockEnd, offender)
+    return CallBlockScan(blockEnd, CallBlock(token, substring(j + 1, blockEnd - 1).countServiceFrames()))
 }
 
 private val NAMED_RECEIVER = Regex("""^\s*([A-Za-z_][A-Za-z0-9_]*)\s*->""")

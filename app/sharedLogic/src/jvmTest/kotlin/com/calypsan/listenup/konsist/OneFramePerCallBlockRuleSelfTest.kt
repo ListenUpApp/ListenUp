@@ -19,6 +19,22 @@ import io.kotest.matchers.shouldBe
 class OneFramePerCallBlockRuleSelfTest :
     FunSpec({
 
+        test("finds call and callMutation blocks, and skips other identifiers that start with call") {
+            val source =
+                """
+                channel.call { it.getBook(id) }
+                channel.callMutation { it.updateBook(id); it.getBook(id) }
+                channel.call(timeout = LONG) { service -> service.merge(a, b) }
+                listener.callback { it.first(); it.second() }
+                """.trimIndent()
+            source.callBlocks() shouldBe
+                listOf(
+                    CallBlock(token = "call", frames = 1),
+                    CallBlock(token = "callMutation", frames = 2),
+                    CallBlock(token = "call", frames = 1),
+                )
+        }
+
         test("counts implicit-receiver frames at the top level of the block") {
             "it.getBook(id)".countServiceFrames() shouldBe 1
             "it.getBook(id)\nit.getSeries(id)".countServiceFrames() shouldBe 2

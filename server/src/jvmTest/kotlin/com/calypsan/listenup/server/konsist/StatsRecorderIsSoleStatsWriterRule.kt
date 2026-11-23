@@ -3,7 +3,11 @@ package com.calypsan.listenup.server.konsist
 import com.lemonappdev.konsist.api.Konsist
 import com.lemonappdev.konsist.api.container.KoScope
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.assertions.withClue
 import io.kotest.matchers.collections.shouldBeEmpty
+import io.kotest.matchers.collections.shouldContainAll
+import io.kotest.matchers.ints.shouldBeGreaterThanOrEqual
+import java.io.File
 
 /**
  * Konsist guard pinning the StatsRecorder design's load-bearing invariant: `UserStatsRepository
@@ -42,6 +46,12 @@ import io.kotest.matchers.collections.shouldBeEmpty
  * so this rule reports no offenders and stays green while the invariant it exists to protect is
  * broken. Treat "the rule is green" as "no *constructor-held, class-scoped* violation exists" —
  * not as a blanket guarantee that no 5th recurrence of the bug class is possible.
+ *
+ * **Raw table writes are censused separately.** A class can also write `book_reads` / `user_stats`
+ * straight through SQLDelight (`sql.bookReadsQueries.<write>(…)`, or an alias of it), holding no
+ * repository at all. The second test reads the write labels from `BookReads.sq` / `UserStats.sq`
+ * (every label whose statement is not a `SELECT`) and requires every production file that calls one to
+ * be in [RAW_STATS_TABLE_WRITERS], each with its reason; an entry that no longer writes fails.
  */
 class StatsRecorderIsSoleStatsWriterRule :
     FunSpec({
@@ -62,6 +72,26 @@ class StatsRecorderIsSoleStatsWriterRule :
             }
             findOffenders(scope).shouldBeEmpty()
         }
+
+        test("direct SQLDelight writes to book_reads and user_stats come only from the named files") {
+            val labels = statsWriteLabels()
+            withClue("write labels read from the .sq files: $labels") {
+                labels.size shouldBeGreaterThanOrEqual 10
+                labels shouldContainAll
+                    setOf("insert", "update", "softDeleteById", "insertPulled", "deletePulledForUser")
+            }
+            val writers =
+                Konsist
+                    .scopeFromProduction("server")
+                    .files
+                    .filter { directStatsWrites(it.text, labels).isNotEmpty() }
+                    .map { it.path.substringAfterLast("/") }
+                    .toSet()
+            val offenders = writers - RAW_STATS_TABLE_WRITERS.keys
+            withClue("Files writing the stats tables without the recorder: $offenders") { offenders.shouldBeEmpty() }
+            val stale = RAW_STATS_TABLE_WRITERS.keys - writers
+            withClue("Allowlisted files that no longer write the stats tables: $stale") { stale.shouldBeEmpty() }
+        }
     }) {
     companion object {
         /**
@@ -80,6 +110,67 @@ class StatsRecorderIsSoleStatsWriterRule :
          * `reconcileBookReadsFromPositions`, not a repository method, so it isn't matched here.)
          */
         val BOOK_READS_WRITE_ALLOWLIST = setOf("StatsRecorder")
+
+        /**
+         * Production files allowed to call a `book_reads` / `user_stats` write statement directly, by file
+         * name, each with its reason. Anything else goes through the repositories and [StatsRecorder].
+         */
+        val RAW_STATS_TABLE_WRITERS =
+            mapOf(
+                "BookReadsRepository.kt" to "the book_reads repository itself — the primitive the recorder calls",
+                "UserStatsRepository.kt" to "the user_stats repository itself — the primitive the recorder calls",
+                "UserStatsDerivation.kt" to
+                    "the rebuild's book_reads reconcile from finished positions, inside the recorder's bulk recompute",
+                "HardcoverPullStore.kt" to
+                    "mirrors Hardcover's own reads (rows keyed hardcover:…); pulled reads are not ListenUp listening",
+                "HardcoverConnectionStore.kt" to
+                    "forgets the pulled Hardcover reads when the account is disconnected — the mirror's own lifecycle",
+            )
+
+        private val SQ_FILES = listOf("BookReads.sq", "UserStats.sq")
+
+        private val LABEL = Regex("""^(\w+):\s*$""", RegexOption.MULTILINE)
+
+        /** Every label in the stats tables' `.sq` files whose statement does not start with `SELECT`. */
+        fun statsWriteLabels(): Set<String> =
+            File(Konsist.projectRootPath, "server/src/commonMain/sqldelight")
+                .walkTopDown()
+                .filter { it.name in SQ_FILES }
+                .toList()
+                .also { check(it.size == SQ_FILES.size) { "expected $SQ_FILES, found ${it.map(File::getName)}" } }
+                .flatMap { writeLabelsIn(it.readText()) }
+                .toSet()
+
+        /** The labels in one `.sq` [source] whose statement — the text up to the next label — is not a `SELECT`. */
+        fun writeLabelsIn(source: String): List<String> {
+            val code = source.lines().joinToString("\n") { it.substringBefore("--") }
+            val labels = LABEL.findAll(code).toList()
+            return labels.mapIndexedNotNull { index, label ->
+                val end = labels.getOrNull(index + 1)?.run { range.first } ?: code.length
+                val statement = code.substring(label.range.last + 1, end).trim()
+                label.groupValues[1].takeUnless { statement.startsWith("SELECT", ignoreCase = true) }
+            }
+        }
+
+        /**
+         * The write labels [source] calls on `bookReadsQueries` / `userStatsQueries`, directly or through a
+         * local alias (`val reads = sql.bookReadsQueries`), comments stripped.
+         */
+        fun directStatsWrites(
+            source: String,
+            writeLabels: Set<String>,
+        ): List<String> {
+            val code = stripComments(source)
+            val aliases =
+                Regex("""\b(?:val|var)\s+(\w+)\s*=\s*[\w.]*\b(?:bookReads|userStats)Queries\b""")
+                    .findAll(code)
+                    .map { it.groupValues[1] }
+                    .toList()
+            val receivers = listOf("bookReadsQueries", "userStatsQueries") + aliases
+            return writeLabels.filter { label ->
+                receivers.any { receiver -> Regex("""\b$receiver\s*\.\s*$label\s*\(""").containsMatchIn(code) }
+            }
+        }
 
         fun findOffenders(scope: KoScope): List<String> =
             violatingClasses(

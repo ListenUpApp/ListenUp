@@ -2,6 +2,8 @@ package com.calypsan.listenup.server.konsist
 
 import com.lemonappdev.konsist.api.Konsist
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldContainExactly
+import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.collections.shouldHaveSize
 
 /**
@@ -31,5 +33,31 @@ class StatsRecorderIsSoleStatsWriterRuleSelfTest :
                     "server/src/jvmTest/kotlin/com/calypsan/listenup/server/konsist/fixtures/RogueBookReadsWriterFixture.kt",
                 )
             StatsRecorderIsSoleStatsWriterRule.findOffenders(scope) shouldHaveSize 1
+        }
+
+        test("the raw-table census sees a direct SQLDelight write and one through an alias") {
+            val fixture =
+                Konsist
+                    .scopeFromFile(
+                        "server/src/jvmTest/kotlin/com/calypsan/listenup/server/konsist/fixtures/RogueStatsTableWriterFixture.kt",
+                    ).files
+                    .single()
+            StatsRecorderIsSoleStatsWriterRule.directStatsWrites(
+                fixture.text,
+                StatsRecorderIsSoleStatsWriterRule.statsWriteLabels(),
+            ) shouldContainExactlyInAnyOrder listOf("deletePulledForUser", "updateFinishedAtById")
+        }
+
+        test("a label is a write unless its statement is a SELECT") {
+            val sql =
+                """
+                -- a comment: notALabel:
+                readOne:
+                SELECT * FROM t WHERE id = ?;
+
+                touch:
+                UPDATE t SET x = 1;
+                """.trimIndent()
+            StatsRecorderIsSoleStatsWriterRule.writeLabelsIn(sql) shouldContainExactly listOf("touch")
         }
     })
