@@ -13,6 +13,8 @@ dependencies {
     // AppResult<T>, and RpcEvent<T> — these are the types the processor validates.
     testImplementation(libs.kotlinx.rpc.core)
     testImplementation(project(":app:sharedLogic"))
+    // The behaviour specs construct the compiled guards, whose constructor takes a KLogger.
+    testImplementation(libs.kotlin.logging)
 }
 
 tasks.test {
