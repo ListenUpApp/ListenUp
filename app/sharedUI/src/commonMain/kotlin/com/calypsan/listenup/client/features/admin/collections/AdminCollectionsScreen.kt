@@ -76,6 +76,7 @@ import listenup.composeapp.generated.resources.common_delete_name
 import listenup.composeapp.generated.resources.common_administration
 import listenup.composeapp.generated.resources.common_no_items_yet
 import org.jetbrains.compose.resources.stringResource
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.shape.CircleShape
@@ -556,7 +557,7 @@ private fun CollectionsEmptyState(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun CreateCollectionDialog(
+internal fun CreateCollectionDialog(
     isCreating: Boolean,
     onDismiss: () -> Unit,
     onConfirm: (String) -> Unit,
@@ -579,7 +580,10 @@ private fun CreateCollectionDialog(
             label = stringResource(Res.string.admin_collection_name),
             enabled = !isCreating,
             supportingText = stringResource(Res.string.admin_enter_a_name_for_the),
-            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
+            keyboardOptions =
+                KeyboardOptions(capitalization = KeyboardCapitalization.Words, imeAction = ImeAction.Done),
+            // Done creates under the Create button's own rule.
+            onKeyboardAction = { if (name.text.isNotBlank() && !isCreating) onConfirm(name.text.toString()) },
         )
     }
 }
