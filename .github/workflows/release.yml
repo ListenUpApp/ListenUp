@@ -1,7 +1,8 @@
 # ListenUp Client — Release Pipeline
 #
 # Manual, per-platform release. Version comes from the VERSION file; the optional
-# `version` input bumps it (commits + tags). Android → Play internal,
+# `version` input bumps it (commits; the tag is cut by the last job, once every
+# selected lane has succeeded). Android → Play internal,
 # iOS → TestFlight, server → GHCR.
 #
 # Every lane stops one step short of the public: promotion to Play production and
@@ -32,6 +33,10 @@ on:
         description: "iOS signing dry run: archive + export an IPA, no TestFlight upload, no GitHub Release"
         type: boolean
         default: false
+      skip_ci_check:
+        description: "Release even though CI is not green on this commit (say why in the run notes)"
+        type: boolean
+        default: false
 
 concurrency:
   group: release
@@ -43,6 +48,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      actions: read
     outputs:
       version: ${{ steps.resolve.outputs.version }}
       sha: ${{ steps.resolve.outputs.sha }}
@@ -53,6 +59,18 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      # The release used to build whatever main held, green or not: nothing looked at CI. A red main
+      # shipped is a red build on every tester's phone. The override exists because CI itself can be
+      # the thing that is broken (a flaky lane, an outage) while the code is fine. The self-test runs
+      # first so a gate that has stopped refusing cannot pass silently.
+      - name: Require a green CI run on this commit
+        if: ${{ !inputs.skip_ci_check }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          bash tools/scripts/require-green-ci.test.sh
+          bash tools/scripts/require-green-ci.sh
+
       - name: Resolve and (optionally) bump version
         id: resolve
         run: |
@@ -62,8 +80,16 @@ jobs:
             echo "::error::An iOS dry run ships nothing, so it must not bump VERSION or tag. Leave version blank."
             exit 1
           fi
+          if [ -n "$INPUT" ] && [ "${GITHUB_REF}" != "refs/heads/main" ]; then
+            echo "::error::A version bump commits to main, so it must be dispatched on main (this run is on ${GITHUB_REF})."
+            exit 1
+          fi
           if [ -n "$INPUT" ]; then
             CLEAN="${INPUT#v}"
+            if git rev-parse -q --verify "refs/tags/v$CLEAN" >/dev/null; then
+              echo "::error::Tag v$CLEAN already exists: that version was released. Pick the next version, or leave version blank to re-run lanes for it."
+              exit 1
+            fi
             echo "$CLEAN" > VERSION
             # Keep the README status badge in step with VERSION. It is carried in the same
             # commit deliberately: hand-updating it drifted six releases (0.6.0 while shipping
@@ -75,10 +101,15 @@ jobs:
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
             git add VERSION README.md
-            git commit -m "🔖 chore: release v$CLEAN"
-            git tag "v$CLEAN"
-            git push origin HEAD:main
-            git push origin "v$CLEAN"
+            # Re-dispatching the same version after a failed lane finds VERSION already bumped: there is
+            # nothing to commit, and that is fine — the tag below this job is what marks a release, and it
+            # is created only once every selected lane has succeeded.
+            if git diff --cached --quiet; then
+              echo "VERSION already says $CLEAN; nothing to commit."
+            else
+              git commit -m "🔖 chore: release v$CLEAN"
+              git push origin HEAD:main
+            fi
             VERSION="$CLEAN"
           else
             VERSION="$(tr -d '[:space:]' < VERSION)"
@@ -208,6 +239,9 @@ jobs:
         with:
           tag_name: v${{ needs.set-version.outputs.version }}
           name: v${{ needs.set-version.outputs.version }}
+          # The tag does not exist yet on a bumped release: this action creates it, on the commit every
+          # lane built. Tagging first (as this workflow did) left v-tags on main for releases that failed.
+          target_commitish: ${{ needs.set-version.outputs.sha }}
           generate_release_notes: true
           files: artifacts/**/*
           fail_on_unmatched_files: false
@@ -522,5 +556,5 @@ jobs:
           push: true
           tags: |
             ghcr.io/listenupapp/listenup-server:${{ needs.set-version.outputs.version }}
-            ghcr.io/listenupapp/listenup-server:${{ github.sha }}
+            ghcr.io/listenupapp/listenup-server:${{ needs.set-version.outputs.sha }}
             ghcr.io/listenupapp/listenup-server:latest
