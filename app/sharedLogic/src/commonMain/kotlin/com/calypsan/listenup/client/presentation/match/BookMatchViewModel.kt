@@ -10,19 +10,16 @@ import com.calypsan.listenup.api.dto.match.FieldChoice
 import com.calypsan.listenup.api.dto.match.FindStrategy
 import com.calypsan.listenup.api.dto.match.ImageChoice
 import com.calypsan.listenup.api.dto.match.RegionContext
-import com.calypsan.listenup.api.error.AppError
-import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.api.metadata.BookField
 import com.calypsan.listenup.api.metadata.MetadataLocale
-import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.result.map
 import com.calypsan.listenup.client.domain.model.BookDetail
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.MatchingRepository
+import com.calypsan.listenup.client.presentation.WhileSubscribedForUi
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.error.ErrorBus
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -30,10 +27,6 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
-import com.calypsan.listenup.client.presentation.WhileSubscribedForUi
-
-private const val COUNTDOWN_TICK_MS = 1_000L
 
 /**
  * One Match details session for one book: Find, Review and Apply share this ViewModel, so going back to the
@@ -49,12 +42,37 @@ class BookMatchViewModel internal constructor(
     private val matchingRepository: MatchingRepository,
     bookRepository: BookRepository,
     private val receiptStore: MatchReceiptStore,
-    private val errorBus: ErrorBus,
+    errorBus: ErrorBus,
 ) : ViewModel() {
-    private val session = MutableStateFlow(Session())
-    private var findJob: Job? = null
-    private var countdownJob: Job? = null
-    private var reviewJob: Job? = null
+    private val searchParams = MutableStateFlow(BookSearchParams())
+
+    private val controller =
+        MatchSessionController<
+            BookCandidateKey,
+            CandidateUi,
+            BookFindLoaded,
+            RegionContext?,
+            BookMatchReview,
+            ReviewChoices,
+        >(
+            scope = viewModelScope,
+            errorBus = errorBus,
+            defaultChoices = ::ReviewChoices,
+            keyOf = CandidateUi::key,
+            candidatesOf = { loaded ->
+                MatchLoadedCandidates(
+                    all = loaded.outcome.strong + loaded.outcome.maybe,
+                    bestStrong = loaded.outcome.strong.firstOrNull { it.isBest } ?: loaded.outcome.strong.firstOrNull(),
+                )
+            },
+            loadReview = { candidate ->
+                matchingRepository.reviewBookMatch(
+                    BookId(bookId),
+                    candidate.key,
+                    searchParams.value.regionOverride,
+                )
+            },
+        )
 
     private val yourCopy: Flow<YourCopyUi?> =
         combine(bookRepository.observeBookDetail(bookId), bookRepository.observeChapters(bookId)) { book, chapters ->
@@ -68,13 +86,15 @@ class BookMatchViewModel internal constructor(
 
     /** The Find step. */
     val findState: StateFlow<FindUiState> =
-        combine(session, yourCopy) { s, copy -> s.toFindState(copy) }
-            .stateIn(viewModelScope, WhileSubscribedForUi, FindUiState.Searching(null, "", null))
+        combine(searchParams, controller.state, yourCopy) { params, core, copy ->
+            toFindState(params = params, core = core, copy = copy)
+        }.stateIn(viewModelScope, WhileSubscribedForUi, FindUiState.Searching(null, "", null))
 
     /** The Review step. */
     val reviewState: StateFlow<ReviewUiState> =
-        combine(session, yourCopy) { s, copy -> s.toReviewState(copy) }
-            .stateIn(viewModelScope, WhileSubscribedForUi, ReviewUiState.NoneChosen)
+        combine(controller.state, yourCopy) { core, copy ->
+            toReviewState(core = core, copy = copy)
+        }.stateIn(viewModelScope, WhileSubscribedForUi, ReviewUiState.NoneChosen)
 
     init {
         runFind()
@@ -82,7 +102,7 @@ class BookMatchViewModel internal constructor(
 
     /** Searches for [query]; a blank query goes back to the automatic search. */
     fun search(query: String) {
-        session.update {
+        searchParams.update {
             it.copy(query = query.trim().ifBlank { null }, strategy = FindStrategy.AUTOMATIC)
         }
         runFind()
@@ -90,35 +110,30 @@ class BookMatchViewModel internal constructor(
 
     /** "Search by title": skips existing links and identifiers, searching title, author and length only. */
     fun searchByTitle() {
-        session.update { it.copy(query = null, strategy = FindStrategy.TITLE_AUTHOR) }
+        searchParams.update { it.copy(query = null, strategy = FindStrategy.TITLE_AUTHOR) }
         runFind()
     }
 
     /** Searches another store for this search only; the library's store is untouched. Choices are kept. */
     fun chooseStoreForThisSearch(region: MetadataLocale) {
-        session.update { it.copy(regionOverride = region) }
+        searchParams.update { it.copy(regionOverride = region) }
         runFind()
     }
 
     /** Re-runs the whole Find; sources that already answered come back from the server's cache. */
     fun retry() {
-        val failed = session.value.find as? FindPhase.Failed
-        if ((failed?.failure as? FindFailure.RateLimited)?.run { secondsRemaining > 0 } == true) return
+        if (controller.isRateLimitCoolingDown()) return
         runFind()
     }
 
     /** Opens [key]'s Review. */
     fun pick(key: BookCandidateKey) {
-        val loaded = session.value.find as? FindPhase.Loaded ?: return
-        val candidate = loaded.candidates.firstOrNull { it.key == key } ?: return
-        session.update { it.copy(pickedKey = key, review = ReviewPhase.Loading(candidate)) }
-        loadReview(candidate)
+        controller.pick(key)
     }
 
     /** Back to the intact results; the picked row stays marked. */
     fun backToResults() {
-        reviewJob?.cancel()
-        session.update { it.copy(review = ReviewPhase.None) }
+        controller.backToResults()
     }
 
     /**
@@ -126,8 +141,7 @@ class BookMatchViewModel internal constructor(
      * whenever it changes.
      */
     fun useTwoPane(enabled: Boolean) {
-        session.update { it.copy(twoPane = enabled) }
-        if (enabled) autoPickBest()
+        controller.useTwoPane(enabled)
     }
 
     /** Ticks or unticks a field. Unticking keeps yours; re-ticking restores the last chosen source. */
@@ -135,7 +149,7 @@ class BookMatchViewModel internal constructor(
         field: BookField,
         ticked: Boolean,
     ) {
-        updateChoices { choices, review ->
+        controller.updateChoices { choices, review ->
             review.fields.firstOrNull { it.field == field }?.let { choices.setTicked(it, ticked) } ?: choices
         }
     }
@@ -145,12 +159,12 @@ class BookMatchViewModel internal constructor(
         field: BookField,
         choice: FieldChoice,
     ) {
-        updateChoices { choices, _ -> choices.choose(field, choice) }
+        controller.updateChoices { choices, _ -> choices.choose(field, choice) }
     }
 
     /** Picks the cover Apply writes: Keep current, or one candidate. */
     fun chooseCover(choice: ImageChoice) {
-        updateChoices { choices, _ -> choices.copy(cover = choice) }
+        controller.updateChoices { choices, _ -> choices.copy(cover = choice) }
     }
 
     /** Removes one of your genres or moods (an explicit ×). */
@@ -158,7 +172,7 @@ class BookMatchViewModel internal constructor(
         kind: LabelKind,
         label: String,
     ) {
-        updateChoices { c, _ ->
+        controller.updateChoices { c, _ ->
             c.copy(removedYours = c.toggleLabel(bucket = c.removedYours, kind = kind, label = label, on = true))
         }
     }
@@ -168,7 +182,7 @@ class BookMatchViewModel internal constructor(
         kind: LabelKind,
         label: String,
     ) {
-        updateChoices { c, _ ->
+        controller.updateChoices { c, _ ->
             c.copy(removedYours = c.toggleLabel(bucket = c.removedYours, kind = kind, label = label, on = false))
         }
     }
@@ -178,7 +192,7 @@ class BookMatchViewModel internal constructor(
         kind: LabelKind,
         label: String,
     ) {
-        updateChoices { c, _ ->
+        controller.updateChoices { c, _ ->
             val off = label in c.deselectedSuggestions[kind].orEmpty()
             c.copy(
                 deselectedSuggestions =
@@ -194,12 +208,12 @@ class BookMatchViewModel internal constructor(
 
     /** Includes or leaves out every chapter name. */
     fun setChapterNamesIncluded(included: Boolean) {
-        updateChoices { choices, _ -> choices.copy(chapterNamesIncluded = included) }
+        controller.updateChoices { choices, _ -> choices.copy(chapterNamesIncluded = included) }
     }
 
     /** Includes or leaves out one chapter's name. */
     fun toggleChapter(ordinal: Int) {
-        updateChoices { choices, _ ->
+        controller.updateChoices { choices, _ ->
             val excluded = choices.deselectedChapters
             choices.copy(deselectedChapters = if (ordinal in excluded) excluded - ordinal else excluded + ordinal)
         }
@@ -210,281 +224,141 @@ class BookMatchViewModel internal constructor(
      * options survived and [BookMatchEvent.ReviewReloaded] fires; any other failure stays on Review, inline.
      */
     fun apply() {
-        val ready = session.value.review as? ReviewPhase.Ready ?: return
-        if (ready.applying) return
-        val request = session.value.choicesFor(ready.candidate.key).toApply(ready.review)
-        updateReady { it.copy(applying = true, applyError = null) }
-        viewModelScope.launch {
-            when (val result = matchingRepository.applyBookMatch(BookId(bookId), request)) {
-                is AppResult.Success -> {
-                    receiptStore.put(bookId, result.data)
-                    updateReady { it.copy(applying = false) }
-                    eventChannel.send(BookMatchEvent.Applied(result.data))
-                }
-
-                is AppResult.Failure -> {
-                    if (result.error is MetadataError.ReviewOutdated) {
-                        reloadAfterOutdated(ready.candidate)
-                    } else {
-                        errorBus.emit(result.error)
-                        updateReady { it.copy(applying = false, applyError = result.error) }
-                    }
-                }
-            }
-        }
-    }
-
-    private suspend fun reloadAfterOutdated(candidate: CandidateUi) {
-        when (val reloaded = review(candidate)) {
-            is AppResult.Success -> {
-                session.update { s ->
-                    s.copy(
-                        review =
-                            ReviewPhase.Ready(
-                                candidate = candidate,
-                                review = reloaded.data,
-                                applying = false,
-                                applyError = null,
-                            ),
-                    )
-                }
+        controller.apply(
+            submit = { choices, review ->
+                matchingRepository.applyBookMatch(BookId(bookId), choices.toApply(review))
+            },
+            onApplied = { receipt ->
+                receiptStore.put(bookId, receipt)
+                eventChannel.send(BookMatchEvent.Applied(receipt))
+            },
+            onReviewReloaded = {
                 eventChannel.send(BookMatchEvent.ReviewReloaded)
-            }
-
-            is AppResult.Failure -> {
-                errorBus.emit(reloaded.error)
-                session.update { it.copy(review = ReviewPhase.Failed(candidate, reloaded.error)) }
-            }
-        }
+            },
+        )
     }
 
     private fun runFind() {
-        findJob?.cancel()
-        countdownJob?.cancel()
-        session.update { it.copy(find = FindPhase.Searching(previous = it.find as? FindPhase.Loaded ?: it.lastLoaded)) }
-        val s = session.value
-        val request = BookFindRequest(query = s.query, strategy = s.strategy, regionOverride = s.regionOverride)
-        findJob =
-            viewModelScope.launch {
-                when (val result = matchingRepository.findBookMatches(BookId(bookId), request)) {
-                    is AppResult.Success -> {
-                        onFound(result.data)
-                    }
-
-                    is AppResult.Failure -> {
-                        errorBus.emit(result.error)
-                        session.update { it.copy(find = FindPhase.Failed(findFailureFor(result.error), null)) }
-                    }
+        val params = searchParams.value
+        val request =
+            BookFindRequest(
+                query = params.query,
+                strategy = params.strategy,
+                regionOverride = params.regionOverride,
+            )
+        controller.startFind(failedMeta = null) {
+            matchingRepository.findBookMatches(BookId(bookId), request).map { result ->
+                when (val outcome = chooseFindOutcome(result)) {
+                    is FindOutcome.Candidates -> MatchFindPhase.LoadedPhase(BookFindLoaded(result, outcome))
+                    is FindOutcome.Failure -> MatchFindPhase.Failed(outcome.failure, result.region)
                 }
             }
-    }
-
-    private fun onFound(result: BookFindResult) {
-        when (val outcome = chooseFindOutcome(result)) {
-            is FindOutcome.Candidates -> {
-                val loaded = FindPhase.Loaded(result, outcome)
-                session.update { it.copy(find = loaded, lastLoaded = loaded) }
-                autoPickBest()
-            }
-
-            is FindOutcome.Failure -> {
-                session.update { it.copy(find = FindPhase.Failed(outcome.failure, result.region)) }
-                (outcome.failure as? FindFailure.RateLimited)?.let(::countDown)
-            }
         }
     }
 
-    private fun countDown(start: FindFailure.RateLimited) {
-        countdownJob =
-            viewModelScope.launch {
-                var remaining = start.secondsRemaining
-                while (remaining > 0) {
-                    delay(COUNTDOWN_TICK_MS)
-                    remaining--
-                    val left = remaining
-                    session.update { s ->
-                        val failed = s.find as? FindPhase.Failed ?: return@update s
-                        val limited = failed.failure as? FindFailure.RateLimited ?: return@update s
-                        s.copy(find = failed.copy(failure = limited.copy(secondsRemaining = left)))
-                    }
-                }
-            }
-    }
-
-    private fun autoPickBest() {
-        val s = session.value
-        if (!s.twoPane || s.review != ReviewPhase.None || s.pickedKey != null) return
-        val loaded = s.find as? FindPhase.Loaded ?: return
-        val best = loaded.outcome.strong.firstOrNull { it.isBest } ?: loaded.outcome.strong.firstOrNull() ?: return
-        pick(best.key)
-    }
-
-    private fun loadReview(candidate: CandidateUi) {
-        reviewJob?.cancel()
-        reviewJob =
-            viewModelScope.launch {
-                when (val result = review(candidate)) {
-                    is AppResult.Success -> {
-                        session.update { s ->
-                            s.copy(
-                                review =
-                                    ReviewPhase.Ready(
-                                        candidate = candidate,
-                                        review = result.data,
-                                        applying = false,
-                                        applyError = null,
-                                    ),
-                            )
-                        }
-                    }
-
-                    is AppResult.Failure -> {
-                        errorBus.emit(result.error)
-                        session.update { it.copy(review = ReviewPhase.Failed(candidate, result.error)) }
-                    }
-                }
-            }
-    }
-
-    private suspend fun review(candidate: CandidateUi): AppResult<BookMatchReview> =
-        matchingRepository.reviewBookMatch(BookId(bookId), candidate.key, session.value.regionOverride)
-
-    private fun updateChoices(transform: (ReviewChoices, BookMatchReview) -> ReviewChoices) {
-        session.update { s ->
-            val ready = s.review as? ReviewPhase.Ready ?: return@update s
-            if (ready.applying) return@update s
-            val key = ready.candidate.key
-            s.copy(choices = s.choices + (key to transform(s.choicesFor(key), ready.review)))
-        }
-    }
-
-    private fun updateReady(transform: (ReviewPhase.Ready) -> ReviewPhase.Ready) {
-        session.update { s ->
-            val ready = s.review as? ReviewPhase.Ready ?: return@update s
-            s.copy(review = transform(ready))
-        }
-    }
-
-    private sealed interface FindPhase {
-        /** A Find is running; the last results stay on screen. */
-        data class Searching(
-            val previous: Loaded?,
-        ) : FindPhase
-
-        /** Find returned candidates. */
-        data class Loaded(
-            val result: BookFindResult,
-            val outcome: FindOutcome.Candidates,
-        ) : FindPhase {
-            val candidates: List<CandidateUi> get() = outcome.strong + outcome.maybe
-        }
-
-        /** Find returned no candidates, for this reason. */
-        data class Failed(
-            val failure: FindFailure,
-            val region: RegionContext?,
-        ) : FindPhase
-    }
-
-    private sealed interface ReviewPhase {
-        data object None : ReviewPhase
-
-        /** The Review for this candidate is loading. */
-        data class Loading(
-            val candidate: CandidateUi,
-        ) : ReviewPhase
-
-        /** The Review is loaded; Apply may be running. */
-        data class Ready(
-            val candidate: CandidateUi,
-            val review: BookMatchReview,
-            val applying: Boolean,
-            val applyError: AppError?,
-        ) : ReviewPhase
-
-        /** The Review couldn't load. */
-        data class Failed(
-            val candidate: CandidateUi,
-            val error: AppError,
-        ) : ReviewPhase
-    }
-
-    private data class Session(
+    private data class BookSearchParams(
         /** What the person typed; null means the automatic search from what the server knows. */
         val query: String? = null,
         val strategy: FindStrategy = FindStrategy.AUTOMATIC,
         val regionOverride: MetadataLocale? = null,
-        val find: FindPhase = FindPhase.Searching(previous = null),
-        val lastLoaded: FindPhase.Loaded? = null,
-        val pickedKey: BookCandidateKey? = null,
-        val review: ReviewPhase = ReviewPhase.None,
-        val choices: Map<BookCandidateKey, ReviewChoices> = emptyMap(),
-        val twoPane: Boolean = false,
-    ) {
-        fun choicesFor(key: BookCandidateKey): ReviewChoices = choices[key] ?: ReviewChoices()
+    )
 
-        fun displayedQuery(copy: YourCopyUi?): String = query ?: copy?.title.orEmpty()
+    private data class BookFindLoaded(
+        val result: BookFindResult,
+        val outcome: FindOutcome.Candidates,
+    )
 
-        fun toFindState(copy: YourCopyUi?): FindUiState =
-            when (val find = find) {
-                is FindPhase.Searching -> {
-                    FindUiState.Searching(copy, displayedQuery(copy), find.previous?.let { resultsOf(it, copy) })
-                }
-
-                is FindPhase.Loaded -> {
-                    resultsOf(find, copy)
-                }
-
-                is FindPhase.Failed -> {
-                    FindUiState.Failed(
-                        yourCopy = copy,
-                        query = displayedQuery(copy),
-                        failure = find.failure,
-                        region = find.region?.toUi(),
-                    )
-                }
+    private fun toFindState(
+        params: BookSearchParams,
+        core: MatchCoreState<BookCandidateKey, CandidateUi, BookFindLoaded, RegionContext?, BookMatchReview, ReviewChoices>,
+        copy: YourCopyUi?,
+    ): FindUiState {
+        val displayedQuery = params.query ?: copy?.title.orEmpty()
+        return when (val find = core.find) {
+            is MatchFindPhase.Searching -> {
+                FindUiState.Searching(
+                    yourCopy = copy,
+                    query = displayedQuery,
+                    previous =
+                        find.previous?.let { prev ->
+                            resultsOf(
+                                loaded = prev,
+                                copy = copy,
+                                displayedQuery = displayedQuery,
+                                pickedKey = core.pickedKey,
+                            )
+                        },
+                )
             }
 
-        private fun resultsOf(
-            loaded: FindPhase.Loaded,
-            copy: YourCopyUi?,
-        ): FindUiState.Results =
-            FindUiState.Results(
-                yourCopy = copy,
-                steps = loaded.result.steps,
-                query = displayedQuery(copy),
-                strong = loaded.outcome.strong,
-                maybe = loaded.outcome.maybe,
-                partialFailure = loaded.outcome.partialFailure,
-                region = loaded.result.region?.toUi(),
-                pickedKey = pickedKey,
-            )
-
-        fun toReviewState(copy: YourCopyUi?): ReviewUiState =
-            when (val review = review) {
-                ReviewPhase.None -> {
-                    ReviewUiState.NoneChosen
-                }
-
-                is ReviewPhase.Loading -> {
-                    ReviewUiState.Loading(review.candidate)
-                }
-
-                is ReviewPhase.Failed -> {
-                    ReviewUiState.Failed(review.candidate, review.error)
-                }
-
-                is ReviewPhase.Ready -> {
-                    choicesFor(review.candidate.key).project(
-                        candidate = review.candidate,
-                        review = review.review,
-                        currentCoverPath = copy?.coverPath,
-                        applying = review.applying,
-                        applyError = review.applyError,
-                    )
-                }
+            is MatchFindPhase.LoadedPhase -> {
+                resultsOf(
+                    loaded = find.loaded,
+                    copy = copy,
+                    displayedQuery = displayedQuery,
+                    pickedKey = core.pickedKey,
+                )
             }
+
+            is MatchFindPhase.Failed -> {
+                FindUiState.Failed(
+                    yourCopy = copy,
+                    query = displayedQuery,
+                    failure = find.failure,
+                    region = find.meta?.toUi(),
+                )
+            }
+
+            MatchFindPhase.Empty -> {
+                FindUiState.Searching(copy, displayedQuery, null)
+            }
+        }
     }
+
+    private fun resultsOf(
+        loaded: BookFindLoaded,
+        copy: YourCopyUi?,
+        displayedQuery: String,
+        pickedKey: BookCandidateKey?,
+    ): FindUiState.Results =
+        FindUiState.Results(
+            yourCopy = copy,
+            steps = loaded.result.steps,
+            query = displayedQuery,
+            strong = loaded.outcome.strong,
+            maybe = loaded.outcome.maybe,
+            partialFailure = loaded.outcome.partialFailure,
+            region = loaded.result.region?.toUi(),
+            pickedKey = pickedKey,
+        )
+
+    private fun toReviewState(
+        core: MatchCoreState<BookCandidateKey, CandidateUi, BookFindLoaded, RegionContext?, BookMatchReview, ReviewChoices>,
+        copy: YourCopyUi?,
+    ): ReviewUiState =
+        when (val review = core.review) {
+            MatchReviewPhase.None -> {
+                ReviewUiState.NoneChosen
+            }
+
+            is MatchReviewPhase.Loading -> {
+                ReviewUiState.Loading(review.candidate)
+            }
+
+            is MatchReviewPhase.Failed -> {
+                ReviewUiState.Failed(review.candidate, review.error)
+            }
+
+            is MatchReviewPhase.Ready -> {
+                core.choicesFor(review.candidate.key, ::ReviewChoices).project(
+                    candidate = review.candidate,
+                    review = review.review,
+                    currentCoverPath = copy?.coverPath,
+                    applying = review.applying,
+                    applyError = review.applyError,
+                )
+            }
+        }
 }
 
 private fun RegionContext.toUi(): RegionUi =

@@ -1,24 +1,21 @@
 package com.calypsan.listenup.client.di
 
-import com.calypsan.listenup.api.BookService
-import com.calypsan.listenup.api.sync.BookSyncPayload
-import com.calypsan.listenup.api.sync.SyncDomains
-import com.calypsan.listenup.client.data.remote.rpcChannel
-import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.playback.ManagedPlayerEngine
 import com.calypsan.listenup.client.playback.NoOutputRoute
 import com.calypsan.listenup.client.playback.NoPlaybackStartGate
 import com.calypsan.listenup.client.playback.OutputRoute
 import com.calypsan.listenup.client.playback.PlaybackManager
 import com.calypsan.listenup.client.playback.PlaybackManagerImpl
-import com.calypsan.listenup.client.playback.PlaybackStateProvider
 import com.calypsan.listenup.client.playback.PlaybackProgressReporter
 import com.calypsan.listenup.client.playback.PlaybackStartGate
+import com.calypsan.listenup.client.playback.PlaybackStateProvider
 import com.calypsan.listenup.client.playback.PlayerEngine
 import org.koin.core.module.Module
 import org.koin.core.qualifier.named
 import org.koin.dsl.bind
 import org.koin.dsl.module
+
+private const val PLAYBACK_SCOPE = "playbackScope"
 
 /**
  * Desktop `PlaybackManager` wiring. Lives in `:app:sharedLogic` so the binding can construct
@@ -34,30 +31,19 @@ val desktopPlaybackModule: Module =
             PlaybackProgressReporter(
                 progressTracker = get(),
                 recorder = get(),
-                scope = get(qualifier = named("playbackScope")),
+                scope = get(qualifier = named(PLAYBACK_SCOPE)),
                 localPreferences = get(),
             )
         }
 
+        playbackPreparerSingle(named(PLAYBACK_SCOPE))
+
         single<PlaybackManager> {
             PlaybackManagerImpl(
-                serverConfig = get(),
-                playbackPreferences = get(),
-                bookDao = get(),
-                audioFileDao = get(),
-                chapterDao = get(),
-                imageStorage = get(),
-                progressTracker = get(),
+                preparer = get(),
                 reporter = get(),
-                tokenProvider = get(),
-                deviceContext = get(),
-                downloadService = get(),
-                prepareRepository = get(),
-                channel = rpcChannel<BookService>(),
-                scope = get(qualifier = named("playbackScope")),
-                bookSyncDomainHandler = get<SyncDomainHandler<BookSyncPayload>>(named(SyncDomains.BOOKS.name)),
+                scope = get(qualifier = named(PLAYBACK_SCOPE)),
                 playbackBandwidthCoordinator = get(),
-                localPreferences = get(),
             )
         } bind PlaybackStateProvider::class
 
@@ -72,7 +58,7 @@ val desktopPlaybackModule: Module =
                 startGate = get(),
                 progressTracker = get(),
                 outputRoute = get(),
-                scope = get(qualifier = named("playbackScope")),
+                scope = get(qualifier = named(PLAYBACK_SCOPE)),
             )
         }
     }

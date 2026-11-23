@@ -1,14 +1,7 @@
 package com.calypsan.listenup.client.di
 
-import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.dto.auth.DEVICE_FIELD_MAX
 import com.calypsan.listenup.api.dto.auth.DeviceInfo
-import com.calypsan.listenup.api.sync.BookSyncPayload
-import com.calypsan.listenup.api.sync.SyncDomains
-import com.calypsan.listenup.core.IODispatcher
-import com.calypsan.listenup.core.appCoroutineExceptionHandler
-import com.calypsan.listenup.client.data.remote.rpcChannel
-import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.device.DeviceInfoProvider
 import com.calypsan.listenup.client.download.DownloadService
 import com.calypsan.listenup.client.download.NoDownloadsService
@@ -20,13 +13,15 @@ import com.calypsan.listenup.client.playback.NoPlaybackStartGate
 import com.calypsan.listenup.client.playback.OutputRoute
 import com.calypsan.listenup.client.playback.PlaybackController
 import com.calypsan.listenup.client.playback.PlaybackManager
-import com.calypsan.listenup.client.playback.PlaybackMediaItem
 import com.calypsan.listenup.client.playback.PlaybackManagerImpl
-import com.calypsan.listenup.client.playback.PlaybackStateProvider
+import com.calypsan.listenup.client.playback.PlaybackMediaItem
 import com.calypsan.listenup.client.playback.PlaybackProgressReporter
 import com.calypsan.listenup.client.playback.PlaybackStartGate
+import com.calypsan.listenup.client.playback.PlaybackStateProvider
 import com.calypsan.listenup.client.playback.PlayerEngine
 import com.calypsan.listenup.client.playback.ProgressTracker
+import com.calypsan.listenup.core.IODispatcher
+import com.calypsan.listenup.core.appCoroutineExceptionHandler
 import kotlinx.browser.window
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
@@ -110,25 +105,14 @@ internal val browserPlaybackModule: Module =
             )
         }
 
+        playbackPreparerSingle(named(PLAYBACK_SCOPE))
+
         single<PlaybackManager> {
             PlaybackManagerImpl(
-                serverConfig = get(),
-                playbackPreferences = get(),
-                bookDao = get(),
-                audioFileDao = get(),
-                chapterDao = get(),
-                imageStorage = get(),
-                progressTracker = get(),
+                preparer = get(),
                 reporter = get(),
-                tokenProvider = get(),
-                deviceContext = get(),
-                downloadService = get(),
-                prepareRepository = get(),
-                channel = rpcChannel<BookService>(),
                 scope = get(qualifier = named(PLAYBACK_SCOPE)),
-                bookSyncDomainHandler = get<SyncDomainHandler<BookSyncPayload>>(named(SyncDomains.BOOKS.name)),
                 playbackBandwidthCoordinator = get(),
-                localPreferences = get(),
             )
         } bind PlaybackStateProvider::class
 
