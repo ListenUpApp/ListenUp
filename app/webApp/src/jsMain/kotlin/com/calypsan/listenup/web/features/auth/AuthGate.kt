@@ -482,10 +482,9 @@ private fun LoginBranch(
             AuthLayout(title = "Sign in", subtitle = "Pick up right where you left off in your audiobook library.") {
                 LoginForm(
                     state = session.state.collectAsState().value,
-                    openRegistration = openRegistration,
                     onSubmit = session.submit,
-                    onRegister = { pane = LoginPane.Register },
                     onForgotPassword = { pane = LoginPane.Forgot },
+                    onRegister = { pane = LoginPane.Register }.takeIf { openRegistration },
                     onClaimInvite = { pane = LoginPane.Invite },
                 )
             }

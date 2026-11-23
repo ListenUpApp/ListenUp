@@ -73,26 +73,56 @@ fun SessionLapsedBanner(authGraph: AuthGraph) {
  * The sign-in form, over the shell rather than instead of it.
  *
  * Reuses [LoginForm] — the same form the signed-out route renders — so a fix to either reaches both.
- * Registration, forgotten passwords and invite codes are deliberately NOT offered here: this reader
- * has an account, and the question on the table is only whether they can prove it.
+ *
+ * "Forgot password?" is offered, and leads to the same admin-approved reset the signed-out route
+ * uses, inside this sheet: a lapsed reader may be lapsed precisely because the password changed,
+ * and both native clients send re-auth's forgot-password to that flow. Finishing it revokes every
+ * session, so the reader comes back to this form and signs in with the new one.
+ *
+ * Registration and invite codes are NOT offered: this reader has an account, and the shell under
+ * this sheet is still holding its library. Signing a second account in over it is not a way back.
  */
 @Composable
 private fun SignInSheet(
     authGraph: AuthGraph,
     onDismiss: () -> Unit,
 ) {
-    val session = rememberSession { authGraph.openLogin() }
+    var pane by remember { mutableStateOf(SheetPane.SignIn) }
 
-    ModalDialog(open = true, title = "Sign back in", onDismiss = onDismiss) {
-        LoginForm(
-            state = session.state.collectAsState().value,
-            openRegistration = false,
-            onSubmit = session.submit,
-            onRegister = {},
-            onForgotPassword = {},
-            onClaimInvite = {},
-        )
+    ModalDialog(open = true, title = pane.title, onDismiss = onDismiss) {
+        when (pane) {
+            SheetPane.SignIn -> {
+                val session = rememberSession { authGraph.openLogin() }
+                LoginForm(
+                    state = session.state.collectAsState().value,
+                    onSubmit = session.submit,
+                    onForgotPassword = { pane = SheetPane.Forgot },
+                    onRegister = null,
+                    onClaimInvite = null,
+                )
+            }
+
+            SheetPane.Forgot -> {
+                val session = rememberSession { authGraph.openForgotPassword() }
+                ForgotPasswordPanel(
+                    state = session.state.collectAsState().value,
+                    onRequestReset = session.requestReset,
+                    onCompleteReset = session.completeReset,
+                    onCheckStatus = session.checkStatus,
+                    onRetryRequest = session.retryRequest,
+                    onBackToSignIn = { pane = SheetPane.SignIn },
+                )
+            }
+        }
     }
+}
+
+/** What the re-sign-in sheet is showing. One dialog for both, so switching never re-opens it. */
+private enum class SheetPane(
+    val title: String,
+) {
+    SignIn("Sign back in"),
+    Forgot("Reset your password"),
 }
 
 private const val LAPSE_ICON = 20

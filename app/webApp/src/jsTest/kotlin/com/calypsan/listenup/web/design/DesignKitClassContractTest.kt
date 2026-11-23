@@ -168,7 +168,6 @@ private fun kitShapes2(): Map<String, @Composable () -> Unit> =
             AuthLayout(title = "Sign in", subtitle = "Sub", badge = "Server administrator") {
                 LoginForm(
                     state = LoginUiState.Error(LoginErrorType.InvalidCredentials),
-                    openRegistration = true,
                     onSubmit = { _, _ -> },
                     onRegister = {},
                     onForgotPassword = {},

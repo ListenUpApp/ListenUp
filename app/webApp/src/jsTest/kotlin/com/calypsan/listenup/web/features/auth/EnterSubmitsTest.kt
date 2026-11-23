@@ -71,9 +71,8 @@ class EnterSubmitsTest :
                 mount {
                     LoginForm(
                         state = LoginUiState.Idle,
-                        openRegistration = false,
                         onSubmit = { email, password -> submitted = email to password },
-                        onRegister = {},
+                        onRegister = null,
                         onForgotPassword = {},
                         onClaimInvite = {},
                     )
@@ -94,9 +93,8 @@ class EnterSubmitsTest :
                 mount {
                     LoginForm(
                         state = LoginUiState.Idle,
-                        openRegistration = false,
                         onSubmit = { _, _ -> },
-                        onRegister = {},
+                        onRegister = null,
                         onForgotPassword = {},
                         onClaimInvite = {},
                     )
@@ -113,9 +111,8 @@ class EnterSubmitsTest :
                 mount {
                     LoginForm(
                         state = LoginUiState.Idle,
-                        openRegistration = false,
                         onSubmit = { _, _ -> },
-                        onRegister = {},
+                        onRegister = null,
                         onForgotPassword = {},
                         onClaimInvite = {},
                     )
@@ -164,9 +161,8 @@ class EnterSubmitsTest :
                 mount {
                     LoginForm(
                         state = LoginUiState.Idle,
-                        openRegistration = false,
                         onSubmit = { _, _ -> },
-                        onRegister = {},
+                        onRegister = null,
                         onForgotPassword = {},
                         onClaimInvite = {},
                     )
