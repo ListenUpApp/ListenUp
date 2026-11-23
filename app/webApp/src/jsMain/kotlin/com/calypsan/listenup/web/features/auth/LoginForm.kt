@@ -32,15 +32,21 @@ import org.jetbrains.compose.web.dom.Text
  * Errors are read off the typed [LoginErrorType], never off a message string: the body-level
  * `message` on an `AppError` is a per-subtype constant, so substring-matching it is either
  * redundant or wrong.
+ *
+ * A null [onRegister] or [onClaimInvite] leaves that link out entirely. A link is drawn only when
+ * the caller has somewhere to take the reader, so the form can never render one that does nothing.
+ *
+ * @param onRegister Opens account creation; null when the server takes no open registrations, or
+ *   when the reader already has an account.
+ * @param onClaimInvite Opens invite redemption; null when the reader already has an account.
  */
 @Composable
 fun LoginForm(
     state: LoginUiState,
-    openRegistration: Boolean,
     onSubmit: (email: String, password: String) -> Unit,
-    onRegister: () -> Unit,
     onForgotPassword: () -> Unit,
-    onClaimInvite: () -> Unit,
+    onRegister: (() -> Unit)?,
+    onClaimInvite: (() -> Unit)?,
 ) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -130,19 +136,21 @@ fun LoginForm(
             Text(if (state is LoginUiState.Loading) "Signing in…" else "Sign in")
         }
 
-        if (openRegistration) {
+        onRegister?.let { register ->
             Div(attrs = { classes("auth-alt") }) {
                 Span { Text("New to ListenUp?") }
-                LinkButton("Create account", onClick = onRegister)
+                LinkButton("Create account", onClick = register)
             }
         }
 
-        // Offered unconditionally, and it matters most when the line above is absent: on a server
-        // that takes no open registrations, an invite is the ONLY way in, so hiding it there
-        // would leave an invited reader with a code and no field to type it into.
-        Div(attrs = { classes("auth-alt") }) {
-            Span { Text("Have an invite code?") }
-            LinkButton("Redeem it", onClick = onClaimInvite)
+        // Independent of the line above, and it matters most when that line is absent: on a server
+        // that takes no open registrations, an invite is the ONLY way in, so tying it to open
+        // registration would leave an invited reader with a code and no field to type it into.
+        onClaimInvite?.let { claim ->
+            Div(attrs = { classes("auth-alt") }) {
+                Span { Text("Have an invite code?") }
+                LinkButton("Redeem it", onClick = claim)
+            }
         }
     }
 }

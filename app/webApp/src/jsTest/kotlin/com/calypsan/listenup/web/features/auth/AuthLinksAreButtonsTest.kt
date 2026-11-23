@@ -43,7 +43,6 @@ class AuthLinksAreButtonsTest :
                 mount {
                     LoginForm(
                         state = LoginUiState.Idle,
-                        openRegistration = true,
                         onSubmit = { _, _ -> },
                         onRegister = {},
                         onForgotPassword = {},
@@ -60,7 +59,6 @@ class AuthLinksAreButtonsTest :
                 mount {
                     LoginForm(
                         state = LoginUiState.Idle,
-                        openRegistration = true,
                         onSubmit = { _, _ -> },
                         onRegister = {},
                         onForgotPassword = {},

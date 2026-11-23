@@ -42,9 +42,8 @@ class LoginFormTest :
                 mount {
                     LoginForm(
                         state = LoginUiState.Idle,
-                        openRegistration = false,
                         onSubmit = { _, _ -> },
-                        onRegister = {},
+                        onRegister = null,
                         onForgotPassword = { forgotClicks++ },
                         onClaimInvite = {},
                     )
@@ -61,9 +60,8 @@ class LoginFormTest :
                 mount {
                     LoginForm(
                         state = LoginUiState.Idle,
-                        openRegistration = false,
                         onSubmit = { _, _ -> },
-                        onRegister = {},
+                        onRegister = null,
                         onForgotPassword = {},
                         onClaimInvite = {},
                     )
@@ -80,9 +78,8 @@ class LoginFormTest :
                 mount {
                     LoginForm(
                         state = LoginUiState.Idle,
-                        openRegistration = false,
                         onSubmit = { _, _ -> },
-                        onRegister = {},
+                        onRegister = null,
                         onForgotPassword = {},
                         onClaimInvite = { claims++ },
                     )
@@ -99,9 +96,8 @@ class LoginFormTest :
                 mount {
                     LoginForm(
                         state = LoginUiState.Idle,
-                        openRegistration = false,
                         onSubmit = { email, password -> submitted = email to password },
-                        onRegister = {},
+                        onRegister = null,
                         onForgotPassword = {},
                         onClaimInvite = {},
                     )
@@ -121,9 +117,8 @@ class LoginFormTest :
                 mount {
                     LoginForm(
                         state = LoginUiState.Loading,
-                        openRegistration = false,
                         onSubmit = { _, _ -> },
-                        onRegister = {},
+                        onRegister = null,
                         onForgotPassword = {},
                         onClaimInvite = {},
                     )
@@ -137,9 +132,8 @@ class LoginFormTest :
                 mount {
                     LoginForm(
                         state = LoginUiState.Error(LoginErrorType.InvalidCredentials),
-                        openRegistration = false,
                         onSubmit = { _, _ -> },
-                        onRegister = {},
+                        onRegister = null,
                         onForgotPassword = {},
                         onClaimInvite = {},
                     )
@@ -155,9 +149,8 @@ class LoginFormTest :
                 mount {
                     LoginForm(
                         state = LoginUiState.Error(LoginErrorType.InvalidCredentials),
-                        openRegistration = false,
                         onSubmit = { _, _ -> },
-                        onRegister = {},
+                        onRegister = null,
                         onForgotPassword = {},
                         onClaimInvite = {},
                     )
@@ -171,9 +164,8 @@ class LoginFormTest :
                 mount {
                     LoginForm(
                         state = LoginUiState.Error(LoginErrorType.ValidationError(LoginField.EMAIL)),
-                        openRegistration = false,
                         onSubmit = { _, _ -> },
-                        onRegister = {},
+                        onRegister = null,
                         onForgotPassword = {},
                         onClaimInvite = {},
                     )
@@ -191,9 +183,8 @@ class LoginFormTest :
                 mount {
                     LoginForm(
                         state = LoginUiState.Error(LoginErrorType.ValidationError(LoginField.PASSWORD)),
-                        openRegistration = false,
                         onSubmit = { _, _ -> },
-                        onRegister = {},
+                        onRegister = null,
                         onForgotPassword = {},
                         onClaimInvite = {},
                     )
@@ -204,12 +195,11 @@ class LoginFormTest :
             (errored.querySelector(".f-input") as HTMLInputElement).id shouldBe "auth-password"
         }
 
-        test("the create-account link appears only when the server allows registration") {
+        test("the create-account link appears only when there is somewhere for it to go") {
             val open =
                 mount {
                     LoginForm(
                         state = LoginUiState.Idle,
-                        openRegistration = true,
                         onSubmit = { _, _ -> },
                         onRegister = {},
                         onForgotPassword = {},
@@ -220,9 +210,8 @@ class LoginFormTest :
                 mount {
                     LoginForm(
                         state = LoginUiState.Idle,
-                        openRegistration = false,
                         onSubmit = { _, _ -> },
-                        onRegister = {},
+                        onRegister = null,
                         onForgotPassword = {},
                         onClaimInvite = {},
                     )
@@ -241,7 +230,6 @@ class LoginFormTest :
                 mount {
                     LoginForm(
                         state = LoginUiState.Idle,
-                        openRegistration = true,
                         onSubmit = { _, _ -> },
                         onRegister = { registerClicks++ },
                         onForgotPassword = {},
