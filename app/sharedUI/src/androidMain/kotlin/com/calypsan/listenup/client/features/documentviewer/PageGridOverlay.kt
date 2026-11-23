@@ -90,7 +90,11 @@ internal fun PageGridOverlay(
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                items(pageCount) { index ->
+                items(
+                    count = pageCount,
+                    key = { it },
+                    contentType = { "page" },
+                ) { index ->
                     PageGridCell(
                         index = index,
                         wrapper = wrapper,

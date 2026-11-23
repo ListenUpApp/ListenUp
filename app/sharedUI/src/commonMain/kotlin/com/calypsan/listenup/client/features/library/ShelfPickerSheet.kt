@@ -108,7 +108,7 @@ fun ShelfPickerSheet(
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 // Create new shelf option (always shown first)
-                item(key = "create_new") {
+                item(key = "create_new", contentType = "create-new") {
                     CreateNewShelfRow(
                         onClick = { showCreateDialog = true },
                         enabled = !isLoading,
@@ -120,7 +120,7 @@ fun ShelfPickerSheet(
 
                 // Existing shelves
                 if (shelves.isEmpty()) {
-                    item(key = "empty_hint") {
+                    item(key = "empty_hint", contentType = "empty") {
                         Text(
                             text = stringResource(Res.string.library_you_dont_have_any_shelves),
                             style = MaterialTheme.typography.bodyMedium,
@@ -132,6 +132,7 @@ fun ShelfPickerSheet(
                     items(
                         items = shelves,
                         key = { it.id.value },
+                        contentType = { "shelf" },
                     ) { shelf ->
                         ShelfRow(
                             shelf = shelf,

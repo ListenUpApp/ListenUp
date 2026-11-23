@@ -100,7 +100,7 @@ internal fun DiscoverLayout(
         modifier = Modifier.fillMaxSize(),
     ) {
         // Custom shell header scrolls with the feed (search/sync/avatar live here).
-        item(key = DiscoverItemKey.HEADER) {
+        item(key = DiscoverItemKey.HEADER, contentType = DiscoverItemKey.HEADER) {
             appHeader {
                 Text(
                     text = ShellDestination.Discover.title,
@@ -110,7 +110,7 @@ internal fun DiscoverLayout(
             }
         }
 
-        item(key = DiscoverItemKey.LISTENING) {
+        item(key = DiscoverItemKey.LISTENING, contentType = DiscoverItemKey.LISTENING) {
             ListeningNowSection(
                 state = state.listening,
                 community = state.community,
@@ -126,7 +126,7 @@ internal fun DiscoverLayout(
             )
         }
 
-        item(key = DiscoverItemKey.PICKS) {
+        item(key = DiscoverItemKey.PICKS, contentType = DiscoverItemKey.PICKS) {
             SomethingNewSection(
                 state = state.picks,
                 onShuffle = actions.onShuffle,
@@ -143,19 +143,19 @@ internal fun DiscoverLayout(
 
         if (isWide) {
             // The community takes the leaderboard's key, so the landing's index holds.
-            item(key = DiscoverItemKey.LEADERBOARD) {
+            item(key = DiscoverItemKey.LEADERBOARD, contentType = "community-wide") {
                 CommunityColumns(state, actions, isExpanded)
             }
         } else {
-            item(key = DiscoverItemKey.LEADERBOARD) {
+            item(key = DiscoverItemKey.LEADERBOARD, contentType = DiscoverItemKey.LEADERBOARD) {
                 LeaderboardItem(state, actions, Modifier.padding(horizontal = Spacing.screenMargin))
             }
-            item(key = DiscoverItemKey.ACTIVITY) {
+            item(key = DiscoverItemKey.ACTIVITY, contentType = DiscoverItemKey.ACTIVITY) {
                 ActivityItem(state, actions, Modifier.padding(horizontal = Spacing.screenMargin))
             }
         }
 
-        item(key = DiscoverItemKey.SHELVES) {
+        item(key = DiscoverItemKey.SHELVES, contentType = DiscoverItemKey.SHELVES) {
             ShelvesByOthersSection(
                 state = state.shelves,
                 onShelfClick = actions.onShelfClick,
@@ -165,7 +165,7 @@ internal fun DiscoverLayout(
             )
         }
 
-        item(key = DiscoverItemKey.RECENT) {
+        item(key = DiscoverItemKey.RECENT, contentType = DiscoverItemKey.RECENT) {
             RecentlyAddedSection(
                 state = state.recentlyAdded,
                 onBookClick = actions.onBookClick,

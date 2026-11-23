@@ -502,7 +502,7 @@ private fun ReviewContent(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        item(key = "users_header") {
+        item(key = "users_header", contentType = CONTENT_TYPE_SECTION_HEADER) {
             val reviewCount =
                 if (unresolvedUserCount > 0) {
                     stringResource(Res.string.import_to_review_count, unresolvedUserCount.toString())
@@ -516,9 +516,15 @@ private fun ReviewContent(
         }
 
         if (analysis.userMatches.isEmpty()) {
-            item(key = "users_empty") { MutedLine(stringResource(Res.string.import_no_attention_needed)) }
+            item(key = "users_empty", contentType = CONTENT_TYPE_MUTED_LINE) {
+                MutedLine(stringResource(Res.string.import_no_attention_needed))
+            }
         } else {
-            items(analysis.userMatches, key = { "user_${it.absUserId.value}" }) { match ->
+            items(
+                items = analysis.userMatches,
+                key = { "user_${it.absUserId.value}" },
+                contentType = { "user-match" },
+            ) { match ->
                 UserMatchCard(
                     match = match,
                     assignedUserId = state.userMappings[match.absUserId],
@@ -530,12 +536,12 @@ private fun ReviewContent(
             }
         }
 
-        item(key = "books_header") {
+        item(key = "books_header", contentType = CONTENT_TYPE_SECTION_HEADER) {
             ReviewSectionHeader(label = stringResource(Res.string.import_review_books_section), count = null)
         }
 
         if (autoMatchedCount > 0) {
-            item(key = "auto_summary") {
+            item(key = "auto_summary", contentType = CONTENT_TYPE_MUTED_LINE) {
                 MutedLine(
                     stringResource(Res.string.import_books_matched, autoMatchedCount.toString()) +
                         " — " + stringResource(Res.string.import_auto_matched),
@@ -544,15 +550,21 @@ private fun ReviewContent(
         }
 
         if (analysis.importableSessionCount > 0) {
-            item(key = "sessions_summary") {
+            item(key = "sessions_summary", contentType = CONTENT_TYPE_MUTED_LINE) {
                 MutedLine(stringResource(Res.string.import_sessions_importable, analysis.importableSessionCount))
             }
         }
 
         if (attentionItems.isEmpty()) {
-            item(key = "books_no_review") { MutedLine(stringResource(Res.string.import_no_books_to_review)) }
+            item(key = "books_no_review", contentType = CONTENT_TYPE_MUTED_LINE) {
+                MutedLine(stringResource(Res.string.import_no_books_to_review))
+            }
         } else {
-            items(attentionItems, key = { "book_${it.absItemId.value}" }) { item ->
+            items(
+                items = attentionItems,
+                key = { "book_${it.absItemId.value}" },
+                contentType = { "book-review" },
+            ) { item ->
                 val isSearchOpen = state.bookSearch?.absItemId == item.absItemId
                 BookReviewCard(
                     item = item,
@@ -569,7 +581,7 @@ private fun ReviewContent(
             }
         }
 
-        item(key = "apply_warning") {
+        item(key = "apply_warning", contentType = "apply-warning") {
             if (unresolvedUserCount > 0) {
                 Text(
                     text = stringResource(Res.string.import_review_users_unresolved_warning, unresolvedUserCount),
@@ -579,7 +591,7 @@ private fun ReviewContent(
             }
         }
 
-        item(key = "apply_button") {
+        item(key = "apply_button", contentType = "apply-button") {
             ListenUpButton(
                 text = stringResource(Res.string.import_apply_import),
                 onClick = onConfirm,
@@ -1304,3 +1316,6 @@ private fun FooterNote(text: String) {
         )
     }
 }
+
+private const val CONTENT_TYPE_SECTION_HEADER = "section-header"
+private const val CONTENT_TYPE_MUTED_LINE = "muted-line"

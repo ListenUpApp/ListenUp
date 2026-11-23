@@ -131,7 +131,7 @@ internal fun AddSubSeriesSheetContent(
             modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
         )
         LazyColumn(modifier = Modifier.weight(1f, fill = false), contentPadding = PaddingValues(bottom = 24.dp)) {
-            item(key = "new") {
+            item(key = "new", contentType = "new-action") {
                 ListItem(
                     headlineContent = {
                         Text(
@@ -149,7 +149,7 @@ internal fun AddSubSeriesSheetContent(
                 )
             }
             if (state.candidates.isEmpty()) {
-                item(key = "empty") {
+                item(key = "empty", contentType = "empty") {
                     Text(
                         text = stringResource(Res.string.series_merge_no_matches),
                         style = MaterialTheme.typography.bodyMedium,
@@ -158,7 +158,7 @@ internal fun AddSubSeriesSheetContent(
                     )
                 }
             }
-            items(state.candidates, key = { it.id }) { candidate ->
+            items(state.candidates, key = { it.id }, contentType = { "candidate" }) { candidate ->
                 CandidateRow(
                     candidate = candidate,
                     parentName = state.parentName,

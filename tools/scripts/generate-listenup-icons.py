@@ -103,6 +103,11 @@ def read_mapping(path: Path) -> list[tuple[str, str, int, bool]]:
     return rows
 
 
+def cache_field_name(kotlin_name: str) -> str:
+    """Derive a lowerCamelCase backing-field identifier for `kotlin_name`."""
+    return kotlin_name[0].lower() + kotlin_name[1:]
+
+
 def main() -> None:
     if len(sys.argv) < 2:
         sys.exit(__doc__)
@@ -110,7 +115,7 @@ def main() -> None:
     mapping = Path(sys.argv[2]) if len(sys.argv) > 2 else DEFAULT_MAPPING
     output = Path(sys.argv[3]) if len(sys.argv) > 3 else DEFAULT_OUTPUT
 
-    body, constants, unmapped = [], {}, []
+    body, constants, unmapped, cache_fields = [], {}, [], set()
     for kotlin, symbol, fill, mirror in read_mapping(mapping):
         svg = svg_dir / (f"{symbol}_fill1.svg" if fill else f"{symbol}.svg")
         if not svg.is_file():
@@ -120,12 +125,22 @@ def main() -> None:
         paths = PATH_RE.findall(text)
         if len(paths) != 1 or "transform" in text:
             sys.exit(f"{svg.name}: expected exactly one plain <path>, found {len(paths)}")
+        field = cache_field_name(kotlin)
+        if field in cache_fields:
+            sys.exit(f"duplicate cache field {field!r} for {kotlin!r}")
+        cache_fields.add(field)
         const = f"PATH_{symbol.upper()}" + ("_FILL" if fill else "")
         constants[const] = paths[0]
         body.append(
-            f"    val {kotlin}: ImageVector by lazy {{\n"
-            f'        symbol(name = "{kotlin}", autoMirror = {str(mirror).lower()}, pathData = {const})\n'
-            f"    }}\n"
+            f"    private var {field}: ImageVector? = null\n\n"
+            f"    val {kotlin}: ImageVector\n"
+            f"        get() =\n"
+            f"            {field}\n"
+            f"                ?: symbol(\n"
+            f'                    name = "{kotlin}",\n'
+            f"                    autoMirror = {str(mirror).lower()},\n"
+            f"                    pathData = {const},\n"
+            f"                ).also {{ {field} = it }}\n"
         )
     if unmapped:
         sys.exit("unmapped:\n  " + "\n  ".join(unmapped))
