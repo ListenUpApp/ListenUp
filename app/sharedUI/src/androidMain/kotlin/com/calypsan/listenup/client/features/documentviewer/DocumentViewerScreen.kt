@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.documentviewer
 
+import com.calypsan.listenup.client.design.util.PlatformBackHandler
 import com.calypsan.listenup.client.design.components.ListenUpTopAppBar
 import android.graphics.Bitmap
 import androidx.compose.animation.AnimatedVisibility
@@ -147,6 +148,8 @@ internal fun DocumentViewerScreen(
 
     var chromeVisible by remember { mutableStateOf(true) }
     var showGrid by remember { mutableStateOf(false) }
+    // The page grid is a full-bleed overlay: Back closes it before it leaves the reader.
+    PlatformBackHandler(enabled = showGrid) { showGrid = false }
 
     ReaderFrame(
         state = playerState,
