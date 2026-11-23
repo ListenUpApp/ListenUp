@@ -139,6 +139,12 @@ class AbsMetadataReaderTest :
             }
         }
 
+        test("a byte-order mark before the JSON is not content") {
+            runTest {
+                readJson("\uFEFF" + """{"title":"With BOM","authors":["Alice"]}""").shouldNotBeNull().title shouldBe "With BOM"
+            }
+        }
+
         test("publishedYear falls back to the year of publishedDate") {
             runTest {
                 readJson("""{"title":"Kept","publishedDate":"1999-01-02"}""").shouldNotBeNull().publishedYear shouldBe 1999

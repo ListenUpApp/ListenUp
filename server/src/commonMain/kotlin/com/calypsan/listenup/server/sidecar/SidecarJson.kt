@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.sidecar
 
+import com.calypsan.listenup.server.io.withoutByteOrderMark
 import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.SerializationException
@@ -33,7 +34,7 @@ object SidecarJson {
      */
     fun parseOrNull(bytes: ByteArray): ListenUpSidecar? =
         try {
-            json.decodeFromString(ListenUpSidecar.serializer(), bytes.decodeToString())
+            json.decodeFromString(ListenUpSidecar.serializer(), bytes.decodeToString().withoutByteOrderMark())
         } catch (e: CancellationException) {
             throw e
         } catch (e: SerializationException) {

@@ -20,13 +20,19 @@ internal fun Path.readText(): String = SystemFileSystem.source(this).buffered().
 /**
  * Reads [this] as UTF-8 text, or returns null when the file is larger than [maxBytes] or its size
  * cannot be determined. The size is checked before a byte is read, so an oversized file costs a
- * stat rather than its own length in memory.
+ * stat rather than its own length in memory. A leading byte-order mark is dropped: Windows editors
+ * save one, and it is not content — an XML or JSON parser handed it rejects the whole file.
  */
 internal fun Path.readTextCapped(maxBytes: Long): String? {
     val size = SystemFileSystem.metadataOrNull(this)?.size ?: return null
     if (size > maxBytes) return null
-    return readText()
+    return readText().withoutByteOrderMark()
 }
+
+/** [this] without a leading Unicode byte-order mark (U+FEFF), if it has one. */
+internal fun String.withoutByteOrderMark(): String = removePrefix(BYTE_ORDER_MARK)
+
+private const val BYTE_ORDER_MARK = "\uFEFF"
 
 /** Writes [text] to [this] path as UTF-8, truncating any existing content (no append). Throws if it can't be written. */
 internal fun Path.writeText(text: String): Unit = SystemFileSystem.sink(this).buffered().use { it.writeString(text) }

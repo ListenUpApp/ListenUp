@@ -51,6 +51,22 @@ class OpfParserTest :
             }
         }
 
+        test("a byte-order mark before the XML (a Windows editor's save) parses like the bare file") {
+            runTest {
+                val dir = Files.createTempDirectory("listenup-opf-bom-")
+                try {
+                    val original = Path.of(fixture("sample.opf").toString())
+                    val withBom = dir.resolve("sample.opf")
+                    withBom.writeText("\uFEFF" + Files.readString(original))
+
+                    parser.parse(IoPath(withBom.toString())) shouldBe parser.parse(fixture("sample.opf"))
+                    parser.parse(IoPath(withBom.toString())).shouldNotBeNull()
+                } finally {
+                    dir.toFile().deleteRecursively()
+                }
+            }
+        }
+
         test("malformed XML returns null") {
             runTest {
                 parser.parse(fixture("malformed.opf")).shouldBeNull()

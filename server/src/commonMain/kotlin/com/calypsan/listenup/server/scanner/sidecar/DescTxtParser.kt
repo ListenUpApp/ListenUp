@@ -23,7 +23,7 @@ internal class DescTxtParser : SidecarParser {
             val text =
                 file
                     .readTextCapped(SIDECAR_MAX_BYTES)
-                    ?.run { removePrefix("﻿").trim() } // strip UTF-8 BOM
+                    ?.trim()
                     ?: return null
             if (text.isEmpty()) null else SidecarMetadata(description = text)
         } catch (e: kotlinx.coroutines.CancellationException) {

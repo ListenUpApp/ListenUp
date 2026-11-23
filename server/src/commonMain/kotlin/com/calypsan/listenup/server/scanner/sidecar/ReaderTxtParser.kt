@@ -23,7 +23,6 @@ internal class ReaderTxtParser : SidecarParser {
             val text = file.readTextCapped(SIDECAR_MAX_BYTES) ?: return null
             val names =
                 text
-                    .removePrefix("﻿") // strip UTF-8 BOM
                     .lineSequence()
                     .map { it.trim() }
                     .filter { it.isNotEmpty() }
