@@ -209,11 +209,30 @@ internal interface DownloadDao {
     @Query("UPDATE downloads SET state = 'CANCELLED', localPath = NULL WHERE bookId = :bookId AND state != 'DELETED'")
     suspend fun discardBook(bookId: String)
 
-    /** How many books other than [bookId] have files waiting or moving: the queue behind the current download. */
+    /**
+     * How many books other than [bookId] have files waiting or moving: the queue behind the current download. A file the
+     * system stopped still waits its turn; one the person paused, or one that failed, does not.
+     */
     @Query(
-        "SELECT COUNT(DISTINCT bookId) FROM downloads WHERE bookId != :bookId AND state IN ('QUEUED', 'DOWNLOADING')",
+        "SELECT COUNT(DISTINCT bookId) FROM downloads WHERE bookId != :bookId AND (state IN ('QUEUED', 'DOWNLOADING') " +
+            "OR (state = 'PAUSED' AND (pauseReason IS NULL OR pauseReason IN ('NETWORK_LOST', 'INTERRUPTED'))))",
     )
     suspend fun countOtherActiveBooks(bookId: String): Int
+
+    /** Every file marked as transferring, of every book. */
+    @Query("SELECT * FROM downloads WHERE state = 'DOWNLOADING' ORDER BY bookId, fileIndex")
+    suspend fun getDownloading(): List<DownloadEntity>
+
+    /**
+     * Hand back [audioFileId], left DOWNLOADING by a transfer that no longer exists: PAUSED as
+     * [DownloadPauseReason.INTERRUPTED], which a run resumes from its partial. Returns 1 when this call released it, 0
+     * when the row had already moved on.
+     */
+    @Query(
+        "UPDATE downloads SET state = 'PAUSED', pauseReason = 'INTERRUPTED' WHERE audioFileId = :audioFileId " +
+            "AND state = 'DOWNLOADING'",
+    )
+    suspend fun releaseOrphan(audioFileId: String): Int
 
     /** The ids of books with at least one file a run could still transfer, in the order they were queued. */
     @Query(
@@ -251,20 +270,6 @@ internal interface DownloadDao {
         audioFileId: String,
         message: String,
         code: String,
-    )
-
-    /**
-     * Move a live transfer between QUEUED (held, waiting for an allowed network) and DOWNLOADING.
-     * A no-op on any other state, so a late callback cannot resurrect a finished row.
-     */
-    @Query(
-        "UPDATE downloads SET state = :state, startedAt = :startedAt WHERE audioFileId = :audioFileId " +
-            "AND state IN ('QUEUED', 'DOWNLOADING')",
-    )
-    suspend fun updateStateIfTransferring(
-        audioFileId: String,
-        state: DownloadState,
-        startedAt: Long? = null,
     )
 
     @Query("UPDATE downloads SET state = :newState WHERE bookId = :bookId AND state != :excludeState")

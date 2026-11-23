@@ -15,6 +15,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
+import org.robolectric.annotation.Config
 
 /**
  * The download notification as the approved canvas draws it: the words, the actions, and that it is silent, ongoing
@@ -61,6 +62,22 @@ class DownloadNotificationTest {
         notification.actions.map { it.title.toString() } shouldBe listOf("Pause", "Cancel")
         notification.extras.getInt(NotificationCompat.EXTRA_PROGRESS_MAX) shouldBe 1_000
         notification.extras.getInt(NotificationCompat.EXTRA_PROGRESS) shouldBe 331
+    }
+
+    @Test
+    @Config(sdk = [30])
+    fun `on Android 11 the bytes line gets its own row, not the end of the title's line`() {
+        val notification = active()
+
+        notification.extras.getCharSequence(NotificationCompat.EXTRA_BIG_TEXT)?.toString() shouldBe
+            "212 MB of 640 MB · file 3 of 14"
+        notification.text() shouldBe "212 MB of 640 MB · file 3 of 14"
+    }
+
+    @Test
+    @Config(sdk = [31])
+    fun `from Android 12 the template already sets the bytes line below the title`() {
+        active().extras.getCharSequence(NotificationCompat.EXTRA_BIG_TEXT) shouldBe null
     }
 
     @Test

@@ -163,11 +163,9 @@ private class FailingUpdateStateDownloadDao(
         error: String,
     ) = Unit
 
-    override suspend fun updateStateIfTransferring(
-        audioFileId: String,
-        state: DownloadState,
-        startedAt: Long?,
-    ) = Unit
+    override suspend fun getDownloading(): List<DownloadEntity> = error("not needed by cancelForBook")
+
+    override suspend fun releaseOrphan(audioFileId: String): Int = error("not needed by cancelForBook")
 
     override suspend fun updateStateForBookExcluding(
         bookId: String,

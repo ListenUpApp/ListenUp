@@ -15,8 +15,6 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.currentEpochMilliseconds
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.NonCancellable
-import kotlinx.coroutines.withContext
 
 private val logger = KotlinLogging.logger {}
 
@@ -174,22 +172,11 @@ class BookTransfers internal constructor(
 
     /**
      * Account for every unfinished download at a start of the app (or its return to the foreground): a file a dead
-     * process left mid-transfer is recorded as a process death and queued again, and every book with something to
-     * transfer gets a run unless it already has one, here or with the platform.
+     * process left mid-transfer is recorded as a process death and waits to resume ([BookTransferRun.releaseOrphans]),
+     * and every book with something to transfer gets a run unless it already has one, here or with the platform.
      */
     internal suspend fun resumeAll() {
-        val stale =
-            store.incompleteRows().filter { row ->
-                row.state == DownloadState.DOWNLOADING &&
-                    !registry.isRunning(row.bookId)
-            }
-        if (stale.isNotEmpty()) {
-            val exit = deviceState.lastExitReason()
-            stale.forEach { row ->
-                store.requeueStale(row.audioFileId)
-                recordStop(row.bookId, row.audioFileId, StopCause(DownloadStopReason.PROCESS_DEATH, exit))
-            }
-        }
+        run.releaseOrphans(scheduler.transport)
         for (bookId in store.runnableBooks()) {
             if (registry.isRunning(bookId) || scheduler.isScheduled(bookId)) continue
             schedule(bookId)
@@ -237,7 +224,8 @@ class BookTransfers internal constructor(
 
     /**
      * Run [bookId] on [host], showing its notification and keeping the platform informed of its progress. A stop is
-     * recorded by the run and re-thrown; afterwards a download that waits to resume says so on the held notification.
+     * recorded by the run and re-thrown. When a run that had its turn ends, a download that waits to resume says so on
+     * the held notification; a run stopped before its turn, or one the person paused or cancelled, says nothing.
      */
     internal suspend fun runOn(
         bookId: String,
@@ -245,17 +233,11 @@ class BookTransfers internal constructor(
     ): BookTransferOutcome {
         val title = titleOf(bookId)
         val adapter = NotifyingHost(bookId, title, host)
-        var outcome: BookTransferOutcome? = null
         try {
-            outcome = run.run(bookId, adapter)
-            return outcome
+            return run.run(bookId, adapter)
         } finally {
             latestActive = null
             host.finished()
-            // A completed book clears the held notification; anything else (a wait, a stop) says why it is waiting.
-            withContext(NonCancellable) {
-                if (outcome == BookTransferOutcome.COMPLETED) notifications.clearHeld() else showHeldIfWaiting(bookId)
-            }
         }
     }
 
@@ -299,6 +281,13 @@ class BookTransfers internal constructor(
                 )
             latestActive = notification
             host.post(notification)
+        }
+
+        override suspend fun onEnded(end: BookTransferEnd) {
+            when {
+                end.outcome == BookTransferOutcome.COMPLETED -> notifications.clearHeld()
+                end.announcesWait -> showHeldIfWaiting(bookId)
+            }
         }
 
         override fun platformStopCause(): StopCause = host.platformStopCause()
@@ -371,12 +360,6 @@ class BookTransfers internal constructor(
     private suspend fun recordBookStop(
         bookId: String,
         cause: StopCause,
-    ) = recordStop(bookId, audioFileId = null, cause = cause)
-
-    private suspend fun recordStop(
-        bookId: String,
-        audioFileId: String?,
-        cause: StopCause,
     ) {
         val rows =
             store.rowsFor(bookId).filter { row -> row.state.isLive() }
@@ -384,7 +367,7 @@ class BookTransfers internal constructor(
             DownloadStop(
                 at = now(),
                 bookId = bookId,
-                audioFileId = audioFileId,
+                audioFileId = null,
                 cause = cause,
                 bytesAtStop = rows.sumOf { it.downloadedBytes },
                 totalBytes = rows.sumOf { it.totalBytes },
