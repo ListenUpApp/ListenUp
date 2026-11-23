@@ -34,7 +34,6 @@ import com.calypsan.listenup.client.foldable.LocalFold
 import kotlin.math.roundToInt
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -91,7 +90,6 @@ import listenup.composeapp.generated.resources.book_detail_document_reader_toggl
 import listenup.composeapp.generated.resources.book_detail_document_viewer_error
 import listenup.composeapp.generated.resources.book_detail_document_viewer_loading
 import listenup.composeapp.generated.resources.book_detail_document_viewer_page_of
-import listenup.composeapp.generated.resources.book_detail_more_options
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -162,7 +160,7 @@ internal fun DocumentViewerScreen(
                 onBack = onBack,
                 chromeVisible = chromeVisible,
                 onGrid = { showGrid = true },
-                // Cast beside More, as on Now Playing: the listening pane's settings row no longer carries it.
+                // Cast in the top bar, as on Now Playing: the listening pane's settings row no longer carries it.
                 cast =
                     (playerState as? PlayerUiState.Loaded)?.let { loaded ->
                         {
@@ -426,8 +424,8 @@ private fun OpeningContent() {
 // ---------------------------------------------------------------------------
 
 /**
- * Animating top bar with back navigation + grid toggle + [cast] (with a book loaded) + overflow actions. Cast sits
- * beside More, as on Now Playing; null draws none.
+ * Animating top bar with back navigation + grid toggle + [cast] (with a book loaded); null draws no Cast. There is no
+ * overflow menu until the reader has an action to put in it.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -439,7 +437,6 @@ internal fun ReaderTopBar(
     cast: (@Composable () -> Unit)? = null,
 ) {
     val haptics = LocalHaptics.current
-    var showOverflowMenu by remember { mutableStateOf(false) }
 
     AnimatedVisibility(
         visible = chromeVisible,
@@ -462,25 +459,6 @@ internal fun ReaderTopBar(
                     )
                 }
                 cast?.invoke()
-                Box {
-                    IconButton(
-                        onClick = {
-                            haptics.press()
-                            showOverflowMenu = true
-                        },
-                    ) {
-                        Icon(
-                            imageVector = ListenUpIcons.MoreVert,
-                            contentDescription = stringResource(Res.string.book_detail_more_options),
-                        )
-                    }
-                    DropdownMenu(
-                        expanded = showOverflowMenu,
-                        onDismissRequest = { showOverflowMenu = false },
-                    ) {
-                        // Populated in future tasks (3b, 3c).
-                    }
-                }
             },
         )
     }
