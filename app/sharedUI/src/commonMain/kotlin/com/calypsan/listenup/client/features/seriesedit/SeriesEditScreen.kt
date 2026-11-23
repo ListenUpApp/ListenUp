@@ -1,5 +1,9 @@
 package com.calypsan.listenup.client.features.seriesedit
 
+import com.calypsan.listenup.client.design.components.LocalSnackbarHostState
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import listenup.composeapp.generated.resources.edit_frame_could_not_open
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 import com.calypsan.listenup.client.design.components.rememberForwardingTextFieldState
@@ -326,6 +330,9 @@ private fun SeriesEditContent(
     pickerPane: (@Composable () -> Unit)? = null,
 ) {
     // Image picker for cover uploads
+    val snackbarHostState = LocalSnackbarHostState.current
+    val scope = rememberCoroutineScope()
+    val couldNotOpenImage = stringResource(Res.string.edit_frame_could_not_open)
     val imagePicker =
         rememberImagePicker { result ->
             when (result) {
@@ -335,7 +342,10 @@ private fun SeriesEditContent(
 
                 is ImagePickerResult.Cancelled -> { /* User cancelled */ }
 
-                is ImagePickerResult.Error -> { /* Error is handled via the ViewModel's error state */ }
+                // A pick that cannot be read says so, as Contributor Edit's photo does, instead of doing nothing.
+                is ImagePickerResult.Error -> {
+                    scope.launch { snackbarHostState.showSnackbar(couldNotOpenImage) }
+                }
             }
         }
 
