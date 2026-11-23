@@ -32,6 +32,22 @@ internal class MorphRig(
 
     fun hasMorphAnimation(): Boolean = shell.motions().isNotEmpty()
 
+    /**
+     * Pauses every animation the shell starts from now on, at the instant it starts. The morph is begun
+     * in the frame after a click, not by the click itself, so a spec that inspects a short animation
+     * (the 150ms reduced-motion fade) would otherwise race it: one slow frame on a loaded runner and
+     * the fade has started and finished before the spec looks. Held at zero, it is always there to read.
+     */
+    fun holdNewAnimations() {
+        val element = shell.asDynamic()
+        val start = element.animate
+        element.animate = { keyframes: dynamic, options: dynamic ->
+            val started = start.call(element, keyframes, options)
+            started.pause()
+            started
+        }
+    }
+
     fun rect(selector: String): DOMRect = frame.rect(frame.find(selector))
 
     fun isMorphing(): Boolean = shell.classList.contains("shell-morphing")
