@@ -180,7 +180,8 @@ internal class Analyzer(
             )
         }
 
-    private suspend fun buildTracks(candidate: CandidateBook): BuiltTracks {
+    /** Visible for tests: the per-track parse map is what holds memory for a multi-file book. */
+    internal suspend fun buildTracks(candidate: CandidateBook): BuiltTracks {
         val audioFiles = candidate.files.filter { it.fileType == FileType.AUDIO }
         val multiTrack = audioFiles.size > 1
         val perTrackMetadata = LinkedHashMap<TrackEntry, EmbeddedAudioMetadata?>(audioFiles.size)
@@ -211,7 +212,7 @@ internal class Analyzer(
                             // single-file books, where the book-level embedded duration suffices).
                             durationMs = parsed?.durationMs,
                         )
-                    // Capture the full parse result so synthesis can reuse it without re-parsing.
+                    // Capture the parse (picture dropped) so synthesis can reuse it without re-parsing.
                     if (multiTrack) perTrackMetadata[entry] = parsed
                     entry
                 }.sortedWith(NATURAL_TRACK_ORDER)
@@ -300,12 +301,17 @@ internal class Analyzer(
         return result
     }
 
+    /**
+     * One track's parse, kept for the whole of its book's analysis — so without its picture: only the
+     * tags and duration are ever read from it, and every track of a multi-file book can carry its own
+     * multi-megabyte cover. The book's cover comes from the primary parse ([parseEmbedded]).
+     */
     private suspend fun parseTrackForDuration(file: FileEntry): EmbeddedAudioMetadata? {
         if (file.size < AudioFormatDetector.MIN_HEADER_BYTES) return null
         val absolutePath = Path(rootPath, file.relPath)
         return when (val result = embeddedMetadataParser.parse(absolutePath)) {
             is AppResult.Success -> {
-                result.data
+                result.data.copy(artwork = null)
             }
 
             is AppResult.Failure -> {
@@ -835,7 +841,7 @@ internal class Analyzer(
      * books produce an empty map — they never need ordering parses and their
      * primary metadata comes from [parseEmbedded].
      */
-    private data class BuiltTracks(
+    internal data class BuiltTracks(
         val tracks: List<TrackEntry>,
         val perTrackMetadata: Map<TrackEntry, EmbeddedAudioMetadata?>,
     )
@@ -998,7 +1004,8 @@ internal fun groupingScanWarning(
 }
 
 /**
- * Validates embedded chapter bounds at ingest (A9), re-indexing survivors 1-based and contiguous.
+ * Validates chapter bounds at ingest (A9) — embedded or `metadata.json` chapters — re-indexing
+ * survivors 1-based and contiguous.
  *
  * Always dropped, regardless of [durationMs] — structurally impossible chapters a mistagged file can
  * carry: a negative start, or an end before its own start.
@@ -1129,16 +1136,18 @@ private fun pickChapters(
     perTrackMetadata: Map<TrackEntry, EmbeddedAudioMetadata?>,
     bookTitle: String,
 ): Pair<List<Chapter>, BookChapterSource> {
-    val sidecar = metadata?.chapters.orEmpty()
+    // Clamp against the file's own duration ONLY for a single-file book, where `embedded.durationMs`
+    // is the authoritative end-of-book. For a multi-file book the primary file's duration is not the
+    // book's, so a valid whole-book chapter set would be wrongly truncated — there we only drop
+    // structurally-impossible chapters (null bound).
+    val clampBound = if (tracks.size <= 1) embedded?.durationMs else null
+    // metadata.json chapters are held to the same bounds: a stale file written for a longer encode
+    // would otherwise put chapters past the end. Clamped to nothing, the next source decides.
+    val sidecar = clampEmbeddedChapters(metadata?.chapters.orEmpty().toDomainChapters(), clampBound)
     if (sidecar.isNotEmpty()) {
-        return sidecar.toDomainChapters() to BookChapterSource.AbsMetadata
+        return sidecar to BookChapterSource.AbsMetadata
     }
     if (embedded != null && embedded.chapters.isNotEmpty()) {
-        // Clamp against the file's own duration ONLY for a single-file book, where
-        // `embedded.durationMs` is the authoritative end-of-book. For a multi-file book the
-        // primary file's duration is not the book's, so a valid whole-book chapter set would be
-        // wrongly truncated — there we only drop structurally-impossible chapters (null bound).
-        val clampBound = if (tracks.size <= 1) embedded.durationMs else null
         return clampEmbeddedChapters(embedded.chapters, clampBound) to
             BookChapterSource.Embedded(embedded.chaptersSource)
     }

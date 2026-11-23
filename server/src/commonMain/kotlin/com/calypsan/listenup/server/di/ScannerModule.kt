@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.Library
 import com.calypsan.listenup.api.dto.scanner.ScanResult
 import com.calypsan.listenup.api.event.ScanEvent
+import com.calypsan.listenup.server.scanner.PersistRetryLedger
 import com.calypsan.listenup.server.scanner.ScanIssueRepository
 import com.calypsan.listenup.server.scanner.reconcile
 import com.calypsan.listenup.server.scanner.ScanIssueStore
@@ -110,6 +111,10 @@ fun scannerModule(
             MutableSharedFlow(replay = 0, extraBufferCapacity = 64, onBufferOverflow = BufferOverflow.SUSPEND)
         }
 
+        // Shared by the scanner and the persister: the books a scan saw that the persister could not
+        // write, so the next scan offers them again instead of trusting its cache.
+        single { PersistRetryLedger() }
+
         single { AbsMetadataReader(contractJson) }
 
         single { StableSizeDebouncer() }
@@ -185,6 +190,7 @@ fun scannerModule(
                                 ),
                             coverSpool = get(),
                             listenUpSidecarReader = ListenUpSidecarReader(get()),
+                            persistRetries = get(),
                         )
                     val coordinator =
                         ScanCoordinator(

@@ -290,7 +290,8 @@ class AnalyzerEnrichmentTest :
                                 chapFrame("emb1", startMs = 0, endMs = 10_000, title = "Embedded Chapter A")
                                 chapFrame("emb2", startMs = 10_000, endMs = 20_000, title = "Embedded Chapter B")
                             }
-                            mpegFrames(durationSeconds = 1)
+                            // Long enough to hold the sidecar's 90 s of chapters, which are held to the audio.
+                            mpegFrames(durationSeconds = 90)
                         }
                     val audioPath = fixture.root.writeAudioFile("$rel/01.mp3", audioBytes)
                     val metadataJson =
@@ -335,6 +336,62 @@ class AnalyzerEnrichmentTest :
                     val embeddedChapters = book.embedded.shouldNotBeNull().chapters
                     embeddedChapters.shouldHaveSize(2)
                     embeddedChapters[0].title shouldBe "Embedded Chapter A"
+                }
+            }
+        }
+
+        test("metadata.json chapters are held to the length of a single-file book") {
+            audioLibrary {}.use { fixture ->
+                runTest {
+                    // A stale metadata.json written for a longer encode of the same book.
+                    val rel = "Author/Re-encoded"
+                    val audioBytes =
+                        buildMp3File {
+                            id3v2(version = 4) { textFrame("TIT2", "Re-encoded") }
+                            mpegFrames(durationSeconds = 10)
+                        }
+                    val audioPath = fixture.root.writeAudioFile("$rel/01.mp3", audioBytes)
+                    val metadataJson =
+                        """
+                        {
+                            "title": "Re-encoded",
+                            "chapters": [
+                                {"id": 0, "start": -1.0, "end": 2.0, "title": "Negative"},
+                                {"id": 1, "start": 0.0, "end": 4.0, "title": "One"},
+                                {"id": 2, "start": 4.0, "end": 8.0, "title": "Two"},
+                                {"id": 3, "start": 7.0, "end": 6.0, "title": "Inverted"},
+                                {"id": 4, "start": 8.0, "end": 20.0, "title": "Three"},
+                                {"id": 5, "start": 15.0, "end": 30.0, "title": "Past the end"}
+                            ]
+                        }
+                        """.trimIndent()
+                    val metadataPath = fixture.root.writeFile("$rel/metadata.json", metadataJson.toByteArray())
+                    val candidate =
+                        CandidateBook(
+                            rootRelPath = rel,
+                            isFile = false,
+                            files =
+                                listOf(
+                                    fileEntry("$rel/01.mp3", FileType.AUDIO, size = Files.size(audioPath)),
+                                    fileEntry("$rel/metadata.json", FileType.METADATA, size = Files.size(metadataPath)),
+                                ),
+                        )
+
+                    val book =
+                        Analyzer(Path(fixture.root.toString()), metadataReader, embeddedParser)
+                            .analyze(flowOf(candidate))
+                            .toList()
+                            .single()
+                            .getOrThrow()
+
+                    val durationMs = book.embedded.shouldNotBeNull().durationMs
+                    book.chaptersSource shouldBe BookChapterSource.AbsMetadata
+                    book.chapters.map { it.title } shouldBe listOf("One", "Two", "Three")
+                    book.chapters.map { it.index } shouldBe listOf(1, 2, 3)
+                    book.chapters.forEach { chapter ->
+                        (chapter.startMs >= 0L && chapter.endMs <= durationMs) shouldBe true
+                    }
+                    book.chapters.last().endMs shouldBe durationMs
                 }
             }
         }

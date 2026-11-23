@@ -67,7 +67,7 @@ class InotifyDirectoryWatcherNativeTest :
         // events it stands for could have been in any of them. Looking the wd up first dropped it, so
         // a burst big enough to overflow (a whole series copied in at once) lost its changes silently.
         // Fed synthetically: overflowing a real queue takes `max_queued_events` (16384) events.
-        test("a queue overflow re-emits every watched directory, so lost events are re-walked") {
+        test("a queue overflow reaches the consumer as an Overflow, not dropped on its unknown watch") {
             val root = Path("lu-inotify-overflow-${Random.nextInt(1, Int.MAX_VALUE).toString(HEX_RADIX)}")
             val sub = Path(root, "Author")
             SystemFileSystem.createDirectories(sub)
@@ -83,11 +83,8 @@ class InotifyDirectoryWatcherNativeTest :
 
                 watcher.dispatch(wd = OVERFLOW_WD, mask = IN_Q_OVERFLOW.toUInt(), name = "")
 
-                val rewalked =
-                    List(2) {
-                        events.await { it.kind == DirectoryWatchEventKind.Create && it.path == it.targetDirectory }
-                    }
-                rewalked.map { it.path }.toSet() shouldBe setOf(root.toString(), sub.toString())
+                events.await { it.kind == DirectoryWatchEventKind.Overflow }.kind shouldBe
+                    DirectoryWatchEventKind.Overflow
             } finally {
                 collector.cancel()
                 watcher.close()

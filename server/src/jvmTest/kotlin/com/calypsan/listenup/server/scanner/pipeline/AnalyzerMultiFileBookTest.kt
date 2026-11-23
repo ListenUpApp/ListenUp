@@ -11,7 +11,10 @@ import com.calypsan.listenup.server.embeddedmeta.format.mp3.Mp3Parser
 import com.calypsan.listenup.server.scanner.audioLibrary
 import com.calypsan.listenup.server.scanner.metadata.AbsMetadataReader
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.nulls.shouldBeNull
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldStartWith
 import io.kotest.matchers.string.shouldNotContain
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.toList
@@ -36,6 +39,41 @@ class AnalyzerMultiFileBookTest :
                 detector = AudioFormatDetector(),
                 parsers = listOf(Mp3Parser()),
             )
+
+        test("the per-track parses a multi-file book keeps hold no cover pictures") {
+            audioLibrary {}.use { fixture ->
+                runTest {
+                    // Each track carries its own embedded cover; a 300-track book with 3 MB covers would
+                    // otherwise pin ~900 MB for the book's whole analysis. Only tags and durations are read.
+                    val rel = "Author/Covered Tracks"
+                    val picture = ByteArray(64 * 1024) { 7 }
+                    val files =
+                        (1..3).map { n ->
+                            val bytes =
+                                buildMp3File {
+                                    id3v2(version = 4) {
+                                        textFrame("TRCK", "$n")
+                                        textFrame("TIT2", "Part $n")
+                                        apicFrame(mime = "image/jpeg", pictureType = 3, description = "Cover", imageBytes = picture)
+                                    }
+                                    mpegFrames(durationSeconds = 1)
+                                }
+                            trackEntry("$rel/0$n.mp3", Files.size(fixture.root.writeAudio("$rel/0$n.mp3", bytes)))
+                        }
+
+                    val built =
+                        Analyzer(Path(fixture.root.toString()), metadataReader, embeddedParser)
+                            .buildTracks(CandidateBook(rootRelPath = rel, isFile = false, files = files))
+
+                    built.perTrackMetadata.size shouldBe 3
+                    built.perTrackMetadata.values.forEach { parsed ->
+                        val meta = parsed.shouldNotBeNull()
+                        meta.artwork.shouldBeNull()
+                        meta.tags.title shouldStartWith "Part "
+                    }
+                }
+            }
+        }
 
         test("multi-file book takes its title from the album tag, not the per-track title or the [N] folder") {
             audioLibrary {}.use { fixture ->

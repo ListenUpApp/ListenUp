@@ -6,7 +6,11 @@ import com.calypsan.listenup.api.dto.scanner.FileType
 import com.calypsan.listenup.server.io.hashFileSha256
 import com.calypsan.listenup.server.io.relativeTo
 import com.calypsan.listenup.server.io.statFile
+import com.calypsan.listenup.server.logging.loggerFor
+import kotlinx.io.IOException
 import kotlinx.io.files.Path
+
+private val logger = loggerFor<DocumentCollector>()
 
 /**
  * Collects EBOOK-typed files from a candidate's file list and maps them to
@@ -19,6 +23,9 @@ import kotlinx.io.files.Path
  *
  * Documents are sorted by their absolute path string before mapping, which gives
  * stable ordinals across rescans when the filesystem does not guarantee ordering.
+ *
+ * A document that cannot be stat'ed or hashed (deleted since the walk, a dangling link, permission
+ * denied) is left out with a warning: one unreadable supplement must not fail the audiobook's analysis.
  */
 internal class DocumentCollector {
     /**
@@ -41,18 +48,36 @@ internal class DocumentCollector {
             .filter { it.fileType == FileType.EBOOK }
             .map { entry -> entry to Path(libraryRoot, entry.relPath) }
             .sortedBy { (_, absolutePath) -> absolutePath.toString() }
-            .map { (_, absolutePath) ->
-                AnalyzedDocument(
-                    // Documents always live beneath bookRoot (including a subtree doc rolled up into
-                    // the owning book), so relativeTo is non-null; the filename fallback covers the
-                    // unreachable non-descendant case rather than leaking an absolute path.
-                    relPath = absolutePath.relativeTo(bookRoot) ?: absolutePath.name,
-                    format =
-                        absolutePath.name
-                            .substringAfterLast('.', "")
-                            .lowercase(),
-                    size = statFile(absolutePath)?.size ?: error("file vanished during scan: $absolutePath"),
-                    hash = hashFileSha256(absolutePath),
-                )
-            }.toList()
+            .mapNotNull { (_, absolutePath) -> analyze(absolutePath, bookRoot) }
+            .toList()
+
+    private fun analyze(
+        absolutePath: Path,
+        bookRoot: Path,
+    ): AnalyzedDocument? {
+        val size = statFile(absolutePath)?.size
+        if (size == null) {
+            logger.warn { "document $absolutePath could not be stat'ed (gone since the walk?) — leaving it out" }
+            return null
+        }
+        val hash =
+            try {
+                hashFileSha256(absolutePath)
+            } catch (e: IOException) {
+                logger.warn(e) { "document $absolutePath could not be hashed — leaving it out" }
+                return null
+            }
+        return AnalyzedDocument(
+            // Documents always live beneath bookRoot (including a subtree doc rolled up into the owning
+            // book), so relativeTo is non-null; the filename fallback covers the unreachable
+            // non-descendant case rather than leaking an absolute path.
+            relPath = absolutePath.relativeTo(bookRoot) ?: absolutePath.name,
+            format =
+                absolutePath.name
+                    .substringAfterLast('.', "")
+                    .lowercase(),
+            size = size,
+            hash = hash,
+        )
+    }
 }

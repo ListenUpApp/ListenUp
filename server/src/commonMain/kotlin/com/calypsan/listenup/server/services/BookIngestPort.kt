@@ -120,6 +120,7 @@ interface BookIngestPort {
         var persisted = 0
         var failed = 0
         val resolvedIds = mutableSetOf<BookId>()
+        val failedRootRelPaths = mutableSetOf<String>()
         for (book in books) {
             val outcome =
                 try {
@@ -149,11 +150,17 @@ interface BookIngestPort {
 
                 is AppResult.Failure -> {
                     failed++
+                    failedRootRelPaths += book.candidate.rootRelPath
                 }
             }
             onProgress(persisted + failed, failed)
         }
-        return PersistResult(persisted = persisted, failed = failed, resolvedIds = resolvedIds)
+        return PersistResult(
+            persisted = persisted,
+            failed = failed,
+            resolvedIds = resolvedIds,
+            failedRootRelPaths = failedRootRelPaths,
+        )
     }
 
     /**
@@ -245,6 +252,8 @@ data class PersistResult(
     val persisted: Int,
     val failed: Int,
     val resolvedIds: Set<BookId>,
+    /** Root-relative paths of the books counted in [failed], so the next scan can offer them again. */
+    val failedRootRelPaths: Set<String> = emptySet(),
 )
 
 /**

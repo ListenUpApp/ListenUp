@@ -9,8 +9,12 @@ internal data class DirectoryWatchEvent(
     val kind: DirectoryWatchEventKind,
 )
 
-/** The three change kinds the watcher surfaces (platform events collapse to these). */
-internal enum class DirectoryWatchEventKind { Create, Modify, Delete }
+/**
+ * The change kinds the watcher surfaces (platform events collapse to these). [Overflow] means the
+ * platform's event queue overflowed and events were lost somewhere under the watch, so no path in
+ * the event can be trusted to bound what changed.
+ */
+internal enum class DirectoryWatchEventKind { Create, Modify, Delete, Overflow }
 
 /**
  * Minimal directory-watch seam that [FolderWatcher] depends on, decoupling it

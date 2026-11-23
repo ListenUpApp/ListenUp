@@ -114,7 +114,9 @@ class BookPersisterLibraryChangedTest :
             withSqlDatabase {
                 runTest(UnconfinedTestDispatcher()) {
                     val bus = ChangeBus()
-                    val persister = persister(FakeBookIngest(), scope = this, changeBus = bus)
+                    val gone = (1..LARGE_INCREMENTAL_COUNT).map { "gone-$it" }
+                    val persister =
+                        persister(FakeBookIngest(), scope = this, changeBus = bus, isOnDisk = goneAt(*gone.toTypedArray()))
 
                     val frames = mutableListOf<ControlFrame>()
                     bus.subscribeControl().onEach { frames += it }.launchIn(backgroundScope)
@@ -123,7 +125,6 @@ class BookPersisterLibraryChangedTest :
                     // Above the suppress threshold and ALL removals — nothing persisted, only tombstones
                     // written above the cursor. Without counting removals this would suppress with no
                     // nudge (the bug), stranding deleted books in every connected client's library.
-                    val gone = (1..LARGE_INCREMENTAL_COUNT).map { "gone-$it" }
                     persister.persist(
                         scanResult(
                             books = emptyList(),

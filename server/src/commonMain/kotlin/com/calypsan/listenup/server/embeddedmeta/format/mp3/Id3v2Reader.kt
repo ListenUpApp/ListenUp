@@ -188,27 +188,30 @@ internal object Id3v2Reader {
         if (data.isEmpty()) return
         val encoding = data[0]
         val textBytes = data.copyOfRange(1, data.size)
-        val text = decodeText(textBytes, encoding).trimNulls()
-        if (text.isEmpty()) return
+        // ID3v2.4 (frames, section 4.2) separates multiple values in one text frame with NUL (MusicBrainz Picard and
+        // mutagen write them). No value may keep a NUL: the list-valued frames take every value, the
+        // rest the first.
+        val values = decodeText(textBytes, encoding).split('\u0000').filter { it.isNotEmpty() }
+        val text = values.firstOrNull() ?: return
         when (frameId) {
             "TIT2" -> builder.title = text
 
             "TIT3" -> builder.subtitle = text
 
-            "TPE1" -> builder.authors += text
+            "TPE1" -> builder.authors += values
 
-            "TPE2" -> if (builder.authors.isEmpty()) builder.authors += text
+            "TPE2" -> if (builder.authors.isEmpty()) builder.authors += values
 
             // Band/album-artist — a fallback author when no TPE1 is present.
             "TALB" -> builder.custom["album"] = text
 
-            "TCON" -> builder.genres += GenreSplitter.split(text)
+            "TCON" -> builder.genres += values.flatMap(GenreSplitter::split).distinct()
 
             "TYER" -> parseYear(text)?.let { builder.publishedYear = it }
 
             "TDRC" -> parseYear(text)?.let { builder.publishedYear = it }
 
-            "TCOM" -> builder.narrators += text
+            "TCOM" -> builder.narrators += values
 
             // Composer often used as narrator in audiobooks
             "TRCK" -> parseTrack(text)?.let { builder.trackNumber = it }
@@ -231,7 +234,8 @@ internal object Id3v2Reader {
 
             "TSOT" -> builder.titleSort = text
 
-            "TSOP" -> builder.authorsSort = text
+            // Joined on the person separator so it still lines up with the author list by index.
+            "TSOP" -> builder.authorsSort = values.joinToString("; ")
 
             else -> builder.custom[frameId] = text
         }

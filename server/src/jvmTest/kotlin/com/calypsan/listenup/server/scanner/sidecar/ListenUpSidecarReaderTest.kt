@@ -51,6 +51,23 @@ class ListenUpSidecarReaderTest :
             }
         }
 
+        test("a hand-edited listenup.json saved with a byte-order mark still reads as External") {
+            withSqlDatabase {
+                runTest {
+                    val bookDir = Files.createTempDirectory("sidecar-reader-")
+                    val json = SidecarJson.serialize(sampleSidecar("Saved On Windows")).decodeToString()
+                    (bookDir / "listenup.json").writeText("\uFEFF" + json)
+                    val reader = ListenUpSidecarReader(SidecarWriteStateRepository(sql))
+
+                    val result = reader.read(Path(bookDir.toString()))
+
+                    result
+                        .shouldBeInstanceOf<SidecarReadResult.External>()
+                        .sidecar.metadata.title shouldBe "Saved On Windows"
+                }
+            }
+        }
+
         test("a file whose hash matches a recorded self-write reads as SelfWritten") {
             withSqlDatabase {
                 runTest {

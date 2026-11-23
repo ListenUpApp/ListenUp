@@ -85,6 +85,40 @@ class AnalyzerDocumentCollectionTest :
             }
         }
 
+        test("a book whose document vanished since the walk still analyzes, without that document") {
+            audioLibrary {}.use { fixture ->
+                runTest {
+                    val rel = "Author/Half Gone"
+                    val mp3 =
+                        buildMp3File {
+                            id3v2(version = 4) {}
+                            mpegFrames(durationSeconds = 1)
+                        }
+                    val audioPath = fixture.root.writeFile("$rel/01.mp3", mp3)
+                    val candidate =
+                        CandidateBook(
+                            rootRelPath = rel,
+                            isFile = false,
+                            files =
+                                listOf(
+                                    fileEntry("$rel/01.mp3", Files.size(audioPath), FileType.AUDIO),
+                                    // Walked, then deleted before the analysis reached it.
+                                    fileEntry("$rel/gone.pdf", 9, FileType.EBOOK),
+                                ),
+                        )
+
+                    val book =
+                        Analyzer(Path(fixture.root.toString()), metadataReader, embeddedParser)
+                            .analyze(flowOf(candidate))
+                            .toList()
+                            .single()
+                            .getOrThrow()
+
+                    book.documents.shouldBeEmpty()
+                }
+            }
+        }
+
         test("a book with only audio has empty documents") {
             audioLibrary {}.use { fixture ->
                 runTest {

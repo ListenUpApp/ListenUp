@@ -381,6 +381,7 @@ private fun Module.coverAndPersisterBindings(
             layoutLock = get(),
             coverImageStore = get<CoverImageStore>(),
             coverSpool = get(),
+            persistRetries = get(),
         )
     }
 }

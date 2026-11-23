@@ -21,6 +21,7 @@ import com.calypsan.listenup.server.cover.PendingCover
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.scanner.CoverSpool
+import com.calypsan.listenup.server.scanner.PersistRetryLedger
 import com.calypsan.listenup.server.scanner.toSummary
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.FirehoseSuppressed
@@ -136,12 +137,68 @@ class BookPersister internal constructor(
     private val coverImageStore: CoverImageStore? = null,
     private val coverSpool: CoverSpool? = null,
     private val isOnDisk: (Path) -> Boolean = { SystemFileSystem.exists(it) },
+    private val persistRetries: PersistRetryLedger = PersistRetryLedger(),
 ) {
     /** Launch the collector. Idempotent only in the sense that it should be called once at bootstrap. */
     fun start() {
         scope.launch {
-            scanResultBus.collect { result -> persist(result) }
+            scanResultBus.collect { result -> persistContained(result) }
         }
+    }
+
+    /**
+     * [persist], with the collector's survival guaranteed. Per-book faults are already isolated inside
+     * [persistAll], but the calls around them (the library lookup, folder and identity resolution,
+     * the sweep) are not; one escaped exception used to end this collector, and every later scan then
+     * published to a bus nobody read — nothing written, no `Completed` — until a restart. The failed
+     * result is logged and reported as finished with every change failed, so a client's scan UI ends.
+     * Not retried: the next scan re-offers whatever this one did not write. [OutOfMemoryError] keeps
+     * its own handling in [persist] and still propagates.
+     */
+    private suspend fun persistContained(result: ScanResult) {
+        try {
+            persist(result)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: OutOfMemoryError) {
+            throw e
+        } catch (e: Throwable) {
+            log.error(
+                e,
+            ) { "Persisting scan result corr=${result.correlationId} failed — skipping it, still collecting" }
+            markChangesUnwritten(result)
+            reportAbandoned(result)
+        }
+    }
+
+    /** None of an abandoned result's changed books may be taken as written by the next scan. */
+    private fun markChangesUnwritten(result: ScanResult) {
+        result.changes
+            .mapNotNull { change ->
+                when (change) {
+                    is ChangeEventDto.Added -> change.book
+                    is ChangeEventDto.Modified -> change.book
+                    is ChangeEventDto.Moved -> change.book
+                    is ChangeEventDto.Removed -> null
+                }
+            }.groupBy { it.folderRootPath ?: result.rootPath }
+            .forEach { (folderRoot, books) ->
+                persistRetries.markUnwritten(folderRoot, books.map { it.candidate.rootRelPath })
+            }
+    }
+
+    private suspend fun reportAbandoned(result: ScanResult) {
+        val libraryId =
+            try {
+                libraryRegistry.currentLibrary()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                log.error(e) { "No library id for abandoned scan corr=${result.correlationId} — no Completed sent" }
+                return
+            }
+        val counts = PersistCounts(persisted = 0, failed = result.changes.size, removed = 0)
+        eventBus.emit(ScanEvent.Completed(result.correlationId, libraryId, result.toSummary(counts)))
     }
 
     /** Visible for tests — drive one ScanResult through without the bus. */
@@ -402,6 +459,13 @@ class BookPersister internal constructor(
                 persisted += sliceResult.persisted
                 failedBase += sliceResult.failed
                 processedBase += slice.size
+                // The scanner already counts these books as seen; only the ledger makes the next scan
+                // offer the unwritten ones again.
+                persistRetries.markUnwritten(folderRoot, sliceResult.failedRootRelPaths)
+                persistRetries.markSettled(
+                    folderRoot,
+                    slice.map { it.candidate.rootRelPath } - sliceResult.failedRootRelPaths,
+                )
             }
         }
         failed = failedBase
@@ -410,7 +474,7 @@ class BookPersister internal constructor(
         // without waiting for the next Full scan. For Full scans the softDeleteAbsentByPaths sweep below
         // would catch it too, so the overlap is harmless. The tombstone count feeds the reconcile-nudge
         // gate so a delete-only suppressed scan still broadcasts.
-        var removed = applyIncrementalRemovals(result, folderIdByRoot)
+        var removed = applyIncrementalRemovals(result, folderIdByRoot, seenPaths)
 
         // Final tick at the total so the bar lands on 100% before the terminal Completed, even if the
         // last chunk boundary didn't fall exactly on the final book.
@@ -465,13 +529,26 @@ class BookPersister internal constructor(
      *
      * Returns the number of books actually tombstoned (a no-op removal — already gone — counts 0),
      * so the caller can broadcast the reconcile nudge for a delete-only suppressed scan.
+     *
+     * The scanner only emits removals it can vouch for; this is the second line of defence. A Removed
+     * is refused when the scan was a non-authoritative full scan, when its path is in [seenPaths] (it
+     * was walked, or its analysis failed this scan), or when its book root is still on disk — whatever
+     * the scan concluded, a book whose folder or file is still there is not gone.
      */
     private suspend fun applyIncrementalRemovals(
         result: ScanResult,
         folderIdByRoot: Map<String, FolderId>,
+        seenPaths: Set<FolderScopedPath>,
     ): Int {
         val removedChanges = result.changes.filterIsInstance<ChangeEventDto.Removed>()
         if (removedChanges.isEmpty()) return 0
+        if (result.scope is ScanScope.Full && !result.fullScanAuthoritative) {
+            log.warn {
+                "Refusing ${removedChanges.size} removal(s) from a non-authoritative full scan — part of the " +
+                    "library could not be read, so absence there proves nothing."
+            }
+            return 0
+        }
         val folderIdForRemoved: Map<String, FolderId> =
             removedChanges
                 .mapTo(mutableSetOf()) { it.folderRootPath ?: result.rootPath }
@@ -479,8 +556,22 @@ class BookPersister internal constructor(
         var tombstoned = 0
         for (change in removedChanges) {
             val root = change.folderRootPath ?: result.rootPath
+            val folderId = folderIdForRemoved.getValue(root)
+            // A book root is never empty or "." (the Grouper roots a loose file at its own relative
+            // path and a folder book at its directory), so the probe always names the book itself.
+            val refusal =
+                when {
+                    FolderScopedPath(folderId, change.rootRelPath) in seenPaths -> "this scan walked it"
+                    isOnDisk(Path(root, change.rootRelPath)) -> "its book root is still on disk"
+                    else -> null
+                }
+            if (refusal != null) {
+                log.warn { "Refusing removal of ${change.rootRelPath}: $refusal." }
+                continue
+            }
             try {
-                tombstoned += ingest.softDeleteByPath(folderIdForRemoved.getValue(root), change.rootRelPath)
+                tombstoned += ingest.softDeleteByPath(folderId, change.rootRelPath)
+                persistRetries.markSettled(root, listOf(change.rootRelPath))
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Throwable) {

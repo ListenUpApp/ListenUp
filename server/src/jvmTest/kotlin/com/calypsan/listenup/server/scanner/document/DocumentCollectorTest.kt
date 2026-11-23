@@ -59,6 +59,27 @@ class DocumentCollectorTest :
             }
         }
 
+        test("a document that vanished since the walk is left out; the others are still collected") {
+            val tmpDir = Files.createTempDirectory("doc-collector-test-")
+            val bookRoot = tmpDir.resolve("MyBook").apply { createDirectories() }
+            val kept = bookRoot.resolve("kept.epub").apply { writeBytes("kept".toByteArray()) }
+            val vanished = bookRoot.resolve("vanished.pdf")
+
+            try {
+                val files =
+                    listOf(
+                        fileEntry(tmpDir, kept, FileType.EBOOK),
+                        fileEntry(tmpDir, vanished, FileType.EBOOK),
+                    )
+
+                val docs = collector.collect(Path(tmpDir.toString()), Path(bookRoot.toString()), files)
+
+                docs.map { it.relPath } shouldBe listOf("kept.epub")
+            } finally {
+                tmpDir.toFile().deleteRecursively()
+            }
+        }
+
         test("collects a PDF in a subfolder with correct relative path") {
             val tmpDir = Files.createTempDirectory("doc-collector-test-")
             val libraryRoot = tmpDir
