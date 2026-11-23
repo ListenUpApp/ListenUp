@@ -63,7 +63,8 @@ class ChapterEditorRotationTest {
 
         restorationTester.emulateSavedInstanceStateRestore()
 
-        composeRule.onNodeWithText("Edit part").assertExists()
+        // The title belongs to the sheet around this content; "Remove marker" is drawn only by an open marker.
+        composeRule.onNodeWithText("Remove marker").assertExists()
     }
 
     @Test
@@ -74,6 +75,9 @@ class ChapterEditorRotationTest {
                     edit = ChapterMarkerEdit("c2", ChapterMarkerTier.Part, isNew = false),
                     initialName = "Part II",
                     chapters = chapters,
+                    isPicking = false,
+                    onMove = {},
+                    onPicked = {},
                     onSave = { _, _ -> },
                     onRemove = {},
                 )
@@ -104,6 +108,9 @@ class ChapterEditorRotationTest {
                             edit = edit,
                             initialName = "Part II",
                             chapters = chapters,
+                            isPicking = false,
+                            onMove = {},
+                            onPicked = {},
                             onSave = { _, _ -> },
                             onRemove = {},
                         )

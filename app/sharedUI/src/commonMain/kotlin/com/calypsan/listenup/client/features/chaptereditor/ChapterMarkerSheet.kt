@@ -106,7 +106,7 @@ internal fun ChapterMarkerSheet(
 
 /** The sheet's body. It swaps to the picker in place, so Move never stacks a sheet on a sheet. */
 @Composable
-private fun ChapterMarkerSheetContent(
+internal fun ChapterMarkerSheetContent(
     edit: ChapterMarkerEdit,
     initialName: String,
     chapters: List<Chapter>,
