@@ -83,6 +83,14 @@ struct DownloadPresentationTests {
         #expect(DownloadCancelConfirmation.isNeeded(moving(done: 30 * mb, total: 100 * mb)))
     }
 
+    @Test func cancelSaysWhatIsAlreadySavedAndThatItGoes() {
+        #expect(CancelDownloadCopy.title == "Cancel this download?")
+        #expect(CancelDownloadCopy.message(formattedSize: "212 MB") ==
+            "The 212 MB already saved on this device will be removed.")
+        #expect(CancelDownloadCopy.keep == "Keep Downloading")
+        #expect(CancelDownloadCopy.discard == "Cancel Download")
+    }
+
     @Test func theLibraryBadgeFollowsTheState() {
         let snapshot = moving(done: 1, total: 4)
         #expect(DownloadBadge.of(.downloading, snapshot: snapshot) == .downloading(progress: 0.25))

@@ -65,13 +65,11 @@ struct BookListenActions: View {
         }
         // Cancel throws away what has arrived, so it asks when that is worth keeping (HIG, Alerts); Keep Downloading,
         // with the cancel role, is the safe default.
-        .alert(String(localized: "book.download_cancel_confirm_title"), isPresented: $confirmingCancel) {
-            Button(String(localized: "book.download_cancel_confirm_keep"), role: .cancel) {}
-            Button(String(localized: "book.download_cancel_confirm_discard"), role: .destructive,
-                   action: onCancelDownload)
+        .alert(CancelDownloadCopy.title, isPresented: $confirmingCancel) {
+            Button(CancelDownloadCopy.keep, role: .cancel) {}
+            Button(CancelDownloadCopy.discard, role: .destructive, action: onCancelDownload)
         } message: {
-            let discarded = StorageFormat.byteSize(downloadSnapshot.bytes.done)
-            Text(String(localized: .bookDownloadCancelConfirmMessage(discarded)))
+            Text(CancelDownloadCopy.message(formattedSize: StorageFormat.byteSize(downloadSnapshot.bytes.done)))
         }
     }
 
@@ -226,6 +224,19 @@ enum RemoveDownloadCopy {
     /// `formattedSize` arrives formatted so the sentence stays testable.
     static func message(formattedSize: String) -> String {
         String(localized: .bookDetailRemoveDownloadBody(formattedSize))
+    }
+}
+
+/// The cancel-download alert, worded as Android words it: what is already saved and that it goes. The title is a
+/// full sentence, so sentence case with its question mark (HIG, Alerts); the buttons are title case.
+enum CancelDownloadCopy {
+    static var title: String { String(localized: "downloads.confirm_cancel_title") }
+    static var keep: String { String(localized: "book.download_cancel_confirm_keep") }
+    static var discard: String { String(localized: "book.download_cancel_confirm_discard") }
+
+    /// `formattedSize` arrives formatted so the sentence stays testable.
+    static func message(formattedSize: String) -> String {
+        String(localized: .downloadsConfirmCancelBody(formattedSize))
     }
 }
 
