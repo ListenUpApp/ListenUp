@@ -12,7 +12,7 @@
 
 <p align="center">
   <a href="https://kotlinlang.org/docs/multiplatform.html"><img src="https://img.shields.io/badge/Kotlin-Multiplatform-7F52FF?logo=kotlin&logoColor=white" alt="Kotlin Multiplatform" /></a>
-  <a href="https://developer.android.com"><img src="https://img.shields.io/badge/Android-13%2B-3DDC84?logo=android&logoColor=white" alt="Android" /></a>
+  <a href="https://developer.android.com"><img src="https://img.shields.io/badge/Android-11%2B-3DDC84?logo=android&logoColor=white" alt="Android" /></a>
   <a href="https://developer.apple.com/ios/"><img src="https://img.shields.io/badge/iOS-26%2B-000000?logo=apple&logoColor=white" alt="iOS" /></a>
   <a href="https://www.jetbrains.com/compose-multiplatform/"><img src="https://img.shields.io/badge/Compose-Multiplatform-4285F4?logo=jetpackcompose&logoColor=white" alt="Compose Multiplatform" /></a>
   <!-- Rewritten automatically by the Release workflow's version-bump step. Do not hand-edit. -->
@@ -160,7 +160,7 @@ cd ../../..
 ./gradlew :app:webApp:webBundle
 ```
 
-Before pushing, run the full checklist in the ["Pushing" section of `CLAUDE.md`](CLAUDE.md#pushing).
+Before pushing, run the full checklist in the ["Pushing" section of `AGENTS.md`](AGENTS.md#pushing).
 
 ## Architecture
 

@@ -1,6 +1,7 @@
 package com.calypsan.listenup.gradle
 
 import java.io.File
+import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -9,10 +10,10 @@ import kotlin.test.assertTrue
 /**
  * Pins the version numbers written into the instruction files to `gradle/libs.versions.toml`.
  *
- * `CLAUDE.md` and its siblings are loaded into every working session and followed, so a version
- * that disagrees with the build sends a reader to the wrong documentation. A written number passes
- * when it is a dot-boundary prefix of the catalog value: "Ktor 3.6" and "Ktor 3" both describe
- * `3.6.0`, "Ktor 3.5" does not.
+ * `AGENTS.md` (with `CLAUDE.md` symlinked to it) and its siblings are loaded into every working
+ * session and followed, so a version that disagrees with the build sends a reader to the wrong
+ * documentation. A written number passes when it is a dot-boundary prefix of the catalog value:
+ * "Ktor 3.6" and "Ktor 3" both describe `3.6.0`, "Ktor 3.5" does not.
  *
  * Deliberately narrow: six product names in three files. A number written for any other product is
  * not checked — extend [catalogKeyByProduct], or better, do not write the number.
@@ -30,7 +31,7 @@ class ClaudeMdVersionsTest {
             "Kotest" to "kotest",
         )
 
-    private val documents = listOf("CLAUDE.md", "app/sharedUI/CLAUDE.md", "README.md")
+    private val documents = listOf("AGENTS.md", "app/sharedUI/AGENTS.md", "README.md")
 
     @Test
     fun `every written version is a prefix of the catalog version`() {
@@ -38,8 +39,8 @@ class ClaudeMdVersionsTest {
         val mentions = documents.flatMap { versionMentions(it) }
         // Anchor: a regex that rots must fail loudly, not pass over nothing.
         assertTrue(
-            mentions.any { it.document == "CLAUDE.md" && it.product == "Kotlin" },
-            "mention parser drift — expected at least one `Kotlin <n>` in CLAUDE.md, found: $mentions",
+            mentions.any { it.document == "AGENTS.md" && it.product == "Kotlin" },
+            "mention parser drift — expected at least one `Kotlin <n>` in AGENTS.md, found: $mentions",
         )
 
         val drifted =
@@ -66,6 +67,24 @@ class ClaudeMdVersionsTest {
         assertFalse("3.5".isVersionPrefixOf("3.6.0"))
         assertFalse("3.60".isVersionPrefixOf("3.6.0"))
         assertTrue("1.12".isVersionPrefixOf("1.12.1"))
+    }
+
+    @Test
+    fun `every CLAUDE-md symlinks to its sibling AGENTS-md`() {
+        val links =
+            listOf(
+                "CLAUDE.md",
+                "app/iosApp/CLAUDE.md",
+                "app/sharedUI/CLAUDE.md",
+                "app/webApp/CLAUDE.md",
+                "server/CLAUDE.md",
+            )
+        links.forEach { relPath ->
+            val linkPath = repoRoot.resolve(relPath).toPath()
+            assertTrue(Files.isSymbolicLink(linkPath), "$relPath must be a symlink to AGENTS.md")
+            assertEquals("AGENTS.md", Files.readSymbolicLink(linkPath).toString(), "$relPath target must be relative AGENTS.md")
+            assertTrue(Files.isRegularFile(linkPath), "$relPath target AGENTS.md must exist")
+        }
     }
 
     private data class Mention(
