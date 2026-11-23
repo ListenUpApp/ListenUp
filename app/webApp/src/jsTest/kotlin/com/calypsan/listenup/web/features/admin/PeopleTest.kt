@@ -514,6 +514,22 @@ class PeopleTest :
             host.querySelector("[role=switch]").shouldBeNull()
         }
 
+        test("permissions that could not be loaded say so, inside the panel") {
+            val failure = InternalError(debugInfo = "boom")
+            val host = userPage(readyUser(), permissions = UserPermissionsUiState.Error(failure))
+
+            val panel = host.querySelector(".perm").shouldNotBeNull()
+            panel.textContent.orEmpty() shouldContain "Permissions"
+            panel.textContent.orEmpty() shouldContain failure.message
+            host.querySelector("[role=switch]").shouldBeNull()
+        }
+
+        test("permissions on their way show a loading placeholder that says so") {
+            val host = userPage(readyUser(), permissions = UserPermissionsUiState.Loading)
+
+            host.querySelector(".perm [role=status]").shouldNotBeNull()
+        }
+
         test("the trail names the member once known, and the page until then") {
             userCrumb(UserDetailUiState.Loading) shouldBe "Member"
             userCrumb(readyUser(adminUser(displayName = "Ada Lovelace"))) shouldBe "Ada Lovelace"
