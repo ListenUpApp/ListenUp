@@ -115,12 +115,14 @@ private class Rig(
             HardcoverTokenCipher(HardcoverTokenCipher.deriveKey("a-jwt-secret")),
             activity = activity,
         )
+    private val gate = HardcoverUserGate()
     private val linker =
         HardcoverLinker(
             HardcoverOAuthClient(hardcover.client, "listenup-test", "https://hc.test"),
             HardcoverGraphQlClient(hardcover.client, "https://hc.test"),
             store,
             scope.backgroundScope,
+            gate = gate,
             activity = activity,
         )
     private val preferences = HardcoverPreferences(dbs.sql, activity = activity)
@@ -136,7 +138,7 @@ private class Rig(
             wantToRead = testWantToRead(dbs, Clock.System),
             pulls = pulls,
             nudge = HardcoverPushNudge { },
-            gate = HardcoverUserGate(),
+            gate = gate,
             bus = ChangeBus(),
             history = HardcoverHistoryProgress(dbs.sql),
             activity = activity,

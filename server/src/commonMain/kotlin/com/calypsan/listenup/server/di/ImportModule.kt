@@ -66,6 +66,7 @@ fun importModule(homeDir: Path): Module =
 
         single {
             ImportApplier(
+                validator = get(),
                 reader = get(),
                 store = get(),
                 paths = get(),

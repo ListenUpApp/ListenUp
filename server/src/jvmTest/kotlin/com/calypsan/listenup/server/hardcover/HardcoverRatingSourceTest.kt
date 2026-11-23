@@ -100,7 +100,13 @@ private class RatingRig(
     private val oauth =
         HardcoverOAuthClient(HttpClient(MockEngine { respond("{}", HttpStatusCode.InternalServerError) }), "id", "https://hc.test")
     private val linker =
-        HardcoverLinker(oauth, graphQl.client, store, kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Unconfined))
+        HardcoverLinker(
+            oauth,
+            graphQl.client,
+            store,
+            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Unconfined),
+            HardcoverUserGate(),
+        )
     val connection = HardcoverRatingConnection(store, HardcoverTokenProvider(oauth, store, linker))
     val apiTokens = HardcoverApiTokenStore(sql, ratingCipher("secret"))
     val source = HardcoverRatingSource(graphQl.client, HardcoverCatalogToken(apiTokens, connection), NoWait(), clientConfigured)

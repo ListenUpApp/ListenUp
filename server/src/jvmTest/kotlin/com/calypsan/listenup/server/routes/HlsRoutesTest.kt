@@ -125,17 +125,12 @@ class HlsRoutesTest :
                 // Exactly what the playlist promises for a whole segment; the serve path verifies it.
                 val segmentBytes = AdtsFixtures.stream(FRAMES_PER_SEGMENT)
                 cache.prepareDir("b1", "af1")
+                // A file in the cache directory is a finished one: runs write elsewhere and promote
+                // only what they have listed as finished.
                 Files.write(
                     java.nio.file.Path
                         .of(cache.segmentPath("b1", "af1", 0).toString()),
                     segmentBytes,
-                )
-                // The encoder's own record that it finished this one — without it the segment is
-                // treated as still being written, which is the point of SegmentCache.isComplete.
-                Files.write(
-                    java.nio.file.Path
-                        .of(cache.runListPath("b1", "af1", 0).toString()),
-                    "seg00000.aac\n".toByteArray(),
                 )
 
                 val response = client.get("/api/v1/hls/b1/af1/seg/0.aac?$query")
@@ -186,6 +181,34 @@ class HlsRoutesTest :
                 }
             }
 
+        // The shared-directory layout trusted a successor on disk, or any run's list, to vouch for a
+        // segment — so a segment a seek's new run was killed in the middle of rewriting looked
+        // finished, failed its frame check and answered 500. Those files must be re-encoded instead.
+        test("a truncated segment left by the old cache layout is encoded again, not refused")
+            .config(enabled = FfmpegTestSupport.isAvailable) {
+                withHlsFixture(encoder = FfmpegTestSupport.ffmpeg) { client, query ->
+                    val cache by application.inject<SegmentCache>()
+                    cache.prepareDir("b1", "af1")
+                    val fileDir =
+                        java.nio.file.Path
+                            .of(cache.fileDir("b1", "af1").toString())
+                    Files.write(fileDir.resolve("seg00001.aac"), AdtsFixtures.stream(FRAMES_PER_SEGMENT - 40))
+                    Files.write(fileDir.resolve("seg00002.aac"), AdtsFixtures.stream(FRAMES_PER_SEGMENT))
+                    Files.write(fileDir.resolve("runs/from00000.list"), "seg00000.aac\nseg00001.aac\n".toByteArray())
+
+                    val response = client.get("/api/v1/hls/b1/af1/seg/1.aac?$query")
+
+                    response.status shouldBe HttpStatusCode.OK
+                    val served = Files.createTempFile("listenup-served-", ".aac")
+                    try {
+                        Files.write(served, response.bodyAsBytes())
+                        FfmpegTestSupport.frameCount(served.toString()) shouldBe FRAMES_PER_SEGMENT
+                    } finally {
+                        Files.deleteIfExists(served)
+                    }
+                }
+            }
+
         // ⛔ The regression test for the worst failure this arc can have. FFmpeg's own xHE-AAC
         // decoder drops roughly a quarter of the audio and exits 0, so a server without the FDK
         // decoder must REFUSE these rather than serve a book with a fifth of it silently missing.
@@ -209,11 +232,6 @@ class HlsRoutesTest :
                     java.nio.file.Path
                         .of(cache.segmentPath("b1", "af1", 0).toString()),
                     AdtsFixtures.stream(FRAMES_PER_SEGMENT - 40),
-                )
-                Files.write(
-                    java.nio.file.Path
-                        .of(cache.runListPath("b1", "af1", 0).toString()),
-                    "seg00000.aac\n".toByteArray(),
                 )
 
                 client.get("/api/v1/hls/b1/af1/seg/0.aac?$query").status shouldBe
@@ -325,7 +343,7 @@ private suspend fun withHlsFixture(
     }
 }
 
-/** Writes [bytes] as segment 0 of `b1`/`af1`, with the run list entry that marks it finished. */
+/** Writes [bytes] as segment 0 of `b1`/`af1` — in the cache directory, which only holds finished segments. */
 private fun writeFinishedSegment(
     cache: SegmentCache,
     bytes: ByteArray,
@@ -334,11 +352,6 @@ private fun writeFinishedSegment(
         java.nio.file.Path
             .of(cache.segmentPath("b1", "af1", 0).toString()),
         bytes,
-    )
-    Files.write(
-        java.nio.file.Path
-            .of(cache.runListPath("b1", "af1", 0).toString()),
-        "seg00000.aac\n".toByteArray(),
     )
 }
 

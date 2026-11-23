@@ -240,6 +240,7 @@ private suspend fun stageService(
         )
     val applier =
         ImportApplier(
+            validator = MappingValidator(dbs.sql),
             reader = AbsBackupReader(),
             store = store,
             paths = paths,

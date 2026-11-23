@@ -3,8 +3,10 @@ package com.calypsan.listenup.server.hardcover
 import com.calypsan.listenup.server.api.SERVER_VERSION
 import com.calypsan.listenup.server.metadata.MAX_CATALOGUE_BODY_BYTES
 import com.calypsan.listenup.server.metadata.bodyAsTextBounded
+import com.calypsan.listenup.server.metadata.streamingPost
 import io.ktor.client.HttpClient
-import io.ktor.client.request.forms.submitForm
+import io.ktor.client.request.forms.FormDataContent
+import io.ktor.client.request.setBody
 import io.ktor.client.request.header
 import io.ktor.client.statement.HttpResponse
 import io.ktor.http.HttpHeaders
@@ -127,41 +129,42 @@ class HardcoverOAuthClient(
     /** Starts a device sign-in for [HARDCOVER_SCOPES]. */
     suspend fun startDeviceAuthorization(): DeviceAuthorizationResult =
         attempt({ DeviceAuthorizationResult.Unavailable(it) }) {
-            val response =
-                post("oauth2/device") {
-                    append("scope", HARDCOVER_SCOPES)
-                }
-            if (response.status.isSuccess()) {
-                val text = bodyAsTextBounded(response, maxBodyBytes)
-                if (text == null) {
-                    DeviceAuthorizationResult.Unavailable("response body over $maxBodyBytes bytes")
+            post("oauth2/device", { append("scope", HARDCOVER_SCOPES) }) { response ->
+                if (response.status.isSuccess()) {
+                    val text = bodyAsTextBounded(response, maxBodyBytes)
+                    if (text == null) {
+                        DeviceAuthorizationResult.Unavailable("response body over $maxBodyBytes bytes")
+                    } else {
+                        DeviceAuthorizationResult.Started(
+                            hardcoverJson.decodeFromString<DeviceAuthorizationWire>(text).toAuthorization(),
+                        )
+                    }
                 } else {
-                    DeviceAuthorizationResult.Started(
-                        hardcoverJson.decodeFromString<DeviceAuthorizationWire>(text).toAuthorization(),
-                    )
+                    DeviceAuthorizationResult.Unavailable("device ${response.status}")
                 }
-            } else {
-                DeviceAuthorizationResult.Unavailable("device ${response.status}")
             }
         }
 
     /** Polls a pending device sign-in once. */
     suspend fun pollToken(deviceCode: String): TokenPoll =
         attempt({ TokenPoll.Unavailable(it) }) {
-            val response =
-                post("oauth2/token") {
+            post(
+                "oauth2/token",
+                {
                     append("grant_type", DEVICE_CODE_GRANT)
                     append("device_code", deviceCode)
-                }
-            if (response.status.isSuccess()) {
-                TokenPoll.Granted(tokensFrom(response))
-            } else {
-                when (errorCode(response)) {
-                    "authorization_pending" -> TokenPoll.Pending
-                    "slow_down" -> TokenPoll.SlowDown
-                    "access_denied" -> TokenPoll.Denied
-                    "expired_token" -> TokenPoll.Expired
-                    else -> TokenPoll.Unavailable("poll ${response.status}")
+                },
+            ) { response ->
+                if (response.status.isSuccess()) {
+                    TokenPoll.Granted(tokensFrom(response))
+                } else {
+                    when (errorCode(response)) {
+                        "authorization_pending" -> TokenPoll.Pending
+                        "slow_down" -> TokenPoll.SlowDown
+                        "access_denied" -> TokenPoll.Denied
+                        "expired_token" -> TokenPoll.Expired
+                        else -> TokenPoll.Unavailable("poll ${response.status}")
+                    }
                 }
             }
         }
@@ -169,37 +172,52 @@ class HardcoverOAuthClient(
     /** Refreshes with [refreshToken]; on success the returned pair REPLACES it. */
     suspend fun refresh(refreshToken: String): RefreshResult =
         attempt({ RefreshResult.Unavailable(it) }) {
-            val response =
-                post("oauth2/token") {
+            post(
+                "oauth2/token",
+                {
                     append("grant_type", "refresh_token")
                     append("refresh_token", refreshToken)
+                },
+            ) { response ->
+                when {
+                    response.status.isSuccess() -> RefreshResult.Granted(tokensFrom(response))
+                    errorCode(response) == "invalid_grant" -> RefreshResult.InvalidGrant
+                    else -> RefreshResult.Unavailable("refresh ${response.status}")
                 }
-            when {
-                response.status.isSuccess() -> RefreshResult.Granted(tokensFrom(response))
-                errorCode(response) == "invalid_grant" -> RefreshResult.InvalidGrant
-                else -> RefreshResult.Unavailable("refresh ${response.status}")
             }
         }
 
     /** Revokes [token] (best effort: returns whether Hardcover acknowledged it). */
     suspend fun revoke(token: String): Boolean =
         attempt({ false }) {
-            post("oauth2/revoke") { append("token", token) }.status.isSuccess()
+            post("oauth2/revoke", { append("token", token) }) { it.status.isSuccess() }
         }
 
-    /** POSTs a form carrying `client_id` plus [fields] to [path], identified by [HARDCOVER_USER_AGENT]. */
-    private suspend fun post(
+    /**
+     * POSTs a form carrying `client_id` plus [fields] to [path], identified by [HARDCOVER_USER_AGENT], and
+     * hands the still-unread response to [handle] — the response is valid only inside it (see [streamingPost]).
+     */
+    private suspend fun <T> post(
         path: String,
         fields: ParametersBuilder.() -> Unit,
-    ): HttpResponse =
-        http.submitForm(
+        handle: suspend (HttpResponse) -> T,
+    ): T =
+        streamingPost(
+            client = http,
             url = "$apiBaseUrl/$path",
-            formParameters =
-                parameters {
-                    append("client_id", clientId)
-                    fields()
-                },
-        ) { header(HttpHeaders.UserAgent, HARDCOVER_USER_AGENT) }
+            build = {
+                header(HttpHeaders.UserAgent, HARDCOVER_USER_AGENT)
+                setBody(
+                    FormDataContent(
+                        parameters {
+                            append("client_id", clientId)
+                            fields()
+                        },
+                    ),
+                )
+            },
+            handle = handle,
+        )
 
     // An oversized body throws like any undecodable one, so `attempt` folds it into Unavailable.
     private suspend fun tokensFrom(response: HttpResponse): HardcoverTokens {

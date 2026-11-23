@@ -2,10 +2,10 @@ package com.calypsan.listenup.server.hardcover
 
 import com.calypsan.listenup.server.metadata.MAX_CATALOGUE_BODY_BYTES
 import com.calypsan.listenup.server.metadata.bodyAsTextBounded
+import com.calypsan.listenup.server.metadata.streamingPost
 import io.ktor.client.HttpClient
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.header
-import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
@@ -332,8 +332,10 @@ class HardcoverGraphQlClient(
         label: String,
     ): HardcoverCall<String> =
         try {
-            val response =
-                http.post("$apiBaseUrl/v1/graphql") {
+            streamingPost(
+                client = http,
+                url = "$apiBaseUrl/v1/graphql",
+                build = {
                     bearerAuth(accessToken)
                     header(HttpHeaders.UserAgent, HARDCOVER_USER_AGENT)
                     setBody(
@@ -342,18 +344,20 @@ class HardcoverGraphQlClient(
                             ContentType.Application.Json,
                         ),
                     )
+                },
+            ) { response ->
+                val body = bodyAsTextBounded(response, maxBodyBytes)
+                if (body == null) {
+                    HardcoverCall.Failed("$label: response body over $maxBodyBytes bytes")
+                } else {
+                    classifyHardcoverResponse(
+                        status = response.status,
+                        retryAfter = response.headers[HttpHeaders.RetryAfter],
+                        wwwAuthenticate = response.headers[HttpHeaders.WWWAuthenticate],
+                        body = body,
+                        label = label,
+                    )
                 }
-            val body = bodyAsTextBounded(response, maxBodyBytes)
-            if (body == null) {
-                HardcoverCall.Failed("$label: response body over $maxBodyBytes bytes")
-            } else {
-                classifyHardcoverResponse(
-                    status = response.status,
-                    retryAfter = response.headers[HttpHeaders.RetryAfter],
-                    wwwAuthenticate = response.headers[HttpHeaders.WWWAuthenticate],
-                    body = body,
-                    label = label,
-                )
             }
         } catch (e: CancellationException) {
             throw e

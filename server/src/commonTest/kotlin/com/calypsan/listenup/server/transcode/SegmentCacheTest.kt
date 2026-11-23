@@ -30,13 +30,15 @@ class SegmentCacheTest :
 
         // FFmpeg writes the names; segmentPath looks them up. If the two ever disagree on padding,
         // every segment 404s, so the pattern is pinned against the path it has to produce.
-        test("the ffmpeg output pattern expands to the same names segmentPath expects") {
+        test("the ffmpeg output pattern names its files as segmentPath does, inside the run's own directory") {
             val dir = tempDir()
             val cache = SegmentCache(dir)
+            val run = cache.runDir("b1", "f1", startSegment = 7, run = 1)
 
-            val expanded = cache.segmentPattern("b1", "f1").replace("%05d", "00007")
+            val expanded = Path(cache.segmentPattern(run).replace("%05d", "00007"))
 
-            expanded shouldBe cache.segmentPath("b1", "f1", 7).toString()
+            expanded.name shouldBe cache.segmentPath("b1", "f1", 7).name
+            expanded.parent?.toString() shouldBe run.toString()
 
             deleteRecursively(dir)
         }
@@ -67,48 +69,92 @@ class SegmentCacheTest :
             deleteRecursively(dir)
         }
 
-        // ⛔ The bug this rule exists for: FFmpeg's segment muxer creates a file when it OPENS it,
-        // so `has` is true for a segment still being written. Serving that to a player hands it a
-        // truncated frame at the very start of a book. Measured on a throttled encode: one file on
-        // disk, zero finished.
-        test("a segment with no successor and no list entry is not yet complete") {
+        // ⛔ The bug this rule exists for: FFmpeg's segment muxer creates a file when it OPENS it, and a
+        // run started by a seek rewrites segments an older run already finished, under the same names.
+        // Neither a successor on disk nor an older run's list can vouch for the bytes being written now.
+        test("a segment a run is still writing is not complete, beside its successor or named by an older run") {
             val dir = tempDir()
             val cache = SegmentCache(dir)
-            cache.prepareDir("b1", "f1")
-            cache.segmentPath("b1", "f1", 0).writeBytes(ByteArray(16))
+            val older = cache.runDir("b1", "f1", startSegment = 0, run = 1)
+            val rewriting = cache.runDir("b1", "f1", startSegment = 5, run = 2)
+            cache.prepareRun("b1", "f1", older)
+            cache.prepareRun("b1", "f1", rewriting)
+            cache.runListPath(older).writeText("seg00005.aac\n")
+            Path(rewriting, "seg00005.aac").writeBytes(ByteArray(8))
+            Path(rewriting, "seg00006.aac").writeBytes(ByteArray(16))
 
-            cache.has("b1", "f1", 0) shouldBe true
-            cache.isComplete("b1", "f1", 0) shouldBe false
-
-            deleteRecursively(dir)
-        }
-
-        test("a segment is complete once the encoder has opened the next one") {
-            val dir = tempDir()
-            val cache = SegmentCache(dir)
-            cache.prepareDir("b1", "f1")
-            cache.segmentPath("b1", "f1", 0).writeBytes(ByteArray(16))
-            cache.segmentPath("b1", "f1", 1).writeBytes(ByteArray(16))
-
-            cache.isComplete("b1", "f1", 0) shouldBe true
-
-            deleteRecursively(dir)
-        }
-
-        // The last segment of a run never gets a successor, so the muxer's own list is the only
-        // thing that can say it finished — which is exactly why the encoder is asked to write one.
-        test("the final segment of a run is complete once the encoder lists it") {
-            val dir = tempDir()
-            val cache = SegmentCache(dir)
-            cache.prepareDir("b1", "f1")
-            cache.segmentPath("b1", "f1", 5).writeBytes(ByteArray(16))
+            cache.promoteFinished("b1", "f1", older)
+            cache.promoteFinished("b1", "f1", rewriting)
 
             cache.isComplete("b1", "f1", 5) shouldBe false
+            cache.isComplete("b1", "f1", 6) shouldBe false
+            deleteRecursively(dir)
+        }
 
-            cache.runListPath("b1", "f1", 5).writeText("seg00005.aac\n")
+        test("a segment is complete once its run has listed it and it is promoted into the cache") {
+            val dir = tempDir()
+            val cache = SegmentCache(dir)
+            val run = cache.runDir("b1", "f1", startSegment = 5, run = 1)
+            cache.prepareRun("b1", "f1", run)
+            Path(run, "seg00005.aac").writeBytes(ByteArray(16))
+            cache.runListPath(run).writeText("seg00005.aac\n")
+
+            cache.promoteFinished("b1", "f1", run)
 
             cache.isComplete("b1", "f1", 5) shouldBe true
+            SystemFileSystem.exists(Path(run, "seg00005.aac")) shouldBe false
+            deleteRecursively(dir)
+        }
 
+        test("a run stopped mid-segment leaves nothing in the cache for the segment it was writing") {
+            val dir = tempDir()
+            val cache = SegmentCache(dir)
+            val run = cache.runDir("b1", "f1", startSegment = 5, run = 1)
+            cache.prepareRun("b1", "f1", run)
+            Path(run, "seg00005.aac").writeBytes(ByteArray(16))
+            Path(run, "seg00006.aac").writeBytes(ByteArray(8))
+            cache.runListPath(run).writeText("seg00005.aac\n")
+
+            cache.promoteFinished("b1", "f1", run)
+            cache.discardRun(run)
+
+            cache.has("b1", "f1", 5) shouldBe true
+            cache.has("b1", "f1", 6) shouldBe false
+            SystemFileSystem.exists(run) shouldBe false
+            deleteRecursively(dir)
+        }
+
+        test("two runs that both finish a segment leave exactly one file, the one promoted first") {
+            val dir = tempDir()
+            val cache = SegmentCache(dir)
+            val first = cache.runDir("b1", "f1", startSegment = 5, run = 1)
+            val second = cache.runDir("b1", "f1", startSegment = 5, run = 2)
+            listOf(first to 16, second to 24).forEach { (run, size) ->
+                cache.prepareRun("b1", "f1", run)
+                Path(run, "seg00005.aac").writeBytes(ByteArray(size))
+                cache.runListPath(run).writeText("seg00005.aac\n")
+            }
+
+            cache.promoteFinished("b1", "f1", first)
+            cache.promoteFinished("b1", "f1", second)
+
+            SystemFileSystem.metadataOrNull(cache.segmentPath("b1", "f1", 5))?.size shouldBe 16L
+            SystemFileSystem.exists(Path(second, "seg00005.aac")) shouldBe false
+            deleteRecursively(dir)
+        }
+
+        // The layout before per-run directories wrote every run into the cache directory itself, so a
+        // file there may be one a run was killed in the middle of. None of it can be trusted.
+        test("a file directory left by the old shared-directory layout is cleared on first use") {
+            val dir = tempDir()
+            val cache = SegmentCache(dir)
+            cache.prepareDir("b1", "f1")
+            cache.segmentPath("b1", "f1", 5).writeBytes(ByteArray(8))
+            cache.segmentPath("b1", "f1", 6).writeBytes(ByteArray(16))
+            Path(cache.fileDir("b1", "f1"), "runs/from00000.list").writeText("seg00005.aac\n")
+
+            cache.isComplete("b1", "f1", 5) shouldBe false
+            cache.has("b1", "f1", 6) shouldBe false
             deleteRecursively(dir)
         }
 

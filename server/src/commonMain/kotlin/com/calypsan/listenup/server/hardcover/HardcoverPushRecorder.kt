@@ -87,7 +87,9 @@ fun interface HardcoverPushNudge {
  *   push, and coalesced with any PROGRESS already queued.
  * - FINISH when a completion appended a read.
  * Nothing is queued for a user with no Hardcover connection row, or for a suppressed listen-through — or for a
- * book the listener keeps off Hardcover (#1541).
+ * book the listener keeps off Hardcover (#1541). The early connection check here only saves work: the outbox
+ * re-reads the row inside the insert's own transaction, so a disconnect racing a record leaves nothing behind.
+ * It takes no [HardcoverUserGate]: it runs on playback paths that must not wait for a Hardcover call in flight.
  *
  * The listener's [HardcoverShareMode] is enforced here, where a push is queued, so nothing private is
  * ever queued to leak out after a switch: Only when I finish queues no START and no PROGRESS, and FINISH

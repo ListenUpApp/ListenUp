@@ -70,6 +70,7 @@ class HardcoverPreferencesTest :
         test("switching to Only when I finish drops queued starts and progress, keeps every finish, and touches no one else") {
             preferencesTest {
                 connect()
+                sql.seedHardcoverConnectionRow(OTHER_USER)
                 outbox.enqueueStart(USER, "book-1", listenThrough = T0, startedAt = T0, isReread = false)
                 outbox.enqueueProgress(USER, "book-1", listenThrough = T0, positionSeconds = 90L, notBefore = T0)
                 outbox.enqueueFinish(USER, "book-2", listenThrough = T0, finishedAt = T0 + 100_000L)

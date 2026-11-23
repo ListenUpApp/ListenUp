@@ -108,7 +108,8 @@ class HardcoverOutbox(
     ) {
         val payload = encode(HardcoverPushPayload.Progress(positionSeconds))
         val createdAt = now()
-        suspendTransaction(sql) {
+        suspendTransaction<Unit>(sql) {
+            if (!connected(userId)) return@suspendTransaction
             val folded =
                 queries
                     .coalesceProgress(
@@ -143,7 +144,8 @@ class HardcoverOutbox(
         startedAt: Long? = null,
     ) {
         val at = now()
-        suspendTransaction(sql) {
+        suspendTransaction<Unit>(sql) {
+            if (!connected(userId)) return@suspendTransaction
             queries.deletePendingProgress(user_id = userId, book_id = bookId)
             queries.insertOp(
                 user_id = userId,
@@ -248,7 +250,8 @@ class HardcoverOutbox(
         payload: HardcoverPushPayload,
         dueAt: Long,
     ) {
-        suspendTransaction(sql) {
+        suspendTransaction<Unit>(sql) {
+            if (!connected(userId)) return@suspendTransaction
             queries.insertOp(
                 user_id = userId,
                 book_id = bookId,
@@ -266,6 +269,14 @@ class HardcoverOutbox(
         userId: String,
         bookId: String,
     ): Long = suspendTransaction(sql) { queries.pendingCountForBook(userId, bookId).executeAsOne() }
+
+    /**
+     * Whether [userId] has a connection row, read inside the enqueue's own transaction: a disconnect's
+     * delete either commits first (nothing is queued) or after (its purge removes the row), so no START,
+     * PROGRESS or FINISH outlives a disconnect to be pushed to whichever account connects next.
+     */
+    private fun connected(userId: String): Boolean =
+        sql.hardcoverConnectionsQueries.existsForUser(userId).executeAsOne()
 
     private fun now() = clock.now().toEpochMilliseconds()
 

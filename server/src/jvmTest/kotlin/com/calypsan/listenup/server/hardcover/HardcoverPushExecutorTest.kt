@@ -47,6 +47,7 @@ private class ExecutorRig(
         sql.seedTestUser(USER)
         sql.seedTestLibraryAndFolder()
         sql.seedTestBook(BOOK)
+        sql.seedHardcoverConnectionRow(USER)
     }
 
     suspend fun linkBook() = links.recordAutomaticMatch(USER, BOOK, HardcoverMatch(HC_BOOK, HC_EDITION, HardcoverMatchMethod.ASIN))

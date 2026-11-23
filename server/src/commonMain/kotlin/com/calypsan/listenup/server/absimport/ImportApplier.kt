@@ -24,7 +24,9 @@ import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.FirehoseSuppressed
 import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.withContext
+import kotlinx.io.files.SystemFileSystem
 
 private val logger = loggerFor<ImportApplier>()
 
@@ -70,6 +72,7 @@ private val logger = loggerFor<ImportApplier>()
  * as [ImportResult.booksNotInLibrary]; unmapped-user history is excluded by the admin, not counted.
  */
 class ImportApplier internal constructor(
+    private val validator: MappingValidator,
     private val reader: AbsBackupReader,
     private val store: ImportStore,
     private val paths: ImportPaths,
@@ -79,15 +82,38 @@ class ImportApplier internal constructor(
     private val statsRecorder: StatsRecorder,
     private val changeBus: ChangeBus,
 ) {
+    /** Held for the whole of [apply]; see there. One per server, since the applier is a singleton. */
+    private val applying = Mutex()
+
     /**
      * Applies the confirmed import [importId], emitting [ImportEvent.Applying] progress through
      * [onEvent] and [ImportEvent.Applied] on success.
      *
      * A never-analyzed import (no `matches.json`) yields [ImportError.ImportNotFound]; a confirmed-
      * but-unmapped import (no `mapping.json`) or any unexpected failure yields
-     * [ImportError.ApplyFailed].
+     * [ImportError.ApplyFailed]. While another apply is running this returns [ImportError.ApplyFailed]
+     * at once and emits nothing; a mapping that stopped being valid since it was confirmed (a mapped user or
+     * an override book deleted) yields [ImportError.MappingInvalid] and writes nothing. A matched book
+     * deleted since analyze is skipped, like any item not in the library.
      */
     suspend fun apply(
+        importId: ImportId,
+        onEvent: (ImportEvent) -> Unit,
+    ): AppResult<ImportResult> {
+        // One apply at a time, across every import: a second one (a double tap, a client retry during a
+        // long apply, the boot resumer racing an admin) would collide on the positions index and announce
+        // Failed on the shared event stream while the first succeeds. It is refused quietly instead.
+        if (!applying.tryLock()) {
+            return AppResult.Failure(ImportError.ApplyFailed(debugInfo = "An import is already being applied."))
+        }
+        return try {
+            applyExclusively(importId, onEvent)
+        } finally {
+            applying.unlock()
+        }
+    }
+
+    private suspend fun applyExclusively(
         importId: ImportId,
         onEvent: (ImportEvent) -> Unit,
     ): AppResult<ImportResult> =
@@ -100,6 +126,18 @@ class ImportApplier internal constructor(
                     ?: return@withContext AppResult.Failure(
                         ImportError.ApplyFailed(debugInfo = "No confirmed mapping for import ${importId.value}."),
                     )
+            // The mapping was valid when it was confirmed; a mapped user or an override book may have been
+            // deleted since. Re-checked before anything — even the `.applying` marker — is written.
+            validator.validateMapping(mapping.userMappings, mapping.bookOverrides)?.let {
+                return@withContext AppResult.Failure(it)
+            }
+            // An applied import's staged database is deleted (ImportStore.markApplied): re-applying it needs
+            // the backup uploaded again.
+            if (!SystemFileSystem.exists(paths.absDbFor(importId.value))) {
+                return@withContext AppResult.Failure(
+                    ImportError.ApplyFailed(debugInfo = "The staged backup for import ${importId.value} is gone."),
+                )
+            }
 
             try {
                 // Record that writing is about to start — after the guards (so a never-analyzed /
@@ -110,7 +148,7 @@ class ImportApplier internal constructor(
                 // ".applying without .applied" is the durable signature of an interrupted apply.
                 store.markApplying(importId)
 
-                val effectiveBooks = effectiveBookMap(resolved.itemMatches, mapping.bookOverrides)
+                val effectiveBooks = liveOnly(effectiveBookMap(resolved.itemMatches, mapping.bookOverrides))
                 val (progress, sessions) =
                     reader
                         .open(canonicalize(paths.absDbFor(importId.value)).toString())
@@ -236,6 +274,12 @@ class ImportApplier internal constructor(
             if (override == null) effective.remove(itemId) else effective[itemId] = override
         }
         return effective
+    }
+
+    /** [effectiveBooks] without the books deleted since analyze matched them; their rows are skipped. */
+    private suspend fun liveOnly(effectiveBooks: Map<AbsItemId, BookId>): Map<AbsItemId, BookId> {
+        val live = validator.liveBooks(effectiveBooks.values.toSet())
+        return effectiveBooks.filterValues { it in live }
     }
 
     /**

@@ -83,6 +83,9 @@ internal fun Application.startBackgroundTasks(
     // Sweep any spool dirs left by a crashed scan before the persister starts — the
     // spool is only read during persist, so clearing orphans here is always safe.
     koinGet<com.calypsan.listenup.server.scanner.CoverSpool>().sweepOrphans()
+    // Likewise the ABS uploads a crash interrupted: the import temp directory holds nothing else, and no
+    // upload can have started yet.
+    koinGet<com.calypsan.listenup.server.absimport.ImportStore>().clearUploadLeftovers()
 
     // BookPersister must be subscribed to the scan-result bus before any scan can run
     // — a scan can now be triggered at runtime via the wizard on a library-less boot.

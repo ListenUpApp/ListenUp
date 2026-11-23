@@ -32,7 +32,15 @@ private class LivenessRig(
         HardcoverConnectionStore(dbs.sql, HardcoverTokenCipher(HardcoverTokenCipher.deriveKey("secret")), clock, activity)
     private val oauth = HardcoverOAuthClient(HttpClient(), "id", "https://hc.test")
     val linker =
-        HardcoverLinker(oauth, FakeHardcoverLibrary().client(), store, CoroutineScope(Dispatchers.Unconfined), clock, activity)
+        HardcoverLinker(
+            oauth,
+            FakeHardcoverLibrary().client(),
+            store,
+            CoroutineScope(Dispatchers.Unconfined),
+            HardcoverUserGate(),
+            clock,
+            activity,
+        )
 
     init {
         dbs.sql.seedTestUser(USER)

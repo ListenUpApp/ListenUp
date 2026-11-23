@@ -2,6 +2,7 @@ package com.calypsan.listenup.server.metadata.audible
 
 import com.calypsan.listenup.server.metadata.MAX_CATALOGUE_BODY_BYTES
 import com.calypsan.listenup.server.metadata.bodyAsTextBounded
+import com.calypsan.listenup.server.metadata.streamingGet
 import com.calypsan.listenup.server.metadata.retryAfterSeconds
 import com.calypsan.listenup.server.scanner.pipeline.HtmlToMarkdown
 import com.calypsan.listenup.api.error.MetadataError
@@ -9,7 +10,6 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.map
 import com.calypsan.listenup.server.logging.loggerFor
 import io.ktor.client.HttpClient
-import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.parameter
 import io.ktor.client.statement.HttpResponse
@@ -172,18 +172,21 @@ class AudibleClient(
         decode: (String) -> T,
     ): AppResult<T> =
         try {
-            val response =
-                httpClient.get("https://${region.apiHost}$path") {
+            streamingGet(
+                client = httpClient,
+                url = "https://${region.apiHost}$path",
+                build = {
                     header("Accept", "application/json")
                     header("User-Agent", "ListenUp/1.0")
                     queryParams.forEach { (k, v) -> parameter(k, v) }
-                }
+                },
+            ) { response ->
             when (response.status) {
                 HttpStatusCode.OK -> {
                     try {
                         val text =
                             bodyAsTextBounded(response, maxBodyBytes)
-                                ?: return AppResult.Failure(
+                                ?: return@streamingGet AppResult.Failure(
                                     MetadataError.Malformed(debugInfo = "response body over $maxBodyBytes bytes"),
                                 )
                         AppResult.Success(decode(text))
@@ -227,6 +230,7 @@ class AudibleClient(
                     }
                 }
             }
+            }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -249,8 +253,10 @@ class AudibleClient(
         decode: (String) -> T?,
     ): AppResult<T?> =
         try {
-            val response =
-                httpClient.get("https://${region.webHost}$path") {
+            streamingGet(
+                client = httpClient,
+                url = "https://${region.webHost}$path",
+                build = {
                     header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
                     header("Accept-Language", "en-US,en;q=0.9")
                     header(
@@ -261,7 +267,8 @@ class AudibleClient(
                     // clears Audible's 503: the www host now bot-blocks datacenter clients regardless
                     // of the cookie — Finding #18b.)
                     header("Cookie", region.localeCookie())
-                }
+                },
+            ) { response ->
             when {
                 failOnGeoRedirect && response.geoRedirectedAwayFrom(region) -> {
                     AppResult.Failure(
@@ -305,6 +312,7 @@ class AudibleClient(
                         MetadataError.ExternalUnavailable(debugInfo = "HTTP ${response.status.value}"),
                     )
                 }
+            }
             }
         } catch (e: CancellationException) {
             throw e

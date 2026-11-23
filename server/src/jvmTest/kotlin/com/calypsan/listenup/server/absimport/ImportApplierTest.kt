@@ -3,6 +3,7 @@ package com.calypsan.listenup.server.absimport
 import com.calypsan.listenup.api.dto.activity.ActivityType
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.imports.ImportEvent
+import com.calypsan.listenup.api.dto.imports.ImportResult
 import com.calypsan.listenup.api.dto.imports.ImportStatus
 import com.calypsan.listenup.api.error.ImportError
 import com.calypsan.listenup.api.result.AppResult
@@ -40,8 +41,10 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.yield
+import kotlinx.io.files.SystemFileSystem
 import java.nio.file.Files
 import kotlinx.io.files.Path as IoPath
 
@@ -291,7 +294,8 @@ class ImportApplierTest :
                     confirmSimonMapping(staged.paths, staged.importId)
 
                     applier.apply(staged.importId) {}
-                    applier.apply(staged.importId) {}
+                    staged.restageBackup()
+                    applier.apply(staged.importId) {}.shouldBeInstanceOf<AppResult.Success<*>>()
 
                     // Each ABS session id appears exactly once — stable id + append-only upsert.
                     val ids = listeningEventIdsFor(dbs.sql, LU_USER)
@@ -315,7 +319,8 @@ class ImportApplierTest :
 
                     applier.apply(staged.importId) {}
                     // Second apply re-fires the same recordPosition calls with the same ABS lastPlayedAt.
-                    applier.apply(staged.importId) {}
+                    staged.restageBackup()
+                    applier.apply(staged.importId) {}.shouldBeInstanceOf<AppResult.Success<*>>()
 
                     // Exactly one row per (user, book) — last-played-wins upsert, no duplication.
                     val mist = staged.repo.getPosition(LU_USER, LU_MIST).shouldNotBeNull()
@@ -331,7 +336,8 @@ class ImportApplierTest :
                         playbackSpeed = 1.0f,
                         currentChapterId = null,
                     )
-                    applier.apply(staged.importId) {}
+                    staged.restageBackup()
+                    applier.apply(staged.importId) {}.shouldBeInstanceOf<AppResult.Success<*>>()
 
                     val preserved = staged.repo.getPosition(LU_USER, LU_MIST).shouldNotBeNull()
                     preserved.positionMs shouldBe 9_999_000L
@@ -357,6 +363,26 @@ class ImportApplierTest :
                     result.sessionsImported shouldBe 3
                     // Exactly one distinct mapped-user book is absent from the library: `book-unmatched`.
                     // The unmapped user's history is a deliberate exclusion, not a "not found".
+                    result.booksNotInLibrary shouldBe 1
+                }
+            }
+        }
+
+        test("a book whose progress was reset imports its sessions and is not counted as not in the library") {
+            withSqlDatabase {
+                val dbs = this
+                runTest {
+                    val staged = stageAnalyzedImport(dbs, withSessionOnlyBook = true)
+                    val applier = applierFor(staged)
+
+                    confirmSimonMapping(staged.paths, staged.importId)
+                    val result = (applier.apply(staged.importId) {} as AppResult.Success).data
+
+                    listeningEventIdsFor(dbs.sql, LU_USER) shouldContain "abs:sess-elantris"
+                    // kings, mist, fidelity and Elantris' session; no progress row means no position.
+                    result.sessionsImported shouldBe 4
+                    result.importedCount shouldBe 2
+                    // Only `book-unmatched` is absent from the library.
                     result.booksNotInLibrary shouldBe 1
                 }
             }
@@ -443,9 +469,78 @@ class ImportApplierTest :
                     applier.apply(staged.importId) {}
                     // Second apply: position already finished → lastPlayedAt-wins guard short-circuits
                     // recordPosition before reaching the flip → no second book_reads row.
-                    applier.apply(staged.importId) {}
+                    staged.restageBackup()
+                    applier.apply(staged.importId) {}.shouldBeInstanceOf<AppResult.Success<*>>()
 
                     staged.bookReads.finishesForUserBook(LU_USER, LU_KINGS).size shouldBe 1
+                }
+            }
+        }
+
+        test("a second apply while one is running is refused at once, without announcing a failure") {
+            withSqlDatabase {
+                val dbs = this
+                runTest {
+                    val staged = stageAnalyzedImport(dbs)
+                    val applier = applierFor(staged)
+                    confirmSimonMapping(staged.paths, staged.importId)
+
+                    var second: AppResult<*>? = null
+                    val secondEvents = mutableListOf<ImportEvent>()
+                    val first =
+                        applier.apply(staged.importId) { event ->
+                            // Mid-apply, on the applying thread: a double tap or a client retry arrives.
+                            if (event is ImportEvent.Applying && second == null) {
+                                second = runBlocking { applier.apply(staged.importId) { secondEvents += it } }
+                            }
+                        }
+
+                    first.shouldBeInstanceOf<AppResult.Success<*>>()
+                    second
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<ImportError.ApplyFailed>()
+                    secondEvents shouldBe emptyList()
+                }
+            }
+        }
+
+        test("a mapped user deleted after the mapping was confirmed fails the apply, and nothing is written") {
+            withSqlDatabase {
+                val dbs = this
+                runTest {
+                    val staged = stageAnalyzedImport(dbs)
+                    val applier = applierFor(staged)
+                    confirmSimonMapping(staged.paths, staged.importId)
+                    dbs.driver.execute(null, "UPDATE users SET deleted_at = 1 WHERE id = '$LU_USER'", 0)
+
+                    applier
+                        .apply(staged.importId) {}
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<ImportError.MappingInvalid>()
+                    staged.repo.getPosition(LU_USER, LU_MIST).shouldBeNull()
+                    listeningEventIdsFor(dbs.sql, LU_USER) shouldBe emptyList()
+                    ImportStore(staged.paths).hasInterruptedApply(staged.importId) shouldBe false
+                }
+            }
+        }
+
+        test("a matched book deleted after analyze is skipped and the rest imports") {
+            withSqlDatabase {
+                val dbs = this
+                runTest {
+                    val staged = stageAnalyzedImport(dbs)
+                    val applier = applierFor(staged)
+                    confirmSimonMapping(staged.paths, staged.importId)
+                    dbs.driver.execute(null, "UPDATE books SET deleted_at = 1 WHERE id = '$LU_KINGS'", 0)
+
+                    val result = applier.apply(staged.importId) {}.shouldBeInstanceOf<AppResult.Success<ImportResult>>()
+
+                    staged.repo.getPosition(LU_USER, LU_KINGS).shouldBeNull()
+                    staged.repo.getPosition(LU_USER, LU_MIST).shouldNotBeNull()
+                    listeningEventIdsFor(dbs.sql, LU_USER).contains("abs:sess-kings") shouldBe false
+                    result.data.importedCount shouldBe 1
                 }
             }
         }
@@ -683,6 +778,77 @@ class ImportApplierTest :
             }
         }
 
+        test("a successful apply removes the staged ABS database and keeps the import's record") {
+            withSqlDatabase {
+                val dbs = this
+                runTest {
+                    val staged = stageAnalyzedImport(dbs)
+                    confirmSimonMapping(staged.paths, staged.importId)
+
+                    applierFor(staged).apply(staged.importId) {}.shouldBeInstanceOf<AppResult.Success<*>>()
+
+                    val id = staged.importId.value
+                    SystemFileSystem.exists(staged.paths.absDbFor(id)) shouldBe false
+                    listOf(
+                        staged.paths.analysisFor(id),
+                        staged.paths.matchesFor(id),
+                        staged.paths.mappingFor(id),
+                        staged.paths.appliedMarkerFor(id),
+                    ).forEach { SystemFileSystem.exists(it) shouldBe true }
+                    ImportStore(staged.paths).getImport(staged.importId).shouldNotBeNull().status shouldBe
+                        ImportStatus.APPLIED
+                }
+            }
+        }
+
+        test("re-applying an applied import without its backup is refused, and no failure is half-recorded") {
+            withSqlDatabase {
+                val dbs = this
+                runTest {
+                    val staged = stageAnalyzedImport(dbs)
+                    val applier = applierFor(staged)
+                    confirmSimonMapping(staged.paths, staged.importId)
+                    applier.apply(staged.importId) {}.shouldBeInstanceOf<AppResult.Success<*>>()
+
+                    val events = mutableListOf<ImportEvent>()
+                    applier
+                        .apply(staged.importId) { events += it }
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<ImportError.ApplyFailed>()
+                    events shouldBe emptyList()
+                    SystemFileSystem.exists(staged.paths.applyingMarkerFor(staged.importId.value)) shouldBe false
+                }
+            }
+        }
+
+        test("an import whose apply fails on three boots is not attempted on the fourth") {
+            withSqlDatabase {
+                val dbs = this
+                runTest {
+                    val staged = stageAnalyzedImport(dbs)
+                    confirmSimonMapping(staged.paths, staged.importId)
+                    val store = ImportStore(staged.paths)
+                    store.markApplying(staged.importId)
+                    // A permanent fault: the staged backup no longer reads.
+                    Files.write(
+                        java.nio.file.Path
+                            .of(staged.paths.absDbFor(staged.importId.value).toString()),
+                        "not a database".toByteArray(),
+                    )
+                    val resumer =
+                        InterruptedImportResumer(
+                            store = store,
+                            applier = applierFor(staged),
+                            eventBus = MutableSharedFlow(extraBufferCapacity = 64),
+                        )
+
+                    repeat(3) { resumer.resumeAll() shouldBe listOf(staged.importId.value) }
+                    resumer.resumeAll() shouldBe emptyList<String>()
+                }
+            }
+        }
+
         test("resumer is a no-op when nothing was interrupted") {
             withSqlDatabase {
                 val dbs = this
@@ -721,6 +887,7 @@ private data class StagedImport(
     val statsRecorder: StatsRecorder,
     val bookReads: BookReadsRepository,
     val bus: ChangeBus,
+    val validator: MappingValidator,
 )
 
 /**
@@ -732,6 +899,7 @@ private data class StagedImport(
 private suspend fun stageAnalyzedImport(
     dbs: SqlTestDatabases,
     withExtraProgressUser: Boolean = false,
+    withSessionOnlyBook: Boolean = false,
 ): StagedImport {
     val home = Files.createTempDirectory("abs-apply-")
     val paths = ImportPaths(IoPath(home.toString())).apply { ensureDirs() }
@@ -751,8 +919,18 @@ private suspend fun stageAnalyzedImport(
         )
     }
 
+    if (withSessionOnlyBook) {
+        addSessionOnlyBook(
+            java.nio.file.Path
+                .of(paths.absDbFor(importId.value).toString()),
+        )
+    }
+
     val libId = seedLibraryUser(dbs)
-    dbs.sql.transaction { seedApplierBooks(dbs.sql, libId.value) }
+    dbs.sql.transaction {
+        seedApplierBooks(dbs.sql, libId.value)
+        if (withSessionOnlyBook) seedListenUpElantris(dbs.sql, libId.value)
+    }
 
     val bus = ChangeBus()
     val registry = SyncRegistry()
@@ -793,11 +971,24 @@ private suspend fun stageAnalyzedImport(
         statsRecorder,
         bookReads,
         bus,
+        MappingValidator(dbs.sql),
+    )
+}
+
+/**
+ * Puts the synthetic ABS database back where a successful apply deleted it (`ImportStore.markApplied`), so a
+ * test can re-apply the same import — the row-level idempotency the boot resumer's re-runs rely on.
+ */
+private fun StagedImport.restageBackup() {
+    buildSyntheticAbsDb(
+        java.nio.file.Path
+            .of(paths.absDbFor(importId.value).toString()),
     )
 }
 
 private fun applierFor(staged: StagedImport): ImportApplier =
     ImportApplier(
+        validator = staged.validator,
         reader = AbsBackupReader(),
         store = ImportStore(staged.paths),
         paths = staged.paths,

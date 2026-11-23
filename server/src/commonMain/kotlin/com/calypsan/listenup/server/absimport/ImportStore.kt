@@ -125,12 +125,20 @@ class ImportStore(
 
     /**
      * Touches the `.applied` marker, recording that apply has completed for [id], and clears the
-     * in-flight `.applying` marker so a completed import can never look interrupted.
+     * in-flight `.applying` marker so a completed import can never look interrupted, and the resume
+     * attempt count.
+     *
+     * It also deletes the staged ABS database: up to 2 GiB of another system's data, password hashes and
+     * API tokens included, that nothing needs once the history is in. The JSON sidecars stay, so the
+     * import is still listed as applied. Re-applying it is given up — analyze answers `ImportNotFound`
+     * without the database and apply refuses — and uploading the backup again is the route.
      */
     suspend fun markApplied(id: ImportId): Unit =
         onIo {
             paths.appliedMarkerFor(id.value).writeText("")
             SystemFileSystem.delete(paths.applyingMarkerFor(id.value), mustExist = false)
+            SystemFileSystem.delete(paths.applyAttemptsFor(id.value), mustExist = false)
+            SystemFileSystem.delete(paths.absDbFor(id.value), mustExist = false)
         }
 
     /**
@@ -158,6 +166,36 @@ class ImportStore(
                     SystemFileSystem.exists(paths.applyingMarkerFor(id.value)) &&
                         !SystemFileSystem.exists(paths.appliedMarkerFor(id.value))
                 }
+        }
+
+    /**
+     * Deletes every regular file directly inside [ImportPaths.tmpDir] — uploads a crash interrupted (up to
+     * the upload cap each). Only uploads stage there, and each deletes its own file when it ends, so at
+     * boot, before any request is served, everything in it is a leftover. Blocking: startup calls it
+     * synchronously, before the server accepts an upload.
+     */
+    fun clearUploadLeftovers() {
+        val tmp = paths.tmpDir
+        if (!SystemFileSystem.exists(tmp)) return
+        SystemFileSystem
+            .list(tmp)
+            .filter { SystemFileSystem.metadataOrNull(it)?.isRegularFile == true }
+            .forEach { SystemFileSystem.delete(it, mustExist = false) }
+    }
+
+    /** How many boot-time resume attempts [id]'s apply has had since it last succeeded. */
+    suspend fun applyAttempts(id: ImportId): Int =
+        onIo {
+            val file = paths.applyAttemptsFor(id.value)
+            if (SystemFileSystem.exists(file)) file.readText().trim().toIntOrNull() ?: 0 else 0
+        }
+
+    /** Counts one more boot-time resume attempt of [id]'s apply. */
+    suspend fun recordApplyAttempt(id: ImportId): Unit =
+        onIo {
+            val file = paths.applyAttemptsFor(id.value)
+            val attempts = if (SystemFileSystem.exists(file)) file.readText().trim().toIntOrNull() ?: 0 else 0
+            file.writeText((attempts + 1).toString())
         }
 
     /** Derives the lifecycle status of [id] from which staging files exist. */

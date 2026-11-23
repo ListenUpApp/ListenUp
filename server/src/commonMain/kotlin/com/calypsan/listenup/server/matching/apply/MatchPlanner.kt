@@ -89,10 +89,13 @@ internal object MatchPlanner {
             planChapters(model, request.chapterOrdinals.toSet(), draft)?.let { return AppResult.Failure(it) }
         }
         draft.refs = model.key.refs
-        draft.asin =
-            model.key.refs
-                .firstOrNull { it.provider == ExternalRef.AUDIBLE }
-                ?.id
+        model.key.refs
+            .firstOrNull { it.provider == ExternalRef.AUDIBLE }
+            ?.let { audible ->
+                draft.asin = audible.id
+                // Unstamped, the ASIN is the scanner's to overwrite: the next rescan of files without one nulls it.
+                draft.provenance[BookField.ASIN] = MetadataProviderId.AUDIBLE
+            }
         return AppResult.Success(draft.build())
     }
 

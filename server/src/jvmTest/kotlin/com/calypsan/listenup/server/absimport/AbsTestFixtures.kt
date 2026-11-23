@@ -183,6 +183,16 @@ private fun java.sql.Connection.insertAbsRows() {
                     finished = false,
                     "2022-01-18T04:33:12.000Z",
                 ),
+                // A row naming no item — skipped by the reader, never fatal.
+                ProgressRow(
+                    "mp-no-item",
+                    null,
+                    AbsSchema.MEDIA_TYPE_BOOK,
+                    10.0,
+                    100.0,
+                    finished = false,
+                    "2022-01-18T04:33:12.000Z",
+                ),
             ).forEach { insertProgress(ps, it) }
         }
 
@@ -197,6 +207,10 @@ private fun java.sql.Connection.insertAbsRows() {
  *    follow `timeListening`, not the wall clock.
  *  - `sess-unresolved` (book-unmatched) — its item never matches a ListenUp book → skipped on apply.
  *  - `sess-podcast` (podcastEpisode) — excluded by the reader's media-type filter.
+ *
+ * And two ownerless rows the reader skips: `sess-deleted-user` (ABS nulls `userId` on the sessions of
+ * a user it deletes — `server/controllers/UserController.js` in the ABS source) and `sess-no-item`
+ * (no `mediaItemId`).
  */
 private fun java.sql.Connection.insertAbsSessions() {
     prepareStatement(
@@ -266,8 +280,118 @@ private fun java.sql.Connection.insertAbsSessions() {
                 startedAt = "2022-01-21T04:33:12.000Z",
                 device = "Web",
             ),
+            SessionRow(
+                "sess-deleted-user",
+                null,
+                "book-1",
+                AbsSchema.MEDIA_TYPE_BOOK,
+                startTime = 0.0,
+                currentTime = 600.0,
+                timeListening = 600,
+                startedAt = "2022-01-22T04:33:12.000Z",
+                device = "Web",
+            ),
+            SessionRow(
+                "sess-no-item",
+                "user-simon",
+                null,
+                AbsSchema.MEDIA_TYPE_BOOK,
+                startTime = 0.0,
+                currentTime = 600.0,
+                timeListening = 600,
+                startedAt = "2022-01-22T04:33:12.000Z",
+                device = "Web",
+            ),
         ).forEach { insertSession(ps, it) }
     }
+}
+
+/**
+ * Adds to the ABS database at [absDb] a third book, "Elantris" (`book-3`), that `user-simon` listened
+ * to and then reset: one playback session (`sess-elantris`, 900 s) and **no** progress row — ABS deletes
+ * the progress row on "discard progress" and keeps the sessions (`server/controllers/MeController.js`,
+ * `removeMediaProgress`, in the ABS source).
+ */
+internal fun addSessionOnlyBook(absDb: Path) {
+    DriverManager.getConnection("jdbc:sqlite:${absDb.toAbsolutePath()}").use { conn ->
+        conn
+            .prepareStatement(
+                "INSERT INTO ${AbsSchema.BOOKS} (${AbsSchema.BOOK_ID}, ${AbsSchema.BOOK_TITLE}, " +
+                    "${AbsSchema.BOOK_SUBTITLE}, ${AbsSchema.BOOK_ASIN}, ${AbsSchema.BOOK_ISBN}) VALUES (?, ?, ?, ?, ?)",
+            ).use { ps -> insertBook(ps, "book-3", "Elantris", null, null) }
+        conn
+            .prepareStatement(
+                "INSERT INTO ${AbsSchema.LIBRARY_ITEMS} (${AbsSchema.LIBRARY_ITEM_ID}, " +
+                    "${AbsSchema.LIBRARY_ITEM_LIBRARY_ID}, ${AbsSchema.LIBRARY_ITEM_MEDIA_ID}, " +
+                    "${AbsSchema.LIBRARY_ITEM_MEDIA_TYPE}, ${AbsSchema.LIBRARY_ITEM_PATH}, " +
+                    "${AbsSchema.LIBRARY_ITEM_REL_PATH}) VALUES (?, ?, ?, ?, ?, ?)",
+            ).use { ps -> insertItem(ps, "li-4", "book-3", AbsSchema.MEDIA_TYPE_BOOK, "Brandon Sanderson/Elantris") }
+        conn
+            .prepareStatement(
+                "INSERT INTO ${AbsSchema.PLAYBACK_SESSIONS} (${AbsSchema.SESSION_ID}, " +
+                    "${AbsSchema.SESSION_USER_ID}, ${AbsSchema.SESSION_MEDIA_ITEM_ID}, " +
+                    "${AbsSchema.SESSION_MEDIA_ITEM_TYPE}, ${AbsSchema.SESSION_START_TIME}, " +
+                    "${AbsSchema.SESSION_CURRENT_TIME}, ${AbsSchema.SESSION_TIME_LISTENING}, " +
+                    "${AbsSchema.SESSION_STARTED_AT}, ${AbsSchema.SESSION_DEVICE}) " +
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            ).use { ps ->
+                insertSession(
+                    ps,
+                    SessionRow(
+                        "sess-elantris",
+                        "user-simon",
+                        "book-3",
+                        AbsSchema.MEDIA_TYPE_BOOK,
+                        startTime = 0.0,
+                        currentTime = 900.0,
+                        timeListening = 900,
+                        startedAt = "2022-01-23T04:33:12.000Z",
+                        device = "Pixel 8",
+                    ),
+                )
+            }
+    }
+}
+
+/** The ListenUp book "Elantris" (`lu-elantris`) that ABS's session-only `book-3` matches by title. */
+internal fun seedListenUpElantris(
+    sql: com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase,
+    libraryId: String,
+) {
+    val now = 1_730_000_000_000L
+    sql.booksQueries.insert(
+        id = "lu-elantris",
+        library_id = libraryId,
+        folder_id = "test-folder",
+        title = "Elantris",
+        sort_title = null,
+        subtitle = null,
+        description = null,
+        publish_year = null,
+        normalization_gain_db = null,
+        publisher = null,
+        language = null,
+        isbn = null,
+        asin = null,
+        abridged = 0L,
+        explicit = 0L,
+        has_scan_warning = 0L,
+        total_duration = 1L,
+        cover_source = null,
+        cover_path = null,
+        cover_hash = null,
+        field_provenance = "{}",
+        root_rel_path = "Sanderson/Elantris-listenup",
+        inode = null,
+        scanned_at = now,
+        book_tier_label = null,
+        part_tier_label = null,
+        revision = 1L,
+        created_at = now,
+        updated_at = now,
+        deleted_at = null,
+        client_op_id = null,
+    )
 }
 
 /**
@@ -301,7 +425,7 @@ internal fun zipOf(vararg entries: Pair<String, ByteArray>): ByteArray {
 
 private data class ProgressRow(
     val id: String,
-    val itemId: String,
+    val itemId: String?,
     val mediaItemType: String,
     val currentTime: Double,
     val duration: Double,
@@ -311,8 +435,8 @@ private data class ProgressRow(
 
 private data class SessionRow(
     val id: String,
-    val userId: String,
-    val itemId: String,
+    val userId: String?,
+    val itemId: String?,
     val mediaItemType: String,
     val startTime: Double,
     val currentTime: Double,

@@ -2,16 +2,19 @@ package com.calypsan.listenup.server.metadata.custom
 
 import com.calypsan.listenup.server.metadata.MAX_CATALOGUE_BODY_BYTES
 import com.calypsan.listenup.server.metadata.bodyAsTextBounded
+import com.calypsan.listenup.server.metadata.streamingGet
 import com.calypsan.listenup.server.metadata.retryAfterSeconds
 import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.logging.loggerFor
 import io.ktor.client.HttpClient
-import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.parameter
+import io.ktor.client.statement.HttpResponse
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.URLParserException
+import io.ktor.http.Url
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
@@ -36,6 +39,7 @@ private val logger = loggerFor<CustomMetadataClient>()
  * Authentication is the operator's responsibility — front the endpoint with whatever the
  * hosting setup provides (a reverse-proxy token, network ACL, or a token baked into the
  * URL). Keeping the client auth-free keeps the config surface a single `name=baseUrl` line.
+ * Because the URL may carry that token, logs name the endpoint by its host alone ([loggableHost]).
  *
  * [CancellationException] is never swallowed — it is always rethrown.
  */
@@ -46,6 +50,8 @@ internal class CustomMetadataClient(
     private val rateLimiter: CustomRateLimiter = CustomRateLimiter(),
     private val maxBodyBytes: Long = MAX_CATALOGUE_BODY_BYTES,
 ) {
+    private val logHost = loggableHost(baseUrl)
+
     suspend fun getBook(
         asin: String?,
         title: String?,
@@ -113,55 +119,78 @@ internal class CustomMetadataClient(
     ): AppResult<T?> =
         try {
             rateLimiter.await()
-            val response =
-                httpClient.get("$baseUrl$path") {
+            streamingGet(
+                client = httpClient,
+                url = "$baseUrl$path",
+                build = {
                     header("Accept", "application/json")
                     header("User-Agent", "ListenUp/1.0")
                     parameter("region", region)
                     asin?.takeIf { it.isNotBlank() }?.let { parameter("asin", it) }
                     title?.takeIf { it.isNotBlank() }?.let { parameter("title", it) }
                     author?.takeIf { it.isNotBlank() }?.let { parameter("author", it) }
-                }
-            when (response.status) {
-                HttpStatusCode.OK -> {
-                    try {
-                        val text =
-                            bodyAsTextBounded(response, maxBodyBytes)
-                                ?: return AppResult.Failure(
-                                    MetadataError.Malformed(debugInfo = "response body over $maxBodyBytes bytes"),
-                                )
-                        AppResult.Success(decode(text))
-                    } catch (e: SerializationException) {
-                        AppResult.Failure(MetadataError.Malformed(debugInfo = e.message))
-                    } catch (e: IllegalArgumentException) {
-                        AppResult.Failure(MetadataError.Malformed(debugInfo = e.message))
-                    }
-                }
-
-                HttpStatusCode.NotFound -> {
-                    AppResult.Success(null)
-                }
-
-                HttpStatusCode.TooManyRequests -> {
-                    logger.warn { "Custom provider rate-limited: base=$baseUrl path=$path region=$region" }
-                    AppResult.Failure(
-                        MetadataError.ExternalRateLimited(
-                            retryAfterSeconds = retryAfterSeconds(response.headers[HttpHeaders.RetryAfter]),
-                        ),
-                    )
-                }
-
-                else -> {
-                    logger.warn {
-                        "Custom provider request failed: base=$baseUrl path=$path status=${response.status.value}"
-                    }
-                    AppResult.Failure(MetadataError.ExternalUnavailable(debugInfo = "HTTP ${response.status.value}"))
-                }
-            }
+                },
+            ) { response -> respondTo(response = response, path = path, region = region, decode = decode) }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            logger.warn(e) { "Custom provider request errored: base=$baseUrl path=$path region=$region" }
+            logger.warn(e) { "Custom provider request errored: host=$logHost path=$path region=$region" }
             AppResult.Failure(MetadataError.ExternalUnavailable(debugInfo = e.message))
         }
+
+    /** Maps one streaming [response] from [path] to the client's [AppResult] contract. */
+    private suspend fun <T> respondTo(
+        response: HttpResponse,
+        path: String,
+        region: String,
+        decode: (String) -> T,
+    ): AppResult<T?> =
+        when (response.status) {
+            HttpStatusCode.OK -> {
+                try {
+                    val text =
+                        bodyAsTextBounded(response, maxBodyBytes)
+                            ?: return AppResult.Failure(
+                                MetadataError.Malformed(debugInfo = "response body over $maxBodyBytes bytes"),
+                            )
+                    AppResult.Success(decode(text))
+                } catch (e: SerializationException) {
+                    AppResult.Failure(MetadataError.Malformed(debugInfo = e.message))
+                } catch (e: IllegalArgumentException) {
+                    AppResult.Failure(MetadataError.Malformed(debugInfo = e.message))
+                }
+            }
+
+            HttpStatusCode.NotFound -> {
+                AppResult.Success(null)
+            }
+
+            HttpStatusCode.TooManyRequests -> {
+                logger.warn { "Custom provider rate-limited: host=$logHost path=$path region=$region" }
+                AppResult.Failure(
+                    MetadataError.ExternalRateLimited(
+                        retryAfterSeconds = retryAfterSeconds(response.headers[HttpHeaders.RetryAfter]),
+                    ),
+                )
+            }
+
+            else -> {
+                logger.warn {
+                    "Custom provider request failed: host=$logHost path=$path status=${response.status.value}"
+                }
+                AppResult.Failure(MetadataError.ExternalUnavailable(debugInfo = "HTTP ${response.status.value}"))
+            }
+        }
 }
+
+/**
+ * The host of [baseUrl], the only part of a custom provider's address a log line may carry: the
+ * operator may have put an access token in its userinfo, path or query. An address with no readable
+ * host is named generically — without a scheme Ktor's parser would invent `localhost`.
+ */
+internal fun loggableHost(baseUrl: String): String =
+    try {
+        Url(baseUrl).host.takeIf { "://" in baseUrl && it.isNotBlank() }
+    } catch (_: URLParserException) {
+        null
+    } ?: "custom provider"
