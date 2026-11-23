@@ -157,6 +157,40 @@ class ProfileServiceImplTest :
             }
         }
 
+        test("updateMyProfile answers an empty current password with WrongPassword") {
+            // The current password has no DTO-level gate, so an empty one reaches the Argon2 verify;
+            // it must read as a mismatch on every server build (PasswordHasherEmptyInputTest pins the
+            // hasher itself on both lanes).
+            withSqlDatabase {
+                val hasher = PasswordHasher()
+                runTest {
+                    val hash = hasher.hash("correct-pass")
+                    sql.seedTestUser("u1")
+                    sql.usersQueries.updatePasswordHash(password_hash = hash, id = "u1")
+                    val svc =
+                        ProfileServiceImpl(
+                            sql = sql,
+                            argon2Limiter = Argon2Limiter(hasher),
+                            publicProfileMaintainer = sql.noOpPublicProfileMaintainer(),
+                            imageStore = tempAvatarImageStore(),
+                            sessions = sessionsService(),
+                        ).copyWith(
+                            PrincipalProvider {
+                                UserPrincipal(UserId("u1"), SessionId("s"), UserRole.MEMBER)
+                            },
+                        )
+                    val r =
+                        svc.updateMyProfile(
+                            UpdateProfileRequest(
+                                password = PasswordChange("", "brand-new-pass"),
+                            ),
+                        )
+                    val failure = r.shouldBeInstanceOf<AppResult.Failure>()
+                    failure.error.shouldBeInstanceOf<ProfileError.WrongPassword>()
+                }
+            }
+        }
+
         test("updateMyProfile rejects a whitespace-only new password with WeakPassword(BLANK)") {
             withSqlDatabase {
                 val hasher = PasswordHasher()
