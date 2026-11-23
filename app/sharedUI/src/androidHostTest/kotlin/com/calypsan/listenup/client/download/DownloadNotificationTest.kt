@@ -75,7 +75,7 @@ class DownloadNotificationTest {
     }
 
     @Test
-    @Config(sdk = [31])
+    @Config(sdk = [34])
     fun `from Android 12 the template already sets the bytes line below the title`() {
         active().extras.getCharSequence(NotificationCompat.EXTRA_BIG_TEXT) shouldBe null
     }
