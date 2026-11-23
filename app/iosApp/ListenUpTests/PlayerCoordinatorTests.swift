@@ -139,16 +139,13 @@ struct InterruptionPolicyTests {
 struct RouteChangeTests {
     /// A private center per test instance — the coordinator observes THIS, not the process-global
     /// `.default`, so this suite's route-change post can never leak into a concurrent suite's coordinator.
-    private let center = NotificationCenter()
+    private let session = AudioSessionPoster()
 
     @Test func routeChangeOldDeviceUnavailablePausesAndTellsTheSharedPlayer() async {
-        let harness = PlayerHarness(notificationCenter: center)
+        let harness = PlayerHarness(notificationCenter: session.center)
         await harness.loadAndStart()
 
-        center.post(
-            name: AVAudioSession.routeChangeNotification, object: nil,
-            userInfo: [AVAudioSessionRouteChangeReasonKey:
-                NSNumber(value: AVAudioSession.RouteChangeReason.oldDeviceUnavailable.rawValue)])
+        session.routeLost()
 
         await harness.engine.waitUntilPaused()
         #expect(await harness.engine.didPause)
@@ -161,36 +158,18 @@ struct RouteChangeTests {
 
 // Each test instance owns a private `NotificationCenter` and injects it into its coordinator, so an
 // interruption post here reaches ONLY this test's coordinator. `.serialized` is kept as belt-and-suspenders.
+// A test that checks what a post did, or did not do, first waits for `session.settle`: the coordinator has
+// handled every post by then, so the check reads its answer, not a moment before it.
 @Suite("Audio-session interruption handling", .serialized)
 @MainActor
 struct AudioSessionInterruptionTests {
-    private let center = NotificationCenter()
-
-    private func postInterruptionBegan() {
-        center.post(
-            name: AVAudioSession.interruptionNotification, object: nil,
-            userInfo: [AVAudioSessionInterruptionTypeKey:
-                NSNumber(value: AVAudioSession.InterruptionType.began.rawValue)])
-    }
-
-    private func postInterruptionEnded(shouldResume: Bool) {
-        var userInfo: [AnyHashable: Any] = [
-            AVAudioSessionInterruptionTypeKey:
-                NSNumber(value: AVAudioSession.InterruptionType.ended.rawValue)
-        ]
-        if shouldResume {
-            userInfo[AVAudioSessionInterruptionOptionKey] =
-                NSNumber(value: AVAudioSession.InterruptionOptions.shouldResume.rawValue)
-        }
-        center.post(
-            name: AVAudioSession.interruptionNotification, object: nil, userInfo: userInfo)
-    }
+    private let session = AudioSessionPoster()
 
     @Test func interruptionBeganPausesPlayback() async {
-        let harness = PlayerHarness(notificationCenter: center)
+        let harness = PlayerHarness(notificationCenter: session.center)
         await harness.loadAndStart()
 
-        postInterruptionBegan()
+        session.interruptionBegan()
         await harness.engine.waitUntilPaused()
         await awaitObservation { !harness.coordinator.isPlaybackActive }
 
@@ -200,12 +179,12 @@ struct AudioSessionInterruptionTests {
     }
 
     @Test func interruptionEndedWithShouldResumeResumesAfterInterruptionPause() async {
-        let harness = PlayerHarness(notificationCenter: center)
+        let harness = PlayerHarness(notificationCenter: session.center)
         await harness.loadAndStart()
 
-        postInterruptionBegan()
+        session.interruptionBegan()
         await harness.engine.waitUntilPaused()
-        postInterruptionEnded(shouldResume: true)
+        session.interruptionEnded(shouldResume: true)
         await harness.engine.waitForPlayCount(2)
         await awaitObservation { harness.coordinator.isPlaying }
 
@@ -216,75 +195,68 @@ struct AudioSessionInterruptionTests {
     }
 
     @Test func interruptionEndedWithoutShouldResumeStaysPaused() async {
-        let harness = PlayerHarness(notificationCenter: center)
+        let harness = PlayerHarness(notificationCenter: session.center)
         await harness.loadAndStart()
 
-        postInterruptionBegan()
+        session.interruptionBegan()
         await harness.engine.waitUntilPaused()
-        postInterruptionEnded(shouldResume: false)
+        session.interruptionEnded(shouldResume: false)
+        await session.settle(harness)
 
-        await awaitUntil(timeout: .milliseconds(300)) { harness.coordinator.isPlaying }
         #expect(harness.coordinator.isPlaying == false)
         #expect(await harness.engine.playCount == 1)
     }
 
     @Test("A declined resume forgets the interruption: a later resume signal does not start the book")
     func declinedInterruptionCannotResumeLater() async {
-        let harness = PlayerHarness(notificationCenter: center)
+        let harness = PlayerHarness(notificationCenter: session.center)
         await harness.loadAndStart()
 
-        postInterruptionBegan()
+        session.interruptionBegan()
         await harness.engine.waitUntilPaused()
         await awaitObservation { harness.coordinator.enginePhase == .paused }
-        postInterruptionEnded(shouldResume: false)
+        session.interruptionEnded(shouldResume: false)
         // The second interruption lands on a paused book, so it records nothing of its own.
-        postInterruptionBegan()
-        postInterruptionEnded(shouldResume: true)
+        session.interruptionBegan()
+        session.interruptionEnded(shouldResume: true)
+        await session.settle(harness)
 
-        await awaitUntil(timeout: .milliseconds(300)) { harness.coordinator.isPlaying }
         #expect(harness.coordinator.isPlaying == false)
         #expect(await harness.engine.playCount == 1)
     }
 
     @Test("After a declined resume, losing the route records nothing")
     func routeLossAfterADeclinedInterruptionIsANoOp() async {
-        let harness = PlayerHarness(notificationCenter: center)
+        let harness = PlayerHarness(notificationCenter: session.center)
         await harness.loadAndStart()
 
-        postInterruptionBegan()
+        session.interruptionBegan()
         await harness.engine.waitUntilPaused()
         await awaitObservation { harness.coordinator.enginePhase == .paused }
-        postInterruptionEnded(shouldResume: false)
-        postRouteLost()
+        session.interruptionEnded(shouldResume: false)
+        session.routeLost()
+        await session.settle(harness)
 
-        await awaitUntil(timeout: .milliseconds(300)) { harness.coordinator.pauseCause == .routeLost }
         #expect(harness.coordinator.pauseCause == nil)
         #expect(harness.coordinator.isPlaying == false)
     }
 
     @Test func interruptionEndedDoesNotResumeUserInitiatedPause() async {
-        let harness = PlayerHarness(notificationCenter: center)
+        let harness = PlayerHarness(notificationCenter: session.center)
         await harness.loadAndStart()
 
         await harness.run(.pause)   // the user pauses deliberately
         await harness.engine.waitUntilPaused()
-        postInterruptionEnded(shouldResume: true)
+        session.interruptionEnded(shouldResume: true)
+        await session.settle(harness)
 
-        await awaitUntil(timeout: .milliseconds(300)) { harness.coordinator.isPlaying }
         #expect(harness.coordinator.isPlaying == false)
         #expect(await harness.engine.playCount == 1)
     }
 
-    private func postRouteLost() {
-        center.post(
-            name: AVAudioSession.routeChangeNotification, object: nil,
-            userInfo: [AVAudioSessionRouteChangeReasonKey:
-                NSNumber(value: AVAudioSession.RouteChangeReason.oldDeviceUnavailable.rawValue)])
-    }
-
-    /// Waits out a `.ended` that must change nothing, then pins that the book stayed paused with no restart.
+    /// Once every post is handled, pins that the book stayed paused with no restart.
     private func expectStaysPaused(_ harness: PlayerHarness) async {
-        await awaitUntil(timeout: .milliseconds(300)) { harness.coordinator.isPlaying }
+        await session.settle(harness)
         #expect(harness.coordinator.isPlaying == false)
         #expect(await harness.engine.playCount == 1)
         #expect(await harness.engine.didActivateSession == false)
@@ -292,53 +264,53 @@ struct AudioSessionInterruptionTests {
 
     @Test("Headphones out, then a call: the call's end does not start the book on the speaker")
     func routeLossPauseSurvivesALaterInterruption() async {
-        let harness = PlayerHarness(notificationCenter: center)
+        let harness = PlayerHarness(notificationCenter: session.center)
         await harness.loadAndStart()
 
-        postRouteLost()
+        session.routeLost()
         await harness.engine.waitUntilPaused()
-        postInterruptionBegan()
-        postInterruptionEnded(shouldResume: true)
+        session.interruptionBegan()
+        session.interruptionEnded(shouldResume: true)
 
         await expectStaysPaused(harness)
     }
 
     @Test("A call, then the headphones come out during it: the call's end does not resume")
     func routeLossDuringAnInterruptionCancelsItsResume() async {
-        let harness = PlayerHarness(notificationCenter: center)
+        let harness = PlayerHarness(notificationCenter: session.center)
         await harness.loadAndStart()
 
-        postInterruptionBegan()
+        session.interruptionBegan()
         await awaitObservation { harness.coordinator.pauseCause == .interruption }
-        postRouteLost()
-        await awaitUntil(timeout: .milliseconds(300)) { harness.coordinator.pauseCause == .routeLost }
-        postInterruptionEnded(shouldResume: true)
+        session.routeLost()
+        await awaitObservation { harness.coordinator.pauseCause == .routeLost }
+        session.interruptionEnded(shouldResume: true)
 
         await expectStaysPaused(harness)
     }
 
     @Test("A call, then the user pauses during it: the call's end does not resume")
     func userPauseDuringAnInterruptionCancelsItsResume() async {
-        let harness = PlayerHarness(notificationCenter: center)
+        let harness = PlayerHarness(notificationCenter: session.center)
         await harness.loadAndStart()
 
-        postInterruptionBegan()
+        session.interruptionBegan()
         await awaitObservation { harness.coordinator.pauseCause == .interruption }
         await harness.run(.pause)
-        postInterruptionEnded(shouldResume: true)
+        session.interruptionEnded(shouldResume: true)
 
         await expectStaysPaused(harness)
     }
 
     @Test func interruptionBeganWhileBufferingPauses() async {
-        let harness = PlayerHarness(notificationCenter: center)
+        let harness = PlayerHarness(notificationCenter: session.center)
         await harness.loadAndStart()
         await awaitObservation { harness.coordinator.isPlaying }
 
         harness.engine.emit(.statusChanged(.buffering))
         await awaitObservation { harness.coordinator.isBuffering }
 
-        postInterruptionBegan()
+        session.interruptionBegan()
         await harness.engine.waitUntilPaused()
         await awaitObservation { !harness.coordinator.isBuffering }
 
@@ -346,14 +318,16 @@ struct AudioSessionInterruptionTests {
         #expect(harness.coordinator.isBuffering == false)
     }
 
+    /// Nothing observes the session after a stop, so there is nothing to settle: the check gives a post that must
+    /// reach nobody a moment to land, then pins that it did not.
     @Test func stopSeversInterruptionObservation() async {
-        let harness = PlayerHarness(notificationCenter: center)
+        let harness = PlayerHarness(notificationCenter: session.center)
         await harness.loadAndStart()
 
         await harness.coordinator.stop()
         let pausesBefore = await harness.engine.commandLog.filter { $0 == "pause" }.count
 
-        postInterruptionBegan()
+        session.interruptionBegan()
         await awaitUntil(timeout: .milliseconds(300)) {
             await harness.engine.commandLog.filter { $0 == "pause" }.count > pausesBefore
         }
