@@ -697,8 +697,6 @@ One beautiful library.</string>
     <string name="book_download_cancel_a11y">Cancel Download</string>
     <string name="book_download_cancel_confirm_discard">Cancel Download</string>
     <string name="book_download_cancel_confirm_keep">Keep Downloading</string>
-    <string name="book_download_cancel_confirm_message">The %1$s downloaded so far will be deleted.</string>
-    <string name="book_download_cancel_confirm_title">Cancel Download?</string>
     <string name="book_download_delete_ios">Delete Download</string>
     <string name="book_download_pause_a11y">Pause Download</string>
     <string name="book_download_pause_ios">Pause</string>

@@ -403,8 +403,6 @@
     "download_retry_a11y": "Retry Download",
     "download_resumes_automatically_a11y": "Resumes automatically",
     "download_resuming_after_close_a11y": "Paused when ListenUp was closed, resuming",
-    "download_cancel_confirm_title": "Cancel Download?",
-    "download_cancel_confirm_message": "The %1$s downloaded so far will be deleted.",
     "download_cancel_confirm_keep": "Keep Downloading",
     "download_cancel_confirm_discard": "Cancel Download",
     "visibility_title": "Visibility",

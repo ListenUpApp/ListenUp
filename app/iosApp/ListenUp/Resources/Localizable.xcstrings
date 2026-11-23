@@ -7657,28 +7657,6 @@
         }
       }
     },
-    "book.download_cancel_confirm_message": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The %1$@ downloaded so far will be deleted."
-          }
-        }
-      }
-    },
-    "book.download_cancel_confirm_title": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Cancel Download?"
-          }
-        }
-      }
-    },
     "book.download_delete_ios": {
       "extractionState": "manual",
       "localizations": {
