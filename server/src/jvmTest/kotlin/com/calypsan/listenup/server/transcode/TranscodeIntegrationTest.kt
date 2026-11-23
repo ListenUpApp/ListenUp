@@ -46,9 +46,9 @@ class TranscodeIntegrationTest :
                 withEngine { engine, cache ->
                     engine.ensureRunning(session(shortSource.value), fromSegment = 0) shouldBe SessionAdmission.Admitted
 
-                    // Segment 0 is only *complete* once FFmpeg has moved on to segment 1 — the file
-                    // appears the moment the muxer opens it, half-written.
-                    awaitSegment(cache, 1) shouldBe true
+                    // Segment 0 reaches the cache only once its run has closed it — the file the muxer
+                    // opens is half-written for as long as the encode of it takes.
+                    awaitSegment(engine, cache, 0) shouldBe true
 
                     val frames = FfmpegTestSupport.frameCount(cache.segmentPath(BOOK_ID, FILE_ID, 0).toString())
                     val declared = shortPlan().segmentSeconds
@@ -63,7 +63,7 @@ class TranscodeIntegrationTest :
             .config(enabled = FfmpegTestSupport.isAvailable) {
                 withEngine { engine, cache ->
                     engine.ensureRunning(session(shortSource.value), fromSegment = 0)
-                    awaitSegment(cache, DRIFT_SEGMENTS) shouldBe true
+                    awaitSegment(engine, cache, DRIFT_SEGMENTS - 1) shouldBe true
 
                     val frames =
                         (0 until DRIFT_SEGMENTS).map {
@@ -84,7 +84,7 @@ class TranscodeIntegrationTest :
             .config(enabled = FfmpegTestSupport.isAvailable) {
                 withEngine { engine, cache ->
                     engine.ensureRunning(session(longSource.value, LONG_SOURCE_SECONDS), fromSegment = MID_FILE_SEGMENT)
-                    awaitSegment(cache, MID_FILE_SEGMENT + 1) shouldBe true
+                    awaitSegment(engine, cache, MID_FILE_SEGMENT) shouldBe true
 
                     withClue("a seeked run must not renumber from zero") {
                         cache.has(BOOK_ID, FILE_ID, 0) shouldBe false
@@ -140,7 +140,7 @@ private suspend fun assertEverySegmentAsDeclared(
                 "run from segment $fromSegment never finished; exited=${spawners.map { it.hasExited }}, stderr:\n" +
                     spawners.flatMap { it.stderrTail }.joinToString("\n")
             }) {
-                awaitComplete(cache, last, SHORT_TAIL_AWAIT_MILLIS) shouldBe true
+                awaitComplete(engine, cache, last, SHORT_TAIL_AWAIT_MILLIS) shouldBe true
             }
 
             val frames =
@@ -265,27 +265,23 @@ private suspend fun withEngine(
     }
 }
 
+/** Waits until segment [index] has been finished and promoted into the cache, promoting as the route does. */
 private suspend fun awaitSegment(
+    engine: TranscodeSessionEngine,
     cache: SegmentCache,
     index: Int,
-): Boolean {
-    var waited = 0L
-    while (waited < AWAIT_TIMEOUT_MILLIS) {
-        if (cache.has(BOOK_ID, FILE_ID, index)) return true
-        delay(POLL_MILLIS)
-        waited += POLL_MILLIS
-    }
-    return false
-}
+): Boolean = awaitComplete(engine, cache, index, AWAIT_TIMEOUT_MILLIS)
 
-/** Waits until segment [index] is not just present but finished — the last one has no successor to prove it. */
+/** Waits until segment [index] is finished — promoted out of its run into the cache. */
 private suspend fun awaitComplete(
+    engine: TranscodeSessionEngine,
     cache: SegmentCache,
     index: Int,
     timeoutMillis: Long,
 ): Boolean {
     var waited = 0L
     while (waited < timeoutMillis) {
+        engine.promoteFinished(BOOK_ID, FILE_ID)
         if (cache.isComplete(BOOK_ID, FILE_ID, index)) return true
         delay(POLL_MILLIS)
         waited += POLL_MILLIS

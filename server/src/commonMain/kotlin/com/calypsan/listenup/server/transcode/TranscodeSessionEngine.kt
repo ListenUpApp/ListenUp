@@ -9,6 +9,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.io.files.Path
 import kotlin.time.TimeSource
 
 private val log = loggerFor<TranscodeSessionEngine>()
@@ -117,6 +118,9 @@ class TranscodeSessionEngine(
     private val running = mutableMapOf<String, RunningSession>()
     private val badSegmentStrikes = mutableMapOf<String, Int>()
 
+    /** Numbers runs, so two started at the same segment still get directories of their own. */
+    private var runsStarted = 0
+
     /**
      * Makes sure an encoder is working towards [fromSegment] of [session].
      *
@@ -128,23 +132,41 @@ class TranscodeSessionEngine(
     suspend fun ensureRunning(
         session: TranscodeSession,
         fromSegment: Int,
-    ): SessionAdmission =
-        mutex.withLock {
-            val key = key(session.bookId, session.fileId)
-            val existing = running[key]
-            if (existing != null) {
-                if (!existing.spawner.hasExited && existing.canReach(fromSegment)) {
-                    existing.lastRequestedMillis = elapsedMillis()
-                    return@withLock SessionAdmission.Admitted
+    ): SessionAdmission {
+        var replaced: RunningSession? = null
+        val admission =
+            mutex.withLock {
+                val key = key(session.bookId, session.fileId)
+                val existing = running[key]
+                if (existing != null) {
+                    if (!existing.spawner.hasExited && existing.canReach(fromSegment)) {
+                        existing.lastRequestedMillis = elapsedMillis()
+                        return@withLock SessionAdmission.Admitted
+                    }
+                    existing.spawner.stop()
+                    running.remove(key)
+                    replaced = existing
                 }
-                existing.spawner.stop()
-                running.remove(key)
-            }
-            if (running.size >= settings.maxConcurrentSessions) return@withLock SessionAdmission.Busy
+                if (running.size >= settings.maxConcurrentSessions) return@withLock SessionAdmission.Busy
 
-            running[key] = spawn(session, fromSegment) ?: return@withLock SessionAdmission.Unsupported
-            SessionAdmission.Admitted
-        }
+                running[key] = spawn(session, fromSegment) ?: return@withLock SessionAdmission.Unsupported
+                SessionAdmission.Admitted
+            }
+        replaced?.let { retire(it) }
+        return admission
+    }
+
+    /**
+     * Moves what the running encoder for this file has finished into the cache, so a request waiting
+     * on a segment sees it the moment its run closes it. A no-op when nothing is running.
+     */
+    suspend fun promoteFinished(
+        bookId: String,
+        fileId: String,
+    ) {
+        val run = mutex.withLock { running[key(bookId, fileId)] } ?: return
+        cache.promoteFinished(run.bookId, run.fileId, run.runDir)
+    }
 
     /**
      * Records that segment [index] came out wrong and drops the run that produced it, so the next
@@ -161,18 +183,20 @@ class TranscodeSessionEngine(
         bookId: String,
         fileId: String,
         index: Int,
-    ): BadSegmentOutcome =
-        mutex.withLock {
-            val strikeKey = strikeKey(bookId, fileId, index)
-            val strikes = (badSegmentStrikes[strikeKey] ?: 0) + 1
-            badSegmentStrikes[strikeKey] = strikes
-            val abandoned = running.remove(key(bookId, fileId))?.spawner
-            abandoned?.stop()
-            BadSegmentOutcome(
-                verdict = if (strikes > MAX_BAD_SEGMENT_RETRIES) BadSegmentVerdict.GiveUp else BadSegmentVerdict.Retry,
-                encoderStderr = abandoned?.stderrTail.orEmpty(),
-            )
-        }
+    ): BadSegmentOutcome {
+        val (strikes, abandoned) =
+            mutex.withLock {
+                val strikeKey = strikeKey(bookId, fileId, index)
+                val strikes = (badSegmentStrikes[strikeKey] ?: 0) + 1
+                badSegmentStrikes[strikeKey] = strikes
+                strikes to running.remove(key(bookId, fileId))?.also { it.spawner.stop() }
+            }
+        abandoned?.let { retire(it) }
+        return BadSegmentOutcome(
+            verdict = if (strikes > MAX_BAD_SEGMENT_RETRIES) BadSegmentVerdict.GiveUp else BadSegmentVerdict.Retry,
+            encoderStderr = abandoned?.run { spawner.stderrTail }.orEmpty(),
+        )
+    }
 
     /**
      * Records that segment [index] passed its frame check and was served, which clears its strikes.
@@ -201,14 +225,20 @@ class TranscodeSessionEngine(
      * listener has gone quiet for [IDLE_KILL_MILLIS].
      */
     internal suspend fun sweepIdle() {
-        mutex.withLock {
-            val now = elapsedMillis()
-            val idle = running.filterValues { it.spawner.hasExited || now - it.lastRequestedMillis >= IDLE_KILL_MILLIS }
-            for ((key, session) in idle) {
-                session.spawner.stop()
-                running.remove(key)
+        val stopped =
+            mutex.withLock {
+                val now = elapsedMillis()
+                val idle =
+                    running.filterValues { session ->
+                        session.spawner.hasExited || now - session.lastRequestedMillis >= IDLE_KILL_MILLIS
+                    }
+                for ((key, session) in idle) {
+                    session.spawner.stop()
+                    running.remove(key)
+                }
+                idle.values.toList()
             }
-        }
+        stopped.forEach { retire(it) }
     }
 
     /**
@@ -278,10 +308,28 @@ class TranscodeSessionEngine(
 
     /** Stops every running encoder — server shutdown, or transcoding being switched off. */
     suspend fun stopAll() {
-        mutex.withLock {
-            running.values.forEach { it.spawner.stop() }
-            running.clear()
-        }
+        val stopped =
+            mutex.withLock {
+                running.values.forEach { it.spawner.stop() }
+                running.values.toList().also { running.clear() }
+            }
+        stopped.forEach { retire(it) }
+    }
+
+    /**
+     * Ends a stopped run on disk: keeps every segment it finished, then deletes its directory with the
+     * one it was in the middle of writing. Outside the admission [mutex] — it is file work, and
+     * [ensureRunning] must not wait behind it.
+     *
+     * The killed process may outlive [TranscodeSpawner.stop] by moments. That is harmless: only a segment
+     * the run has listed — closed — is ever promoted, so anything it writes meanwhile is either promoted
+     * whole or deleted with the directory, and a seek never waits for an encoder to die.
+     */
+    private suspend fun retire(run: RunningSession) {
+        runCatchingCancellable {
+            cache.promoteFinished(run.bookId, run.fileId, run.runDir)
+            cache.discardRun(run.runDir)
+        }.onFailure { log.warn(it) { "could not tidy the transcode run in ${run.runDir}" } }
     }
 
     private suspend fun spawn(
@@ -289,6 +337,13 @@ class TranscodeSessionEngine(
         fromSegment: Int,
     ): RunningSession? {
         val plan = HlsPlaylist.plan(session.durationMs, session.sampleRate, settings.targetSegmentSeconds)
+        val runDir =
+            cache.runDir(
+                bookId = session.bookId,
+                fileId = session.fileId,
+                startSegment = fromSegment,
+                run = ++runsStarted,
+            )
         val commands =
             TranscodeCommand.forSession(
                 ffmpegPath = ffmpegPath(),
@@ -296,18 +351,29 @@ class TranscodeSessionEngine(
                 session = session.copy(startSegment = fromSegment),
                 startSeconds = fromSegment * plan.segmentSeconds,
                 plan = plan,
-                outputPattern = cache.segmentPattern(session.bookId, session.fileId),
-                runListPath = cache.runListPath(session.bookId, session.fileId, fromSegment).toString(),
+                outputPattern = cache.segmentPattern(runDir),
+                runListPath = cache.runListPath(runDir).toString(),
                 bitrateKbps = settings.bitrateKbps,
             ) ?: return null
-        cache.prepareDir(session.bookId, session.fileId)
+        cache.prepareRun(session.bookId, session.fileId, runDir)
         val spawner = newSpawner()
         spawner.start(commands)
-        return RunningSession(fromSegment, spawner, elapsedMillis())
+        return RunningSession(
+            bookId = session.bookId,
+            fileId = session.fileId,
+            startSegment = fromSegment,
+            runDir = runDir,
+            spawner = spawner,
+            lastRequestedMillis = elapsedMillis(),
+        )
     }
 
+    /** One encoder run: where it started, the private directory it writes into, and its process. */
     private class RunningSession(
+        val bookId: String,
+        val fileId: String,
         val startSegment: Int,
+        val runDir: Path,
         val spawner: TranscodeSpawner,
         var lastRequestedMillis: Long,
     ) {

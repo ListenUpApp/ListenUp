@@ -6,7 +6,10 @@ import com.calypsan.listenup.server.io.listRegularFilesRecursively
 import com.calypsan.listenup.server.io.readBytes
 import com.calypsan.listenup.server.io.readText
 import com.calypsan.listenup.server.io.statFile
+import kotlinx.atomicfu.locks.SynchronizedObject
+import kotlinx.atomicfu.locks.synchronized
 import kotlinx.coroutines.withContext
+import kotlinx.io.IOException
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
 
@@ -30,7 +33,8 @@ internal data class CachedFile(
  * On-disk home for transcoded segments, laid out so a whole file's worth can be evicted in one step:
  *
  * ```
- * $LISTENUP_HOME/transcode/{bookId}/{fileId}/seg/aac-64k/segNNNNN.aac
+ * $LISTENUP_HOME/transcode/{bookId}/{fileId}/seg/aac-64k/segNNNNN.aac          finished segments only
+ * $LISTENUP_HOME/transcode/{bookId}/{fileId}/seg/aac-64k/runs/fromSSSSS-N/      one encoder run's own output
  * ```
  *
  * ⚠️ **Not under `covers/` or any directory `BackupArchive` walks** — transcoded audio is derivable
@@ -44,6 +48,9 @@ class SegmentCache(
     private val profile: String = DEFAULT_PROFILE,
     private val readFile: (Path) -> ByteArray = { it.readBytes() },
 ) {
+    private val lock = SynchronizedObject()
+    private val layoutChecked = HashSet<String>()
+
     /** Directory holding one file's segments. */
     fun fileDir(
         bookId: String,
@@ -58,29 +65,31 @@ class SegmentCache(
     ): Path = Path(fileDir(bookId, fileId), "seg${index.toString().padStart(INDEX_DIGITS, '0')}.aac")
 
     /**
-     * FFmpeg `-f segment` output pattern for one file — the printf form of [segmentPath].
+     * The private directory of one encoder run: the [run]th run started at [startSegment]. A run writes
+     * its segments and its list here, never into [fileDir], so the cache directory only ever holds
+     * segments some run finished ([promoteFinished]).
      *
-     * Derived from the same [INDEX_DIGITS] so the names FFmpeg writes and the names
-     * [segmentPath] looks for cannot drift apart.
+     * ⛔ A run of its own, not one per start segment: a seek back to where an earlier run began would
+     * otherwise rewrite, under the same names, files that run had finished — and a run killed in the
+     * middle of that would leave a truncated file where a whole one had been.
      */
-    fun segmentPattern(
-        bookId: String,
-        fileId: String,
-    ): String = Path(fileDir(bookId, fileId), "seg%0${INDEX_DIGITS}d.aac").toString()
-
-    /**
-     * Where one encoder run records the segments it has **finished** writing.
-     *
-     * One file per run rather than one per file, because a run seeked elsewhere would otherwise
-     * truncate the record of everything an earlier run completed.
-     */
-    fun runListPath(
+    fun runDir(
         bookId: String,
         fileId: String,
         startSegment: Int,
-    ): Path = Path(runsDir(bookId, fileId), "from${startSegment.toString().padStart(INDEX_DIGITS, '0')}.list")
+        run: Int,
+    ): Path = Path(runsDir(bookId, fileId), "from${startSegment.toString().padStart(INDEX_DIGITS, '0')}-$run")
 
-    /** Creates the directories FFmpeg will write into — segments, and the run list beside them. */
+    /**
+     * FFmpeg `-f segment` output pattern for the run in [runDir] — the printf form of [segmentPath]'s
+     * file name, so the names FFmpeg writes and the names [segmentPath] looks for cannot drift apart.
+     */
+    fun segmentPattern(runDir: Path): String = Path(runDir, "seg%0${INDEX_DIGITS}d.aac").toString()
+
+    /** Where the run in [runDir] records each segment it has **finished** writing, one name a line. */
+    fun runListPath(runDir: Path): Path = Path(runDir, RUN_LIST)
+
+    /** Creates the cache directory for one file, and the directory its runs live under. */
     suspend fun prepareDir(
         bookId: String,
         fileId: String,
@@ -91,7 +100,17 @@ class SegmentCache(
         }
     }
 
-    /** True when segment [index] exists on disk — which is **not** the same as being finished. */
+    /** Creates [runDir] — and the cache directory it promotes into — before an encoder is handed it. */
+    suspend fun prepareRun(
+        bookId: String,
+        fileId: String,
+        runDir: Path,
+    ) {
+        prepareDir(bookId, fileId)
+        withContext(fileIoDispatcher) { SystemFileSystem.createDirectories(runDir) }
+    }
+
+    /** True when segment [index] is in the cache directory — which, by construction, means finished. */
     fun has(
         bookId: String,
         fileId: String,
@@ -109,38 +128,94 @@ class SegmentCache(
     ): ByteArray = withContext(fileIoDispatcher) { readFile(segmentPath(bookId, fileId, index)) }
 
     /**
-     * True when segment [index] is on disk **and done being written**.
+     * True when segment [index] is in the cache and done being written.
      *
-     * ⛔ [has] is not enough, and the difference is audible. FFmpeg's segment muxer creates a file
-     * the moment it *opens* it, so a segment exists for as long as it takes to encode before it
-     * holds all its frames. Answering a player from [has] hands it a truncated segment — at the
-     * start of a book, that is a decode error on the listener's first tap.
+     * Completeness is a property of where the file is. FFmpeg's segment muxer creates a file the moment
+     * it *opens* it, so a segment being encoded exists long before it holds all its frames — serving that
+     * truncates the audio. Runs therefore write into their own [runDir], and only a segment its run has
+     * listed as closed is moved into [fileDir]. Whatever is there is whole; whatever is not is not served.
      *
-     * Two signals, cheapest first. A successor on disk means the muxer closed this one and moved
-     * on, which covers every segment but the last of a run and costs one `stat`. The last segment
-     * of a run has no successor, so its proof is the run list FFmpeg writes as each segment
-     * completes — read only when the cheap check has already come back false.
+     * The first look at a file directory also clears one left by the shared-directory layout this
+     * replaced ([dropSharedLayout]), whose files cannot be trusted.
      */
     suspend fun isComplete(
         bookId: String,
         fileId: String,
         index: Int,
     ): Boolean {
-        if (!has(bookId, fileId, index)) return false
-        if (has(bookId, fileId, index + 1)) return true
-        return withContext(fileIoDispatcher) { isListedAsFinished(bookId, fileId, index) }
+        dropSharedLayout(bookId, fileId)
+        return has(bookId, fileId, index)
     }
 
-    private fun isListedAsFinished(
+    /**
+     * Moves every segment the run in [runDir] has listed as finished into [fileDir]. The list is read
+     * once; a segment already in the cache is kept and the run's copy deleted — it is finished too, and
+     * encodes to the same frames. Safe to call while the run is still writing, and from two callers at
+     * once: a file the other caller moved first is simply no longer there to move.
+     */
+    suspend fun promoteFinished(
         bookId: String,
         fileId: String,
-        index: Int,
-    ): Boolean {
-        val runsDir = runsDir(bookId, fileId)
-        if (SystemFileSystem.metadataOrNull(runsDir)?.isDirectory != true) return false
-        val name = segmentPath(bookId, fileId, index).name
-        return SystemFileSystem.list(runsDir).any { runList ->
-            runList.readText().lineSequence().any { it.trim() == name }
+        runDir: Path,
+    ) {
+        withContext(fileIoDispatcher) {
+            val listed = finishedNames(runDir)
+            for (name in listed) {
+                val written = Path(runDir, name)
+                val cached = Path(fileDir(bookId, fileId), name)
+                try {
+                    when {
+                        SystemFileSystem.metadataOrNull(written)?.isRegularFile != true -> Unit
+                        SystemFileSystem.exists(cached) -> SystemFileSystem.delete(written, mustExist = false)
+                        else -> SystemFileSystem.atomicMove(written, cached)
+                    }
+                } catch (_: IOException) {
+                    // Another caller promoted or discarded it first; the next look settles it.
+                }
+            }
+        }
+    }
+
+    /** Deletes the run in [runDir] with whatever it was in the middle of writing. Call after [promoteFinished]. */
+    suspend fun discardRun(runDir: Path) {
+        withContext(fileIoDispatcher) { deleteRecursively(runDir) }
+    }
+
+    /** The segment names [runDir]'s list holds, or none when the run has listed nothing (or is gone). */
+    private fun finishedNames(runDir: Path): List<String> {
+        val list = runListPath(runDir)
+        if (SystemFileSystem.metadataOrNull(list)?.isRegularFile != true) return emptyList()
+        return try {
+            list
+                .readText()
+                .lineSequence()
+                .map { it.trim() }
+                .filter { it.isNotEmpty() }
+                .toList()
+        } catch (_: IOException) {
+            emptyList()
+        }
+    }
+
+    /**
+     * Clears, once per file directory per process, a directory the shared layout wrote: every run wrote
+     * into [fileDir] itself and kept a `from*.list` **file** in the runs directory, so a file there may be
+     * one a killed run left half-written. The cache refills on demand.
+     */
+    private suspend fun dropSharedLayout(
+        bookId: String,
+        fileId: String,
+    ) {
+        val key = "$bookId/$fileId"
+        if (synchronized(lock) { !layoutChecked.add(key) }) return
+        withContext(fileIoDispatcher) {
+            val runs = runsDir(bookId, fileId)
+            if (SystemFileSystem.metadataOrNull(runs)?.isDirectory != true) return@withContext
+            val shared =
+                SystemFileSystem.list(runs).any { entry ->
+                    entry.name.endsWith(".list") && SystemFileSystem.metadataOrNull(entry)?.isRegularFile == true
+                }
+            if (shared) deleteRecursively(fileDir(bookId, fileId))
         }
     }
 
@@ -209,7 +284,10 @@ class SegmentCache(
         /** Zero-padding width of a segment index — 5 digits covers 99,999 segments, ~11 days of audio. */
         const val INDEX_DIGITS = 5
 
-        /** Holds the per-run completion lists, out of the way of the segments themselves. */
+        /** Holds each run's private directory, out of the way of the finished segments. */
         const val RUNS_DIR = "runs"
+
+        /** The list FFmpeg appends each segment's name to as it closes it, inside the run's directory. */
+        const val RUN_LIST = "finished.list"
     }
 }

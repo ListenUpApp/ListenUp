@@ -183,8 +183,8 @@ private suspend fun serveSegment(
     }
 
     // Already encoded: serve it and never wake the encoder. This is the common case once a listener
-    // is a few segments in, and it is what makes re-listening free. Completeness, not mere
-    // existence — a segment FFmpeg is still writing exists, and serving it truncates the audio.
+    // is a few segments in, and it is what makes re-listening free. Encoders write elsewhere and only
+    // finished segments are promoted into the cache, so what is there is whole.
     if (cache.isComplete(target.bookId, target.fileId, index)) {
         return respondVerifiedSegment(
             call = call,
@@ -227,7 +227,14 @@ private suspend fun serveSegment(
         }
 
         SessionAdmission.Admitted -> {
-            if (awaitSegment(cache = cache, bookId = target.bookId, fileId = target.fileId, index = index)) {
+            if (awaitSegment(
+                    engine = engine,
+                    cache = cache,
+                    bookId = target.bookId,
+                    fileId = target.fileId,
+                    index = index,
+                )
+            ) {
                 respondVerifiedSegment(
                     call = call,
                     engine = engine,
@@ -262,13 +269,14 @@ internal suspend fun respondVerifiedSegment(
     index: Int,
     plan: HlsPlaylist.Plan,
 ) {
-    // Read once: the bytes counted are the bytes served, with no second trip to disk.
+    // Read once, so the bytes counted are the bytes served. No encoder writes into the cache directory
+    // (runs write into their own and only finished segments are moved in), so the file cannot change.
     val bytes = cache.readSegment(target.bookId, target.fileId, index)
     val frames = AdtsFrames.countFrames(bytes)
     val expected = plan.expectedFrames(index)
     if (frames == null || frames !in expected) {
-        // Abandon first: it stops the encoder that produced this segment, so nothing is still
-        // writing next to the file about to be deleted. Then delete it whatever the verdict: a
+        // Abandon first: it stops the run, so the next request starts a fresh one at this segment
+        // rather than joining one that has passed it. Then delete the file whatever the verdict: a
         // rejected file left in the cache looks finished, and every later request would re-read it
         // and fail in a millisecond, forever (#1742). The verdict, not the file, answers from now on.
         val outcome = engine.abandonBadSegment(target.bookId, target.fileId, index)
@@ -343,13 +351,15 @@ private suspend fun respondTranscoderUnavailable(call: ApplicationCall) =
     respondAppResult<Unit>(call, AppResult.Failure(TranscodeError.TranscoderUnavailable()))
 
 /**
- * Waits for the encoder to *finish* segment [index], up to [SEGMENT_WAIT_MILLIS].
+ * Waits for the encoder to *finish* segment [index], up to [SEGMENT_WAIT_MILLIS], promoting what the
+ * running encoder has finished into the cache each time round.
  *
- * Polling a directory is not elegant, but it is honest about what is being waited on: FFmpeg's
- * segment muxer gives no completion signal, and the alternative — watching the filesystem — buys
- * milliseconds on a path already bounded by encode speed.
+ * Polling is not elegant, but it is honest about what is being waited on: FFmpeg's segment muxer gives
+ * no signal beyond the line it appends to its run's list as it closes each segment, and watching the
+ * filesystem instead buys milliseconds on a path already bounded by encode speed.
  */
 private suspend fun awaitSegment(
+    engine: TranscodeSessionEngine,
     cache: SegmentCache,
     bookId: String,
     fileId: String,
@@ -357,9 +367,11 @@ private suspend fun awaitSegment(
 ): Boolean {
     var waited = 0L
     while (waited < SEGMENT_WAIT_MILLIS) {
+        engine.promoteFinished(bookId, fileId)
         if (cache.isComplete(bookId, fileId, index)) return true
         delay(SEGMENT_POLL_MILLIS)
         waited += SEGMENT_POLL_MILLIS
     }
+    engine.promoteFinished(bookId, fileId)
     return cache.isComplete(bookId, fileId, index)
 }

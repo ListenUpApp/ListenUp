@@ -1,10 +1,13 @@
 package com.calypsan.listenup.server.transcode
 
 import com.calypsan.listenup.server.io.deleteRecursively
+import com.calypsan.listenup.server.io.writeBytes
+import com.calypsan.listenup.server.io.writeText
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.io.files.Path
+import kotlinx.io.files.SystemFileSystem
 import kotlinx.io.files.SystemTemporaryDirectory
 import kotlin.random.Random
 
@@ -55,6 +58,44 @@ class TranscodeSessionEngineTest :
 
             val lists = fake.commands.map { it[it.indexOf("-segment_list") + 1] }
             lists.toSet().size shouldBe 2
+            fixture.cleanUp()
+        }
+
+        // Two runs must never share a directory: a seek back to where an earlier run started would
+        // otherwise rewrite, under the same names, files that run had already finished.
+        test("every run writes into a directory of its own, even a second run from the same segment") {
+            val fake = FakeSpawner()
+            val fixture = engineWith(fake)
+
+            fixture.engine.ensureRunning(SESSION, fromSegment = 0)
+            fixture.engine.ensureRunning(SESSION, fromSegment = 500)
+            fixture.engine.ensureRunning(SESSION, fromSegment = 0)
+
+            fake.commands
+                .map { Path(it.last()).parent?.toString() }
+                .toSet()
+                .size shouldBe 3
+            fixture.cleanUp()
+        }
+
+        // The idle sweep is how most runs end. What the run finished is kept; what it was in the middle
+        // of writing goes with its directory.
+        test("stopping an idle run keeps the segments it finished and drops the one it was writing") {
+            val fake = FakeSpawner()
+            val fixture = engineWith(fake)
+            fixture.engine.ensureRunning(SESSION, fromSegment = 0)
+            val command = fake.commands.single()
+            val pattern = command.last()
+            Path(pattern.replace("%05d", "00000")).writeBytes(ByteArray(16))
+            Path(pattern.replace("%05d", "00001")).writeBytes(ByteArray(8))
+            Path(command[command.indexOf("-segment_list") + 1]).writeText("seg00000.aac\n")
+
+            fixture.clock += TranscodeSessionEngine.IDLE_KILL_MILLIS + 1
+            fixture.engine.sweepIdle()
+
+            fixture.cache.has("b1", "f1", 0) shouldBe true
+            fixture.cache.has("b1", "f1", 1) shouldBe false
+            SystemFileSystem.exists(Path(pattern).parent!!) shouldBe false
             fixture.cleanUp()
         }
 
@@ -288,6 +329,7 @@ private class FakeSpawner {
 /** An engine plus the mutable clock driving it and the temp dir it writes into. */
 private class Fixture(
     val engine: TranscodeSessionEngine,
+    val cache: SegmentCache,
     val dir: Path,
 ) {
     var clock = 0L
@@ -301,15 +343,16 @@ private fun engineWith(
 ): Fixture {
     val dir = Path(SystemTemporaryDirectory, "engine-${Random.nextLong().toString(16)}")
     lateinit var fixture: Fixture
+    val cache = SegmentCache(dir)
     val engine =
         TranscodeSessionEngine(
             ffmpegPath = { "/usr/bin/ffmpeg" },
-            cache = SegmentCache(dir),
+            cache = cache,
             settings = TranscodeSettings(maxConcurrentSessions = maxConcurrent),
             newSpawner = { fake.spawner() },
             elapsedMillis = { fixture.clock },
         )
-    fixture = Fixture(engine, dir)
+    fixture = Fixture(engine, cache, dir)
     return fixture
 }
 

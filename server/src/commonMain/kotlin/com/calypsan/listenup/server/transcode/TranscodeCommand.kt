@@ -193,9 +193,9 @@ object TranscodeCommand {
             "-segment_start_number",
             session.startSegment.toString(),
             // The muxer's own completion signal. A segment file exists from the moment it is opened,
-            // so this list — appended to as each segment is CLOSED — is the only thing that can tell
-            // a waiting request that the last segment of this run is whole. `+live` flushes per entry
-            // rather than at exit, which is what makes it useful while the encode is still running.
+            // so this list — appended to as each segment is CLOSED — is the only proof a segment is
+            // whole, and only a segment named here is promoted into the cache (SegmentCache.promoteFinished).
+            // `+live` flushes per entry rather than at exit, which is what makes it useful mid-encode.
             "-segment_list",
             runListPath,
             "-segment_list_type",
