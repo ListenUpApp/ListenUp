@@ -1,4 +1,4 @@
-package com.calypsan.listenup.client.features.bookedit.components
+package com.calypsan.listenup.client.design.components
 
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon

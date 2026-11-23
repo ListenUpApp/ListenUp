@@ -36,6 +36,7 @@ import listenup.composeapp.generated.resources.common_remove_name
 import listenup.composeapp.generated.resources.book_edit_add_trimmedquery
 import listenup.composeapp.generated.resources.book_edit_showing_offline_results
 import listenup.composeapp.generated.resources.book_edit_add_series
+import com.calypsan.listenup.client.design.components.ChipRemoveButton
 
 /**
  * Series editing section with search and sequence editing.
