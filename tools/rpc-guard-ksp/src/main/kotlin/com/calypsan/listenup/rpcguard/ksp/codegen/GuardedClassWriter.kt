@@ -15,15 +15,19 @@ internal object GuardedClassWriter {
     // stream what an ordinary call gets: one correlation id, the same MDC scope, and a session check
     // BEFORE the service is reached — a session already revoked when the stream opens gets a terminal
     // RpcEvent.Error(SessionExpired) and the service is never subscribed. While the stream runs it
-    // re-checks liveness on a ~30s cadence (C2) and severs it the moment the session is revoked; the
-    // Error is sent BEFORE cancelling upstream, because cancelling unblocks the join() below, which
-    // would otherwise cancel the gate mid-send. Opening the service's flow happens inside the guarded
+    // re-checks liveness on a ~30s cadence and severs it the moment the session is revoked: the
+    // gate sends the Error, then fails its scope with a file-private signal, which cancels the
+    // collection and is caught below. The service's flow is collected in the scope's own body, not a
+    // child, so a CancellationException it throws still reaches the collector, as it did before the
+    // guard existed. Opening the service's flow happens inside the guarded
     // scope, so a synchronous throw while CONSTRUCTING it (a require/precondition/DI lookup in the
     // non-suspend factory) is sanitized like any other escape. Only the correlation id crosses the
     // wire: the exception's class name and message stay in the server log.
     private val GUARDED_STREAM =
         """
         private const val STREAM_LIVENESS_POLL_MILLIS = 30000L
+
+        private class __SERVICE__StreamRevoked : Exception()
 
         private fun <T> guardedStream(
             service: String,
@@ -41,24 +45,24 @@ internal object GuardedClassWriter {
                             send(revoked)
                         } else {
                             kotlinx.coroutines.coroutineScope {
-                                val upstreamJob = launch { open().collect { send(it) } }
-                                val gateJob =
+                                val gate =
                                     isLive?.let { live ->
                                         launch {
                                             while (true) {
                                                 kotlinx.coroutines.delay(STREAM_LIVENESS_POLL_MILLIS)
                                                 if (!live()) {
                                                     send(revoked)
-                                                    upstreamJob.cancel()
-                                                    return@launch
+                                                    throw __SERVICE__StreamRevoked()
                                                 }
                                             }
                                         }
                                     }
-                                upstreamJob.join()
-                                gateJob?.cancel()
+                                open().collect { send(it) }
+                                gate?.cancel()
                             }
                         }
+                    } catch (e: __SERVICE__StreamRevoked) {
+                        // The gate has already sent SessionExpired; the stream simply ends.
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: Throwable) {
@@ -112,7 +116,7 @@ internal object GuardedClassWriter {
             appendLine("class ${model.simpleName}Guarded(")
             appendLine("    private val delegate: ${model.packageName}.${model.simpleName},")
             // Every guard carries the per-connection session-liveness predicate. Streams re-check it on a
-            // cadence and sever a revoked stream (C2); ordinary calls consult it before reaching the
+            // cadence and sever a revoked stream; ordinary calls consult it before reaching the
             // service, so a revoked session's still-open socket cannot keep calling. Null (the default)
             // leaves the guard inert — the shape a unit test / non-authed mount gets. A plain suspend
             // predicate (not a named type) so nothing crosses onto the client export surface.
@@ -133,7 +137,9 @@ internal object GuardedClassWriter {
             // internal-visibility problem). Behaviour is proven by RpcGuardLivenessTest.
             if (hasStreaming) {
                 appendLine()
-                append(GUARDED_STREAM)
+                // The revocation signal is a class, and private top-level classes in one package still
+                // clash across files, so each guard names its own.
+                append(GUARDED_STREAM.replace("__SERVICE__", model.simpleName))
             }
         }
 
