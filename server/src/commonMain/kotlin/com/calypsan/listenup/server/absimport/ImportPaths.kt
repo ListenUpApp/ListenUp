@@ -59,6 +59,9 @@ class ImportPaths(
     /** Marker touched when apply starts writing; cleared by a successful apply (see ImportStore). */
     fun applyingMarkerFor(id: String): Path = Path(dirFor(id), ".applying")
 
+    /** Boot-time resume attempts of an interrupted apply, a decimal count; see [InterruptedImportResumer]. */
+    fun applyAttemptsFor(id: String): Path = Path(dirFor(id), ".apply-attempts")
+
     /** The small upload-time metadata sidecar (`meta.json`) for the import [id]. */
     fun metaFor(id: String): Path = Path(dirFor(id), "meta.json")
 

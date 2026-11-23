@@ -26,6 +26,7 @@ import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.withContext
+import kotlinx.io.files.SystemFileSystem
 
 private val logger = loggerFor<ImportApplier>()
 
@@ -129,6 +130,13 @@ class ImportApplier internal constructor(
             // deleted since. Re-checked before anything — even the `.applying` marker — is written.
             validator.validateMapping(mapping.userMappings, mapping.bookOverrides)?.let {
                 return@withContext AppResult.Failure(it)
+            }
+            // An applied import's staged database is deleted (ImportStore.markApplied): re-applying it needs
+            // the backup uploaded again.
+            if (!SystemFileSystem.exists(paths.absDbFor(importId.value))) {
+                return@withContext AppResult.Failure(
+                    ImportError.ApplyFailed(debugInfo = "The staged backup for import ${importId.value} is gone."),
+                )
             }
 
             try {

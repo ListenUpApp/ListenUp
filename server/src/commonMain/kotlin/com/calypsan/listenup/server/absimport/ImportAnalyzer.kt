@@ -55,6 +55,8 @@ class ImportAnalyzer internal constructor(
     ): AppResult<ImportAnalysis> =
         withContext(fileIoDispatcher) {
             val absDb = paths.absDbFor(importId.value)
+            // Also the answer for an applied import, whose staged database ImportStore.markApplied deletes:
+            // there is nothing left to analyze, and uploading the backup again starts a new import.
             if (!SystemFileSystem.exists(absDb)) {
                 return@withContext AppResult.Failure(ImportError.ImportNotFound())
             }
