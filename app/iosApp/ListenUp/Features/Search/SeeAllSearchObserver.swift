@@ -33,6 +33,11 @@ final class SeeAllSearchObserver {
         viewModel.load(query: query, type: type.hitType)
     }
 
+    /// Runs the same search again after it failed.
+    func retry() {
+        viewModel.retry()
+    }
+
     func selectRow(_ row: SearchRow) {
         viewModel.onResultSelected(id: row.id, type: row.kind.hitType, name: row.name)
     }

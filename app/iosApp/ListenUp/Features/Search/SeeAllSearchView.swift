@@ -54,11 +54,7 @@ struct SeeAllSearchView: View {
         case .empty:
             ContentUnavailableView.search(text: destination.query)
         case .error(let message):
-            ContentUnavailableView(
-                String(localized: "search.unavailable"),
-                systemImage: "exclamationmark.triangle",
-                description: Text(message)
-            )
+            LoadFailedView(message: message, title: String(localized: "search.unavailable")) { observer.retry() }
         case .results(let rows):
             results(rows) { observer.selectRow($0) }
         }
