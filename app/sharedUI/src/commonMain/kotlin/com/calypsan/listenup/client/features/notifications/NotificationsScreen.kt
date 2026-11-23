@@ -53,6 +53,9 @@ import listenup.composeapp.generated.resources.notifications_empty_title
 import listenup.composeapp.generated.resources.notifications_title
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import listenup.composeapp.generated.resources.notifications_unread
 
 /** Diameter of the unread indicator dot leading an unread row's title. */
 private val UnreadDotSize = 8.dp
@@ -172,9 +175,14 @@ private fun NotificationRow(
     modifier: Modifier = Modifier,
 ) {
     val (titleRes, bodyRes) = notificationItemCopyRes(notification.event)
+    // The dot and the bold title are visual only; TalkBack hears unread as the row's state.
+    val unreadState = stringResource(Res.string.notifications_unread)
     ContentRow(
         onClick = onClick,
-        modifier = modifier,
+        modifier =
+            modifier.semantics {
+                if (notification.isUnread) stateDescription = unreadState
+            },
     ) {
         TonalIconTile(icon = notificationIcon(notification.event))
         Spacer(modifier = Modifier.width(12.dp))

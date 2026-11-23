@@ -2422,6 +2422,7 @@
     "type_campfire_invite": "Campfire invites",
     "type_registration_decision": "Registration decisions",
     "type_registration_approval": "Pending registrations",
+    "unread": "Unread",
     "unread_count_a11y": "%1$d unread",
     "settings_switch_a11y": "%1$s notifications for %2$s"
   },

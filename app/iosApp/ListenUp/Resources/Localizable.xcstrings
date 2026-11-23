@@ -24641,6 +24641,17 @@
         }
       }
     },
+    "notifications.unread": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unread"
+          }
+        }
+      }
+    },
     "notifications.unread_count_a11y": {
       "extractionState": "manual",
       "localizations": {
