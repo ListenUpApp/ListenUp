@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.readers
 
+import com.calypsan.listenup.client.presentation.bookdetail.BookReadersUiState
 import com.calypsan.listenup.web.InShell
 import com.calypsan.listenup.web.MountRegistry
 import com.calypsan.listenup.web.SMALL_PHONE
@@ -28,6 +29,24 @@ class ReadersAccessibilityTest :
         afterTest {
             mounts.disposeAll()
             frames.disposeAll()
+        }
+
+        test("the readers page, while loading, says Loading to a screen reader") {
+            val host =
+                mounts.mount {
+                    ReadersPage(
+                        state = BookReadersUiState.Loading,
+                        bookTitle = "Dune",
+                        nowMs = READERS_NOW,
+                        onOpenProfile = {},
+                        onOpenBook = {},
+                    )
+                }
+            awaitFrame()
+
+            val status = host.querySelector("[role=status]").shouldNotBeNull()
+            status.textContent shouldBe "Loading…"
+            (host.querySelector(".rdr-skel") as HTMLElement).closest("[aria-hidden=true]").shouldNotBeNull()
         }
 
         test("m-R2: every reader row is described as opening a profile") {

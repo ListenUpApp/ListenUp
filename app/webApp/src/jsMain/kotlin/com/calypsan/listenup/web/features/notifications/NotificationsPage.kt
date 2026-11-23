@@ -13,6 +13,7 @@ import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
+import com.calypsan.listenup.web.design.SkeletonRegion
 
 /**
  * The notification inbox — what happened while you were away, newest first.
@@ -54,7 +55,7 @@ fun NotificationsPage(
             }
 
             NotificationsUiState.Loading -> {
-                Div(attrs = { classes("skel", "ntf-skel") })
+                SkeletonRegion { Div(attrs = { classes("skel", "ntf-skel") }) }
             }
         }
     }
