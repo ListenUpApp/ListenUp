@@ -203,6 +203,7 @@ private struct SearchSectionHeader: View {
             Text(title)
                 .font(.headline)
                 .foregroundStyle(.secondary)
+                .accessibilityAddTraits(.isHeader)
             Spacer()
             if let seeAllType, let onSeeAll {
                 Button(String(localized: "search.see_all")) { onSeeAll(seeAllType) }

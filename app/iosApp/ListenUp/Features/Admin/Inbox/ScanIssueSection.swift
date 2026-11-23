@@ -24,6 +24,7 @@ struct ScanIssueSection: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(String(localized: "admin.inbox_needs_attention"))
                         .font(.title3.weight(.bold))
+                        .accessibilityAddTraits(.isHeader)
                     Text(String(localized: "admin.inbox_needs_attention_subtitle"))
                         .font(.subheadline)
                         .foregroundStyle(.secondary)

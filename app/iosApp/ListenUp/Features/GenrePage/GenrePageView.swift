@@ -73,6 +73,7 @@ struct GenrePageView: View {
                 Text(audiobookCountLabel(observer.bookCount))
                     .font(.title3.weight(.bold))
                     .foregroundStyle(.primary)
+                    .accessibilityAddTraits(.isHeader)
 
                 LazyVGrid(
                     columns: [GridItem(.adaptive(minimum: 150), spacing: 16)],
