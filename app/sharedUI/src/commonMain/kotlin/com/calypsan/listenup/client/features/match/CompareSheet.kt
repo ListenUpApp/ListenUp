@@ -6,24 +6,18 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.api.dto.match.EditionFormat
 import com.calypsan.listenup.api.dto.match.MatchTier
 import com.calypsan.listenup.api.metadata.MetadataLocale
+import com.calypsan.listenup.client.design.components.AdaptiveSheet
 import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.presentation.match.CandidateUi
@@ -60,7 +54,6 @@ private const val CLOSE_LENGTH_MINUTES = 5
  * Compare with your copy: Length, Narrator, Chapters, Year, Format, Store and Found in, side by side, from Find's
  * data alone. A value a catalogue doesn't give reads "Not listed". It leads to Review this match.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun CompareSheet(
     candidate: CandidateUi,
@@ -69,28 +62,14 @@ internal fun CompareSheet(
     onReview: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState =
-            rememberBottomSheetState(
-                initialValue = SheetValue.Hidden,
-                enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
-            ),
-    ) {
+    AdaptiveSheet(
+        title = stringResource(Res.string.match_compare_title),
+        onDismiss = onDismiss,
+    ) { _ ->
         Column(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = Spacing.screenMargin)
-                    .padding(bottom = Spacing.xl),
+            modifier = Modifier.fillMaxWidth().padding(top = Spacing.sm),
             verticalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {
-            Text(
-                text = stringResource(Res.string.match_compare_title),
-                style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.semantics { heading() },
-            )
             Column {
                 Text(candidate.title, style = MaterialTheme.typography.titleMedium)
                 val tier =

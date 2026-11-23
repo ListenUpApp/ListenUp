@@ -3,18 +3,14 @@ package com.calypsan.listenup.client.features.bookdetail.components
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 import androidx.compose.foundation.text.input.rememberTextFieldState
-import androidx.compose.material3.SheetValue
-import androidx.compose.material3.rememberBottomSheetState
+import com.calypsan.listenup.client.design.components.AdaptiveSheet
 import com.calypsan.listenup.client.design.theme.Spacing
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -52,7 +48,6 @@ import org.jetbrains.compose.resources.stringResource
  * @param onClear Removes your rating; the sheet then closes.
  * @param onDismiss Closes the sheet.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RateBookSheet(
     current: ListenerRating?,
@@ -78,30 +73,15 @@ fun RateBookSheet(
             onLeave = onDismiss,
         )
 
-    ModalBottomSheet(
-        onDismissRequest = requestDismiss,
-        sheetState =
-            rememberBottomSheetState(
-                initialValue = SheetValue.Hidden,
-                enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
-            ),
-    ) {
+    AdaptiveSheet(
+        title = stringResource(Res.string.book_detail_rating_sheet_title),
+        onDismiss = requestDismiss,
+    ) { _ ->
         Column(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .navigationBarsPadding()
-                    .padding(horizontal = Spacing.screenMargin)
-                    .padding(bottom = Spacing.lg),
+            modifier = Modifier.fillMaxWidth().padding(top = Spacing.sm),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Text(
-                text = stringResource(Res.string.book_detail_rating_sheet_title),
-                style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.fillMaxWidth(),
-            )
-
             RatingStars(halfStars = halfStars, onHalfStarsChange = { halfStars = it })
 
             ListenUpTextArea(

@@ -7,18 +7,16 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.foundation.text.input.TextFieldState
+import com.calypsan.listenup.client.design.components.AdaptiveSheet
 import com.calypsan.listenup.client.design.components.transformedBy
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
@@ -75,7 +73,6 @@ data class ChapterMarkerEdit(
  * @param initialName what the field opens on: the marker's name, or a default for a new one.
  * @param onSave the trimmed name, and the chapter it should start at.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun ChapterMarkerSheet(
     edit: ChapterMarkerEdit,
@@ -85,31 +82,42 @@ internal fun ChapterMarkerSheet(
     onRemove: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    var isPicking by remember(edit) { mutableStateOf(false) }
+
+    AdaptiveSheet(
+        title = if (isPicking) stringResource(Res.string.chapter_editor_marker_move_title) else edit.sheetTitle(),
+        onDismiss = onDismiss,
+        scrollable = !isPicking,
+    ) { _ ->
         ChapterMarkerSheetContent(
             edit = edit,
             initialName = initialName,
             chapters = chapters,
+            isPicking = isPicking,
+            onMove = { isPicking = true },
+            onPicked = { isPicking = false },
             onSave = onSave,
             onRemove = onRemove,
-            modifier = Modifier.navigationBarsPadding(),
+            modifier = if (isPicking) Modifier.weight(1f, fill = false) else Modifier,
         )
     }
 }
 
 /** The sheet's body. It swaps to the picker in place, so Move never stacks a sheet on a sheet. */
 @Composable
-internal fun ChapterMarkerSheetContent(
+private fun ChapterMarkerSheetContent(
     edit: ChapterMarkerEdit,
     initialName: String,
     chapters: List<Chapter>,
+    isPicking: Boolean,
+    onMove: () -> Unit,
+    onPicked: () -> Unit,
     onSave: (String, String) -> Unit,
     onRemove: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val name = remember(edit) { TextFieldState(initialName) }
     var startsAt by remember(edit) { mutableStateOf(edit.chapterId) }
-    var isPicking by remember(edit) { mutableStateOf(false) }
 
     if (isPicking) {
         MarkerStartPicker(
@@ -117,7 +125,7 @@ internal fun ChapterMarkerSheetContent(
             tier = edit.tier,
             onPick = { chapterId ->
                 startsAt = chapterId
-                isPicking = false
+                onPicked()
             },
             modifier = modifier,
         )
@@ -126,7 +134,7 @@ internal fun ChapterMarkerSheetContent(
             edit = edit,
             name = name,
             startsAt = chapters.numbered().firstOrNull { it.chapter.id == startsAt },
-            onMove = { isPicking = true },
+            onMove = onMove,
             onSave = { onSave(name.text.toString().trim(), startsAt) },
             onRemove = onRemove,
             modifier = modifier,
@@ -147,11 +155,9 @@ private fun MarkerForm(
     Column(
         modifier
             .fillMaxWidth()
-            .padding(horizontal = Spacing.screenMargin)
-            .padding(bottom = Spacing.screenMargin),
+            .padding(top = Spacing.sm),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text(text = edit.sheetTitle(), style = MaterialTheme.typography.titleLarge)
         ListenUpTextField(
             state = name,
             label = stringResource(Res.string.chapter_editor_marker_name),
@@ -223,20 +229,14 @@ private fun MarkerStartPicker(
     val numbers = remember(chapters) { chapters.numbered().associate { it.chapter.id to it.number } }
     val targets = remember(chapters, tier) { chapters.moveTargets(tier) }
 
-    Column(modifier.fillMaxWidth()) {
-        Text(
-            text = stringResource(Res.string.chapter_editor_marker_move_title),
-            modifier = Modifier.padding(horizontal = Spacing.screenMargin, vertical = 8.dp),
-            style = MaterialTheme.typography.titleLarge,
-        )
-        LazyColumn {
+    Column(modifier.fillMaxWidth().padding(top = Spacing.sm)) {
+        LazyColumn(modifier = Modifier.weight(1f, fill = false)) {
             items(targets, key = { it.id }) { chapter ->
                 Row(
                     Modifier
                         .fillMaxWidth()
                         .heightIn(min = PICKER_ROW_MIN_HEIGHT)
-                        .clickable { onPick(chapter.id) }
-                        .padding(horizontal = Spacing.screenMargin),
+                        .clickable { onPick(chapter.id) },
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(

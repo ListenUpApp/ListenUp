@@ -4,26 +4,20 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.components.AdaptiveSheet
 import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.design.util.ratingSourceLabel
@@ -65,7 +59,6 @@ private const val PERCENT = 100
  * @param onDismiss Closes the sheet.
  * @param nowMs The time "Updated 3 days ago" counts from; read once when the sheet opens.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RatingBreakdownSheet(
     breakdown: List<ExternalRating>,
@@ -77,43 +70,20 @@ fun RatingBreakdownSheet(
     onDismiss: () -> Unit,
     nowMs: Long,
 ) {
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState =
-            rememberBottomSheetState(
-                initialValue = SheetValue.Hidden,
-                enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
-            ),
-    ) {
+    AdaptiveSheet(
+        title = stringResource(Res.string.book_detail_rating_sources_title),
+        subtitle =
+            if (score != null && score.sourceCount >= 2) {
+                stringResource(Res.string.book_detail_rating_combined_from, score.sourceCount.toString())
+            } else {
+                null
+            },
+        onDismiss = onDismiss,
+    ) { _ ->
         Column(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    // Several sources, each with a bar and a freshness line, outgrow a short phone in
-                    // landscape; the sheet scrolls rather than clipping the refresh off its foot.
-                    .verticalScroll(rememberScrollState())
-                    .navigationBarsPadding()
-                    .padding(horizontal = Spacing.screenMargin)
-                    .padding(bottom = Spacing.lg),
+            modifier = Modifier.fillMaxWidth().padding(top = Spacing.sm),
             verticalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                Text(
-                    text = stringResource(Res.string.book_detail_rating_sources_title),
-                    style = MaterialTheme.typography.titleLarge,
-                )
-                if (score != null && score.sourceCount >= 2) {
-                    Text(
-                        text =
-                            stringResource(
-                                Res.string.book_detail_rating_combined_from,
-                                score.sourceCount.toString(),
-                            ),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
             score?.let { ScoreHead(it) }
             HorizontalDivider()
             breakdown.forEach { rating ->

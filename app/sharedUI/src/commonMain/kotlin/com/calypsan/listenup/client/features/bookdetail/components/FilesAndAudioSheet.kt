@@ -5,21 +5,15 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import com.calypsan.listenup.client.core.DurationFormatter
+import com.calypsan.listenup.client.design.components.AdaptiveSheet
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.AudioFile
 import com.calypsan.listenup.client.presentation.bookdetail.audioFormatDisplay
@@ -36,21 +30,18 @@ import org.jetbrains.compose.resources.stringResource
  * Files & audio: the sheet behind the Details row and the scan warning's Review. Each file (its name,
  * length and size), then the format rows that left Details: Format, Bitrate, Sample rate, Channels.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FilesAndAudioSheet(
     audioFiles: List<AudioFile>,
     onDismiss: () -> Unit,
 ) {
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    AdaptiveSheet(
+        title = stringResource(Res.string.book_detail_files_sheet_title),
+        onDismiss = onDismiss,
+    ) { _ ->
         FilesAndAudioContent(
             audioFiles = audioFiles,
-            modifier =
-                Modifier
-                    .verticalScroll(rememberScrollState())
-                    .navigationBarsPadding()
-                    .padding(horizontal = Spacing.screenMargin)
-                    .padding(bottom = Spacing.lg),
+            modifier = Modifier.padding(top = Spacing.sm),
         )
     }
 }
@@ -63,11 +54,6 @@ internal fun FilesAndAudioContent(
 ) {
     val format = audioFormatDisplay(audioFiles)
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-        Text(
-            text = stringResource(Res.string.book_detail_files_sheet_title),
-            style = MaterialTheme.typography.titleLarge,
-            modifier = Modifier.semantics { heading() },
-        )
         audioFiles.forEach { file ->
             Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
                 Text(

@@ -16,15 +16,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.BottomSheetDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -38,7 +33,9 @@ import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.components.AdaptiveSheet
 import com.calypsan.listenup.client.design.components.ListenUpSearchField
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.icons.ListenUpIcons
@@ -71,22 +68,25 @@ private const val DISABLED_ALPHA = 0.5f
 private val IndentPerLevel = 20.dp
 
 /** The "Move into…" picker as a bottom sheet — the phone and small-tablet presentation. */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun MoveIntoPickerSheet(
     state: SeriesEditForm,
     rows: List<ParentPickerRow>,
     onEvent: (SeriesEditUiEvent) -> Unit,
 ) {
-    ModalBottomSheet(
-        onDismissRequest = { onEvent(SeriesEditUiEvent.ParentPickerDismissed) },
-        sheetState = rememberBottomSheetState(
-            initialValue = SheetValue.Hidden,
-            enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
-        ),
-        shape = BottomSheetDefaults.ExpandedShape,
-    ) {
-        MoveIntoPicker(state = state, rows = rows, onEvent = onEvent)
+    AdaptiveSheet(
+        title = stringResource(Res.string.series_move_into_named, state.name),
+        onDismiss = { onEvent(SeriesEditUiEvent.ParentPickerDismissed) },
+        scrollable = false,
+    ) { _ ->
+        MoveIntoPicker(
+            state = state,
+            rows = rows,
+            onEvent = onEvent,
+            showTitle = false,
+            horizontalPadding = 0.dp,
+            modifier = Modifier.weight(1f, fill = false),
+        )
     }
 }
 
@@ -102,32 +102,39 @@ internal fun MoveIntoPicker(
     rows: List<ParentPickerRow>,
     onEvent: (SeriesEditUiEvent) -> Unit,
     modifier: Modifier = Modifier,
+    showTitle: Boolean = true,
+    horizontalPadding: Dp = Spacing.screenMargin,
 ) {
     val haptics = LocalHaptics.current
     val searching = state.parentQuery.isNotBlank()
     // The picker opens blank (closing it resets the query) and owns the text while it is open.
     val query = rememberForwardingTextFieldState(state.parentQuery) { onEvent(SeriesEditUiEvent.ParentQueryChanged(it)) }
+    val rowStartBase = if (horizontalPadding == 0.dp) 0.dp else Spacing.sm
     Column(modifier = modifier.fillMaxWidth()) {
-        Text(
-            text = stringResource(Res.string.series_move_into_named, state.name),
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(horizontal = Spacing.screenMargin).semantics { heading() },
-        )
+        if (showTitle) {
+            Text(
+                text = stringResource(Res.string.series_move_into_named, state.name),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(horizontal = horizontalPadding).semantics { heading() },
+            )
+        }
         ListenUpSearchField(
             state = query,
             onSubmit = {},
             placeholder = stringResource(Res.string.series_merge_search_placeholder),
             clearable = true,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.screenMargin, vertical = 12.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = horizontalPadding, vertical = 12.dp),
         )
-        LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
+        LazyColumn(modifier = Modifier.weight(1f, fill = false), contentPadding = PaddingValues(bottom = 24.dp)) {
             item(key = "top-level") {
                 val isTopLevel = state.parentId == null
                 PickerRowLayout(
                     title = stringResource(Res.string.series_top_level_no_parent),
                     meta = null,
                     depth = 0,
+                    startBase = rowStartBase,
+                    endPadding = horizontalPadding,
                     leading = { Icon(ListenUpIcons.Home, contentDescription = null) },
                     reason = if (isTopLevel) stringResource(Res.string.series_picker_current) else null,
                     onChoose = {
@@ -141,6 +148,8 @@ internal fun MoveIntoPicker(
                     title = stringResource(Res.string.series_new_parent),
                     meta = null,
                     depth = 0,
+                    startBase = rowStartBase,
+                    endPadding = horizontalPadding,
                     leading = { Icon(ListenUpIcons.AddFilled, contentDescription = null) },
                     reason = null,
                     onChoose = {
@@ -155,12 +164,19 @@ internal fun MoveIntoPicker(
                         text = stringResource(Res.string.series_merge_no_matches),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(Spacing.screenMargin),
+                        modifier = Modifier.padding(horizontal = horizontalPadding, vertical = Spacing.screenMargin),
                     )
                 }
             }
             items(rows, key = { it.id }) { row ->
-                TreeRow(row = row, seriesName = state.name, searching = searching, onEvent = onEvent)
+                TreeRow(
+                    row = row,
+                    seriesName = state.name,
+                    searching = searching,
+                    startBase = rowStartBase,
+                    endPadding = horizontalPadding,
+                    onEvent = onEvent,
+                )
             }
         }
     }
@@ -171,6 +187,8 @@ private fun TreeRow(
     row: ParentPickerRow,
     seriesName: String,
     searching: Boolean,
+    startBase: Dp,
+    endPadding: Dp,
     onEvent: (SeriesEditUiEvent) -> Unit,
 ) {
     val haptics = LocalHaptics.current
@@ -191,6 +209,8 @@ private fun TreeRow(
         title = row.name,
         meta = meta,
         depth = row.depth,
+        startBase = startBase,
+        endPadding = endPadding,
         leading = {
             if (row.hasChildren && !searching) {
                 IconButton(
@@ -227,6 +247,8 @@ private fun PickerRowLayout(
     title: String,
     meta: String?,
     depth: Int,
+    startBase: Dp,
+    endPadding: Dp,
     leading: @Composable () -> Unit,
     reason: String?,
     onChoose: () -> Unit,
@@ -238,7 +260,7 @@ private fun PickerRowLayout(
             Modifier
                 .fillMaxWidth()
                 .heightIn(min = 56.dp)
-                .padding(start = Spacing.sm + IndentPerLevel * depth, end = Spacing.screenMargin),
+                .padding(start = startBase + IndentPerLevel * depth, end = endPadding),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         leading()

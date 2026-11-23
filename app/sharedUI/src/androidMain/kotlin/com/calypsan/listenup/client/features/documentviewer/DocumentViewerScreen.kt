@@ -28,12 +28,12 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalLayoutDirection
+import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.foldable.LocalFold
 import kotlin.math.roundToInt
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -518,7 +518,7 @@ private fun ReaderBottomDock(
  * Renders a single PDF page lazily.
  *
  * Uses [produceState] to kick off rendering on [Dispatchers.Default] behind [renderMutex]
- * (PdfRenderer is single-threaded).  While rendering, shows a [CircularProgressIndicator].
+ * (PdfRenderer is single-threaded).  While rendering, shows a [ListenUpLoadingIndicator].
  */
 @Composable
 private fun PdfPageItem(
@@ -555,7 +555,7 @@ private fun PdfPageItem(
                         .semantics { contentDescription = loadingDescription },
                 contentAlignment = Alignment.Center,
             ) {
-                CircularProgressIndicator(modifier = Modifier.size(32.dp))
+                ListenUpLoadingIndicator(size = 32.dp)
             }
         } else {
             Image(

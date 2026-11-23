@@ -38,6 +38,7 @@ import com.calypsan.listenup.api.dto.image.ImageFrame
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.CachedUserProfile
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.design.util.SharedIdentityPalette
 import com.calypsan.listenup.client.design.image.FramedAlignment
 import com.calypsan.listenup.client.design.image.FramedCrop
 import com.calypsan.listenup.client.design.image.rememberZoomedSizeResolver
@@ -387,11 +388,11 @@ private fun LoadingPlaceholder(modifier: Modifier) {
 private fun stableColorForUserId(userId: String): Color {
     val index =
         try {
-            Uuid.parse(userId).toLongs { msb, _ -> msb.hashCode() }.mod(avatarPalette.size)
+            Uuid.parse(userId).toLongs { msb, _ -> msb.hashCode() }.mod(SharedIdentityPalette.size)
         } catch (_: IllegalArgumentException) {
-            userId.length.mod(avatarPalette.size)
+            userId.length.mod(SharedIdentityPalette.size)
         }
-    return avatarPalette[index]
+    return SharedIdentityPalette[index]
 }
 
 // ---------------------------------------------------------------------------
@@ -483,20 +484,3 @@ internal fun userAvatarUiState(
             )
         }
     }
-
-/** Twelve-color Material 3 palette for stable avatar background colors. */
-private val avatarPalette =
-    listOf(
-        Color(0xFFE53935L),
-        Color(0xFFD81B60L),
-        Color(0xFF8E24AAL),
-        Color(0xFF5E35B1L),
-        Color(0xFF3949ABL),
-        Color(0xFF1E88E5L),
-        Color(0xFF039BE5L),
-        Color(0xFF00ACC1L),
-        Color(0xFF00897BL),
-        Color(0xFF43A047L),
-        Color(0xFFFB8C00L),
-        Color(0xFF6D4C41L),
-    )
