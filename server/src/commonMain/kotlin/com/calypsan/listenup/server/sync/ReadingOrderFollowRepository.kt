@@ -175,15 +175,6 @@ class ReadingOrderFollowRepository(
                 .executeAsList()
         }
 
-    /** How many users currently follow [orderId]. */
-    suspend fun countFollowersOf(orderId: String): Int =
-        suspendTransaction(db) {
-            db.readingOrderFollowsQueries
-                .countLiveFollowersOfOrder(orderId)
-                .executeAsOne()
-                .toInt()
-        }
-
     private fun Reading_order_follows.toSyncPayload(): ReadingOrderFollowSyncPayload =
         ReadingOrderFollowSyncPayload(
             id = id,

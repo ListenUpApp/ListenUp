@@ -12,7 +12,7 @@ import kotlinx.rpc.annotations.Rpc
  * series at any level of the hierarchy, and each user's choice of order per series.
  *
  * Every mutation is idempotent on replay, because every client write goes through the outbox. There
- * are no read methods beyond [countReadingOrderFollowers]: orders, their books and the caller's choices
+ * are no read methods: orders, their books and the caller's choices
  * reach clients through the `reading_orders`, `reading_order_books` and `reading_order_follows` sync
  * domains, and the cursored pull is the correctness path.
  *
@@ -89,10 +89,4 @@ interface ReadingOrderService {
 
     /** Clears the caller's choice on [seriesId], so the series inherits again. Idempotent. */
     suspend fun clearReadingOrderChoice(seriesId: SeriesId): AppResult<Unit>
-
-    /**
-     * How many users currently follow the order, for the delete confirmation. Online-only; only the
-     * order's maker or an admin may ask (else `Forbidden`).
-     */
-    suspend fun countReadingOrderFollowers(id: ReadingOrderId): AppResult<Int>
 }

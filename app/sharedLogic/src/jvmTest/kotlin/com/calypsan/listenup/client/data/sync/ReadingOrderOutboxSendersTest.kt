@@ -157,8 +157,6 @@ private class RecordingReadingOrderService(
 
     override suspend fun clearReadingOrderChoice(seriesId: SeriesId): AppResult<Unit> = record("clear $seriesId")
 
-    override suspend fun countReadingOrderFollowers(id: ReadingOrderId): AppResult<Int> = AppResult.Success(0)
-
     private fun record(line: String): AppResult<Unit> {
         calls += line
         return AppResult.Success(Unit)

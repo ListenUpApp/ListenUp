@@ -127,29 +127,4 @@ class ReadingOrderFollowTest :
                 }
             }
         }
-
-        test("countReadingOrderFollowers counts every user's live follow; only the maker or an admin may ask") {
-            withSqlDatabase {
-                sql.seedTestLibraryAndFolder()
-                sql.seedTestUser("jess", canMakeReadingOrders = true)
-                sql.seedTestUser("priya")
-                sql.seedTestUser("sam")
-                val deps = makeReadingOrderDeps(this)
-                runTest {
-                    val ids = deps.seedCosmere()
-                    val jess = deps.serviceAs("jess")
-                    jess.createReadingOrder(ReadingOrderId("ro"), ids.cosmere, "Jess's order")
-                    val made = ReadingOrderChoice.UserMade(ReadingOrderId("ro"))
-                    deps.serviceAs("priya").chooseReadingOrder(ids.cosmere, made)
-                    deps.serviceAs("sam").chooseReadingOrder(ids.mistborn, made)
-                    jess.countReadingOrderFollowers(ReadingOrderId("ro")) shouldBe AppResult.Success(2)
-                    deps.serviceAs("simon", UserRole.ADMIN).countReadingOrderFollowers(ReadingOrderId("ro")) shouldBe
-                        AppResult.Success(2)
-                    deps
-                        .serviceAs("priya")
-                        .countReadingOrderFollowers(ReadingOrderId("ro"))
-                        .shouldFailWith<ReadingOrderError.Forbidden>()
-                }
-            }
-        }
     })

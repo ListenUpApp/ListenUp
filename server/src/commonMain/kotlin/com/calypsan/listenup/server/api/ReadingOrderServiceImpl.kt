@@ -235,12 +235,6 @@ internal class ReadingOrderServiceImpl(
         return follows.softDelete(followId, userId = caller.userId.value)
     }
 
-    override suspend fun countReadingOrderFollowers(id: ReadingOrderId): AppResult<Int> =
-        when (val gate = requireEditor(id)) {
-            is EditGate.Denied -> gate.failure
-            is EditGate.Allowed -> AppResult.Success(follows.countFollowersOf(gate.order.id))
-        }
-
     /**
      * The live order [id], when the caller may change it: ROOT/ADMIN always; its maker only while they
      * still hold the permission (an admin turning it off keeps their orders, but freezes them). An order
