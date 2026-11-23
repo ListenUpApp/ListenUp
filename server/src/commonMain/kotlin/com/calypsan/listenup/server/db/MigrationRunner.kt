@@ -10,6 +10,7 @@ internal class MigrationRunner(
         openAdminConnection(dbPath, readOnly = false).use { conn ->
             ensureHistoryTable(conn)
             val applied = appliedVersions(conn)
+            verifyAppliedKnown(applied)
             verifyChecksums(applied)
             catalog
                 .filter { it.version !in applied.keys }
@@ -42,9 +43,33 @@ internal class MigrationRunner(
                 row.getInt("version") to row.getString("checksum").orEmpty()
             }.toMap()
 
+    private fun verifyAppliedKnown(applied: Map<Int, String>) {
+        val knownVersions = catalog.mapTo(HashSet()) { it.version }
+        val unknown = applied.keys.filter { it !in knownVersions }.sorted()
+        if (unknown.isEmpty()) return
+
+        val maxKnown = catalog.maxOfOrNull { it.version }
+        val formatted = unknown.joinToString(", ") { "V$it" }
+        if (maxKnown != null && unknown.any { it > maxKnown }) {
+            error(
+                "Database schema is newer than this server binary " +
+                    "(applied unknown migration(s) $formatted; server supports up to V$maxKnown). " +
+                    "Refusing to start against a downgraded server — upgrade the server binary " +
+                    "or restore a matching backup.",
+            )
+        }
+        error(
+            "Database contains applied migration(s) missing from this server's catalog ($formatted). " +
+                "Migrations are forward-only and cannot be removed after being applied.",
+        )
+    }
+
     private fun verifyChecksums(applied: Map<Int, String>) {
         for ((version, recorded) in applied) {
-            val expected = catalog.firstOrNull { it.version == version }?.checksum ?: continue
+            val expected =
+                checkNotNull(catalog.firstOrNull { it.version == version }) {
+                    "Missing migration V$version in catalog after applied-version check"
+                }.checksum
             check(expected == recorded) {
                 "Migration V$version was edited after it was applied " +
                     "(checksum $recorded → $expected). Migrations are forward-only and immutable."

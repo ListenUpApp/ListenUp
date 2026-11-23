@@ -27,8 +27,8 @@ private const val MAX_RETRY_DELAY_MS = 500L
  *
  * The [ListenUpDatabase] implements the synchronous [app.cash.sqldelight.Transacter] — there is no
  * suspending variant — so the [withContext] wrapper is the canonical way to keep coroutine dispatch
- * honest. [sqlIoDispatcher] is an expect/actual that resolves to [kotlinx.coroutines.Dispatchers.IO]
- * on JVM and [kotlinx.coroutines.Dispatchers.Default] on Kotlin/Native.
+ * honest. [sqlIoDispatcher] delegates to [com.calypsan.listenup.core.IODispatcher], which resolves to
+ * `Dispatchers.IO` on both JVM and Kotlin/Native.
  */
 suspend fun <T> suspendTransaction(
     db: ListenUpDatabase,
