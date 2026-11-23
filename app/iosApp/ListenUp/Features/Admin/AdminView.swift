@@ -338,6 +338,9 @@ struct AdminView: View {
                         onApprove: { admin.decidePasswordReset(id: request.id, approved: true) },
                         onDeny: { pendingResetDeny = request }
                     )
+                    // One decision at a time: an approval's code is returned once, and a second
+                    // approval would replace it before the admin has seen it.
+                    .disabled(ready.decidingPasswordResetId != nil)
                 }
             }
         }

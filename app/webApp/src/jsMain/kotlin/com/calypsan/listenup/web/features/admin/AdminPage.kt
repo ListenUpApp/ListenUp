@@ -340,7 +340,8 @@ private fun ResetsSection(
     Section("Password reset requests") {
         state.pendingPasswordResets.forEach { request ->
             key(request.id) {
-                ResetRow(request, nowMs, state.decidingPasswordResetId == request.id, onApprove, onAskDecline)
+                // One decision at a time: an approval's code is returned once, and a second would replace it unseen.
+                ResetRow(request, nowMs, state.decidingPasswordResetId != null, onApprove, onAskDecline)
             }
         }
     }
