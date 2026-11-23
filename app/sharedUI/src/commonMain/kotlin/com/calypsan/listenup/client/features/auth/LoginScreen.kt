@@ -296,7 +296,7 @@ internal fun LoginFooter(
  * composable rather than through a ViewModel.
  */
 @Composable
-private fun RootResetDialog(
+internal fun RootResetDialog(
     onDismissRequest: () -> Unit,
     repository: PasswordResetRepository = koinInject(),
 ) {
@@ -312,7 +312,13 @@ private fun RootResetDialog(
     token.ForwardEdits { errorMessage = null }
     newPassword.ForwardEdits { errorMessage = null }
 
+    // One gate for the Continue button and the keyboard's Done, so neither can submit a blank form
+    // or a second request while one runs. A function, so a callback captured by an earlier
+    // composition still reads the current state.
+    fun canSubmit() = !isSubmitting && token.text.isNotBlank() && newPassword.text.isNotBlank()
+
     fun submit() {
+        if (!canSubmit()) return
         isSubmitting = true
         scope.launch {
             when (
@@ -342,13 +348,14 @@ private fun RootResetDialog(
     }
 
     ListenUpAlertDialog(
-        onDismissRequest = onDismissRequest,
+        // A stray tap or Back mid-request would cancel it and hide whether the one-time token was spent.
+        onDismissRequest = { if (!isSubmitting) onDismissRequest() },
         title = stringResource(Res.string.auth_reset_root),
         confirmText = stringResource(Res.string.common_continue),
         onConfirm = ::submit,
         dismissText = stringResource(Res.string.common_cancel),
         onDismiss = onDismissRequest,
-        confirmEnabled = !isSubmitting && token.text.isNotBlank() && newPassword.text.isNotBlank(),
+        confirmEnabled = canSubmit(),
         dismissEnabled = !isSubmitting,
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
