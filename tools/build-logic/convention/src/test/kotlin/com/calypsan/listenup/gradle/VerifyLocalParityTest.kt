@@ -46,7 +46,7 @@ class VerifyLocalParityTest {
     fun `CLAUDE-md Test JVM row documents every gating test-jvm gradle task`() {
         val row =
             repoRoot
-                .resolve("CLAUDE.md")
+                .resolve("AGENTS.md")
                 .readLines()
                 .single { it.startsWith("| `Test (JVM)`") }
         val missing = gatingGradleTasks("test-jvm").filterNot { it in row }
@@ -100,7 +100,7 @@ class VerifyLocalParityTest {
 
     private fun pushingTableRows(): List<String> =
         repoRoot
-            .resolve("CLAUDE.md")
+            .resolve("AGENTS.md")
             .readLines()
             .dropWhile { it != "## Pushing" }
             .takeWhile { !it.startsWith("`./gradlew verifyLocal") }

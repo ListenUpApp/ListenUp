@@ -106,7 +106,7 @@ tasks.withType<Test>().configureEach {
         .files(
             repoRoot.resolve(".github/workflows/ci.yml"),
             repoRoot.resolve("build.gradle.kts"),
-            repoRoot.resolve("CLAUDE.md"),
+            repoRoot.resolve("AGENTS.md"),
         ).withPropertyName("verifyLocalParityInputs")
         .withPathSensitivity(PathSensitivity.RELATIVE)
     // ClaudeMdVersionsTest reads these at runtime; undeclared, a catalog bump or a doc edit would
@@ -115,7 +115,7 @@ tasks.withType<Test>().configureEach {
         .files(
             repoRoot.resolve("gradle/libs.versions.toml"),
             repoRoot.resolve("README.md"),
-            repoRoot.resolve("app/sharedUI/CLAUDE.md"),
+            repoRoot.resolve("app/sharedUI/AGENTS.md"),
         ).withPropertyName("documentedVersionInputs")
         .withPathSensitivity(PathSensitivity.RELATIVE)
     inputs.property("sourceSetInventory", sourceSetInventory)
