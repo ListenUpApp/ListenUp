@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.features.admin.backup
 
 import com.calypsan.listenup.client.design.components.ListenUpTopAppBar
+import com.calypsan.listenup.client.design.util.PlatformBackHandler
 import androidx.compose.foundation.layout.widthIn
 import com.calypsan.listenup.client.design.ReadableMeasure
 import com.calypsan.listenup.client.design.components.FlowWithSteps
@@ -74,6 +75,7 @@ fun RestoreFromFileScreen(
         }
 
     val canNavigateBack = state !is RestoreFromFileUiState.Uploading
+    RestoreFromFileBackGuard(state = state)
 
     ListenUpScaffold(
         topBar = {
@@ -92,6 +94,17 @@ fun RestoreFromFileScreen(
             },
             modifier = Modifier.padding(paddingValues),
         )
+    }
+}
+
+/**
+ * Closes the system Back gesture while the backup file uploads, matching the hidden top-bar arrow:
+ * popping the entry would clear the ViewModel whose scope runs the upload.
+ */
+@Composable
+internal fun RestoreFromFileBackGuard(state: RestoreFromFileUiState) {
+    PlatformBackHandler(enabled = state is RestoreFromFileUiState.Uploading) {
+        // Deliberately inert while the upload runs.
     }
 }
 
