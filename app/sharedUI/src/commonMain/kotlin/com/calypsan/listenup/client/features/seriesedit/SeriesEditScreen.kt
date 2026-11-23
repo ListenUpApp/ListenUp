@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.features.seriesedit
 
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.ButtonDefaults
+import listenup.composeapp.generated.resources.series_keep_current_cover
 import com.calypsan.listenup.client.design.components.LocalSnackbarHostState
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
@@ -318,7 +321,7 @@ private fun SeriesOverflowMenu(
 // =============================================================================
 
 @Composable
-private fun SeriesEditContent(
+internal fun SeriesEditContent(
     studio: SeriesEditUiState.Editing,
     mergeHistory: MergeHistoryState,
     onEvent: (SeriesEditUiEvent) -> Unit,
@@ -407,6 +410,8 @@ private fun SeriesEditFormFields(
             isUploadingCover = studio.isUploadingCover,
             onNameChange = { onEvent(SeriesEditUiEvent.NameChanged(it)) },
             onCoverClick = onCoverClick,
+            // Only a staged pick can be dropped: CoverRemoved never deletes a cover the server holds.
+            onDiscardCoverPick = { onEvent(SeriesEditUiEvent.CoverRemoved) }.takeIf { state.pendingCoverData != null },
             onMergeClick = onMergeClick,
             canMerge = state.canCurateLibrary,
             onBackClick = onBackClick,
@@ -473,6 +478,7 @@ private fun SeriesIdentityHeader(
     isUploadingCover: Boolean,
     onNameChange: (String) -> Unit,
     onCoverClick: () -> Unit,
+    onDiscardCoverPick: (() -> Unit)?,
     onMergeClick: () -> Unit,
     canMerge: Boolean,
     onBackClick: () -> Unit,
@@ -625,6 +631,30 @@ private fun SeriesIdentityHeader(
                     modifier = Modifier.weight(1f),
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                 )
+            }
+
+            // A wrong pick is undone here rather than by discarding the whole draft. Worded as
+            // keeping the cover, not removing one: the server's artwork is never touched.
+            if (onDiscardCoverPick != null) {
+                TextButton(
+                    onClick = {
+                        haptics.press()
+                        onDiscardCoverPick()
+                    },
+                    enabled = !isUploadingCover,
+                    colors =
+                        ButtonDefaults.textButtonColors(
+                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        ),
+                ) {
+                    Icon(
+                        imageVector = ListenUpIcons.Undo,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(modifier = Modifier.size(6.dp))
+                    Text(stringResource(Res.string.series_keep_current_cover))
+                }
             }
         }
     }

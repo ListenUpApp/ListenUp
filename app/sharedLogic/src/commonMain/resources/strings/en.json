@@ -797,6 +797,7 @@
     "merge_no_matches": "No series match that search.",
     "no_cover": "No cover",
     "series_cover": "Series cover",
+    "keep_current_cover": "Keep the current cover",
     "series_name": "Series name",
     "start_listening": "Start listening",
     "listen_again": "Listen again",

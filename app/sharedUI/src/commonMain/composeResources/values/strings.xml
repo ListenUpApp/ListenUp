@@ -2559,6 +2559,7 @@ One beautiful library.</string>
     <string name="series_finished_count">%1$d finished</string>
     <string name="series_hierarchy_caption">Saved as soon as you choose. Needs a connection to the server.</string>
     <string name="series_in_path">in %1$s</string>
+    <string name="series_keep_current_cover">Keep the current cover</string>
     <string name="series_label">SERIES</string>
     <string name="series_listen_again">Listen again</string>
     <string name="series_merge_body">All of this series's books will be re-pointed at the target. This series will be deleted; the target's description, cover, and other details win.</string>

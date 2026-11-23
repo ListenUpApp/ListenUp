@@ -28139,6 +28139,17 @@
         }
       }
     },
+    "series.keep_current_cover": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep the current cover"
+          }
+        }
+      }
+    },
     "series.label": {
       "extractionState": "manual",
       "localizations": {
