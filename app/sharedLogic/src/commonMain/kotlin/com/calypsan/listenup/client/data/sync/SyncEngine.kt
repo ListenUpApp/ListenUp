@@ -120,6 +120,9 @@ internal class SyncEngine(
     private val drainReconciler =
         DrainReconciler(queue = queue, registry = registry, catchUp = catchUp, catchUpMutex = catchUpMutex)
 
+    // Re-pulls the digest-less domains after each connect, so a row written mid-pass is not stepped over.
+    private val unbackedTopUp = UnbackedDomainTopUp(registry, catchUp, dispatcher::holdCursorUntilCatchUp)
+
     // Serializes the start/stop handshake so concurrent re-entries (e.g.
     // MainActivity.onResume firing twice in quick succession → two
     // syncRepository.connectRealtime() → two engine.start()) can't race two
@@ -307,8 +310,12 @@ internal class SyncEngine(
         // on the SessionLapsed→Authenticated edge (re-login). Subscribed before connect so a
         // lapse that races startup is never missed.
         ensureAuthGate()
-        // Step 7: connect the firehose.
+        // Step 7: connect the firehose. It resumes from the highest revision of any domain, so a row written to a
+        // digest-less domain during the pass sits below that and above its own cursor: hold its cursor so a live
+        // frame cannot bury the row, then pull it.
+        unbackedTopUp.armHolds()
         syncStreamClient.connect()
+        catchUpMutex.withLock { unbackedTopUp.topUp() }
         // Step 8: digest reconciliation — compare local domain digests against the
         // server's and re-pull any domain that has drifted. Runs after the firehose connects
         // so the live tail is already in place; reconcileAll() is non-throwing. Behind the shared
@@ -687,7 +694,10 @@ internal class SyncEngine(
         }
         val newCursor = store.highestCursor()
         syncStreamClient.reseed(newCursor)
+        // As at start: the stream resumes above every domain's cursor, so hold the digest-less ones, then pull them.
+        unbackedTopUp.armHolds()
         syncStreamClient.connect()
+        catchUpMutex.withLock { unbackedTopUp.topUp() }
         // A dropped-then-restored firehose may have missed an ActiveSessionsChanged nudge while
         // disconnected. Ping presence so the social repos re-fetch their ACL-filtered RPCs — the
         // Never-Stranded fallback for presence across a reconnect.

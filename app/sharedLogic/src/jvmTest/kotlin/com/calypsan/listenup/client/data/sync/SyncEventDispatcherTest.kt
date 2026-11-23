@@ -795,6 +795,36 @@ class SyncEventDispatcherTest :
             }
         }
 
+        test("a hold with nothing behind it applies every live frame and lifts once a catch-up moves the cursor") {
+            runTest {
+                val results = ArrayDeque<AppResult<Unit>>(List(3) { AppResult.Success(Unit) })
+                val registry = ClientSyncDomainRegistry()
+                registry.register(ScriptedHandler(results, hasBackstop = false))
+                val cursors = mutableMapOf("tags" to 100L)
+                val dispatcher =
+                    SyncEventDispatcher(
+                        registry = registry,
+                        state = SyncEngineState(),
+                        cursorAdvance = { d, r -> cursors[d] = r },
+                        cursorOf = { cursors[it] },
+                    )
+
+                // The top-up after connecting found nothing to pull, so the cursor did not move.
+                dispatcher.holdCursorUntilCatchUp("tags")
+                dispatcher.handle(tagFrameAt(110L))
+                dispatcher.handle(tagFrameAt(120L))
+
+                results.size shouldBe 1
+                cursors["tags"] shouldBe 100L
+
+                cursors["tags"] = 120L // the next catch-up re-pulls the live-applied rows
+                dispatcher.handle(tagFrameAt(130L))
+
+                results.size shouldBe 0
+                cursors["tags"] shouldBe 130L
+            }
+        }
+
         test("a live frame for a domain with no cursor applies, but writes no cursor row") {
             runTest {
                 val db = createInMemoryTestDatabase()
