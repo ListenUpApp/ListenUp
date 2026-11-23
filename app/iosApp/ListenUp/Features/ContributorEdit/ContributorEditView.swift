@@ -10,15 +10,16 @@ struct ContributorEditView: View {
     /// reloaded.
     var onMergedInto: ((String) -> Void)?
 
-    @Environment(\.dependencies) private var deps
     @Environment(\.dismiss) private var dismiss
-    @State private var observer: ContributorEditObserver?
     @State private var showMergeSheet = false
 
     var body: some View {
-        Group {
-            if let observer {
-                switch observer.phase {
+        WithObserver(id: contributorId) { deps in
+            let observer = ContributorEditObserver(viewModel: deps.createContributorEditViewModel())
+            observer.loadContributor(contributorId: contributorId)
+            return observer
+        } content: { observer in
+            switch observer.phase {
                 case .loading:
                     ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
                 case .loadFailed(let message, let canRetry):
@@ -156,14 +157,6 @@ struct ContributorEditView: View {
                         dismiss()
                     }
                 }
-            } else {
-                ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
-            }
-        }
-        .task(id: contributorId) {
-            let obs = ContributorEditObserver(viewModel: deps.createContributorEditViewModel())
-            observer = obs
-            obs.loadContributor(contributorId: contributorId)
         }
     }
 }

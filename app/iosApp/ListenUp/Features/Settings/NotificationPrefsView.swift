@@ -7,24 +7,14 @@ import Shared
 /// the registry declares the type push-ineligible. Toggles apply optimistically; the shared
 /// ViewModel reverts them if the server refuses.
 struct NotificationPrefsView: View {
-    @Environment(\.dependencies) private var deps
-    @State private var observer: NotificationPrefsObserver?
-
     var body: some View {
-        Group {
-            if let observer {
-                content(observer: observer)
-            } else {
-                LoadingStateView()
-            }
-        }
-        .background(Color.luSurface)
-        .navigationTitle(String(localized: "notifications.settings_row_title"))
-        .navigationBarTitleDisplayMode(.large)
-        .onAppear {
-            if observer == nil {
-                observer = NotificationPrefsObserver(viewModel: deps.createNotificationPrefsViewModel())
-            }
+        WithObserver {
+            NotificationPrefsObserver(viewModel: $0.createNotificationPrefsViewModel())
+        } content: { observer in
+            content(observer: observer)
+                .background(Color.luSurface)
+                .navigationTitle(String(localized: "notifications.settings_row_title"))
+                .navigationBarTitleDisplayMode(.large)
         }
     }
 

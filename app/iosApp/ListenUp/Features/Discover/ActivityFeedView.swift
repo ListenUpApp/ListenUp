@@ -5,35 +5,30 @@ import SwiftUI
 /// server for anything newer. Its observers are made on appear and kept for the screen's life, the
 /// `DiscoverView` rule; its own selection carries a row's Add to Shelf.
 struct ActivityFeedView: View {
-    @Environment(\.dependencies) private var deps
-    @State private var observer: ActivityFeedObserver?
-    @State private var selection: BookSelectionObserver?
-
     /// The narrowest a column of rows gets before the grid drops one: a sentence and a cover fit.
     private static let columnMinWidth: CGFloat = 360
 
     var body: some View {
-        ScrollView {
-            if let observer {
-                content(observer)
+        WithObserver { deps in
+            (
+                ActivityFeedObserver(),
+                BookSelectionObserver(viewModel: deps.createBookMultiSelectViewModel())
+            )
+        } content: { observer, selection in
+            ScrollView {
+                content(observer, selection: selection)
                     .padding(.horizontal, Spacing.m)
                     .padding(.vertical, Spacing.s)
             }
-        }
-        .refreshable { await observer?.refreshNow() }
-        .navigationTitle(String(localized: "discover.activity"))
-        .navigationBarTitleDisplayMode(.inline)
-        .bookSelectionChrome(selection)
-        .onAppear {
-            if observer == nil { observer = ActivityFeedObserver() }
-            if selection == nil {
-                selection = BookSelectionObserver(viewModel: deps.createBookMultiSelectViewModel())
-            }
+            .refreshable { await observer.refreshNow() }
+            .navigationTitle(String(localized: "discover.activity"))
+            .navigationBarTitleDisplayMode(.inline)
+            .bookSelectionChrome(selection)
         }
     }
 
     @ViewBuilder
-    private func content(_ observer: ActivityFeedObserver) -> some View {
+    private func content(_ observer: ActivityFeedObserver, selection: BookSelectionObserver) -> some View {
         switch observer.phase {
         case .loading:
             RowsSkeleton(rows: ActivitySectionView.collapsedCount)
