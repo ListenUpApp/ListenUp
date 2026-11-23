@@ -292,29 +292,6 @@ class SystemCollectionTest :
             }
         }
 
-        test("updateShare on ALL_BOOKS returns SystemCollectionReadOnly and keeps the grant at Read") {
-            withSqlDatabase {
-                sql.seedTestLibraryAndFolder()
-                sql.seedTestUser("admin", UserRoleColumn.ADMIN)
-                sql.seedTestUser("m")
-                runTest {
-                    val h = collectionAccessHarness()
-                    val admin = h.service.actAs("admin", UserRole.ADMIN)
-
-                    val allBooks = admin.getOrCreateSystemCollection("test-library", SystemCollectionType.ALL_BOOKS)
-                    require(allBooks is AppResult.Success)
-                    val allBooksId = allBooks.data.id.value
-                    h.grantAllBooks(allBooksId, "m")
-
-                    val result = admin.updateShare(CollectionId(allBooksId), "m", SharePermission.Write)
-
-                    require(result is AppResult.Failure)
-                    result.error.shouldBeInstanceOf<CollectionError.SystemCollectionReadOnly>()
-                    h.grantRepo.findActiveGrant(allBooksId, "m")!!.permission shouldBe SharePermission.Read
-                }
-            }
-        }
-
         test("renameCollection on a normal collection succeeds") {
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()

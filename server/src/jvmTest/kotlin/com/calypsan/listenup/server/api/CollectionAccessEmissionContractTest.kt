@@ -182,24 +182,6 @@ class CollectionAccessEmissionContractTest :
             }
         }
 
-        // ── updateShare: only the affected recipient ──
-        test("updateShare nudges only the recipient whose permission changed") {
-            withSqlDatabase {
-                sql.seedTestLibraryAndFolder()
-                sql.seedAdminAndMembers("s4")
-                runTest {
-                    val h = collectionAccessHarness()
-                    val admin = h.service.actAs("admin", UserRole.ADMIN)
-                    val c = admin.newCollection("C")
-                    admin.shareCollection(c, "s4", SharePermission.Read)
-
-                    val recipients = captureAccessChanged(this, h.bus) { admin.updateShare(c, "s4", SharePermission.Write) }
-
-                    recipients shouldBe setOf("s4")
-                }
-            }
-        }
-
         // ── revokeShare: only the ex-target, and only because a live grant existed ──
         test("revokeShare nudges only the ex-target when a live grant existed") {
             withSqlDatabase {
@@ -314,7 +296,6 @@ class CollectionAccessEmissionContractTest :
                 "removeBookFromCollection",
                 "setBookCollections",
                 "shareCollection",
-                "updateShare",
                 "revokeShare",
                 "deleteCollection",
                 "releaseBooks",

@@ -317,7 +317,7 @@ class CollectionServiceImplTest :
             }
         }
 
-        // ── shareCollection / updateShare / revokeShare ──────────────────────────
+        // ── shareCollection / revokeShare ────────────────────────────────────────
 
         test("shareCollection: owner shares read with u2; u2 now reaches it (Read, not owner)") {
             withSqlDatabase {
@@ -417,54 +417,6 @@ class CollectionServiceImplTest :
                     val again = owner.shareCollection(collectionId, "u2", SharePermission.Read)
                     require(again is AppResult.Failure)
                     again.error.shouldBeInstanceOf<CollectionError.AlreadyShared>()
-                }
-            }
-        }
-
-        test("updateShare read→write upgrades u2's permission") {
-            withSqlDatabase {
-                val db = this
-                sql.seedTestLibraryAndFolder()
-                sql.seedTestUser("u1")
-                sql.seedTestUser("u2")
-                runTest {
-                    val service = makeService(db)
-                    val owner = service.actAs("u1", UserRole.ADMIN)
-                    val created = owner.createCollection("test-library", "Shared")
-                    require(created is AppResult.Success)
-                    val collectionId = created.data.id
-
-                    owner.shareCollection(collectionId, "u2", SharePermission.Read).let {
-                        require(it is AppResult.Success)
-                    }
-
-                    val updated = owner.updateShare(collectionId, "u2", SharePermission.Write)
-                    require(updated is AppResult.Success)
-                    updated.data.permission shouldBe SharePermission.Write
-
-                    // u2's stored grant is now Write.
-                    db
-                        .newCollectionGrantRepo(ChangeBus(), SyncRegistry())
-                        .findActiveGrant(collectionId.value, "u2")
-                        ?.permission shouldBe SharePermission.Write
-                }
-            }
-        }
-
-        test("updateShare requires an active share — NotFound otherwise") {
-            withSqlDatabase {
-                val db = this
-                sql.seedTestLibraryAndFolder()
-                sql.seedTestUser("u1")
-                sql.seedTestUser("u2")
-                runTest {
-                    val owner = makeService(db).actAs("u1", UserRole.ADMIN)
-                    val created = owner.createCollection("test-library", "Shared")
-                    require(created is AppResult.Success)
-
-                    val updated = owner.updateShare(created.data.id, "u2", SharePermission.Write)
-                    require(updated is AppResult.Failure)
-                    updated.error.shouldBeInstanceOf<CollectionError.NotFound>()
                 }
             }
         }

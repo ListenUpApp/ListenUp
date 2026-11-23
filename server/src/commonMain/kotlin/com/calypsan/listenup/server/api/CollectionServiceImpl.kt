@@ -226,9 +226,9 @@ internal fun accessScopeFor(
  * Route handlers call [copyWith] to bind each request to the authenticated principal;
  * the Koin singleton carries an unscoped placeholder that yields no principal.
  *
- * Sharing ([shareCollection], [updateShare], [revokeShare]) is admin-only —
+ * Sharing ([shareCollection], [revokeShare]) is admin-only —
  * gated through [manageGate] like rename/delete. System collections (ALL_BOOKS, INBOX) reject
- * all three share mutations with [CollectionError.SystemCollectionReadOnly]; the default
+ * both share mutations with [CollectionError.SystemCollectionReadOnly]; the default
  * ALL_BOOKS grants are managed exclusively by [DefaultAllBooksGrantIssuer]. The per-user
  * `AccessChanged` reconcile signal on share/unshare is Collections-1b (it depends on the
  * book-visibility layer); 1a just persists the share rows and emits the normal sync events.
@@ -564,39 +564,6 @@ internal class CollectionServiceImpl(
             is AppResult.Success -> {
                 // The newly-shared user's accessible set just grew — tell them to re-derive, scoped
                 // to this collection and the books it currently holds (the ones they just gained).
-                publishAccessChanged(
-                    setOf(sharedWithUserId),
-                    accessScopeFor(listOf(id.value), collectionBookRepo.findBookIdsForCollection(id.value)),
-                )
-                AppResult.Success(result.data.toDto())
-            }
-
-            is AppResult.Failure -> {
-                AppResult.Failure(result.error)
-            }
-        }
-    }
-
-    override suspend fun updateShare(
-        id: CollectionId,
-        sharedWithUserId: String,
-        permission: SharePermission,
-    ): AppResult<CollectionShareDto> {
-        val caller = resolveCaller() ?: return noPrincipal()
-        val decision = accessPolicy.decide(caller.userId, caller.role, id.value)
-        manageGate(decision, caller.role)?.let { return AppResult.Failure(it) }
-        val systemIds = collectionRepo.systemCollectionIds()
-        if (id.value in systemIds) return AppResult.Failure(CollectionError.SystemCollectionReadOnly())
-
-        val existing =
-            grantRepo.findActiveGrant(id.value, sharedWithUserId)
-                ?: return AppResult.Failure(CollectionError.NotFound())
-
-        val updated = existing.copy(permission = permission, updatedAt = clock.now().toEpochMilliseconds())
-        return when (val result = grantRepo.upsert(updated)) {
-            is AppResult.Success -> {
-                // The share's permission changed — the recipient must re-derive what they can do,
-                // scoped to this collection and its current books.
                 publishAccessChanged(
                     setOf(sharedWithUserId),
                     accessScopeFor(listOf(id.value), collectionBookRepo.findBookIdsForCollection(id.value)),

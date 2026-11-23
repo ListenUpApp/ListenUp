@@ -22,7 +22,7 @@ import kotlinx.rpc.annotations.Rpc
  * - **Membership mutation** — [createCollection], [renameCollection],
  *   [deleteCollection], [addBookToCollection], [removeBookFromCollection]
  *   mutate the collection or its book set.
- * - **Share mutation** — [shareCollection], [updateShare], [revokeShare]
+ * - **Share mutation** — [shareCollection], [revokeShare]
  *   manage the per-user ACL; owner-only.
  *
  * There is no REST mirror; this contract is the whole collection surface.
@@ -132,20 +132,6 @@ interface CollectionService {
      * not the owner, or when [sharedWithUserId] is the caller (self-share).
      */
     suspend fun shareCollection(
-        id: CollectionId,
-        sharedWithUserId: String,
-        permission: SharePermission,
-    ): AppResult<CollectionShareDto>
-
-    /**
-     * Updates the [permission] level of an existing share on the collection
-     * identified by [id] for the user identified by [sharedWithUserId] and
-     * returns the updated [CollectionShareDto].
-     *
-     * Owner-only. Fails when no collection with [id] exists, when the caller is
-     * not the owner, or when no share exists for [sharedWithUserId].
-     */
-    suspend fun updateShare(
         id: CollectionId,
         sharedWithUserId: String,
         permission: SharePermission,

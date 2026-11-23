@@ -147,41 +147,6 @@ class AccessChangedEmissionTest :
             }
         }
 
-        test("updateShare emits AccessChanged to the recipient") {
-            withSqlDatabase {
-                sql.seedTestLibraryAndFolder()
-                sql.seedTestUser("u1", UserRoleColumn.ADMIN)
-                sql.seedTestUser("u2")
-                runTest(UnconfinedTestDispatcher()) {
-                    val (service, bus) = makeHarness(this@withSqlDatabase)
-                    val owner = service.actAs("u1", UserRole.ADMIN)
-                    val created = owner.createCollection("test-library", "Shared")
-                    require(created is AppResult.Success)
-                    owner.shareCollection(created.data.id, "u2", SharePermission.Read).let {
-                        require(it is AppResult.Success)
-                    }
-
-                    // Subscribe only after the initial share so we observe the update's frame alone.
-                    val frames = mutableListOf<ControlFrame>()
-                    bus.subscribeControl().onEach { frames += it }.launchIn(backgroundScope)
-                    drainControlFrames() // ensure the unconfined collector is subscribed before the action publishes
-
-                    owner.updateShare(created.data.id, "u2", SharePermission.Write).let {
-                        require(it is AppResult.Success)
-                    }
-                    drainControlFrames()
-
-                    frames shouldContainExactlyInAnyOrder
-                        listOf(
-                            ControlFrame(
-                                SyncControl.AccessChanged(AccessScope(listOf(created.data.id.value), emptyList())),
-                                "u2",
-                            ),
-                        )
-                }
-            }
-        }
-
         test("revokeShare emits AccessChanged to the ex-target") {
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()
