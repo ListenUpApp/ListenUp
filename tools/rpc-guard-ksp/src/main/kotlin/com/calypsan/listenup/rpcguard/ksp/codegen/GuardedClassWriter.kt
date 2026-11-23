@@ -11,38 +11,66 @@ internal object GuardedClassWriter {
     private const val PACKAGE = "com.calypsan.listenup.server.rpcguard"
     private const val INDENT_CLOSE_PAREN = "            )"
 
-    // File-private C2 session-liveness gate, appended to every streaming guard. Re-checks [isLive]
-    // on a ~30s cadence for the life of the stream; the moment it flips false it emits a terminal
-    // RpcEvent.Error and cancels upstream, so a revoked session's live stream is severed within the
-    // poll window. Inert when [isLive] is null. The Error is emitted BEFORE cancelling upstream:
-    // cancelling unblocks the join() below, which would otherwise cancel this gate mid-send.
-    private val SESSION_LIVENESS_GATE =
+    // File-private streaming guard, appended to every guard that has a streaming method. It gives a
+    // stream what an ordinary call gets: one correlation id, the same MDC scope, and a session check
+    // BEFORE the service is reached — a session already revoked when the stream opens gets a terminal
+    // RpcEvent.Error(SessionExpired) and the service is never subscribed. While the stream runs it
+    // re-checks liveness on a ~30s cadence and severs it the moment the session is revoked: the
+    // gate sends the Error, then fails its scope with a file-private signal, which cancels the
+    // collection and is caught below. The service's flow is collected in the scope's own body, not a
+    // child, so a CancellationException it throws still reaches the collector, as it did before the
+    // guard existed. Opening the service's flow happens inside the guarded
+    // scope, so a synchronous throw while CONSTRUCTING it (a require/precondition/DI lookup in the
+    // non-suspend factory) is sanitized like any other escape. Only the correlation id crosses the
+    // wire: the exception's class name and message stay in the server log.
+    private val GUARDED_STREAM =
         """
         private const val STREAM_LIVENESS_POLL_MILLIS = 30000L
 
-        private fun <T> Flow<RpcEvent<T>>.gatedByLiveness(
+        private class __SERVICE__StreamRevoked : Exception()
+
+        private fun <T> guardedStream(
+            service: String,
+            method: String,
             isLive: (suspend () -> Boolean)?,
-            revoked: () -> com.calypsan.listenup.api.error.AppError,
-        ): Flow<RpcEvent<T>> {
-            if (isLive == null) return this
-            val upstream = this
-            return channelFlow {
-                val upstreamJob = launch { upstream.collect { send(it) } }
-                val gateJob =
-                    launch {
-                        while (true) {
-                            kotlinx.coroutines.delay(STREAM_LIVENESS_POLL_MILLIS)
-                            if (!isLive()) {
-                                send(RpcEvent.Error(revoked()))
-                                upstreamJob.cancel()
-                                return@launch
+            log: io.github.oshai.kotlinlogging.KLogger,
+            open: () -> Flow<RpcEvent<T>>,
+        ): Flow<RpcEvent<T>> =
+            channelFlow {
+                val cid = currentCorrelationId() ?: newCorrelationId()
+                withMdc("service" to service, "method" to method, "correlationId" to cid) {
+                    val revoked = RpcEvent.Error(com.calypsan.listenup.api.error.AuthError.SessionExpired(correlationId = cid))
+                    try {
+                        if (isLive != null && !isLive()) {
+                            send(revoked)
+                        } else {
+                            kotlinx.coroutines.coroutineScope {
+                                val gate =
+                                    isLive?.let { live ->
+                                        launch {
+                                            while (true) {
+                                                kotlinx.coroutines.delay(STREAM_LIVENESS_POLL_MILLIS)
+                                                if (!live()) {
+                                                    send(revoked)
+                                                    throw __SERVICE__StreamRevoked()
+                                                }
+                                            }
+                                        }
+                                    }
+                                open().collect { send(it) }
+                                gate?.cancel()
                             }
                         }
+                    } catch (e: __SERVICE__StreamRevoked) {
+                        // The gate has already sent SessionExpired; the stream simply ends.
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Throwable) {
+                        log.error(e) { "Uncaught flow exception in ${'$'}service.${'$'}method [cid=${'$'}cid]" }
+                        send(RpcEvent.Error(InternalError(correlationId = cid)))
                     }
-                upstreamJob.join()
-                gateJob.cancel()
+                }
             }
-        }
 
         """.trimIndent() + "\n"
 
@@ -74,9 +102,6 @@ internal object GuardedClassWriter {
             appendLine()
             appendLine("import kotlinx.coroutines.CancellationException")
             appendLine("import kotlinx.coroutines.flow.Flow")
-            appendLine("import kotlinx.coroutines.flow.catch")
-            appendLine("import kotlinx.coroutines.flow.emitAll")
-            appendLine("import kotlinx.coroutines.flow.flow")
             appendLine("import com.calypsan.listenup.api.result.AppResult")
             appendLine("import com.calypsan.listenup.api.error.InternalError")
             appendLine("import com.calypsan.listenup.api.streaming.RpcEvent")
@@ -91,7 +116,7 @@ internal object GuardedClassWriter {
             appendLine("class ${model.simpleName}Guarded(")
             appendLine("    private val delegate: ${model.packageName}.${model.simpleName},")
             // Every guard carries the per-connection session-liveness predicate. Streams re-check it on a
-            // cadence and sever a revoked stream (C2); ordinary calls consult it before reaching the
+            // cadence and sever a revoked stream; ordinary calls consult it before reaching the
             // service, so a revoked session's still-open socket cannot keep calling. Null (the default)
             // leaves the guard inert — the shape a unit test / non-authed mount gets. A plain suspend
             // predicate (not a named type) so nothing crosses onto the client export surface.
@@ -106,13 +131,15 @@ internal object GuardedClassWriter {
                 renderMethod(model, method)
             }
             appendLine("}")
-            // The C2 session-liveness gate, emitted file-private per streaming guard. Inlined here
-            // rather than shared from :contract commonMain so no server-infra symbol crosses onto the
-            // client export surface and so it stays same-module with the generated guard (no
-            // cross-module internal-visibility problem). Behaviour is proven by RpcGuardLivenessTest.
+            // The streaming guard, emitted file-private per streaming guard. Inlined here rather than
+            // shared from :contract commonMain so no server-infra symbol crosses onto the client export
+            // surface and so it stays same-module with the generated guard (no cross-module
+            // internal-visibility problem). Behaviour is proven by RpcGuardLivenessTest.
             if (hasStreaming) {
                 appendLine()
-                append(SESSION_LIVENESS_GATE)
+                // The revocation signal is a class, and private top-level classes in one package still
+                // clash across files, so each guard names its own.
+                append(GUARDED_STREAM.replace("__SERVICE__", model.simpleName))
             }
         }
 
@@ -191,36 +218,10 @@ internal object GuardedClassWriter {
             "kotlinx.coroutines.flow.Flow<" +
                 "com.calypsan.listenup.api.streaming.RpcEvent<$innerRendered>>"
         appendLine("    override fun ${method.name}($params): $returnType =")
-        // `flow { emitAll(delegate.x()) }` (not `delegate.x().catch {}`): a synchronous throw while
-        // CONSTRUCTING the flow — a require/precondition/DI lookup in the non-suspend factory — would
-        // escape a bare `.catch` (which never attaches), leaking a raw stacktrace to kotlinx.rpc's
-        // default. Wrapping defers construction into the collected flow so the same `.catch` sanitizes it.
-        //
-        // `.gatedByLiveness(...)` (C2): re-check the caller's session on a ~30s cadence and sever the
-        // stream with a terminal RpcEvent.Error the moment it's revoked — a still-valid access JWT must
-        // not outlive a revoked session on a live socket. Inert when sessionLiveness is null.
-        appendLine("        flow { emitAll(delegate.${method.name}($args)) }")
         appendLine(
-            "            .gatedByLiveness(sessionLiveness) " +
-                "{ com.calypsan.listenup.api.error.AuthError.SessionExpired() }",
+            """        guardedStream("${service.simpleName}", "${method.name}", sessionLiveness, log) """ +
+                "{ delegate.${method.name}($args) }",
         )
-        appendLine("            .catch { e ->")
-        appendLine("            if (e is kotlinx.coroutines.CancellationException) throw e")
-        appendLine("            val cid = currentCorrelationId() ?: newCorrelationId()")
-        appendLine(
-            "            log.error(e) { \"Uncaught flow exception in ${service.simpleName}.${method.name} [cid=\$cid]\" }",
-        )
-        // Only the correlation id crosses the wire. The exception's class name + message stay in the
-        // server log above; `cause` and `debugInfo` default to null so no server-internal detail is
-        // serialized to the client.
-        appendLine("            emit(")
-        appendLine("            com.calypsan.listenup.api.streaming.RpcEvent.Error(")
-        appendLine("                com.calypsan.listenup.api.error.InternalError(")
-        appendLine("                    correlationId = cid,")
-        appendLine("                )")
-        appendLine(INDENT_CLOSE_PAREN)
-        appendLine(INDENT_CLOSE_PAREN)
-        appendLine("        }")
     }
 }
 

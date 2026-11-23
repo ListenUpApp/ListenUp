@@ -2,6 +2,7 @@ package com.calypsan.listenup.server.auth
 
 import dev.whyoleg.cryptography.random.CryptographyRandom
 import kotlinx.cinterop.ByteVar
+import kotlinx.cinterop.CValuesRef
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.allocArray
 import kotlinx.cinterop.convert
@@ -27,7 +28,7 @@ actual class PasswordHasher actual constructor() {
                         ITERATIONS.convert(),
                         MEMORY_KIB.convert(),
                         PARALLELISM.convert(),
-                        pwd.refTo(0),
+                        pwd.refOrNull(),
                         pwd.size.convert(),
                         salt.refTo(0),
                         salt.size.convert(),
@@ -44,11 +45,18 @@ actual class PasswordHasher actual constructor() {
         plaintext: CharSequence,
         encoded: String,
     ): Boolean =
-        withContext(cpuDispatcher) {
-            val pwd = plaintext.toString().encodeToByteArray()
-            // `encoded` is @CString in the generated binding (auto String→C string); pass directly.
-            argon2id_verify(encoded, pwd.refTo(0), pwd.size.convert()) == 0
-        }
+        plaintext.isNotEmpty() &&
+            withContext(cpuDispatcher) {
+                val pwd = plaintext.toString().encodeToByteArray()
+                // `encoded` is @CString in the generated binding (auto String→C string); pass directly.
+                argon2id_verify(encoded, pwd.refTo(0), pwd.size.convert()) == 0
+            }
+
+    /**
+     * The password's bytes for libargon2, or null for an empty password: `refTo(0)` on an empty
+     * array throws, and libargon2 takes a null pointer with a zero length as the empty password.
+     */
+    private fun ByteArray.refOrNull(): CValuesRef<ByteVar>? = if (isEmpty()) null else refTo(0)
 
     companion object {
         private const val MEMORY_KIB = 64 * 1024

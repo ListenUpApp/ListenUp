@@ -230,4 +230,3 @@ server/src/commonMain/kotlin/com/calypsan/listenup/server/sync/SyncStreamService
 server/src/jvmMain/kotlin/com/calypsan/listenup/server/routes/RpcRoutes.jvm.kt 1
 server/src/linuxMain/kotlin/com/calypsan/listenup/server/routes/RpcRoutes.linux.kt 1
 tools/rpc-guard-ksp/src/main/kotlin/com/calypsan/listenup/rpcguard/ksp/RpcGuardSymbolProcessor.kt 1
-tools/rpc-guard-ksp/src/main/kotlin/com/calypsan/listenup/rpcguard/ksp/codegen/GuardedClassWriter.kt 4

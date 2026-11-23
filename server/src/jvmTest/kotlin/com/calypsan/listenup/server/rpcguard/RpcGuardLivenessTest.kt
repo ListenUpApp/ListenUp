@@ -12,9 +12,11 @@ import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.slf4j.MDCContext
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -50,6 +52,38 @@ class RpcGuardLivenessTest :
                 received.size shouldBe 1
                 val error = received.single().shouldBeInstanceOf<RpcEvent.Error>()
                 error.error.shouldBeInstanceOf<AuthError.SessionExpired>()
+            }
+        }
+
+        test("a session already revoked when the stream opens is refused at once, before the service is subscribed") {
+            runTest {
+                val service = SubscriptionCountingScannerService()
+                val guarded = guard(service) { false }
+
+                // No virtual time passes: the refusal must not wait for the first poll.
+                val received = collectAll(guarded.observeProgress())
+
+                service.subscriptions shouldBe 0
+                testScheduler.currentTime shouldBe 0L
+                val error = received.single().shouldBeInstanceOf<RpcEvent.Error>()
+                error.error.shouldBeInstanceOf<AuthError.SessionExpired>()
+                error.error.correlationId.shouldNotBeNull()
+            }
+        }
+
+        test("a stream runs inside the same logging context an ordinary call gets") {
+            runTest {
+                val service = SubscriptionCountingScannerService()
+                val guarded = guard(service) { true }
+                val job = launch { guarded.observeProgress().collect {} }
+
+                runCurrent()
+                job.cancel()
+
+                val mdc = service.mdcAtSubscription.shouldNotBeNull()
+                mdc["service"] shouldBe "ScannerService"
+                mdc["method"] shouldBe "observeProgress"
+                mdc["correlationId"].shouldNotBeNull()
             }
         }
 
@@ -109,6 +143,28 @@ private class HangingScannerService : ScannerService {
     override suspend fun lastScanResult(): AppResult<ScanResult> = error("unused")
 
     override fun observeProgress(): Flow<RpcEvent<ScanEvent>> = flow { awaitCancellation() }
+
+    override suspend fun listScanIssues() = AppResult.Success(emptyList<com.calypsan.listenup.api.dto.scan.ScanIssue>())
+
+    override suspend fun dismissScanIssue(issueId: String) = AppResult.Success(Unit)
+}
+
+/** Counts subscriptions to its hanging progress stream and records the logging context each one saw. */
+private class SubscriptionCountingScannerService : ScannerService {
+    var subscriptions = 0
+        private set
+
+    var mdcAtSubscription: Map<String, String>? = null
+        private set
+
+    override suspend fun lastScanResult(): AppResult<ScanResult> = error("unused")
+
+    override fun observeProgress(): Flow<RpcEvent<ScanEvent>> =
+        flow {
+            subscriptions++
+            mdcAtSubscription = currentCoroutineContext()[MDCContext]?.contextMap
+            awaitCancellation()
+        }
 
     override suspend fun listScanIssues() = AppResult.Success(emptyList<com.calypsan.listenup.api.dto.scan.ScanIssue>())
 

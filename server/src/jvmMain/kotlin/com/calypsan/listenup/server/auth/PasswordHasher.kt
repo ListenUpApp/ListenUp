@@ -20,9 +20,10 @@ actual class PasswordHasher actual constructor() {
         plaintext: CharSequence,
         encoded: String,
     ): Boolean =
-        withContext(cpuDispatcher) {
-            Password.check(plaintext, encoded).with(DEFAULT)
-        }
+        plaintext.isNotEmpty() &&
+            withContext(cpuDispatcher) {
+                Password.check(plaintext, encoded).with(DEFAULT)
+            }
 
     companion object {
         private const val MEMORY_KIB = 64 * 1024
