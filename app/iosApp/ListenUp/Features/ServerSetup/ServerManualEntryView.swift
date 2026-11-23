@@ -48,6 +48,7 @@ struct ServerManualEntryView: View {
                             icon: "globe",
                             // The notice below carries the denial, with its fix; don't say it twice.
                             error: showsLocalNetworkNotice ? nil : viewModel.error,
+                            submitLabel: .go,
                             onSubmit: { if viewModel.isConnectEnabled { viewModel.onConnectClicked() } }
                         )
                     }
