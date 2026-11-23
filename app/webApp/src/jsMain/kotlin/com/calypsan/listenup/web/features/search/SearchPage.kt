@@ -220,59 +220,98 @@ internal fun ResultsList(
         SearchHitType.entries.forEach { type ->
             val hits = grouped[type].orEmpty()
             if (hits.isNotEmpty()) {
-                val labelId = "search-group-${type.name.lowercase()}"
-                Div(attrs = {
-                    classes("search-group")
-                    if (asListbox) {
-                        attr("role", "group")
-                        attr("aria-labelledby", labelId)
-                    }
-                }) {
-                    val cap = capFor(type)
-                    val shown = if (cap == null) hits else hits.take(cap)
-                    Div(attrs = {
-                        classes("search-group-h")
-                        if (asListbox) attr("role", "presentation")
-                    }) {
-                        // On the page each group is a section a reader can jump to; inside the
-                        // palette's listbox the group itself carries the name.
-                        if (asListbox) {
-                            Span(attrs = {
-                                id(labelId)
-                                classes("search-group-label")
-                            }) { Text(type.label()) }
-                        } else {
-                            H2(attrs = {
-                                id(labelId)
-                                classes("search-group-label")
-                            }) { Text(type.label()) }
-                        }
-                        Span(attrs = { classes("search-group-count") }) { Text(hits.size.toString()) }
-                        // ⛔ Only when something is actually being withheld. An always-present
-                        // "See all" over a complete list is a promise of more that isn't there.
-                        if (shown.size < hits.size) {
-                            Button(attrs = {
-                                classes("search-seeall")
-                                attr("type", "button")
-                                // Four "See all" buttons are one name four times; say what each opens.
-                                attr("aria-label", "See all ${type.label().lowercase()}")
-                                onClick { onSeeAll(type) }
-                            }) { Text("See all") }
-                        }
-                    }
-                    shown.forEach { hit ->
-                        key(hit.id) {
-                            SearchRow(
-                                hit = hit,
-                                isOpenable = type in openableTypes,
-                                onOpen = { onOpenHit(hit) },
-                                isHighlighted = hit == highlighted,
-                                asOption = asListbox,
-                            )
-                        }
-                    }
-                }
+                ResultGroup(
+                    type = type,
+                    hits = hits,
+                    isOpenable = type in openableTypes,
+                    onOpenHit = onOpenHit,
+                    onSeeAll = { onSeeAll(type) },
+                    highlighted = highlighted,
+                    asListbox = asListbox,
+                )
             }
+        }
+    }
+}
+
+/** One type's hits under its header; inside the palette's listbox, a named group of options. */
+@Composable
+private fun ResultGroup(
+    type: SearchHitType,
+    hits: List<SearchHit>,
+    isOpenable: Boolean,
+    onOpenHit: (SearchHit) -> Unit,
+    onSeeAll: () -> Unit,
+    highlighted: SearchHit?,
+    asListbox: Boolean,
+) {
+    val labelId = "search-group-${type.name.lowercase()}"
+    val cap = capFor(type)
+    val shown = if (cap == null) hits else hits.take(cap)
+    Div(attrs = {
+        classes("search-group")
+        if (asListbox) {
+            attr("role", "group")
+            attr("aria-labelledby", labelId)
+        }
+    }) {
+        ResultGroupHeader(
+            type = type,
+            labelId = labelId,
+            count = hits.size,
+            // ⛔ Only when something is actually being withheld. An always-present "See all" over a
+            // complete list is a promise of more that isn't there.
+            onSeeAll = onSeeAll.takeIf { shown.size < hits.size },
+            asListbox = asListbox,
+        )
+        shown.forEach { hit ->
+            key(hit.id) {
+                SearchRow(
+                    hit = hit,
+                    isOpenable = isOpenable,
+                    onOpen = { onOpenHit(hit) },
+                    isHighlighted = hit == highlighted,
+                    asOption = asListbox,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ResultGroupHeader(
+    type: SearchHitType,
+    labelId: String,
+    count: Int,
+    onSeeAll: (() -> Unit)?,
+    asListbox: Boolean,
+) {
+    Div(attrs = {
+        classes("search-group-h")
+        if (asListbox) attr("role", "presentation")
+    }) {
+        // On the page each group is a section a reader can jump to; inside the palette's listbox
+        // the group itself carries the name.
+        if (asListbox) {
+            Span(attrs = {
+                id(labelId)
+                classes("search-group-label")
+            }) { Text(type.label()) }
+        } else {
+            H2(attrs = {
+                id(labelId)
+                classes("search-group-label")
+            }) { Text(type.label()) }
+        }
+        Span(attrs = { classes("search-group-count") }) { Text(count.toString()) }
+        onSeeAll?.let { seeAll ->
+            Button(attrs = {
+                classes("search-seeall")
+                attr("type", "button")
+                // Four "See all" buttons are one name four times; say what each opens.
+                attr("aria-label", "See all ${type.label().lowercase()}")
+                onClick { seeAll() }
+            }) { Text("See all") }
         }
     }
 }
@@ -309,52 +348,30 @@ internal fun SearchRow(
     Div(attrs = {
         classes("search-row")
         if (isHighlighted) classes("is-highlighted")
-        if (asOption) {
-            // Focus stays in the palette's field; the field's aria-activedescendant points here.
-            id(searchOptionId(hit))
-            attr("role", "option")
-            attr("aria-selected", isHighlighted.toString())
-            if (!isOpenable) attr("aria-disabled", "true")
-            onClick { if (isOpenable) onOpen() }
-            if (!isOpenable) classes("is-static")
-        } else if (isOpenable) {
-            tabIndex(0)
-            attr("role", "button")
-            onKeyDown { event ->
-                if (event.key == "Enter" || event.key == " ") {
-                    event.preventDefault()
-                    onOpen()
+        if (!isOpenable) classes("is-static")
+        when {
+            asOption -> {
+                // Focus stays in the palette's field; the field's aria-activedescendant points here.
+                id(searchOptionId(hit))
+                attr("role", "option")
+                attr("aria-selected", isHighlighted.toString())
+                if (!isOpenable) attr("aria-disabled", "true")
+            }
+
+            isOpenable -> {
+                tabIndex(0)
+                attr("role", "button")
+                onKeyDown { event ->
+                    if (event.key == "Enter" || event.key == " ") {
+                        event.preventDefault()
+                        onOpen()
+                    }
                 }
             }
-            onClick { onOpen() }
-        } else {
-            classes("is-static")
         }
+        if (isOpenable) onClick { onOpen() }
     }) {
-        if (hit.type == SearchHitType.BOOK) {
-            Cover(
-                title = hit.name,
-                imageUrl = coverUrl(hit.id, hit.coverHash, SEARCH_COVER_RUNG),
-                size = SEARCH_BADGE_SIZE,
-                radius = SEARCH_BADGE_RADIUS,
-                decorative = true,
-                overlay = { if (!hit.isHeld) RestrictedMarker(hit.id, compact = true) },
-            )
-        } else if (hit.type == SearchHitType.CONTRIBUTOR) {
-            // A person is shown by their face, as on the Contributors list: the framed photo in a
-            // circle, or their initials on their tint. Decorative, like every badge here: the name
-            // beside it is the row's name.
-            Div(attrs = {
-                classes("search-badge", "is-person")
-                attr("aria-hidden", "true")
-                style { property("background", avatarTintFor(hit.name)) }
-            }) { ContributorPhoto(hit.id, hit.name, hit.imagePath, hit.imageFrame) }
-        } else {
-            Div(attrs = {
-                classes("search-badge")
-                attr("aria-hidden", "true")
-            }) { Icon(badgeIconFor(hit.type), size = SEARCH_BADGE_ICON_SIZE) }
-        }
+        SearchRowBadge(hit)
 
         Div(attrs = { classes("search-info") }) {
             Div(attrs = { classes("search-name") }) { Text(hit.name) }
@@ -369,6 +386,35 @@ internal fun SearchRow(
         if (isOpenable) {
             Div(attrs = { classes("search-chevron") }) { Icon(WebIcon.ChevronRight, size = SEARCH_CHEVRON_SIZE) }
         }
+    }
+}
+
+/** The row's leading picture: a book's cover, a person's face, or the type's glyph. */
+@Composable
+private fun SearchRowBadge(hit: SearchHit) {
+    if (hit.type == SearchHitType.BOOK) {
+        Cover(
+            title = hit.name,
+            imageUrl = coverUrl(hit.id, hit.coverHash, SEARCH_COVER_RUNG),
+            size = SEARCH_BADGE_SIZE,
+            radius = SEARCH_BADGE_RADIUS,
+            decorative = true,
+            overlay = { if (!hit.isHeld) RestrictedMarker(hit.id, compact = true) },
+        )
+    } else if (hit.type == SearchHitType.CONTRIBUTOR) {
+        // A person is shown by their face, as on the Contributors list: the framed photo in a
+        // circle, or their initials on their tint. Decorative, like every badge here: the name
+        // beside it is the row's name.
+        Div(attrs = {
+            classes("search-badge", "is-person")
+            attr("aria-hidden", "true")
+            style { property("background", avatarTintFor(hit.name)) }
+        }) { ContributorPhoto(hit.id, hit.name, hit.imagePath, hit.imageFrame) }
+    } else {
+        Div(attrs = {
+            classes("search-badge")
+            attr("aria-hidden", "true")
+        }) { Icon(badgeIconFor(hit.type), size = SEARCH_BADGE_ICON_SIZE) }
     }
 }
 
