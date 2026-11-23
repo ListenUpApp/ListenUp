@@ -72,6 +72,8 @@ import listenup.composeapp.generated.resources.common_cancel
 import listenup.composeapp.generated.resources.common_continue
 import listenup.composeapp.generated.resources.common_done
 import listenup.composeapp.generated.resources.common_email
+import listenup.composeapp.generated.resources.invite_enter_code
+import listenup.composeapp.generated.resources.invite_have_invite_prompt
 
 /**
  * Sign-in screen — the entry point when a server is configured but the app holds no valid session.
@@ -84,6 +86,8 @@ import listenup.composeapp.generated.resources.common_email
  * @param onChangeServer Disconnects and returns to server selection.
  * @param onRegister Opens the account-request screen (only when [openRegistration]).
  * @param onForgotPassword Opens the admin-approval password-reset flow.
+ * @param onClaimInvite Opens invite-code entry against the connected server; null where claiming
+ *   makes no sense (re-signing-in to a lapsed session), which hides the entry.
  */
 @Composable
 fun LoginScreen(
@@ -94,6 +98,8 @@ fun LoginScreen(
     // No default: a call site that forgets this ships a visible button that silently does
     // nothing (androidMain's LoginNavigation did exactly that). Every host must decide.
     onForgotPassword: () -> Unit,
+    // No default, for the same reason: every host decides whether an invite can be claimed here.
+    onClaimInvite: (() -> Unit)?,
     // Hidden by default — the root escape hatch surfaces only while the server reports
     // `LISTENUP_ROOT_RESET` armed ([ServerInfo.rootResetArmed]), so the once-in-a-blue-moon
     // operator affordance never clutters the everyday sign-in screen.
@@ -137,6 +143,7 @@ fun LoginScreen(
                 onChangeServer = onChangeServer,
                 showRootReset = showRootResetEntry,
                 onResetRoot = { showRootReset = true },
+                onClaimInvite = onClaimInvite,
             )
         }
         SnackbarHost(
@@ -226,6 +233,7 @@ internal fun LoginFooter(
     onChangeServer: () -> Unit,
     showRootReset: Boolean,
     onResetRoot: () -> Unit = {},
+    onClaimInvite: (() -> Unit)?,
 ) {
     val haptics = LocalHaptics.current
     if (openRegistration) {
@@ -246,6 +254,29 @@ internal fun LoginFooter(
                 },
             ) {
                 Text(stringResource(Res.string.auth_create_account))
+            }
+        }
+    }
+
+    // Shown whether or not registration is open: with it closed, an invite is the only way in.
+    if (onClaimInvite != null) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = stringResource(Res.string.invite_have_invite_prompt),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            TextButton(
+                onClick = {
+                    haptics.press()
+                    onClaimInvite()
+                },
+            ) {
+                Text(stringResource(Res.string.invite_enter_code))
             }
         }
     }

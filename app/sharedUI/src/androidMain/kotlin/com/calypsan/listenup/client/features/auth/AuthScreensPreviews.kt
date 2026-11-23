@@ -44,7 +44,13 @@ private fun SignInPreviewBody() {
         subtitle = stringResource(Res.string.auth_sign_in_to_access_your),
     ) {
         LoginFields(state = LoginUiState.Idle, onSubmit = { _, _ -> })
-        LoginFooter(openRegistration = true, onRegister = {}, onChangeServer = {}, showRootReset = true)
+        LoginFooter(
+            openRegistration = true,
+            onRegister = {},
+            onChangeServer = {},
+            showRootReset = true,
+            onClaimInvite = {},
+        )
     }
 }
 

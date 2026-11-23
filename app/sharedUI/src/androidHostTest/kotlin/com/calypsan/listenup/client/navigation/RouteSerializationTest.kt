@@ -43,7 +43,7 @@ class RouteSerializationTest :
     })
 
 /** One sample value per AuthRoute subtype. */
-private fun sampleAuthRoutes(): List<AuthRoute> = listOf(ServerSelect, ServerSetup, Setup, Login, Register, ForgotPassword)
+private fun sampleAuthRoutes(): List<AuthRoute> = listOf(ServerSelect, ServerSetup, Setup, Login, Register, ForgotPassword, ClaimInvite)
 
 /**
  * One sample value per Route subtype, with deterministic arguments where the subtype takes any.

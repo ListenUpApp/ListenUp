@@ -30,6 +30,7 @@ import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.model.AuthState
+import com.calypsan.listenup.client.features.invite.JoinScreen
 import com.calypsan.listenup.client.features.auth.ForgotPasswordScreen
 import com.calypsan.listenup.client.features.auth.LoginScreen
 import com.calypsan.listenup.client.features.auth.PendingApprovalScreen
@@ -66,6 +67,7 @@ private val authNavSavedStateConfiguration =
                     subclass(Login::class)
                     subclass(Register::class)
                     subclass(ForgotPassword::class)
+                    subclass(ClaimInvite::class)
                 }
             }
     }
@@ -298,7 +300,20 @@ private fun LoginNavigation(
                         onForgotPassword = {
                             backStack.add(ForgotPassword)
                         },
+                        onClaimInvite = {
+                            backStack.add(ClaimInvite)
+                        },
                         showRootResetEntry = rootResetArmed,
+                    )
+                }
+                entry<ClaimInvite> {
+                    // The code is looked up against the server already connected. A successful
+                    // claim stores the session, and auth-state routing takes over from there.
+                    JoinScreen(
+                        onClaimed = {},
+                        onCancel = {
+                            backStack.removeAt(backStack.lastIndex)
+                        },
                     )
                 }
                 entry<Register> {

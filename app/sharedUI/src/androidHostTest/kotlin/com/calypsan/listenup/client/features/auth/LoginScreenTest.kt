@@ -75,6 +75,7 @@ class LoginScreenTest {
                         onChangeServer = {},
                         showRootReset = true,
                         onResetRoot = { clicked = true },
+                        onClaimInvite = null,
                     )
                 }
             }
@@ -99,12 +100,57 @@ class LoginScreenTest {
                         onChangeServer = {},
                         showRootReset = false,
                         onResetRoot = {},
+                        onClaimInvite = null,
                     )
                 }
             }
         }
 
         composeRule.onNodeWithText("Reset root password").assertDoesNotExist()
+    }
+
+    @Test
+    fun `the sign-in footer offers to enter an invite code`() {
+        // An invite is the only way onto a server with registration closed, and a code given by
+        // voice or in a chat that strips links has no deep link to open: the code must be typeable.
+        var claimed = false
+        composeRule.setContent {
+            MaterialTheme {
+                Column {
+                    LoginFooter(
+                        openRegistration = false,
+                        onRegister = {},
+                        onChangeServer = {},
+                        showRootReset = false,
+                        onClaimInvite = { claimed = true },
+                    )
+                }
+            }
+        }
+
+        composeRule.onNodeWithText("Have an invite code?").assertIsDisplayed()
+        composeRule.onNodeWithText("Enter code").performClick()
+
+        claimed shouldBe true
+    }
+
+    @Test
+    fun `a re-auth sign-in with no invite route offers no invite code`() {
+        composeRule.setContent {
+            MaterialTheme {
+                Column {
+                    LoginFooter(
+                        openRegistration = false,
+                        onRegister = {},
+                        onChangeServer = {},
+                        showRootReset = false,
+                        onClaimInvite = null,
+                    )
+                }
+            }
+        }
+
+        composeRule.onNodeWithText("Enter code").assertDoesNotExist()
     }
 
     @Test
