@@ -15291,17 +15291,6 @@
         }
       }
     },
-    "genre_destination.more_options": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "More options"
-          }
-        }
-      }
-    },
     "genre_destination.scope_off": {
       "extractionState": "manual",
       "localizations": {

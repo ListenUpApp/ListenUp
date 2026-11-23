@@ -2292,7 +2292,6 @@
     "books_count": "%1$d books"
   },
   "genre_destination": {
-    "more_options": "More options",
     "include_sub_genres": "Include sub-genres",
     "scope_on": "Counting %1$d books across %2$s + %3$d sub-genres",
     "scope_off": "Just %1$d tagged %2$s directly · %3$s",

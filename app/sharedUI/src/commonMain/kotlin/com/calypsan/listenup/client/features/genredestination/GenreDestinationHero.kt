@@ -26,14 +26,12 @@ import kotlin.time.Duration.Companion.milliseconds
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.browse_facet_books_label
 import listenup.composeapp.generated.resources.browse_facet_total_label
-import listenup.composeapp.generated.resources.common_search
-import listenup.composeapp.generated.resources.genre_destination_more_options
 import org.jetbrains.compose.resources.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 
 /**
- * Genre-hued hero band for a genre destination page: the back/search/overflow row, a scalloped
+ * Genre-hued hero band for a genre destination page: the back button, a scalloped
  * icon badge, the breadcrumb trail (root-first ancestors, each tappable), the genre title, an
  * optional curator blurb, and two stat chips (book count + total length).
  *
@@ -57,19 +55,6 @@ internal fun GenreDestinationHero(
         hue = identity.hue,
         icon = identity.icon.toImageVector(),
         onBackClick = onBackClick,
-        trailingActions = {
-            // Search and overflow are chrome-only for now — no destination is wired yet.
-            HeroIconButton(
-                icon = ListenUpIcons.Search,
-                contentDescription = stringResource(Res.string.common_search),
-                onClick = {},
-            )
-            HeroIconButton(
-                icon = ListenUpIcons.MoreVert,
-                contentDescription = stringResource(Res.string.genre_destination_more_options),
-                onClick = {},
-            )
-        },
     ) {
         if (breadcrumb.isNotEmpty()) {
             Spacer(modifier = Modifier.height(14.dp))
