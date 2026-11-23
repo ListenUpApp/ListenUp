@@ -41,6 +41,32 @@ class Mp3ParserTest :
             result.data.tags.authors shouldBe listOf("Brandon Sanderson")
         }
 
+        test("ID3v2.4 NUL-separated values become separate authors, narrators and genres, and never leak a NUL") {
+            // MusicBrainz Picard and mutagen write multiple values into one v2.4 text frame, NUL-separated.
+            val bytes =
+                buildMp3File {
+                    id3v2(version = 4) {
+                        textFrame("TIT2", "A\u0000B")
+                        textFrame("TPE1", "Alice\u0000Bob")
+                        textFrame("TCOM", "Carol\u0000Dan")
+                        textFrame("TCON", "Fantasy\u0000Epic")
+                        textFrame("TSOP", "Smith, Alice\u0000Jones, Bob")
+                        textFrame("TPUB", "Tor\u0000Macmillan")
+                    }
+                    mpegFrames(durationSeconds = 1)
+                }
+            val result = parser.parse(byteSource(bytes))
+            require(result is AppResult.Success<EmbeddedAudioMetadata>)
+            val tags = result.data.tags
+            tags.authors shouldBe listOf("Alice", "Bob")
+            tags.narrators shouldBe listOf("Carol", "Dan")
+            tags.genres shouldBe listOf("Fantasy", "Epic")
+            tags.title shouldBe "A"
+            tags.publisher shouldBe "Tor"
+            // The sort string stays aligned with the author list once split on the person separator.
+            tags.authorsSort shouldBe "Smith, Alice; Jones, Bob"
+        }
+
         test("parse returns Success with title from ID3v2.3 text frames") {
             val bytes =
                 buildMp3File {
