@@ -54,6 +54,7 @@ import org.koin.dsl.koinApplication
 import org.koin.dsl.module
 import org.w3c.dom.EventInit
 import org.w3c.dom.HTMLButtonElement
+import org.w3c.dom.HTMLDialogElement
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLTextAreaElement
 import org.w3c.dom.asList
@@ -834,6 +835,57 @@ class RatingsTest :
             button(host, "Save")!!.click()
 
             saved shouldContainExactly listOf(10 to "Loved it.")
+        }
+
+        test("Escape after changing the stars asks before discarding, and leaves the dialog open") {
+            var dismissed = 0
+            val host =
+                mounts.mount {
+                    RateBookDialog(
+                        open = true,
+                        current = null,
+                        onSave = { _, _ -> },
+                        onClear = {},
+                        onDismiss = { dismissed++ },
+                    )
+                }
+            awaitPresent(host, "[role=slider]")
+            slider(host).press("End")
+            awaitFrame()
+
+            // Escape reaches a modal <dialog> as a cancelable `cancel`, then — unless refused — `close`.
+            val dialog = host.querySelector("dialog") as HTMLDialogElement
+            val escape = Event("cancel", EventInit(cancelable = true))
+            dialog.dispatchEvent(escape)
+            awaitFrame()
+
+            escape.defaultPrevented shouldBe true
+            dismissed shouldBe 0
+            dialog.open shouldBe true
+            host.textContent.orEmpty() shouldContainString "Discard your changes?"
+        }
+
+        test("a close the browser makes runs the dialog's current dismiss rule, not the one it opened with") {
+            var dismissed = 0
+            val host =
+                mounts.mount {
+                    RateBookDialog(
+                        open = true,
+                        current = null,
+                        onSave = { _, _ -> },
+                        onClear = {},
+                        onDismiss = { dismissed++ },
+                    )
+                }
+            awaitPresent(host, "[role=slider]")
+            slider(host).press("End")
+            awaitFrame()
+
+            (host.querySelector("dialog") as HTMLDialogElement).close()
+            awaitFrame()
+
+            // At open the draft was unchanged, so the stale rule would have dismissed at once.
+            dismissed shouldBe 0
         }
 
         test("Edit note opens on your rating and note, and Remove rating clears it") {

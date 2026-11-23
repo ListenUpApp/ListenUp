@@ -1,6 +1,8 @@
 package com.calypsan.listenup.web.design
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.P
@@ -38,6 +40,9 @@ import org.w3c.dom.events.Event
  * player's bottom sheet (`panel-sheet`). [headerAction] shares a row with the heading (`.dlg-head`), for a panel whose
  * way out sits beside its title rather than at its foot.
  *
+ * Escape asks the caller rather than closing: the native `cancel` is refused and [onDismiss] runs,
+ * so a dialog holding unsaved work can ask before it goes. Every caller closes in its [onDismiss].
+ *
  * Closing hands focus back to whatever opened it — Cancel, Escape and the confirming verb alike. The
  * dialog is torn down rather than closed in place, so the browser's own restore never runs, and focus
  * fell to `<body>`: the reader's next Tab started again from the top of the page. When the opener has
@@ -57,6 +62,10 @@ fun ModalDialog(
     if (!open) return
 
     val titleId = panelClass?.let { "$it-title" } ?: DIALOG_TITLE_ID
+    // `ref` runs once per element, so a listener registered there would keep the FIRST
+    // composition's `onDismiss` for the dialog's whole life — a rule like "ask before discarding
+    // a changed draft" would be judged against the draft as it opened.
+    val currentOnDismiss by rememberUpdatedState(onDismiss)
 
     Dialog(attrs = {
         classes("dlg")
@@ -67,11 +76,20 @@ fun ModalDialog(
             val dialog = element as HTMLDialogElement
             val returnTo = FocusReturn.from(dialog)
             if (!dialog.open) dialog.showModal()
-            // Escape and the backdrop both fire `cancel`/`close` without touching our buttons, so
-            // the caller has to hear about it or its `open` flag drifts out of step with reality.
-            val onClose: (Event) -> Unit = { onDismiss() }
+            // Escape fires `cancel`, then `close`. Refusing the `cancel` keeps the dialog open and
+            // hands the decision to the caller's dismiss rule, which either closes it (`open =
+            // false`) or asks first ("Discard your changes?") — by `close` it is too late to ask.
+            val onCancel: (Event) -> Unit = { event ->
+                event.preventDefault()
+                currentOnDismiss()
+            }
+            // A close the browser makes without a `cancel` first: the caller has to hear about it
+            // or its `open` flag drifts out of step with reality.
+            val onClose: (Event) -> Unit = { currentOnDismiss() }
+            dialog.addEventListener("cancel", onCancel)
             dialog.addEventListener("close", onClose)
             onDispose {
+                dialog.removeEventListener("cancel", onCancel)
                 dialog.removeEventListener("close", onClose)
                 if (dialog.open) dialog.close()
                 returnTo.restore()
