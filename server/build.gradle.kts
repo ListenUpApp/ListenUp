@@ -158,6 +158,9 @@ kotlin {
                 // PartialContent — byte-range/seek support behind the file-response seam
                 // (respondSeekable). Publishes a linuxX64 variant.
                 implementation(libs.ktor.server.partial.content)
+                // AutoHeadResponse — HEAD for every GET route (players and download managers probe
+                // with it). Publishes linuxX64 + linuxArm64 variants.
+                implementation(libs.ktor.server.auto.head.response)
                 // Koin DI — the di/ Koin modules + Application.module() are commonMain (Phase 5).
                 // koin-core and koin-ktor (the install(Koin) plugin) both publish linuxX64 variants.
                 implementation(libs.koin.core)
@@ -189,7 +192,6 @@ kotlin {
                 // the resources/status-pages/auth/sse/call-id plugins are in commonMain
                 // (moved there for the native HTTP foundation). JVM-only Ktor plugins below:
                 implementation(libs.ktor.server.call.logging)
-                implementation(libs.ktor.server.auto.head.response)
 
                 // Ktor CIO client engine — the JVM metadata client (metadataHttpClient.jvm.kt).
                 implementation(libs.ktor.client.cio)

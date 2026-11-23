@@ -29,7 +29,6 @@ import com.calypsan.listenup.server.di.userPreferencesModule
 import com.calypsan.listenup.server.di.uploadModule
 import com.calypsan.listenup.server.embeddedmeta.embeddedmetaModule
 import com.calypsan.listenup.server.plugins.installAppErrorStatusPages
-import com.calypsan.listenup.server.plugins.installAutoHeadResponse
 import com.calypsan.listenup.server.plugins.installCallId
 import com.calypsan.listenup.server.plugins.installCallLogging
 import com.calypsan.listenup.server.plugins.installVersionHeaders
@@ -39,6 +38,7 @@ import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
 import io.ktor.server.application.ApplicationStopped
 import io.ktor.server.application.install
+import io.ktor.server.plugins.autohead.AutoHeadResponse
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.plugins.partialcontent.PartialContent
 import io.ktor.server.resources.Resources
@@ -107,7 +107,7 @@ internal fun Application.installCorePlugins() {
     }
     install(Krpc)
     install(PartialContent)
-    installAutoHeadResponse()
+    install(AutoHeadResponse)
     monitor.subscribe(ApplicationStopped) { logger.info { "See You Space Cowboy..." } }
 }
 
