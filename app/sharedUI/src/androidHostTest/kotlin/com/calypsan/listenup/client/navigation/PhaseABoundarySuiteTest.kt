@@ -69,25 +69,30 @@ class PhaseABoundarySuiteTest {
         // `rememberViewModelStoreNavEntryDecorator` appear in the same NavDisplay
         // arglist.
 
-        val authNav =
-            readNavigationSource(
-                "sharedUI/src/commonMain/kotlin/com/calypsan/listenup/client/navigation/AuthNavigation.kt",
-            )
-        val listenUpNav =
-            readNavigationSource(
-                "sharedUI/src/androidMain/kotlin/com/calypsan/listenup/client/navigation/ListenUpNavigation.kt",
+        val sources =
+            mapOf(
+                "AuthNavigation.kt" to
+                    readNavigationSource(
+                        "sharedUI/src/commonMain/kotlin/com/calypsan/listenup/client/navigation/AuthNavigation.kt",
+                    ),
+                "ListenUpNavigation.kt" to
+                    readNavigationSource(
+                        "sharedUI/src/androidMain/kotlin/com/calypsan/listenup/client/navigation/ListenUpNavigation.kt",
+                    ),
+                "OnboardingNavigation.kt" to
+                    readNavigationSource(
+                        "sharedUI/src/androidMain/kotlin/com/calypsan/listenup/client/navigation/OnboardingNavigation.kt",
+                    ),
             )
 
-        val sites = mutableListOf<Pair<String, Int>>()
-        sites += findNavDisplaySites("AuthNavigation.kt", authNav)
-        sites += findNavDisplaySites("ListenUpNavigation.kt", listenUpNav)
+        val sites = sources.flatMap { (name, lines) -> findNavDisplaySites(name, lines) }
 
         withClue("Expected 7 NavDisplay sites; found ${sites.size}") {
             sites.size shouldBe 7
         }
 
         for ((file, lineIdx) in sites) {
-            val window = if (file.endsWith("AuthNavigation.kt")) authNav else listenUpNav
+            val window = sources.getValue(file)
             val sliceEnd = (lineIdx + 30).coerceAtMost(window.size)
             val slice = window.subList(lineIdx, sliceEnd).joinToString("\n")
             val hasSaveable = "rememberSaveableStateHolderNavEntryDecorator" in slice
