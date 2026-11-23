@@ -21,7 +21,6 @@ import com.calypsan.listenup.api.MatchingService
 import com.calypsan.listenup.api.MoodService
 import com.calypsan.listenup.api.NotificationService
 import com.calypsan.listenup.api.OrganizeService
-import com.calypsan.listenup.api.PingService
 import com.calypsan.listenup.api.PlaybackService
 import com.calypsan.listenup.api.ProfileService
 import com.calypsan.listenup.api.PushService
@@ -83,7 +82,6 @@ private fun Route.publicRpc(services: RpcServices) {
         rpcConfig { serialization { json(contractJson) } }
         // guardedConstruction wraps the factory bodies so a `as`-cast failure is sanitized rather
         // than shipped raw to the client (the scoped/authed registrations get it via registerScoped).
-        registerService<PingService> { guardedConstruction { guard(PingServiceImpl()) } }
         registerService<InstanceService> { guardedConstruction { guard(services.instanceService) } }
         // C3: bind the caller's remote host so the per-IP login/register/refresh throttle inside
         // AuthServiceImpl keys on it — the RPC public mount is otherwise un-rate-limited (many login

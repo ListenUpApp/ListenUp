@@ -1,6 +1,8 @@
 package com.calypsan.listenup.server
 
-import com.calypsan.listenup.api.PingService
+import com.calypsan.listenup.api.EXPECTED_API_VERSION
+import com.calypsan.listenup.api.InstanceService
+import com.calypsan.listenup.api.dto.ServerInfo
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.testing.useIsolatedTestConfig
 import io.kotest.core.spec.style.FunSpec
@@ -51,11 +53,12 @@ class PluginSmokeTest :
                     rpcClient
                         .rpc("ws://localhost/api/rpc/public") {
                             rpcConfig { serialization { json() } }
-                        }.withService<PingService>()
+                        }.withService<InstanceService>()
 
-                val result = service.ping()
-                result.shouldBeInstanceOf<AppResult.Success<String>>()
-                result.data shouldBe "pong"
+                val result = service.getServerInfo()
+                result.shouldBeInstanceOf<AppResult.Success<ServerInfo>>()
+                result.data.apiVersion shouldBe EXPECTED_API_VERSION
+                result.data.setupRequired shouldBe true
             }
         }
     })

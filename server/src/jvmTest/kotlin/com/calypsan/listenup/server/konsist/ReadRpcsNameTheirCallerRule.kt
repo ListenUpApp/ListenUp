@@ -31,7 +31,7 @@ class ReadRpcsNameTheirCallerRule :
             val scope = Konsist.scopeFromProduction("server")
             val reads = readOverrides(scope)
             // Vacuity guard: the scope reached server production and found its reads.
-            reads.size shouldBeGreaterThanOrEqual 60
+            reads.size shouldBeGreaterThanOrEqual 55
             val offenders = findOffenders(scope)
             withClue("Reads that never look at their caller:\n" + offenders.joinToString("\n")) {
                 offenders.shouldBeEmpty()

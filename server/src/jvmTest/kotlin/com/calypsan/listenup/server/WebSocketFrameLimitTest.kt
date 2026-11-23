@@ -1,6 +1,8 @@
 package com.calypsan.listenup.server
 
-import com.calypsan.listenup.api.PingService
+import com.calypsan.listenup.api.EXPECTED_API_VERSION
+import com.calypsan.listenup.api.InstanceService
+import com.calypsan.listenup.api.dto.ServerInfo
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.testing.useIsolatedTestConfig
@@ -42,7 +44,7 @@ class WebSocketFrameLimitTest :
                 application { module() }
                 // Round-trip first: `application { }` is lazy, and the plugin only exists once the
                 // application has actually been built.
-                pingOverPublicRpc()
+                callOverPublicRpc()
 
                 val configured = application.plugin(WebSockets).maxFrameSize
 
@@ -57,7 +59,7 @@ class WebSocketFrameLimitTest :
                 useIsolatedTestConfig()
                 application { module() }
 
-                pingOverPublicRpc()
+                callOverPublicRpc()
             }
         }
     })
@@ -70,7 +72,7 @@ class WebSocketFrameLimitTest :
 private const val EXPECTED_MAX_FRAME_SIZE_BYTES = 33_554_432L
 
 /** Opens an RPC session over the public mount and round-trips one ordinary call through it. */
-private suspend fun ApplicationTestBuilder.pingOverPublicRpc() {
+private suspend fun ApplicationTestBuilder.callOverPublicRpc() {
     val rpcClient =
         createClient {
             install(ClientWebSockets)
@@ -80,7 +82,7 @@ private suspend fun ApplicationTestBuilder.pingOverPublicRpc() {
         rpcClient
             .rpc("ws://localhost/api/rpc/public") {
                 rpcConfig { serialization { json(contractJson) } }
-            }.withService<PingService>()
-            .ping()
-    result.shouldBeInstanceOf<AppResult.Success<String>>().data shouldBe "pong"
+            }.withService<InstanceService>()
+            .getServerInfo()
+    result.shouldBeInstanceOf<AppResult.Success<ServerInfo>>().data.apiVersion shouldBe EXPECTED_API_VERSION
 }
