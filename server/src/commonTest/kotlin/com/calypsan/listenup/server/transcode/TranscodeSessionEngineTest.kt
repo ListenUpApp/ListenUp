@@ -194,6 +194,33 @@ class TranscodeSessionEngineTest :
             fixture.cleanUp()
         }
 
+        // A seek that stops a run mid-segment can leave a short file behind; that is a strike against
+        // the timing, not the source. A segment that then serves whole has proven the source fine.
+        test("a segment that serves correctly clears its strikes, so seeking alone never exhausts its retries") {
+            val fixture = engineWith(FakeSpawner())
+            repeat(TranscodeSessionEngine.MAX_BAD_SEGMENT_RETRIES) {
+                fixture.engine.abandonBadSegment("b1", "f1", 4).verdict shouldBe BadSegmentVerdict.Retry
+            }
+
+            fixture.engine.segmentServed("b1", "f1", 4)
+
+            repeat(TranscodeSessionEngine.MAX_BAD_SEGMENT_RETRIES) {
+                fixture.engine.abandonBadSegment("b1", "f1", 4).verdict shouldBe BadSegmentVerdict.Retry
+            }
+            fixture.engine.hasGivenUpOn("b1", "f1", 4) shouldBe false
+            fixture.cleanUp()
+        }
+
+        test("serving one segment clears no other segment's strikes") {
+            val fixture = engineWith(FakeSpawner())
+            repeat(TranscodeSessionEngine.MAX_BAD_SEGMENT_RETRIES + 1) { fixture.engine.abandonBadSegment("b1", "f1", 4) }
+
+            fixture.engine.segmentServed("b1", "f1", 5)
+
+            fixture.engine.hasGivenUpOn("b1", "f1", 4) shouldBe true
+            fixture.cleanUp()
+        }
+
         test("strikes are counted per segment") {
             val fake = FakeSpawner()
             val fixture = engineWith(fake)

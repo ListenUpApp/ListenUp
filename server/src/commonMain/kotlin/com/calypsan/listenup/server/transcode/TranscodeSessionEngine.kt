@@ -155,7 +155,7 @@ class TranscodeSessionEngine(
      * The outcome is [BadSegmentVerdict.GiveUp] once the same segment has failed more than
      * [MAX_BAD_SEGMENT_RETRIES] times — a source that encodes wrong every time must not be
      * re-encoded on every tap. From then on [hasGivenUpOn] answers for it, until the server
-     * restarts.
+     * restarts or the file's cache directory is evicted. A good serve ([segmentServed]) clears its strikes.
      */
     suspend fun abandonBadSegment(
         bookId: String,
@@ -173,6 +173,21 @@ class TranscodeSessionEngine(
                 encoderStderr = abandoned?.stderrTail.orEmpty(),
             )
         }
+
+    /**
+     * Records that segment [index] passed its frame check and was served, which clears its strikes.
+     *
+     * A strike is evidence against the source only while nothing contradicts it: a segment a seek cut
+     * short (its run was stopped mid-write) fails once and then encodes whole. Without this, a healthy
+     * segment that a listener's seeking caught out a few times would be refused until the server restarts.
+     */
+    suspend fun segmentServed(
+        bookId: String,
+        fileId: String,
+        index: Int,
+    ) {
+        mutex.withLock { badSegmentStrikes.remove(strikeKey(bookId, fileId, index)) }
+    }
 
     /** Whether segment [index] has failed verification too often to be encoded again. */
     suspend fun hasGivenUpOn(
@@ -216,11 +231,21 @@ class TranscodeSessionEngine(
             if (total <= cap) break
             if (candidate.bytes == 0L || isRunning(candidate)) continue
             cache.evict(candidate.bookId, candidate.fileId)
+            forgetStrikes(candidate.bookId, candidate.fileId)
             total -= candidate.bytes
             log.info {
                 "transcode cache over cap: evicted ${candidate.bookId}/${candidate.fileId} (${candidate.bytes} bytes)"
             }
         }
+    }
+
+    /** An evicted file starts over: its segments will be encoded afresh, so old strikes say nothing about them. */
+    private suspend fun forgetStrikes(
+        bookId: String,
+        fileId: String,
+    ) {
+        val prefix = "${key(bookId, fileId)}/"
+        mutex.withLock { badSegmentStrikes.keys.removeAll { it.startsWith(prefix) } }
     }
 
     private suspend fun isRunning(file: CachedFile): Boolean =

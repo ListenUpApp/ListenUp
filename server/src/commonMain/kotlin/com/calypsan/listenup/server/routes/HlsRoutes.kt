@@ -283,6 +283,7 @@ internal suspend fun respondVerifiedSegment(
         }
         return respondAppResult<Unit>(call, AppResult.Failure(TranscodeError.TranscodeFailed(debugInfo = detail)))
     }
+    engine.segmentServed(target.bookId, target.fileId, index)
     respondReadBytes(
         call = call,
         path = cache.segmentPath(target.bookId, target.fileId, index),
