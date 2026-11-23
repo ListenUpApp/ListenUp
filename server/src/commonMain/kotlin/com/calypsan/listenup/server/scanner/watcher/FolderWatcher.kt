@@ -110,6 +110,17 @@ internal class FolderWatcher(
     }
 
     private suspend fun handle(event: DirectoryWatchEvent) {
+        if (event.kind == DirectoryWatchEventKind.Overflow) {
+            // The platform dropped events from anywhere under this folder, so no event path bounds what
+            // changed: re-offer the whole folder. Its parent (what computeBookRoot would give) lies
+            // outside the library and would be ignored downstream. Not debounced — there is no file to
+            // settle, and the reanalysis queue coalesces a repeat.
+            logger.warn {
+                "watcher: event queue overflowed under $libraryRoot — events were lost; rescanning the folder"
+            }
+            events.emit(libraryRoot)
+            return
+        }
         // event.path is the absolute child path (the low-level watcher resolves it against the
         // watched directory before emitting).
         val fullPath = Path(event.path)

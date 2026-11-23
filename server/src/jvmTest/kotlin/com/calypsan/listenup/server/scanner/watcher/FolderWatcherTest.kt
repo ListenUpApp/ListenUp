@@ -10,6 +10,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import java.nio.file.Files
@@ -37,6 +38,27 @@ class FolderWatcherTest :
     FunSpec({
 
         val isLinux = System.getProperty("os.name").lowercase().contains("linux")
+
+        test("a watcher queue overflow re-offers the whole folder, not a book root or a parent outside it") {
+            runBlocking {
+                val tmp = Files.createTempDirectory("listenup-watcher-overflow-")
+                val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+                val lowLevel = OverflowingWatcher()
+                val watcher = FolderWatcher(libraryRoot = IoPath(tmp.toString()), scope = scope, watcher = lowLevel)
+                try {
+                    watcher.start()
+                    watcher.events.test(timeout = 5.seconds) {
+                        lowLevel.overflow()
+                        // Events were lost anywhere under the folder, so the folder itself is rescanned.
+                        awaitItem() shouldBe IoPath(tmp.toString())
+                        expectNoEvents()
+                    }
+                } finally {
+                    scope.cancel()
+                    tmp.toFile().deleteRecursively()
+                }
+            }
+        }
 
         if (!isLinux) {
             test("FolderWatcher integration tests are Linux-only — skipping suite") { /* no-op */ }
@@ -157,6 +179,24 @@ class FolderWatcherTest :
             }
         }
     })
+
+/** A low-level watcher that only ever reports a lost-events overflow. */
+private class OverflowingWatcher : LowLevelDirectoryWatcher {
+    override val onEventFlow = MutableSharedFlow<DirectoryWatchEvent>(extraBufferCapacity = 8)
+    private val watched = mutableListOf<String>()
+
+    /** Reports an overflow naming the first watched directory (the folder root), as the JVM watcher does. */
+    suspend fun overflow() {
+        val root = watched.first()
+        onEventFlow.emit(DirectoryWatchEvent(root, root, DirectoryWatchEventKind.Overflow))
+    }
+
+    override suspend fun add(directory: String) {
+        watched += directory
+    }
+
+    override suspend fun close() = Unit
+}
 
 private suspend fun withWatcher(
     libraryRoot: Path,

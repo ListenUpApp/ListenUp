@@ -90,9 +90,9 @@ internal class RecursiveDirectoryWatcher(
                 for (event in key.pollEvents()) {
                     when (event.kind()) {
                         OVERFLOW -> {
-                            // Events for this dir were lost — re-emit it so the subtree re-walks.
+                            // Events were lost; the consumer decides how much to rescan.
                             onEventFlow.emit(
-                                DirectoryWatchEvent(dir.toString(), dir.toString(), DirectoryWatchEventKind.Create),
+                                DirectoryWatchEvent(dir.toString(), dir.toString(), DirectoryWatchEventKind.Overflow),
                             )
                         }
 

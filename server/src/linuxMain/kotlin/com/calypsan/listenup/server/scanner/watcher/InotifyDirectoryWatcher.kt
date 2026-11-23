@@ -76,8 +76,7 @@ private val SHUTDOWN_JOIN_TIMEOUT = 5.seconds
  * a `wd → directory` map recovers the parent. inotify's `MOVED_TO`/`MOVED_FROM` map to Create/Delete
  * exactly as the JVM WatchService does. A created sub-directory is registered and walked, emitting
  * synthetic Creates for files already inside it — closing the copy-before-watch race. `IN_Q_OVERFLOW`
- * (which names no watch) re-emits every watched directory as a Create so each subtree re-walks;
- * `IN_IGNORED` drops a vanished watch.
+ * is surfaced as an Overflow event so the consumer rescans; `IN_IGNORED` drops a vanished watch.
  *
  * The event loop runs on a dedicated thread and blocks in `poll()` over the inotify fd and a shutdown
  * `eventfd`; [close] writes the eventfd to wake the loop — a race-free alternative to closing the fd
@@ -177,12 +176,9 @@ internal class InotifyDirectoryWatcher(
         name: String,
     ) {
         if (mask and IN_Q_OVERFLOW.toUInt() != 0u) {
-            // Events were lost, and the kernel cannot say where: an overflow carries wd == -1, so it
-            // must be handled before the wd lookup below would discard it. Re-emit every watched
-            // directory so each subtree is re-walked — what the JDK's inotify WatchService does too.
-            val watched = synchronized(stateLock) { wdToDir.values.toList() }
-            logger.warn { "inotify queue overflowed — re-walking all ${watched.size} watched directories" }
-            watched.forEach { dir -> onEventFlow.emit(DirectoryWatchEvent(dir, dir, DirectoryWatchEventKind.Create)) }
+            // Tested before the wd lookup: inotify(7) sends IN_Q_OVERFLOW with wd -1, which names no watched
+            // directory — the whole queue lost events. The consumer decides how much to rescan.
+            onEventFlow.emit(DirectoryWatchEvent("", "", DirectoryWatchEventKind.Overflow))
             return
         }
         if (mask and IN_IGNORED.toUInt() != 0u) {
