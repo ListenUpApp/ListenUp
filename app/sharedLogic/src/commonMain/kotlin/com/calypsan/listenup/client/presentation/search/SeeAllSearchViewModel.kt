@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import com.calypsan.listenup.client.presentation.WhileSubscribedForUi
 
 private val logger = KotlinLogging.logger {}
@@ -124,6 +125,12 @@ class SeeAllSearchViewModel(
         request.value = Request(query = query, type = type)
     }
 
+    /** Runs the same search again after it failed; a no-op in any other state. */
+    fun retry() {
+        if (state.value !is SeeAllSearchUiState.Error) return
+        request.update { it?.copy(attempt = it.attempt + 1) }
+    }
+
     fun onResultClicked(hit: SearchHit) {
         onResultSelected(hit.id, hit.type, hit.name)
     }
@@ -153,6 +160,8 @@ class SeeAllSearchViewModel(
     private data class Request(
         val query: String,
         val type: SearchHitType,
+        /** Bumped by [retry], so the same query and type run again. */
+        val attempt: Int = 0,
     )
 
     companion object {

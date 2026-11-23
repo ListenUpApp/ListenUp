@@ -11,10 +11,8 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -55,6 +53,7 @@ import listenup.composeapp.generated.resources.contributor_no_longer_here
 import listenup.composeapp.generated.resources.contributor_no_longer_here_detail
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
+import com.calypsan.listenup.client.design.components.DetailUnavailable
 
 /**
  * Artist Portfolio screen - an immersive contributor detail experience.
@@ -112,12 +111,9 @@ fun ContributorDetailScreen(
                 ContributorDetailLoadingFrame(contributorId = contributorId, onBackClick = onBackClick)
             }
 
+            // The contributor comes from Room, so there is no fetch to retry; Back is the way out.
             is ContributorDetailUiState.Error -> {
-                Text(
-                    text = current.message,
-                    color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.align(Alignment.Center),
-                )
+                DetailUnavailable(message = current.message, onBack = onBackClick, onRetry = null)
             }
 
             ContributorDetailUiState.NotFound -> {

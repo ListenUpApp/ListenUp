@@ -7,6 +7,7 @@ import com.calypsan.listenup.client.domain.model.SearchHitType
 import com.calypsan.listenup.client.domain.model.SearchResult
 import com.calypsan.listenup.client.domain.repository.SearchRepository
 import com.calypsan.listenup.core.error.ErrorBus
+import dev.mokkery.answering.calls
 import dev.mokkery.answering.returns
 import dev.mokkery.answering.throws
 import dev.mokkery.everySuspend
@@ -164,6 +165,32 @@ class SeeAllSearchViewModelTest :
 
                 val state = viewModel.state.value.shouldBeInstanceOf<SeeAllSearchUiState.Results>()
                 state.hits.map { it.id } shouldBe listOf("s-1", "s-2")
+            }
+        }
+
+        test("Try again runs the same search again after a failure") {
+            runTest {
+                val fixture = createFixture()
+                var reachable = false
+                everySuspend {
+                    fixture.searchRepository.search(any(), any(), any(), any(), any())
+                } calls {
+                    if (reachable) searchResult(listOf(bookHit("b1"))) else error("offline")
+                }
+                val viewModel = fixture.build()
+                keepStateHot(viewModel)
+                viewModel.load(query = "test", type = SearchHitType.BOOK)
+                advanceUntilIdle()
+                viewModel.state.value.shouldBeInstanceOf<SeeAllSearchUiState.Error>()
+
+                reachable = true
+                viewModel.retry()
+                advanceUntilIdle()
+
+                viewModel.state.value
+                    .shouldBeInstanceOf<SeeAllSearchUiState.Results>()
+                    .hits
+                    .map { it.id } shouldBe listOf("b1")
             }
         }
 

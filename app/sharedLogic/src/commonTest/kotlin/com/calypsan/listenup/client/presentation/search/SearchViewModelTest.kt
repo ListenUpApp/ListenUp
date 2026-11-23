@@ -5,6 +5,7 @@ import com.calypsan.listenup.client.domain.model.SearchHit
 import com.calypsan.listenup.client.domain.model.SearchHitType
 import com.calypsan.listenup.client.domain.model.SearchResult
 import com.calypsan.listenup.client.domain.repository.SearchRepository
+import dev.mokkery.answering.calls
 import dev.mokkery.answering.returns
 import dev.mokkery.answering.throws
 import dev.mokkery.everySuspend
@@ -277,6 +278,32 @@ class SearchViewModelTest :
                 val state = viewModel.state.value.shouldBeInstanceOf<SearchUiState.Results>()
                 state.query shouldBe "test"
                 state.result.hits.size shouldBe 2
+            }
+        }
+
+        test("Try again runs the same search again after a failure") {
+            runTest {
+                val fixture = createFixture()
+                var reachable = false
+                everySuspend {
+                    fixture.searchRepository.search(any(), any(), any(), any(), any())
+                } calls {
+                    if (reachable) createSearchResult(hits = listOf(createBookHit("b1"))) else error("offline")
+                }
+                val viewModel = fixture.build()
+                keepStateHot(viewModel)
+                viewModel.onQueryChanged("test")
+                advanceTimeBy(400.milliseconds)
+                advanceUntilIdle()
+                viewModel.state.value.shouldBeInstanceOf<SearchUiState.Error>()
+
+                reachable = true
+                viewModel.retry()
+                advanceTimeBy(400.milliseconds)
+                advanceUntilIdle()
+
+                val results = viewModel.state.value.shouldBeInstanceOf<SearchUiState.Results>()
+                results.query shouldBe "test"
             }
         }
 

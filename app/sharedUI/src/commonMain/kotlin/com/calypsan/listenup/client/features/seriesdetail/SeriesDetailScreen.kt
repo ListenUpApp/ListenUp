@@ -24,7 +24,6 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -58,6 +57,8 @@ import com.calypsan.listenup.client.features.seriesdetail.components.SubSeriesSe
 import com.calypsan.listenup.client.features.seriesdetail.components.seriesBookList
 import com.calypsan.listenup.client.features.seriesedit.components.AddSubSeriesSheet
 import com.calypsan.listenup.client.presentation.seriesedit.AddSubSeriesEvent
+import com.calypsan.listenup.client.design.components.DetailUnavailable
+import com.calypsan.listenup.client.design.components.FloatingBackButton
 
 /**
  * Series detail — a color-blocked hero with the expressive fanned cover deck, a "Continue"
@@ -97,14 +98,12 @@ fun SeriesDetailScreen(
             when (val current = state) {
                 SeriesDetailUiState.Idle, SeriesDetailUiState.Loading -> {
                     ListenUpLoadingIndicator(modifier = Modifier.align(Alignment.Center))
+                    FloatingBackButton(onBackClick = onBackClick, modifier = Modifier.align(Alignment.TopStart))
                 }
 
+                // Live state, not a failed fetch: the series is not in the library (yet). It arrives on its own.
                 is SeriesDetailUiState.Error -> {
-                    Text(
-                        text = current.message,
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.align(Alignment.Center),
-                    )
+                    DetailUnavailable(message = current.message, onBack = onBackClick, onRetry = null)
                 }
 
                 is SeriesDetailUiState.Ready -> {

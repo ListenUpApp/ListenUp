@@ -64,6 +64,8 @@ import listenup.composeapp.generated.resources.common_books_count
 import listenup.composeapp.generated.resources.contributor_books_by_count
 import listenup.composeapp.generated.resources.contributor_books_by_s_count
 import listenup.composeapp.generated.resources.contributor_other_books
+import com.calypsan.listenup.client.design.components.DetailUnavailable
+import com.calypsan.listenup.client.design.components.FloatingBackButton
 
 /**
  * Deep Dive screen - explore all books by a contributor in a specific role.
@@ -95,14 +97,12 @@ fun ContributorBooksScreen(
         when (val current = state) {
             ContributorBooksUiState.Idle, ContributorBooksUiState.Loading -> {
                 ListenUpLoadingIndicator(modifier = Modifier.align(Alignment.Center))
+                FloatingBackButton(onBackClick = onBackClick, modifier = Modifier.align(Alignment.TopStart))
             }
 
+            // The books come from Room, so there is no fetch to retry; Back is the way out.
             is ContributorBooksUiState.Error -> {
-                Text(
-                    text = current.message,
-                    color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.align(Alignment.Center),
-                )
+                DetailUnavailable(message = current.message, onBack = onBackClick, onRetry = null)
             }
 
             is ContributorBooksUiState.Ready -> {
