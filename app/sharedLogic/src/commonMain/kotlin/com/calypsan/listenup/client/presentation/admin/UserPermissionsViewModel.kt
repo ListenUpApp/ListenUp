@@ -52,6 +52,17 @@ class UserPermissionsViewModel(
             .stateIn(viewModelScope, WhileSubscribedForUi, UserPermissionsUiState.Loading)
 
     init {
+        load()
+    }
+
+    /** Re-runs the first load after it failed; a no-op in any other state, so nothing on screen is discarded. */
+    fun retry() {
+        if (session.value !is Session.Failed) return
+        session.value = Session.Loading
+        load()
+    }
+
+    private fun load() {
         viewModelScope.launch {
             // A failed probe reads as an older server: one toggle, no presets — never a flag it can't store.
             val advertised =

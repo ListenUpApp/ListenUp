@@ -12,6 +12,7 @@ import com.calypsan.listenup.client.domain.model.UserPermissions
 import com.calypsan.listenup.client.domain.repository.AdminRepository
 import com.calypsan.listenup.client.test.fake.FakeInstanceRepository
 import com.calypsan.listenup.core.error.ErrorBus
+import dev.mokkery.answering.calls
 import dev.mokkery.answering.returns
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
@@ -369,6 +370,41 @@ class UserPermissionsViewModelTest :
                 val repo: AdminRepository =
                     mock { everySuspend { getUser("u1") } returns AppResult.Failure(TransportError.NetworkUnavailable()) }
                 open(repo).state.value.shouldBeInstanceOf<UserPermissionsUiState.Error>()
+            }
+        }
+
+        test("retry after a failed load reaches Ready") {
+            runTest {
+                var reachable = false
+                val repo: AdminRepository =
+                    mock {
+                        everySuspend { getUser("u1") } calls {
+                            if (reachable) AppResult.Success(member()) else AppResult.Failure(TransportError.NetworkUnavailable())
+                        }
+                    }
+                val viewModel = open(repo)
+                viewModel.state.value.shouldBeInstanceOf<UserPermissionsUiState.Error>()
+
+                reachable = true
+                viewModel.retry()
+                advanceUntilIdle()
+
+                viewModel.ready()
+            }
+        }
+
+        test("retry once loaded keeps the unsaved draft and loads nothing") {
+            runTest {
+                val repo: AdminRepository = mock { everySuspend { getUser("u1") } returns AppResult.Success(member()) }
+                val viewModel = open(repo)
+                viewModel.selectPreset(PermissionPreset.LIBRARIAN)
+                advanceUntilIdle()
+
+                viewModel.retry()
+                advanceUntilIdle()
+
+                viewModel.ready().changeCount shouldBe 1
+                verifySuspend(VerifyMode.exactly(1)) { repo.getUser("u1") }
             }
         }
     })

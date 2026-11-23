@@ -41,6 +41,13 @@ class AdminCollectionsViewModel(
         observeCollections()
     }
 
+    /** Re-runs the first load after it failed; a no-op in any other state, so nothing on screen is discarded. */
+    fun retry() {
+        if (state.value !is AdminCollectionsUiState.Error) return
+        state.value = AdminCollectionsUiState.Loading
+        observeCollections()
+    }
+
     /** Observe collections from the local Room mirror; transition Loading → Ready on the first emission. */
     private fun observeCollections() {
         viewModelScope.launch {

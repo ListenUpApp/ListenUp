@@ -44,6 +44,13 @@ class LibrarySettingsViewModel(
         loadLibrary()
     }
 
+    /** Re-runs the first load after it failed; a no-op in any other state, so nothing on screen is discarded. */
+    fun retry() {
+        if (state.value !is LibrarySettingsUiState.Error) return
+        state.value = LibrarySettingsUiState.Loading
+        loadLibrary()
+    }
+
     /**
      * Load the library details from the server.
      *
