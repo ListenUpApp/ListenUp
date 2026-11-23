@@ -37,6 +37,7 @@ import io.ktor.client.HttpClient
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import org.koin.ktor.ext.inject
+import kotlinx.io.files.SystemFileSystem
 import java.nio.file.Files
 
 /** 25s at 44.1 kHz is three frame-aligned segments — short to encode, long enough to have a tail. */
@@ -141,6 +142,24 @@ class HlsRoutesTest :
 
                 response.status shouldBe HttpStatusCode.OK
                 response.bodyAsBytes().toList() shouldBe segmentBytes.toList()
+            }
+        }
+
+        // The playlist for this file declares three segments (0..2). An index past the end names no
+        // audio at all, so it must be refused before anything is started — a request for
+        // `seg/99999.aac` used to spawn an encoder seeked past the end of the book.
+        test("a segment index past the end of the playlist is 404 and starts no encode") {
+            withHlsFixture { client, query ->
+                val cache by application.inject<SegmentCache>()
+
+                for (index in listOf(3, 99_999, Int.MAX_VALUE)) {
+                    withClue("seg/$index.aac") {
+                        client.get("/api/v1/hls/b1/af1/seg/$index.aac?$query").status shouldBe
+                            HttpStatusCode.NotFound
+                    }
+                }
+                // The engine prepares this directory the moment it spawns an encoder for the file.
+                SystemFileSystem.exists(cache.fileDir("b1", "af1")) shouldBe false
             }
         }
 

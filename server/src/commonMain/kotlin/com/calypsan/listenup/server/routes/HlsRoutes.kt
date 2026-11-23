@@ -6,9 +6,7 @@ import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.audio.AudioFileLocator
 import com.calypsan.listenup.server.audio.AudioUrlSigner
 import com.calypsan.listenup.server.auth.UserRoleLookup
-import com.calypsan.listenup.server.io.fileIoDispatcher
-import com.calypsan.listenup.server.io.readBytes
-import com.calypsan.listenup.server.io.respondSeekable
+import com.calypsan.listenup.server.io.respondReadBytes
 import com.calypsan.listenup.server.transcode.AdtsFrames
 import com.calypsan.listenup.server.transcode.BadSegmentVerdict
 import com.calypsan.listenup.server.transcode.HlsPlaylist
@@ -29,7 +27,6 @@ import io.ktor.server.response.respond
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.delay
 
 private val log = KotlinLogging.logger("com.calypsan.listenup.server.routes.HlsRoutes")
@@ -167,6 +164,8 @@ private suspend fun serveSegment(
         call.parameters["index"]?.toIntOrNull()?.takeIf { it >= 0 } ?: return call.respond(HttpStatusCode.BadRequest)
     val info = locator.transcodeInfo(target.bookId, target.fileId) ?: return call.respond(HttpStatusCode.NotFound)
     val plan = HlsPlaylist.plan(info.durationMs, info.sampleRate, settings.targetSegmentSeconds)
+    // Past the end of the playlist names no audio: refuse it before anything can wake the encoder.
+    if (index !in plan.segmentDurations.indices) return call.respond(HttpStatusCode.NotFound)
 
     // Given up on: every attempt at this segment came out wrong, so answer at once rather than
     // encode it again — and rather than wait for a file that was deleted the last time it failed.
@@ -255,7 +254,7 @@ private suspend fun serveSegment(
  * check that catches that, and it catches every other cause of a short segment for free: a killed
  * encoder, a truncated write, a full disk.
  */
-private suspend fun respondVerifiedSegment(
+internal suspend fun respondVerifiedSegment(
     call: ApplicationCall,
     engine: TranscodeSessionEngine,
     cache: SegmentCache,
@@ -263,8 +262,9 @@ private suspend fun respondVerifiedSegment(
     index: Int,
     plan: HlsPlaylist.Plan,
 ) {
-    val path = cache.segmentPath(target.bookId, target.fileId, index)
-    val frames = withContext(fileIoDispatcher) { AdtsFrames.countFrames(path.readBytes()) }
+    // Read once: the bytes counted are the bytes served, with no second trip to disk.
+    val bytes = cache.readSegment(target.bookId, target.fileId, index)
+    val frames = AdtsFrames.countFrames(bytes)
     val expected = plan.expectedFrames(index)
     if (frames == null || frames !in expected) {
         // Abandon first: it stops the encoder that produced this segment, so nothing is still
@@ -283,11 +283,16 @@ private suspend fun respondVerifiedSegment(
         }
         return respondAppResult<Unit>(call, AppResult.Failure(TranscodeError.TranscodeFailed(debugInfo = detail)))
     }
-    respondSeekable(call, path, AAC)
+    respondReadBytes(
+        call = call,
+        path = cache.segmentPath(target.bookId, target.fileId, index),
+        bytes = bytes,
+        contentType = AAC,
+    )
 }
 
 /** The `(bookId, fileId)` a verified request is for. */
-private data class HlsTarget(
+internal data class HlsTarget(
     val bookId: String,
     val fileId: String,
 )

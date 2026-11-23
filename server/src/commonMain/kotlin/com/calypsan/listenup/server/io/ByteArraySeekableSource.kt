@@ -3,10 +3,9 @@ package com.calypsan.listenup.server.io
 import kotlinx.io.EOFException
 
 /**
- * In-memory [SeekableSource] over a fixed byte array — the test-only
- * counterpart to the production [RandomAccessFile][java.io.RandomAccessFile]
- * source. Lets parser tests drive a synthetic MP4/MP3 byte array (built by the
- * fixtures DSL) through the real parsing seam without touching the filesystem.
+ * In-memory [SeekableSource] over a fixed byte array. Serves bytes already read and checked (an HLS
+ * segment, verified before it is sent) without a second trip to disk, and lets parser tests drive a
+ * synthetic MP4/MP3 byte array through the real parsing seam without touching the filesystem.
  */
 internal class ByteArraySeekableSource(
     private val data: ByteArray,
@@ -27,7 +26,7 @@ internal class ByteArraySeekableSource(
     ): Int {
         if (pos >= data.size) return -1
         val n = minOf(count, data.size - pos.toInt())
-        data.copyInto(into, 0, pos.toInt(), pos.toInt() + n)
+        data.copyInto(destination = into, destinationOffset = 0, startIndex = pos.toInt(), endIndex = pos.toInt() + n)
         pos += n
         return n
     }
@@ -39,5 +38,5 @@ internal class ByteArraySeekableSource(
         return out
     }
 
-    override fun close() {}
+    override fun close() = Unit
 }

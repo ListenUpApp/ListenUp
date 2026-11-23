@@ -15,6 +15,7 @@ import kotlinx.io.buffered
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
 import kotlinx.io.writeString
+import platform.linux.IN_Q_OVERFLOW
 import kotlin.random.Random
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
@@ -62,6 +63,40 @@ class InotifyDirectoryWatcherNativeTest :
             }
         }
 
+        // The kernel reports a queue overflow with wd == -1 — it belongs to no watch, because the
+        // events it stands for could have been in any of them. Looking the wd up first dropped it, so
+        // a burst big enough to overflow (a whole series copied in at once) lost its changes silently.
+        // Fed synthetically: overflowing a real queue takes `max_queued_events` (16384) events.
+        test("a queue overflow re-emits every watched directory, so lost events are re-walked") {
+            val root = Path("lu-inotify-overflow-${Random.nextInt(1, Int.MAX_VALUE).toString(HEX_RADIX)}")
+            val sub = Path(root, "Author")
+            SystemFileSystem.createDirectories(sub)
+            val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+            val watcher = InotifyDirectoryWatcher(scope)
+            val events = Channel<DirectoryWatchEvent>(Channel.UNLIMITED)
+            val collector: Job =
+                scope.launch { watcher.onEventFlow.collect { events.send(it) } }
+            try {
+                delay(SUBSCRIBE_DELAY)
+                watcher.add(root.toString())
+                watcher.add(sub.toString())
+
+                watcher.dispatch(wd = OVERFLOW_WD, mask = IN_Q_OVERFLOW.toUInt(), name = "")
+
+                val rewalked =
+                    List(2) {
+                        events.await { it.kind == DirectoryWatchEventKind.Create && it.path == it.targetDirectory }
+                    }
+                rewalked.map { it.path }.toSet() shouldBe setOf(root.toString(), sub.toString())
+            } finally {
+                collector.cancel()
+                watcher.close()
+                scope.cancel()
+                SystemFileSystem.delete(sub, mustExist = false)
+                SystemFileSystem.delete(root, mustExist = false)
+            }
+        }
+
         // `close()` used to `cancelAndJoin()` the poll loop with no ceiling. The loop blocks in
         // `poll(..., -1)`, and a blocking syscall is not a cancellation point — so whenever the
         // eventfd wake failed, that join could never return and server shutdown would hang on it.
@@ -91,6 +126,9 @@ private suspend fun Channel<DirectoryWatchEvent>.await(predicate: (DirectoryWatc
 
 private const val HEX_RADIX = 16
 private const val WATCHED_FILE_NAME = "book.mp3"
+
+/** The watch descriptor the kernel puts on an `IN_Q_OVERFLOW` event — it belongs to no watch. */
+private const val OVERFLOW_WD = -1
 private val SUBSCRIBE_DELAY = 300.milliseconds
 private val AWAIT_TIMEOUT = 5.seconds
 

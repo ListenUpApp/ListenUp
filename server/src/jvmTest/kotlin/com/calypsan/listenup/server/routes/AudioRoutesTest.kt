@@ -30,6 +30,7 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.get
+import io.ktor.client.request.head
 import io.ktor.client.request.header
 import io.ktor.client.statement.bodyAsBytes
 import io.ktor.http.HttpHeaders
@@ -425,12 +426,12 @@ class AudioRoutesTest :
                     val signer = AudioUrlSigner(signingKey = TEST_SIGNING_KEY)
                     val query = signer.signedQuery("user1", "b1", "af1")
 
-                    // AutoHeadResponse converts HEAD→GET responses at the framework level.
-                    // Verify that the full GET path returns 200 with the expected headers —
-                    // the plugin strips the body for actual HEAD requests automatically.
-                    val response = client.get("/api/v1/audio/b1/af1?$query")
+                    // A real HEAD through the signed route: the GET's status and headers, no body.
+                    val response = client.head("/api/v1/audio/b1/af1?$query")
                     response.status shouldBe HttpStatusCode.OK
                     response.headers[HttpHeaders.AcceptRanges] shouldBe "bytes"
+                    response.headers[HttpHeaders.ContentLength] shouldBe audioBytes.size.toString()
+                    response.bodyAsBytes().size shouldBe 0
                 }
             } finally {
                 libraryRoot.toFile().deleteRecursively()

@@ -3,6 +3,7 @@ package com.calypsan.listenup.server.transcode
 import com.calypsan.listenup.server.io.deleteRecursively
 import com.calypsan.listenup.server.io.fileIoDispatcher
 import com.calypsan.listenup.server.io.listRegularFilesRecursively
+import com.calypsan.listenup.server.io.readBytes
 import com.calypsan.listenup.server.io.readText
 import com.calypsan.listenup.server.io.statFile
 import kotlinx.coroutines.withContext
@@ -41,6 +42,7 @@ internal data class CachedFile(
 class SegmentCache(
     private val baseDir: Path,
     private val profile: String = DEFAULT_PROFILE,
+    private val readFile: (Path) -> ByteArray = { it.readBytes() },
 ) {
     /** Directory holding one file's segments. */
     fun fileDir(
@@ -95,6 +97,16 @@ class SegmentCache(
         fileId: String,
         index: Int,
     ): Boolean = SystemFileSystem.metadataOrNull(segmentPath(bookId, fileId, index))?.isRegularFile == true
+
+    /**
+     * The whole of segment [index], read once — small enough to hold (seconds of AAC), and needed
+     * whole anyway to count its frames before it is served.
+     */
+    suspend fun readSegment(
+        bookId: String,
+        fileId: String,
+        index: Int,
+    ): ByteArray = withContext(fileIoDispatcher) { readFile(segmentPath(bookId, fileId, index)) }
 
     /**
      * True when segment [index] is on disk **and done being written**.

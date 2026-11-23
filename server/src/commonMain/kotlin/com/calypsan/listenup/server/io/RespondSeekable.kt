@@ -35,9 +35,35 @@ internal suspend fun respondSeekable(
         call.respond(HttpStatusCode.NotFound)
         return
     }
-    call.response.headers.append(HttpHeaders.ETag, etag ?: attributes.entityTag())
-    call.response.headers.append(HttpHeaders.LastModified, GMTDate(attributes.mtimeMs).toHttpDate())
+    call.appendValidators(attributes, etag)
     call.respond(SeekableSourceContent(attributes.size, contentType) { openSeekableSource(path) })
+}
+
+/**
+ * [respondSeekable] for a file whose [bytes] the caller has already read — byte ranges and all,
+ * served from memory rather than read from disk a second time.
+ *
+ * The validators still come from [path]'s attributes (a `stat`, not a read), and only while they
+ * describe a file of the size that was read; if it changed in between they would name bytes this
+ * response does not carry, so it goes without.
+ */
+internal suspend fun respondReadBytes(
+    call: ApplicationCall,
+    path: Path,
+    bytes: ByteArray,
+    contentType: ContentType,
+) {
+    val length = bytes.size.toLong()
+    statFile(path)?.takeIf { it.size == length }?.let { call.appendValidators(it, etag = null) }
+    call.respond(SeekableSourceContent(length, contentType) { ByteArraySeekableSource(bytes) })
+}
+
+private fun ApplicationCall.appendValidators(
+    attributes: FileAttributes,
+    etag: String?,
+) {
+    response.headers.append(HttpHeaders.ETag, etag ?: attributes.entityTag())
+    response.headers.append(HttpHeaders.LastModified, GMTDate(attributes.mtimeMs).toHttpDate())
 }
 
 /**
