@@ -16,8 +16,6 @@ interface BackupService {
 
     suspend fun listBackups(): AppResult<List<BackupSummary>>
 
-    suspend fun getBackup(id: BackupId): AppResult<BackupSummary>
-
     suspend fun deleteBackup(id: BackupId): AppResult<Unit>
 
     suspend fun restoreBackup(id: BackupId): AppResult<RestoreResult>

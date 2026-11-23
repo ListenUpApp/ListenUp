@@ -88,20 +88,6 @@ class BackupServiceImpl(
         }
     }
 
-    override suspend fun getBackup(id: BackupId): AppResult<BackupSummary> {
-        principal.requireAdmin()?.let { return AppResult.Failure(it) }
-        return withContext(fileIoDispatcher) {
-            if (!isSafeBackupId(id.value)) {
-                return@withContext AppResult.Failure(BackupError.BackupNotFound())
-            }
-            val archivePath = paths.archiveFor(id.value)
-            if (!SystemFileSystem.exists(archivePath)) {
-                return@withContext AppResult.Failure(BackupError.BackupNotFound())
-            }
-            AppResult.Success(summaryFrom(id.value, archivePath))
-        }
-    }
-
     override suspend fun deleteBackup(id: BackupId): AppResult<Unit> {
         principal.requireAdmin()?.let { return AppResult.Failure(it) }
         return withContext(fileIoDispatcher) {

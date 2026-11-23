@@ -48,7 +48,6 @@ internal fun makeHierarchyDeps(dbs: SqlTestDatabases): HierarchyDeps {
             seriesRepo = seriesRepo,
             bookRepo = bookRepo,
             sqlDb = dbs.sql,
-            accessPolicy = BookAccessPolicy(dbs.sql, dbs.driver),
             readingOrders = readingOrders,
             principal = rootPrincipal(),
         )

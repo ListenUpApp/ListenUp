@@ -31,7 +31,6 @@ import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
-import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
@@ -73,45 +72,6 @@ class ContributorServiceImplTest :
 
                     val success = result.shouldBeInstanceOf<AppResult.Success<ContributorSyncPayload?>>()
                     success.data shouldBe null
-                }
-            }
-        }
-
-        test("listBooksByContributor returns all books linked to the contributor") {
-            withSqlDatabase {
-                val db = this
-                sql.seedTestLibraryAndFolder()
-                val deps = makeServiceAndDeps(db)
-                val service = deps.service
-                val contributorRepo = deps.contributorRepo
-                val bookRepo = deps.bookRepo
-                runTest {
-                    val contributorId = contributorRepo.resolveOrCreate("Brandon Sanderson", sortName = null)
-                    bookRepo.upsert(bookFixtureWithContributor("b1", "The Way of Kings", contributorId))
-                    bookRepo.upsert(bookFixtureWithContributor("b2", "Words of Radiance", contributorId, rootRelPath = "WoR"))
-
-                    val result = service.listBooksByContributor(contributorId)
-
-                    val success = result.shouldBeInstanceOf<AppResult.Success<List<BookSyncPayload>>>()
-                    success.data shouldHaveSize 2
-                }
-            }
-        }
-
-        test("listBooksByContributor returns empty list when contributor has no books") {
-            withSqlDatabase {
-                val db = this
-                sql.seedTestLibraryAndFolder()
-                val deps = makeServiceAndDeps(db)
-                val service = deps.service
-                val contributorRepo = deps.contributorRepo
-                runTest {
-                    val contributorId = contributorRepo.resolveOrCreate("Unknown Author", sortName = null)
-
-                    val result = service.listBooksByContributor(contributorId)
-
-                    val success = result.shouldBeInstanceOf<AppResult.Success<List<BookSyncPayload>>>()
-                    success.data.shouldBeEmpty()
                 }
             }
         }
@@ -482,7 +442,6 @@ private fun makeServiceAndDeps(db: SqlTestDatabases): ServiceDeps {
             contributorRepo = contributorRepo,
             bookRepo = bookRepo,
             sqlDb = db.sql,
-            accessPolicy = BookAccessPolicy(db.sql, db.driver),
             principal = rootPrincipal(),
         )
     return ServiceDeps(service, contributorRepo, bookRepo)

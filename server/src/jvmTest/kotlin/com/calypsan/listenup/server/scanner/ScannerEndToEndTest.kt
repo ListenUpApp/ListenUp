@@ -5,7 +5,6 @@ import com.calypsan.listenup.api.result.AppResult
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.ktor.client.call.body
-import io.ktor.client.request.get
 import kotlinx.coroutines.delay
 
 /**
@@ -21,10 +20,10 @@ import kotlinx.coroutines.delay
  *  - lastScanResult returns the latest result with all fields populated
  *  - metadata.json overlay precedence end-to-end (server reads sidecar,
  *    folder fields are overridden, wire round-trips correctly)
- *  - ScannerService.scanFull returns Success after the library is registered
+ *  - LibraryAdminService.scanLibrary returns Success after the library is registered
  *
  * No auto-scan on boot: the server does NOT scan at startup. Tests
- * trigger a scan explicitly via ScannerService.scanFull and then poll for the
+ * trigger a scan explicitly via LibraryAdminService.scanLibrary and then poll for the
  * result. This removes the race between the bootstrap scan and test assertions.
  *
  * The `AlreadyRunning` failure mode is exercised at the unit level in
@@ -103,7 +102,7 @@ class ScannerEndToEndTest :
     })
 
 /**
- * Triggers a scan via POST /api/v1/scan (retrying until the library is
+ * Triggers a scan via LibraryAdminService.scanLibrary (retrying until the library is
  *  registered with the orchestrator, then polls ScannerService.lastScanResult until
  * a result is available.
  *
@@ -121,11 +120,11 @@ private suspend fun triggerScanAndWait(
 ): ScanResult {
     val deadline = System.currentTimeMillis() + timeoutMs
 
-    // Step 1: POST /scan until the library is registered and the scan succeeds.
+    // Step 1: start a scan until the library is registered and the scan is accepted.
     // Guard against non-200 responses (e.g. 404 during server startup races on CI)
     // by checking HTTP status before attempting AppResult deserialization.
     while (System.currentTimeMillis() < deadline) {
-        if (fix.scannerService().scanFull() is AppResult.Success) break
+        if (fix.libraryAdminService().scanLibrary() is AppResult.Success) break
         delay(100)
     }
 

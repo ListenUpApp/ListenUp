@@ -2,7 +2,6 @@ package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.TagService
 import com.calypsan.listenup.api.dto.FacetStats
-import com.calypsan.listenup.api.dto.TagSummary
 import com.calypsan.listenup.api.dto.auth.Permission
 import com.calypsan.listenup.api.error.TagError
 import com.calypsan.listenup.api.result.AppResult
@@ -12,7 +11,6 @@ import com.calypsan.listenup.api.sync.Tag
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.TagId
 import com.calypsan.listenup.server.auth.PrincipalProvider
-import com.calypsan.listenup.server.auth.OpenRead
 import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
@@ -23,9 +21,6 @@ import kotlin.time.Clock
 import kotlin.uuid.Uuid
 import com.calypsan.listenup.server.auth.requirePermission
 
-private const val MAX_LIMIT = 1000
-private const val MIN_LIMIT = 1
-
 /**
  * [TagService] implementation.
  *
@@ -35,8 +30,7 @@ private const val MIN_LIMIT = 1
  * intentionally preserved per the contract spec so existing URLs remain valid.
  * Renames therefore cannot produce a slug conflict; the slug stays the same.
  *
- * Tag reads ([listTags], [getTagBySlug], [listBooksForTag], [listTagsForBook]) are open to
- * any authenticated user. Edits ([addTagToBook], [removeTagFromBook], [renameTag]) are gated
+ * [getTagStats] is scoped to the books the caller can reach. Edits ([addTagToBook], [removeTagFromBook], [renameTag]) are gated
  * on [Permission.EDIT_METADATA]; [deleteTag] on [Permission.CURATE_LIBRARY] — both via
  * [permissionPolicy]: ROOT/ADMIN
  * pass implicitly, a MEMBER passes iff their flag is set (fresh DB lookup per call). The
@@ -51,8 +45,8 @@ internal class TagServiceImpl(
     /**
      * Book-level visibility, the same seam [BookServiceImpl] and [GenreServiceImpl] use.
      *
-     * Required, not defaulted: tag reads enumerate and describe BOOKS, so a construction site that
-     * forgot to wire this would silently serve every book on the server to every member. That is
+     * Required, not defaulted: tag stats and book edits touch BOOKS, so a construction site that
+     * forgot to wire this would silently count and edit every book on the server for every member. That is
      * exactly the drift [BookAccessPolicy]'s KDoc warns about — it is the single definition of the
      * rule precisely so no seam re-derives it, and tag reads had been re-deriving it as
      * "whatever is in the junction table".
@@ -84,73 +78,6 @@ internal class TagServiceImpl(
     private suspend fun accessibleBookIdFilter(): Set<String>? {
         val p = principal.current() ?: return emptySet()
         return accessPolicy.accessibleBookIds(p.userId.value, p.role)
-    }
-
-    @OpenRead(reason = "shared vocabulary; names no book")
-    override suspend fun listTags(): AppResult<List<TagSummary>> {
-        val tags = tagRepository.listAll()
-        // Compute book counts via raw SQL sub-select to avoid N+1.
-        val summaries =
-            tags.map { tag ->
-                val bookCount = countLiveJunctionsForTag(tag.id)
-                TagSummary(
-                    id = TagId(tag.id),
-                    slug = tag.slug,
-                    name = tag.name,
-                    bookCount = bookCount,
-                )
-            }
-        // Sort by bookCount desc, then name asc — mirroring the contract spec ordering.
-        return AppResult.Success(
-            summaries.sortedWith(compareByDescending<TagSummary> { it.bookCount }.thenBy { it.name }),
-        )
-    }
-
-    @OpenRead(reason = "shared vocabulary; names no book")
-    override suspend fun getTagBySlug(slug: String): AppResult<TagSummary?> {
-        val tag = tagRepository.findBySlug(slug) ?: return AppResult.Success(null)
-        val bookCount = countLiveJunctionsForTag(tag.id)
-        return AppResult.Success(
-            TagSummary(
-                id = TagId(tag.id),
-                slug = tag.slug,
-                name = tag.name,
-                bookCount = bookCount,
-            ),
-        )
-    }
-
-    override suspend fun listBooksForTag(
-        tagId: TagId,
-        limit: Int,
-    ): AppResult<List<BookId>> {
-        val safeLimit = limit.coerceIn(MIN_LIMIT, MAX_LIMIT)
-        val accessible = accessibleBookIdFilter()
-        val junctions = bookTagRepository.findAllForTag(tagId.value)
-        // Filter BEFORE take. Filtering after would silently return short pages — a member whose
-        // first `limit` junction rows all point at hidden books would get an empty page while
-        // accessible books sat just past the cut.
-        val visible = junctions.map { it.bookId }.filter { accessible == null || it in accessible }
-        return AppResult.Success(visible.take(safeLimit).map { BookId(it) })
-    }
-
-    override suspend fun listTagsForBook(bookId: BookId): AppResult<List<Tag>> {
-        if (!bookExists(bookId.value)) {
-            return AppResult.Failure(TagError.BookNotFound())
-        }
-        // The SAME failure an absent book produces, deliberately. BookServiceImpl.getBook makes the
-        // same choice: a book the caller cannot reach must not be distinguishable from one that
-        // does not exist, or the denial itself confirms the book is there.
-        val p = principal.current() ?: return AppResult.Failure(TagError.BookNotFound())
-        if (!accessPolicy.canAccess(p.userId.value, p.role, bookId.value)) {
-            return AppResult.Failure(TagError.BookNotFound())
-        }
-        val junctions = bookTagRepository.findAllForBook(bookId.value)
-        // Batch the tag reads (one round-trip per 900-id chunk) instead of one findById
-        // per junction. findByIds preserves order and skips absent/tombstoned ids, so the
-        // result is identical to the prior per-row mapNotNull.
-        val tags = tagRepository.findByIds(junctions.map { it.tagId })
-        return AppResult.Success(tags)
     }
 
     override suspend fun getTagStats(tagId: TagId): AppResult<FacetStats> {
@@ -288,9 +215,6 @@ internal class TagServiceImpl(
 
     private suspend fun bookExists(bookId: String): Boolean =
         suspendTransaction(sql) { sql.booksQueries.existsLiveById(bookId).executeAsOne() }
-
-    private suspend fun countLiveJunctionsForTag(tagId: String): Long =
-        suspendTransaction(sql) { sql.bookTagsQueries.countLiveForTag(tagId).executeAsOne() }
 }
 
 /**

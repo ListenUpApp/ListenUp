@@ -23,8 +23,7 @@ import kotlinx.rpc.annotations.Rpc
 /**
  * Match details: find a book or a person in every catalogue, review per field, apply once, undo.
  *
- * Supersedes [MetadataLookupService] for new clients; that service stays, unchanged, for older ones. Find,
- * Review and Apply are stateless on the server — a candidate is identified by its
+ * Find, Review and Apply are stateless on the server — a candidate is identified by its
  * [com.calypsan.listenup.api.dto.match.BookCandidateKey].
  */
 @Rpc

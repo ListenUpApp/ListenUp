@@ -1,6 +1,5 @@
 package com.calypsan.listenup.server.sync
 
-import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.Mood
 import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
@@ -26,10 +25,9 @@ import kotlin.time.Clock
  *
  * Service-layer helpers beyond the base substrate:
  *  - [findById] — fetch one non-deleted mood by id
- *  - [findByIds] — batch fetch non-deleted moods by id (the N+1 fix for `listMoodsForBook`)
+ *  - [findByIds] — batch fetch non-deleted moods by id
  *  - [findBySlug] — fetch one non-deleted mood by slug (the stable URL identity)
  *  - [listAll] — fetch all non-deleted moods, ordered by name
- *  - [updateName] — rename a mood (updates [Mood.name] only; slug is preserved)
  */
 class MoodRepository(
     db: ListenUpDatabase,
@@ -146,9 +144,7 @@ class MoodRepository(
      * Returns the non-deleted moods whose ids appear in [ids], in the same order as
      * [ids] and skipping ids that are absent or tombstoned.
      *
-     * This is the batched read that replaces the per-id `findById` loop in
-     * `MoodServiceImpl.listMoodsForBook` — one round-trip (per 900-id chunk) instead of
-     * one per junction row.
+     * One round-trip (per 900-id chunk) instead of one `findById` per id.
      */
     suspend fun findByIds(ids: List<String>): List<Mood> {
         if (ids.isEmpty()) return emptyList()
@@ -186,27 +182,6 @@ class MoodRepository(
                 .executeAsList()
                 .map { it.toMood() }
         }
-
-    /**
-     * Updates the [Mood.name] of the mood with [id] to [newName]. [Mood.slug] is
-     * intentionally preserved — the slug is the stable URL identity and must
-     * not change on rename.
-     *
-     * Bumps revision and publishes a [com.calypsan.listenup.api.sync.SyncEvent.Updated]
-     * to the change bus so clients receive the renamed payload. Returns the
-     * updated [Mood], or null when no non-deleted row with [id] exists.
-     */
-    suspend fun updateName(
-        id: String,
-        newName: String,
-    ): Mood? {
-        val current = findById(id) ?: return null
-        val updated = current.copy(name = newName)
-        return when (val result = upsert(updated)) {
-            is AppResult.Success -> result.data
-            is AppResult.Failure -> null
-        }
-    }
 
     /** Maps a generated [Moods] row to the wire [Mood] DTO. */
     private fun Moods.toMood(): Mood =

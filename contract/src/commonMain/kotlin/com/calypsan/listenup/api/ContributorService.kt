@@ -2,7 +2,6 @@ package com.calypsan.listenup.api
 
 import com.calypsan.listenup.api.dto.ContributorUpdate
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.ContributorSyncPayload
 import com.calypsan.listenup.core.ContributorId
 import kotlinx.rpc.annotations.Rpc
@@ -11,14 +10,14 @@ import kotlinx.rpc.annotations.Rpc
  * RPC contract for contributor access and user-edit mutations.
  *
  * Two surface categories:
- * - **Observation** — [getContributor], [listBooksByContributor] are safe to
+ * - **Observation** — [getContributor] is safe to
  *   call repeatedly. Cache-miss reads for OUR contributor entities — clients
  *   observe Room locally; when a contributor is referenced but not yet synced,
  *   they call this service for the single-entity fallback.
  * - **Mutation** — [updateContributor], [deleteContributor] mutate server state;
  *   The sync firehose delivers the authoritative payload to all connected clients.
  *
- * External Audible/iTunes metadata lookups live on [MetadataLookupService] —
+ * External catalog lookups live on [MatchingService] —
  * separate service because local reads (fast, no external calls) and external
  * lookups (slow, rate-limited, fallible) have different transport semantics.
  */
@@ -36,15 +35,6 @@ interface ContributorService {
      * on demand and render immediately while sync catches up in the background.
      */
     suspend fun getContributor(id: ContributorId): AppResult<ContributorSyncPayload?>
-
-    /**
-     * Returns all books associated with [id] in rank-stable order.
-     *
-     * Clients hydrate book detail from Room for ids already cached and call
-     * `BookService.getBook` for any that are not. A contributor with no books
-     * returns an empty list — never a failure.
-     */
-    suspend fun listBooksByContributor(id: ContributorId): AppResult<List<BookSyncPayload>>
 
     // ── Mutation (new in Books-C1) ───────────────────────────────────────────
 

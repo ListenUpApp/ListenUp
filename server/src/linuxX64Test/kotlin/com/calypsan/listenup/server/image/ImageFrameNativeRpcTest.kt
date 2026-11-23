@@ -10,7 +10,6 @@ import com.calypsan.listenup.api.dto.image.ImageFraming
 import com.calypsan.listenup.api.dto.profile.Profile
 import com.calypsan.listenup.api.dto.profile.UpdateProfileRequest
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.ContributorSyncPayload
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.server.auth.JwtConfiguration
@@ -105,8 +104,6 @@ private class RecordingContributors(
 
     override suspend fun getContributor(id: ContributorId): AppResult<ContributorSyncPayload?> = unused()
 
-    override suspend fun listBooksByContributor(id: ContributorId): AppResult<List<BookSyncPayload>> = unused()
-
     override suspend fun deleteContributor(id: ContributorId): AppResult<Unit> = unused()
 
     override suspend fun mergeContributors(
@@ -130,6 +127,4 @@ private class RecordingProfiles(
         received += request
         return AppResult.Success(Profile(UserId("u1"), "Ada", updatedAt = 1))
     }
-
-    override suspend fun getMyProfile(): AppResult<Profile> = error("not part of this test")
 }

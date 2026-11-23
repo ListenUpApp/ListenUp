@@ -241,7 +241,7 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
      *
      * Identical write semantics to [upsert] — the base delegates to this — with one addition: the
      * `Created`/`Updated` event it defers to the firehose is also returned. The echo-in-response
-     * mutation path (`applyContributorMetadata` and friends) uses this to hand the originating
+     * mutation path (`applyPersonMatch` and friends) uses this to hand the originating
      * device its own change back through the RPC response as a [com.calypsan.listenup.api.sync.SyncFrame],
      * so it applies read-your-writes the instant the call returns instead of waiting on the live
      * firehose. The returned event is the SAME instance the firehose broadcasts — projected to a

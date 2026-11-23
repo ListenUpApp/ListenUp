@@ -82,21 +82,13 @@ class ImportServiceTest :
                     // kings + mist + fidelity resolve to ListenUp books; unresolved + podcast skipped.
                     appliedData.sessionsImported shouldBe 3
 
-                    val summary = service.getImport(importId)
-                    summary.shouldBeInstanceOf<AppResult.Success<*>>()
-                    (summary as AppResult.Success).data.status shouldBe ImportStatus.APPLIED
+                    store.getImport(importId)?.status shouldBe ImportStatus.APPLIED
 
                     val list = service.listImports()
                     list.shouldBeInstanceOf<AppResult.Success<*>>()
                     (list as AppResult.Success).data.map { it.id } shouldBe listOf(importId)
 
                     service.deleteImport(importId).shouldBeInstanceOf<AppResult.Success<*>>()
-                    service
-                        .getImport(importId)
-                        .let { (it as AppResult.Failure).error }
-                        .shouldBeInstanceOf<ImportError.ImportNotFound>()
-
-                    // Sanity: the store agrees the directory is gone.
                     store.getImport(importId) shouldBe null
                 }
             }
@@ -157,7 +149,6 @@ class ImportServiceTest :
                     service.confirmMapping(importId, emptyMap(), emptyMap()).denied()
                     service.apply(importId).denied()
                     service.listImports().denied()
-                    service.getImport(importId).denied()
                     service.deleteImport(importId).denied()
                 }
             }

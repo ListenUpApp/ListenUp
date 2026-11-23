@@ -61,9 +61,6 @@ selectLiveFollowersOfOrder:
 SELECT id, user_id FROM reading_order_follows
 WHERE reading_order_id = :reading_order_id AND deleted_at IS NULL;
 
-countLiveFollowersOfOrder:
-SELECT COUNT(*) FROM reading_order_follows WHERE reading_order_id = :reading_order_id AND deleted_at IS NULL;
-
 insert:
 INSERT INTO reading_order_follows (id, user_id, series_id, choice, reading_order_id, created_at, updated_at, revision, deleted_at, client_op_id)
 VALUES (:id, :user_id, :series_id, :choice, :reading_order_id, :created_at, :updated_at, :revision, :deleted_at, :client_op_id);

@@ -7,7 +7,6 @@ import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.api.metadata.BookField
 import com.calypsan.listenup.api.metadata.MetadataDomain
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.server.api.toMetadataBook
 import com.calypsan.listenup.server.metadata.audible.AudibleApi
 import com.calypsan.listenup.server.metadata.audible.AudibleBook
 import com.calypsan.listenup.server.metadata.audible.AudibleChapter
@@ -78,7 +77,7 @@ private fun identity(asin: String = "B01") = BookIdentity(asin = asin, title = "
 class EnrichmentCoordinatorTest :
     FunSpec({
 
-        test("composeBook reproduces the pre-refactor MetadataBook shape (Audible core + genres + series, iTunes max cover)") {
+        test("composeBook merges Audible core, genres and series with the iTunes max-size cover") {
             val audible =
                 FakeProvider(
                     id = MetadataProviderId.AUDIBLE,
@@ -122,26 +121,25 @@ class EnrichmentCoordinatorTest :
                 )
 
             runTest {
-                val book = coordinator(audible, itunes).composeBookData(identity(), US)!!.toMetadataBook()
+                val book = coordinator(audible, itunes).composeBookData(identity(), US)!!
 
                 book.asin shouldBe "B01"
-                book.title shouldBe "The Way of Kings"
-                book.subtitle shouldBe "The Stormlight Archive, Book 1"
-                book.description shouldBe "Roshar is a world of stone and storms."
-                book.publisher shouldBe "Macmillan Audio"
-                book.releaseDate shouldBe "2010-08-31"
-                book.language shouldBe "english"
-                book.runtimeMinutes shouldBe 2734
-                book.authors.map { it.name } shouldContainExactly listOf("Brandon Sanderson")
-                book.narrators.map { it.name } shouldContainExactly listOf("Kate Reading")
+                book.core.title shouldBe "The Way of Kings"
+                book.core.subtitle shouldBe "The Stormlight Archive, Book 1"
+                book.core.description shouldBe "Roshar is a world of stone and storms."
+                book.core.publisher shouldBe "Macmillan Audio"
+                book.core.releaseDate shouldBe "2010-08-31"
+                book.core.language shouldBe "english"
+                book.core.runtimeMinutes shouldBe 2734
+                book.core.authors.map { it.name } shouldContainExactly listOf("Brandon Sanderson")
+                book.core.narrators.map { it.name } shouldContainExactly listOf("Kate Reading")
                 book.series.map { it.title } shouldContainExactly listOf("The Stormlight Archive")
-                book.genres shouldContainExactly listOf("Fantasy", "Epic")
+                book.genres.map { it.name } shouldContainExactly listOf("Fantasy", "Epic")
                 // Audible provides the primary cover; iTunes provides the max-resolution rendition.
                 book.coverUrl shouldBe "https://audible.test/cover.jpg"
                 book.coverUrlMaxSize shouldBe "https://itunes.test/7000.jpg"
-                // The dead moods/tags scrape is gone — both are empty on the composed preview.
+                // The dead moods scrape is gone — empty on the composed book.
                 book.moods.shouldBeEmpty()
-                book.tags.shouldBeEmpty()
             }
         }
 

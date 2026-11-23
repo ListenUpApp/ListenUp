@@ -38,7 +38,6 @@ private const val PRINCIPAL_TYPE_USER = "USER"
  * Service-layer helpers beyond the base substrate (all USER-principal scoped):
  *  - [findActiveGrant] — the live grant for a `(collectionId, userId)` pair
  *  - [listActiveGrantsForCollection] — all live USER grants on a collection
- *  - [listActiveGrantsForUser] — all collections granted to a user
  *  - [softDeleteGrant] — revoke the active grant for a `(collectionId, userId)` pair
  */
 class CollectionGrantRepository(
@@ -184,15 +183,6 @@ class CollectionGrantRepository(
         suspendTransaction(db) {
             db.collectionGrantsQueries
                 .listActiveUserGrantsForCollection(collectionId)
-                .executeAsList()
-                .map { it.toSharePayload() }
-        }
-
-    /** Returns all active (non-tombstoned) USER grants where [userId] is the recipient. */
-    suspend fun listActiveGrantsForUser(userId: String): List<CollectionShareSyncPayload> =
-        suspendTransaction(db) {
-            db.collectionGrantsQueries
-                .listActiveUserGrantsForPrincipal(userId)
                 .executeAsList()
                 .map { it.toSharePayload() }
         }

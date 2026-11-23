@@ -21,8 +21,8 @@ import kotlinx.rpc.annotations.Rpc
  * cannot access are silently excluded from the returned list.
  *
  * Three surface categories:
- * - **Own-shelf observation** — [listMyShelves], [getShelf] (owner path) read
- *   the caller's shelves and are safe to call repeatedly.
+ * - **Own-shelf observation** — [getShelf] (owner path) reads one of the
+ *   caller's shelves and is safe to call repeatedly.
  * - **Own-shelf mutation** — [createShelf], [updateShelf], [deleteShelf],
  *   [addBookToShelf], [removeBookFromShelf], [reorderShelfBooks] mutate the
  *   caller's shelves; all fail with [com.calypsan.listenup.api.error.ShelfError.Forbidden]
@@ -148,15 +148,6 @@ interface ShelfService {
     ): AppResult<Unit>
 
     // ── Observation ──────────────────────────────────────────────────────────
-
-    /**
-     * Returns all non-deleted shelves owned by the caller as a list of [Shelf]
-     * summaries, ordered by most-recently-updated first.
-     *
-     * The caller's own shelves are synced offline-first via the sync substrate;
-     * this RPC is the authoritative source for initial hydration and manual refresh.
-     */
-    suspend fun listMyShelves(): AppResult<List<Shelf>>
 
     /**
      * Returns the full [ShelfDetail] for the shelf identified by [shelfId].

@@ -37,7 +37,7 @@ import io.kotest.matchers.collections.shouldBeEmpty
  * the guard count and hide an unguarded registration.
  *
  * Production call sites validated by this rule (all in `RpcRoutes.kt`):
- * - `registerService<PingService> { guard(PingServiceImpl()) }`
+ * - `registerService<InstanceService> { guard(services.instanceService) }`
  * - `registerService<AuthServicePublic> { guard(authService as AuthServicePublic) }`
  * - `registerService<ScannerService> { guard(scannerService) }`
  * - `registerScoped<AuthServiceAuthed> { guard(authService.copyWith(it) as AuthServiceAuthed) }`

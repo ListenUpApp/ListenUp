@@ -2,7 +2,6 @@ package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.MoodService
 import com.calypsan.listenup.api.dto.FacetStats
-import com.calypsan.listenup.api.dto.MoodSummary
 import com.calypsan.listenup.api.dto.auth.Permission
 import com.calypsan.listenup.api.error.MoodError
 import com.calypsan.listenup.api.result.AppResult
@@ -12,7 +11,6 @@ import com.calypsan.listenup.api.sync.Mood
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.MoodId
 import com.calypsan.listenup.server.auth.PrincipalProvider
-import com.calypsan.listenup.server.auth.OpenRead
 import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
@@ -23,9 +21,6 @@ import kotlin.time.Clock
 import kotlin.uuid.Uuid
 import com.calypsan.listenup.server.auth.requirePermission
 
-private const val MAX_LIMIT = 1000
-private const val MIN_LIMIT = 1
-
 /**
  * [MoodService] implementation.
  *
@@ -33,14 +28,8 @@ private const val MIN_LIMIT = 1
  * so there is no reindex step on mutation — the sync firehose alone propagates changes
  * to clients.
  *
- * Slug conflict on rename: only the [Mood.name] is updated — [Mood.slug] is
- * intentionally preserved per the contract spec so existing URLs remain valid.
- * Renames therefore cannot produce a slug conflict; the slug stays the same.
- *
- * Mood reads ([listMoods], [getMoodBySlug], [listBooksForMood], [listMoodsForBook]) are open
- * to any authenticated user. Edits ([addMoodToBook], [removeMoodFromBook], [renameMood]) are
- * gated on [Permission.EDIT_METADATA]; [deleteMood] on [Permission.CURATE_LIBRARY] — both via
- * [permissionPolicy]:
+ * [getMoodStats] is scoped to the books the caller can reach. Edits ([addMoodToBook], [removeMoodFromBook]) are
+ * gated on [Permission.EDIT_METADATA] via [permissionPolicy]:
  * ROOT/ADMIN pass implicitly, a MEMBER passes iff their flag is set (fresh DB lookup per call).
  * The authenticated caller is resolved from [principal] — route handlers call [copyWith] to
  * bind it per-request; the Koin singleton carries an unscoped placeholder that yields no
@@ -52,8 +41,8 @@ internal class MoodServiceImpl(
     private val sql: ListenUpDatabase,
     /**
      * Book-level visibility — see [TagServiceImpl]'s identical parameter. Required, not defaulted:
-     * mood reads enumerate and describe BOOKS, so a construction site that forgot to wire this
-     * would serve every book on the server to every member.
+     * mood stats and book edits touch BOOKS, so a construction site that forgot to wire this
+     * would count and edit every book on the server for every member.
      */
     private val accessPolicy: BookAccessPolicy,
     private val clock: Clock = Clock.System,
@@ -79,69 +68,6 @@ internal class MoodServiceImpl(
     private suspend fun accessibleBookIdFilter(): Set<String>? {
         val p = principal.current() ?: return emptySet()
         return accessPolicy.accessibleBookIds(p.userId.value, p.role)
-    }
-
-    @OpenRead(reason = "shared vocabulary; names no book")
-    override suspend fun listMoods(): AppResult<List<MoodSummary>> {
-        val moods = moodRepository.listAll()
-        val summaries =
-            moods.map { mood ->
-                val bookCount = countLiveJunctionsForMood(mood.id)
-                MoodSummary(
-                    id = MoodId(mood.id),
-                    slug = mood.slug,
-                    name = mood.name,
-                    bookCount = bookCount,
-                )
-            }
-        // Sort by bookCount desc, then name asc — mirroring the tag-summary ordering.
-        return AppResult.Success(
-            summaries.sortedWith(compareByDescending<MoodSummary> { it.bookCount }.thenBy { it.name }),
-        )
-    }
-
-    @OpenRead(reason = "shared vocabulary; names no book")
-    override suspend fun getMoodBySlug(slug: String): AppResult<MoodSummary?> {
-        val mood = moodRepository.findBySlug(slug) ?: return AppResult.Success(null)
-        val bookCount = countLiveJunctionsForMood(mood.id)
-        return AppResult.Success(
-            MoodSummary(
-                id = MoodId(mood.id),
-                slug = mood.slug,
-                name = mood.name,
-                bookCount = bookCount,
-            ),
-        )
-    }
-
-    override suspend fun listBooksForMood(
-        moodId: MoodId,
-        limit: Int,
-    ): AppResult<List<BookId>> {
-        val safeLimit = limit.coerceIn(MIN_LIMIT, MAX_LIMIT)
-        val accessible = accessibleBookIdFilter()
-        val junctions = bookMoodRepository.findAllForMood(moodId.value)
-        // Filter BEFORE take — see TagServiceImpl.listBooksForTag for why the order matters.
-        val visible = junctions.map { it.bookId }.filter { accessible == null || it in accessible }
-        return AppResult.Success(visible.take(safeLimit).map { BookId(it) })
-    }
-
-    override suspend fun listMoodsForBook(bookId: BookId): AppResult<List<Mood>> {
-        if (!bookExists(bookId.value)) {
-            return AppResult.Failure(MoodError.BookNotFound())
-        }
-        // The SAME failure an absent book produces — a denied book must not be distinguishable
-        // from one that does not exist.
-        val p = principal.current() ?: return AppResult.Failure(MoodError.BookNotFound())
-        if (!accessPolicy.canAccess(p.userId.value, p.role, bookId.value)) {
-            return AppResult.Failure(MoodError.BookNotFound())
-        }
-        val junctions = bookMoodRepository.findAllForBook(bookId.value)
-        // Batch the mood reads (one round-trip per 900-id chunk) instead of one findById
-        // per junction. findByIds preserves order and skips absent/tombstoned ids, so the
-        // result is identical to the prior per-row mapNotNull.
-        val moods = moodRepository.findByIds(junctions.map { it.moodId })
-        return AppResult.Success(moods)
     }
 
     override suspend fun getMoodStats(moodId: MoodId): AppResult<FacetStats> {
@@ -225,41 +151,6 @@ internal class MoodServiceImpl(
         return AppResult.Success(Unit)
     }
 
-    override suspend fun renameMood(
-        moodId: MoodId,
-        newName: String,
-    ): AppResult<Mood> {
-        principal.requirePermission(permissionPolicy, Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
-        // Validate new name (we call normalize just for validation — slug is not changed).
-        when (val slugResult = MoodSlug.normalize(newName)) {
-            is AppResult.Success -> Unit
-            is AppResult.Failure -> return AppResult.Failure(slugResult.error)
-        }
-
-        val updated =
-            moodRepository.updateName(moodId.value, newName.trim())
-                ?: return AppResult.Failure(MoodError.NotFound())
-
-        return AppResult.Success(updated)
-    }
-
-    override suspend fun deleteMood(moodId: MoodId): AppResult<Unit> {
-        principal.requirePermission(permissionPolicy, Permission.CURATE_LIBRARY)?.let { return AppResult.Failure(it) }
-        if (moodRepository.findById(moodId.value) == null) {
-            return AppResult.Failure(MoodError.NotFound())
-        }
-
-        // Cascade: tombstone all junctions, then the mood itself. Both are suspend repo
-        // calls that each open their own SQLDelight transaction, so they run sequentially
-        // (they cannot nest inside one another's non-suspend transaction body). Sequential
-        // single-engine writes never contend for the lone SQLite write lock — matching the
-        // GenreServiceImpl / ContributorServiceImpl cutover shape.
-        bookMoodRepository.softDeleteAllForMood(moodId.value)
-        moodRepository.softDelete(moodId.value)
-
-        return AppResult.Success(Unit)
-    }
-
     // ── Private helpers ───────────────────────────────────────────────────────
 
     /**
@@ -279,10 +170,4 @@ internal class MoodServiceImpl(
 
     private suspend fun bookExists(bookId: String): Boolean =
         suspendTransaction(sql) { sql.booksQueries.existsLiveById(bookId).executeAsOne() }
-
-    private suspend fun countLiveJunctionsForMood(moodId: String): Long =
-        suspendTransaction(sql) { sql.bookMoodsQueries.countLiveForMood(moodId).executeAsOne() }
-
-    private suspend fun MoodRepository.softDelete(moodId: String): AppResult<Unit> =
-        softDelete(moodId, clientOpId = null)
 }

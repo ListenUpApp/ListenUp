@@ -18,12 +18,9 @@ import com.calypsan.listenup.api.InviteServicePublic
 import com.calypsan.listenup.api.InstanceService
 import com.calypsan.listenup.api.LibraryAdminService
 import com.calypsan.listenup.api.MatchingService
-import com.calypsan.listenup.api.MetadataLookupService
 import com.calypsan.listenup.api.MoodService
 import com.calypsan.listenup.api.NotificationService
 import com.calypsan.listenup.api.OrganizeService
-import com.calypsan.listenup.api.PlaybackProgressService
-import com.calypsan.listenup.api.PingService
 import com.calypsan.listenup.api.PlaybackService
 import com.calypsan.listenup.api.ProfileService
 import com.calypsan.listenup.api.PushService
@@ -50,11 +47,9 @@ import com.calypsan.listenup.server.api.HardcoverServiceImpl
 import com.calypsan.listenup.server.api.ImportServiceImpl
 import com.calypsan.listenup.server.api.LibraryAdminServiceImpl
 import com.calypsan.listenup.server.api.MatchingServiceImpl
-import com.calypsan.listenup.server.api.MetadataLookupServiceImpl
 import com.calypsan.listenup.server.api.MoodServiceImpl
 import com.calypsan.listenup.server.api.NotificationServiceImpl
 import com.calypsan.listenup.server.api.OrganizeServiceImpl
-import com.calypsan.listenup.server.api.PlaybackProgressServiceImpl
 import com.calypsan.listenup.server.api.PlaybackServiceImpl
 import com.calypsan.listenup.server.api.ProfileServiceImpl
 import com.calypsan.listenup.server.api.PushServiceImpl
@@ -87,7 +82,6 @@ private fun Route.publicRpc(services: RpcServices) {
         rpcConfig { serialization { json(contractJson) } }
         // guardedConstruction wraps the factory bodies so a `as`-cast failure is sanitized rather
         // than shipped raw to the client (the scoped/authed registrations get it via registerScoped).
-        registerService<PingService> { guardedConstruction { guard(PingServiceImpl()) } }
         registerService<InstanceService> { guardedConstruction { guard(services.instanceService) } }
         // C3: bind the caller's remote host so the per-IP login/register/refresh throttle inside
         // AuthServiceImpl keys on it — the RPC public mount is otherwise un-rate-limited (many login
@@ -110,8 +104,8 @@ private fun Route.publicRpc(services: RpcServices) {
 private fun Route.authedRpc(services: RpcServices) {
     rpc("/api/rpc/authed") {
         rpcConfig { serialization { json(contractJson) } }
-        // scanFull() is ROOT/ADMIN-gated inside ScannerServiceImpl, so the registration binds
-        // the caller's principal like every other authed service.
+        // ScannerServiceImpl trims scan results for non-admins, so the registration binds the
+        // caller's principal like every other authed service.
         // Every service gets the connection's cached session-liveness probe (`live`): the generated guard
         // refuses an ordinary call on a revoked session, and a stream re-checks it on a ~30s cadence. The
         // JWT is only verified when the socket opens, so without this a revoked socket keeps its authority.
@@ -138,12 +132,6 @@ private fun Route.authedRpc(services: RpcServices) {
         }
         registerScoped<PlaybackService>(services.sessionLiveness) { provider, live ->
             guard((services.playbackService as PlaybackServiceImpl).copyWith(provider), live)
-        }
-        registerScoped<PlaybackProgressService>(services.sessionLiveness) { provider, live ->
-            guard((services.playbackProgressService as PlaybackProgressServiceImpl).copyWith(provider), live)
-        }
-        registerScoped<MetadataLookupService>(services.sessionLiveness) { provider, live ->
-            guard((services.metadataLookupService as MetadataLookupServiceImpl).copyWith(provider), live)
         }
         registerScoped<MatchingService>(services.sessionLiveness) { provider, live ->
             guard((services.matchingService as MatchingServiceImpl).copyWith(provider), live)

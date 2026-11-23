@@ -89,13 +89,6 @@ class ImportServiceImpl(
         return AppResult.Success(store.listImports())
     }
 
-    override suspend fun getImport(importId: ImportId): AppResult<ImportSummary> {
-        principal.requireAdmin()?.let { return AppResult.Failure(it) }
-        rejectUnsafeId(importId)?.let { return it }
-        return store.getImport(importId)?.let { AppResult.Success(it) }
-            ?: AppResult.Failure(ImportError.ImportNotFound())
-    }
-
     override suspend fun deleteImport(importId: ImportId): AppResult<Unit> {
         principal.requireAdmin()?.let { return AppResult.Failure(it) }
         rejectUnsafeId(importId)?.let { return it }

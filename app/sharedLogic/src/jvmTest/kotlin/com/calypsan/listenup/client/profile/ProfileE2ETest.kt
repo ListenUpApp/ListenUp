@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.profile
 import com.calypsan.listenup.api.ProfileService
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.profile.PasswordChange
+import com.calypsan.listenup.api.dto.profile.Profile
 import com.calypsan.listenup.api.dto.profile.UpdateProfileRequest
 import com.calypsan.listenup.api.error.ProfileError
 import com.calypsan.listenup.api.result.AppResult
@@ -52,7 +53,7 @@ import app.cash.sqldelight.db.SqlDriver
 /**
  * Cross-module E2E: a real `:server` [ProfileService] boots in-process via
  * `testApplication`, and a real kotlinx.rpc client proxy exercises the
- * `updateMyProfile` → `getMyProfile` round-trip over WebSocket RPC.
+ * `updateMyProfile` round-trip over WebSocket RPC, then reads back what the server stored.
  *
  * Both the server impl and the transport are exercised end-to-end:
  *  - [createProfileService] constructs the real [com.calypsan.listenup.server.api.ProfileServiceImpl]
@@ -104,7 +105,7 @@ class ProfileE2ETest :
             )
         }
 
-        test("updateMyProfile then getMyProfile returns updated displayName and tagline") {
+        test("updateMyProfile returns and stores the updated displayName and tagline") {
             val serverDriver = setupServerDb()
             serverDriver.seedUser("u1")
             // PublicProfileMaintainer/PublicProfileRepository are SQLDelight-converted: open a
@@ -148,13 +149,13 @@ class ProfileE2ETest :
                         proxy.updateMyProfile(
                             UpdateProfileRequest(displayName = "E2E Name", tagline = "hello"),
                         )
-                    updateResult.shouldBeInstanceOf<AppResult.Success<*>>()
-
-                    val getResult = proxy.getMyProfile()
-                    getResult.shouldBeInstanceOf<AppResult.Success<*>>()
-                    val profile = (getResult as AppResult.Success).data
+                    val profile = updateResult.shouldBeInstanceOf<AppResult.Success<Profile>>().data
                     profile.displayName shouldBe "E2E Name"
                     profile.tagline shouldBe "hello"
+
+                    val stored = serverSqlDb.usersQueries.selectById("u1").executeAsOne()
+                    stored.display_name shouldBe "E2E Name"
+                    stored.tagline shouldBe "hello"
                 }
             }
         }

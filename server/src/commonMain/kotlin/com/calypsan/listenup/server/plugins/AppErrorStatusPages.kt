@@ -557,7 +557,6 @@ private fun SeriesError.toHttpStatus(): HttpStatusCode =
 private fun GenreError.toHttpStatus(): HttpStatusCode =
     when (this) {
         is GenreError.NotFound -> HttpStatusCode.NotFound
-        is GenreError.UnmappedStringNotFound -> HttpStatusCode.NotFound
         is GenreError.InvalidInput -> HttpStatusCode.BadRequest
         is GenreError.MergeSelfTarget -> HttpStatusCode.BadRequest
         is GenreError.MoveSelfDescendant -> HttpStatusCode.BadRequest

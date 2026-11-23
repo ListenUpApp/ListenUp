@@ -31,18 +31,8 @@ interface BookRatingService {
     suspend fun refreshExternalRatings(bookId: BookId): AppResult<Unit>
 
     /**
-     * Book Detail opened [bookId]: if its Hardcover rating is missing, or older than the server's
-     * freshness window, the server fetches it in the background (#1542). Answers at once, before any
-     * fetch, and never fails because a fetch did; the rating, when it comes, arrives through the ratings
-     * sync. Any listener who can open the book may ask; one who can't gets `NotFound`. Idempotent.
-     *
-     * Kept for clients that predate [checkExternalRatings]; current clients call that instead.
-     */
-    suspend fun ensureExternalRatings(bookId: BookId): AppResult<Unit>
-
-    /**
-     * Book Detail opened [bookId]: start its Hardcover fetch when the rating is missing or stale, exactly
-     * as [ensureExternalRatings] does, and say how it goes. Emits [ExternalRatingsCheck.CHECKING] when a
+     * Book Detail opened [bookId]: start its Hardcover fetch in the background (#1542) when the rating is
+     * missing or older than the server's freshness window, and say how it goes. Emits [ExternalRatingsCheck.CHECKING] when a
      * fetch is running — this open's, or one already in flight for the book — then
      * [ExternalRatingsCheck.DONE] when it ends, fails or outlasts the server's bound, and completes.
      * Completes without emitting when nothing needs fetching, when Hardcover can't be asked, or when the

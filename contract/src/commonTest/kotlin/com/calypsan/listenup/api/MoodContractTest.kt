@@ -1,10 +1,8 @@
 package com.calypsan.listenup.api
 
-import com.calypsan.listenup.api.dto.MoodSummary
 import com.calypsan.listenup.api.error.MoodError
 import com.calypsan.listenup.api.sync.BookMoodSyncPayload
 import com.calypsan.listenup.api.sync.Mood
-import com.calypsan.listenup.core.MoodId
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 
@@ -76,30 +74,6 @@ class MoodContractTest :
                 )
             roundTrip<BookMoodSyncPayload>(original) shouldBe original
             original.id shouldBe "b2c3d4e5f60718293a4b5c6d7e8f9001"
-        }
-
-        // ── MoodSummary ───────────────────────────────────────────────────────
-
-        test("MoodSummary round-trips") {
-            val original =
-                MoodSummary(
-                    id = MoodId("mood-abc123"),
-                    slug = "feel-good",
-                    name = "Feel-Good",
-                    bookCount = 42L,
-                )
-            roundTrip<MoodSummary>(original) shouldBe original
-        }
-
-        test("MoodSummary with zero bookCount round-trips") {
-            val original =
-                MoodSummary(
-                    id = MoodId("mood-empty"),
-                    slug = "empty-mood",
-                    name = "Empty Mood",
-                    bookCount = 0L,
-                )
-            roundTrip<MoodSummary>(original) shouldBe original
         }
 
         // ── MoodError subtypes ────────────────────────────────────────────────

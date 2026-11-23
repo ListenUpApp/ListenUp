@@ -1,9 +1,6 @@
 package com.calypsan.listenup.server.routes
 
-import com.calypsan.listenup.api.PingService
-import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.auth.CachedSessionLiveness
-import com.calypsan.listenup.server.auth.OpenToAllMembers
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.SessionLiveness
 import com.calypsan.listenup.server.auth.UserPrincipal
@@ -16,11 +13,6 @@ import io.ktor.util.AttributeKey
 import kotlin.uuid.Uuid
 import kotlinx.coroutines.CancellationException
 import kotlinx.rpc.krpc.ktor.server.KrpcRoute
-
-internal class PingServiceImpl : PingService {
-    @OpenToAllMembers(reason = "public liveness probe")
-    override suspend fun ping(): AppResult<String> = AppResult.Success("pong")
-}
 
 private const val AUTH_WALL_REGRESSION_MSG =
     "authed RPC mount reached without a principal — auth wall regression"
@@ -101,9 +93,9 @@ internal fun <T> guardedConstruction(block: () -> T): T =
 /**
  * Mounts kRPC at two endpoints:
  *  - `/api/rpc/public` — anonymous; routes [AuthServicePublic] (login/register/
- *    setupRoot/refresh) and [PingService].
+ *    setupRoot/refresh) and [com.calypsan.listenup.api.InstanceService].
  *  - `/api/rpc/authed` — gated behind [JWT_PROVIDER]; routes [AuthServiceAuthed]
- *    (logout/logoutAll/currentUser/listSessions/decide) and [BookService]
+ *    (logout/currentUser/listSessions/decide) and [BookService]
  *    (getBook/searchBooks).
  *
  * The split mirrors the contract's trust boundary structurally — the URL

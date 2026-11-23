@@ -114,7 +114,7 @@ class ReadingOrderRepositoriesTest :
                     repo.upsert(follow("jess", "cosmere", ReadingOrderChoiceKind.ORDER, "ro"), userId = "jess")
                     repo.upsert(follow("priya", "mistborn", ReadingOrderChoiceKind.ORDER, "ro"), userId = "priya")
                     repo.upsert(follow("sam", "cosmere", ReadingOrderChoiceKind.SERIES, null), userId = "sam")
-                    repo.countFollowersOf("ro") shouldBe 2
+                    repo.liveFollowersOf("ro").size shouldBe 2
                     repo.softDelete("priya:mistborn", userId = "priya")
                     repo.liveFollowersOf("ro") shouldContainExactly listOf(ReadingOrderFollower("jess:cosmere", "jess"))
                 }

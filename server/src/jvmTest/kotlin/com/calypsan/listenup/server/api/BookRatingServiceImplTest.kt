@@ -199,55 +199,6 @@ class BookRatingServiceImplTest :
             }
         }
 
-        test("ensureExternalRatings answers at once for a book the caller can open, and asks for its Hardcover rating") {
-            withSqlDatabase {
-                sql.seedTestLibraryAndFolder()
-                sql.seedTestBook("b1")
-                sql.seedTestUser("u1")
-                makeBookAccessible(sql, driver, bookId = "b1", viewerId = "u1")
-                val asked = mutableListOf<String>()
-                val onOpen =
-                    HardcoverRatingOnOpen(
-                        lastTried = { null },
-                        fetch = { asked += it.value },
-                        scope = CoroutineScope(Dispatchers.Unconfined),
-                    )
-                val repo = BookRatingRepository(sql, ChangeBus(), SyncRegistry(), driver = driver)
-                val service = BookRatingServiceImpl(repo, BookAccessPolicy(sql, driver), principal("u1"), onOpen = onOpen)
-                runTest {
-                    service.ensureExternalRatings(BookId("b1")).shouldBeInstanceOf<AppResult.Success<Unit>>()
-
-                    asked shouldBe listOf("b1")
-                }
-            }
-        }
-
-        test("ensureExternalRatings for a book the caller cannot open answers NotFound and asks nothing") {
-            withSqlDatabase {
-                sql.seedTestLibraryAndFolder()
-                sql.seedTestBook("b1")
-                sql.seedTestUser("u1")
-                val asked = mutableListOf<String>()
-                val onOpen =
-                    HardcoverRatingOnOpen(
-                        lastTried = { null },
-                        fetch = { asked += it.value },
-                        scope = CoroutineScope(Dispatchers.Unconfined),
-                    )
-                val repo = BookRatingRepository(sql, ChangeBus(), SyncRegistry(), driver = driver)
-                val service = BookRatingServiceImpl(repo, BookAccessPolicy(sql, driver), principal("u1"), onOpen = onOpen)
-                runTest {
-                    service
-                        .ensureExternalRatings(BookId("b1"))
-                        .shouldBeInstanceOf<AppResult.Failure>()
-                        .error
-                        .shouldBeInstanceOf<SyncError.NotFound>()
-
-                    asked shouldBe emptyList()
-                }
-            }
-        }
-
         test("a failing fetch never fails the open") {
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()
@@ -263,7 +214,11 @@ class BookRatingServiceImplTest :
                 val repo = BookRatingRepository(sql, ChangeBus(), SyncRegistry(), driver = driver)
                 val service = BookRatingServiceImpl(repo, BookAccessPolicy(sql, driver), principal("u1"), onOpen = onOpen)
                 runTest {
-                    service.ensureExternalRatings(BookId("b1")).shouldBeInstanceOf<AppResult.Success<Unit>>()
+                    service.checkExternalRatings(BookId("b1")).test {
+                        awaitItem() shouldBe RpcEvent.Data(ExternalRatingsCheck.CHECKING)
+                        awaitItem() shouldBe RpcEvent.Data(ExternalRatingsCheck.DONE)
+                        awaitComplete()
+                    }
                 }
             }
         }

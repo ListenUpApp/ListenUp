@@ -25,7 +25,7 @@ import io.kotest.matchers.collections.shouldBeEmpty
  * Production `@Rpc` interfaces validated by this rule:
  * - `AuthServicePublic` — all suspend, all `AppResult<*>`
  * - `AuthServiceAuthed` — all suspend, all `AppResult<*>`
- * - `PingService` — single suspend `ping()`, returns `AppResult<String>`
+ * - `InstanceService` — single suspend `getServerInfo()`, returns `AppResult<ServerInfo>`
  * - `ScannerService` — two suspend `AppResult<*>` methods, one non-suspend
  *   `observeProgress()` returning `Flow<RpcEvent<ScanEvent>>`
  */

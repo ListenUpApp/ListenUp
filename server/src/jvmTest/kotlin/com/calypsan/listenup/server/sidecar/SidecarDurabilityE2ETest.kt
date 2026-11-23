@@ -1,7 +1,6 @@
 package com.calypsan.listenup.server.sidecar
 
 import com.calypsan.listenup.api.BookService
-import com.calypsan.listenup.api.ScannerService
 import com.calypsan.listenup.api.dto.BookUpdate
 import com.calypsan.listenup.api.dto.ChapterInput
 import com.calypsan.listenup.api.metadata.BookField
@@ -16,6 +15,7 @@ import com.calypsan.listenup.server.embeddedmeta.fixtures.buildMp3File
 import com.calypsan.listenup.server.io.hashBytesSha256
 import com.calypsan.listenup.server.module
 import com.calypsan.listenup.server.services.BookRepository
+import com.calypsan.listenup.server.scanner.ScanOrchestrator
 import com.calypsan.listenup.server.services.LibraryRegistry
 import com.calypsan.listenup.server.testing.authedService
 import com.calypsan.listenup.server.testing.setupRootUser
@@ -27,11 +27,11 @@ import io.kotest.matchers.types.shouldBeInstanceOf
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import java.nio.file.Files
-import kotlin.io.path.div
 import kotlin.io.path.exists
 import kotlin.io.path.readBytes
 import kotlin.io.path.writeBytes
 import kotlinx.coroutines.delay
+import kotlin.io.path.div
 import kotlinx.coroutines.withTimeout
 import org.koin.ktor.ext.inject
 
@@ -152,7 +152,7 @@ class SidecarDurabilityE2ETest :
                 testApplication {
                     useIsolatedTestConfig(libraryPath = libraryDir.toString())
                     application { module() }
-                    val root = setupRootUser()
+                    setupRootUser()
 
                     // The startup rescan on the fresh DB re-ingests the sidecar: curation restored.
                     val restoredId = awaitScannedBookId()
@@ -174,7 +174,7 @@ class SidecarDurabilityE2ETest :
 
                     // A second scan does not undo the restore: the USER tier out-ranks the files.
                     val revisionBeforeRescan = restored.revision
-                    authedService<ScannerService>(root.token).scanFull()
+                    scanNow()
                     val rescanned = repo.findById(BookId(restoredId))
                     rescanned?.title shouldBe CURATED_TITLE
                     rescanned?.bookTierLabel shouldBe "Volume"
@@ -202,7 +202,7 @@ class SidecarDurabilityE2ETest :
                             ),
                         ),
                     )
-                    authedService<ScannerService>(root.token).scanFull()
+                    scanNow()
                     val updated =
                         awaitBookMatching(repo, restoredId) { it.description == "A friend's description." }
                     updated.fieldProvenance[BookField.DESCRIPTION] shouldBe
@@ -213,6 +213,13 @@ class SidecarDurabilityE2ETest :
             }
         }
     })
+
+/** Runs a full scan of the library and waits for it to finish. */
+private suspend fun ApplicationTestBuilder.scanNow() {
+    val orchestrator by application.inject<ScanOrchestrator>()
+    val registry by application.inject<LibraryRegistry>()
+    orchestrator.scanLibrary(registry.currentLibrary()).shouldBeInstanceOf<AppResult.Success<*>>()
+}
 
 /** Polls the Koin-wired database until the startup scan has landed a book; returns its id. */
 private suspend fun ApplicationTestBuilder.awaitScannedBookId(): String {

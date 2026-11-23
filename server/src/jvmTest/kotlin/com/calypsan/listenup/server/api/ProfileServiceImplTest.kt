@@ -55,13 +55,6 @@ class ProfileServiceImplTest :
                 },
             )
 
-        test("getMyProfile returns the caller's profile") {
-            withSqlDatabase {
-                sql.seedTestUser("u1")
-                runTest { svc("u1").getMyProfile().shouldBeInstanceOf<AppResult.Success<Profile>>() }
-            }
-        }
-
         test("updateMyProfile stamps updatedAt from the injected clock") {
             withSqlDatabase {
                 sql.seedTestUser("u1")

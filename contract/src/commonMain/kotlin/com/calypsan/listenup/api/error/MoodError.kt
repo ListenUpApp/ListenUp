@@ -24,8 +24,7 @@ import kotlinx.serialization.Serializable
 sealed interface MoodError : AppError {
     /**
      * No mood with the given id exists, or the mood has been soft-deleted.
-     * Raised by [com.calypsan.listenup.api.MoodService.renameMood] and
-     * [com.calypsan.listenup.api.MoodService.deleteMood].
+     * Raised by [com.calypsan.listenup.api.MoodService.removeMoodFromBook].
      */
     @Serializable
     @SerialName("MoodError.NotFound")
@@ -43,8 +42,7 @@ sealed interface MoodError : AppError {
     /**
      * The mood name is empty, blank, or resolves to an empty slug after normalization
      * (i.e. contains only special characters). Raised by
-     * [com.calypsan.listenup.api.MoodService.addMoodToBook] and
-     * [com.calypsan.listenup.api.MoodService.renameMood].
+     * [com.calypsan.listenup.api.MoodService.addMoodToBook].
      */
     @Serializable
     @SerialName("MoodError.InvalidName")
@@ -61,8 +59,7 @@ sealed interface MoodError : AppError {
 
     /**
      * The mood name exceeds the 64-character limit. Raised by
-     * [com.calypsan.listenup.api.MoodService.addMoodToBook] and
-     * [com.calypsan.listenup.api.MoodService.renameMood].
+     * [com.calypsan.listenup.api.MoodService.addMoodToBook].
      */
     @Serializable
     @SerialName("MoodError.NameTooLong")

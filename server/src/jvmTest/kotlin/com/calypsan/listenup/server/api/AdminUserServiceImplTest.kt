@@ -621,7 +621,7 @@ class AdminUserServiceImplTest :
             }
         }
 
-        // ── getUser / searchUsers ─────────────────────────────────────────────────
+        // ── getUser ───────────────────────────────────────────────────────────────
 
         test("getUser returns the user; missing user fails UserNotFound") {
             withSqlDatabase {
@@ -632,43 +632,6 @@ class AdminUserServiceImplTest :
                     val svc = makeAdminUserService(db).actAs("root1", UserRole.ROOT)
                     svc.getUser(UserId("m1")).shouldSucceed().id shouldBe UserId("m1")
                     svc.getUser(UserId("ghost")).shouldFail<AdminError.UserNotFound>()
-                }
-            }
-        }
-
-        test("searchUsers matches display name and email case-insensitively, excluding deleted") {
-            withSqlDatabase {
-                val db = this
-                sql.seedTestUser("root1", UserRoleColumn.ROOT)
-                sql.seedTestUser("alice", UserRoleColumn.MEMBER)
-                sql.seedTestUser("bob", UserRoleColumn.MEMBER)
-                runTest {
-                    val svc = makeAdminUserService(db).actAs("root1", UserRole.ROOT)
-                    val byName = svc.searchUsers("ALI").shouldSucceed().map { it.id.value }
-                    byName shouldContain "alice"
-                    byName shouldNotContain "bob"
-
-                    svc.deleteUser(UserId("alice")).shouldSucceed()
-                    svc.searchUsers("ali").shouldSucceed().map { it.id.value } shouldNotContain "alice"
-                }
-            }
-        }
-
-        test("searchUsers returns only ACTIVE members, excluding pending and denied registrations") {
-            withSqlDatabase {
-                val db = this
-                sql.seedTestUser("root1", UserRoleColumn.ROOT)
-                seedUserWithStatus("activeAlice", userStatus = UserStatusColumn.ACTIVE)
-                seedUserWithStatus("pendingAlice", userStatus = UserStatusColumn.PENDING_APPROVAL)
-                seedUserWithStatus("deniedAlice", userStatus = UserStatusColumn.DENIED)
-                runTest {
-                    val svc = makeAdminUserService(db).actAs("root1", UserRole.ROOT)
-                    // Search is an active-roster operation — pending/denied have their own surfaces
-                    // and must not leak in (sibling of the listUsers filter).
-                    val ids = svc.searchUsers("alice").shouldSucceed().map { it.id.value }
-                    ids shouldContain "activeAlice"
-                    ids shouldNotContain "pendingAlice"
-                    ids shouldNotContain "deniedAlice"
                 }
             }
         }

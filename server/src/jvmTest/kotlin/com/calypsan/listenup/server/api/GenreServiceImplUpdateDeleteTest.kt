@@ -19,6 +19,7 @@ import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.rootPrincipal
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
+import com.calypsan.listenup.server.testing.liveGenre
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
@@ -117,7 +118,7 @@ class GenreServiceImplUpdateDeleteTest :
                     val service = makeService(sql, driver)
                     val result = service.updateGenre(GenreId("g-fant"), GenreUpdate(name = "High Fantasy"))
                     require(result is AppResult.Success)
-                    val payload = (service.getGenre(GenreId("g-fant")) as AppResult.Success).data
+                    val payload = sql.liveGenre(GenreId("g-fant"))
                     payload?.name shouldBe "High Fantasy"
                     payload?.slug shouldBe "fantasy"
                 }
@@ -139,7 +140,7 @@ class GenreServiceImplUpdateDeleteTest :
                             ),
                         )
                     require(result is AppResult.Success)
-                    val payload = (service.getGenre(GenreId("g-fant")) as AppResult.Success).data
+                    val payload = sql.liveGenre(GenreId("g-fant"))
                     payload.shouldNotBeNull()
                     payload.description shouldBe "Worlds with magic."
                     payload.color shouldBe "#ff00ff"
@@ -162,7 +163,7 @@ class GenreServiceImplUpdateDeleteTest :
                     val service = makeService(sql, driver)
                     val result = service.updateGenre(GenreId("g-fant"), GenreUpdate())
                     require(result is AppResult.Success)
-                    val payload = (service.getGenre(GenreId("g-fant")) as AppResult.Success).data
+                    val payload = sql.liveGenre(GenreId("g-fant"))
                     payload?.name shouldBe "Fantasy"
                     payload?.sortOrder shouldBe 7
                 }
@@ -174,9 +175,9 @@ class GenreServiceImplUpdateDeleteTest :
                 sql.seedGenre("g-fant", name = "Fantasy", slug = "fantasy", path = "/fantasy")
                 runTest {
                     val service = makeService(sql, driver)
-                    val before = (service.getGenre(GenreId("g-fant")) as AppResult.Success).data!!.revision
+                    val before = sql.liveGenre(GenreId("g-fant"))!!.revision
                     service.updateGenre(GenreId("g-fant"), GenreUpdate(name = "High Fantasy"))
-                    val after = (service.getGenre(GenreId("g-fant")) as AppResult.Success).data!!.revision
+                    val after = sql.liveGenre(GenreId("g-fant"))!!.revision
                     (after > before) shouldBe true
                 }
             }
@@ -277,8 +278,7 @@ class GenreServiceImplUpdateDeleteTest :
                         .executeAsList()
                         .shouldBeEmpty()
 
-                    val payload = service.getGenre(GenreId("g-fant"))
-                    (payload as AppResult.Success).data shouldBe null
+                    sql.liveGenre(GenreId("g-fant")) shouldBe null
 
                     val row = sql.genresQueries.selectById("g-fant").executeAsOneOrNull()
                     row.shouldNotBeNull()
@@ -317,8 +317,7 @@ class GenreServiceImplUpdateDeleteTest :
                     val service = makeService(sql, driver)
                     val result = service.deleteGenre(GenreId("g-orphan"))
                     require(result is AppResult.Success)
-                    val payload = service.getGenre(GenreId("g-orphan"))
-                    (payload as AppResult.Success).data shouldBe null
+                    sql.liveGenre(GenreId("g-orphan")) shouldBe null
                 }
             }
         }

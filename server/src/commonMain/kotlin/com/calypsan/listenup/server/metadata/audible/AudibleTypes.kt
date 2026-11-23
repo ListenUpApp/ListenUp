@@ -231,8 +231,7 @@ data class RawChaptersResponse(
 //
 // @Serializable is applied here so MetadataService can cache these values as
 // JSON in MetadataCacheRepository. This is a server-internal serialization
-// concern; these types do NOT cross the RPC wire (MetadataDtos.kt carries
-// the contract-level projections).
+// concern; these types do NOT cross the RPC wire.
 
 /** A contributor (author or narrator) after role separation. */
 @Serializable

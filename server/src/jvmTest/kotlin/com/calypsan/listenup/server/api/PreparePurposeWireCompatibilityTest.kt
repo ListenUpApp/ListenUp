@@ -11,7 +11,6 @@ import com.calypsan.listenup.api.dto.RecordPositionResult
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.ListeningEventSyncPayload
 import com.calypsan.listenup.api.sync.PlaybackPositionSyncPayload
-import com.calypsan.listenup.api.sync.UserStatsSyncPayload
 import com.calypsan.listenup.core.BookId
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -206,8 +205,6 @@ private class RecordingPrepare(
     override suspend fun getPosition(bookId: BookId): AppResult<PlaybackPositionSyncPayload?> = unused()
 
     override suspend fun recordPosition(request: RecordPositionRequest): AppResult<RecordPositionResult> = unused()
-
-    override suspend fun getStats(): AppResult<UserStatsSyncPayload?> = unused()
 
     override suspend fun recordListeningEvent(request: RecordListeningEventRequest): AppResult<ListeningEventSyncPayload> = unused()
 

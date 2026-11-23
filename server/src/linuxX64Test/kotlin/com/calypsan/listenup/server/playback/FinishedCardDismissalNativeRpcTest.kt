@@ -11,7 +11,6 @@ import com.calypsan.listenup.api.dto.RecordPositionResult
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.ListeningEventSyncPayload
 import com.calypsan.listenup.api.sync.PlaybackPositionSyncPayload
-import com.calypsan.listenup.api.sync.UserStatsSyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.auth.JwtConfiguration
 import com.calypsan.listenup.server.foundation.FoundationDeps
@@ -134,8 +133,6 @@ private class RecordingPlayback(
     ): AppResult<PreparedPlayback> = unused()
 
     override suspend fun getPosition(bookId: BookId): AppResult<PlaybackPositionSyncPayload?> = unused()
-
-    override suspend fun getStats(): AppResult<UserStatsSyncPayload?> = unused()
 
     override suspend fun recordListeningEvent(request: RecordListeningEventRequest): AppResult<ListeningEventSyncPayload> = unused()
 

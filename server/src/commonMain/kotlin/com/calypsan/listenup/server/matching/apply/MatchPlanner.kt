@@ -58,7 +58,7 @@ internal object MatchPlanner {
         planCover(model, request.cover)?.let { return AppResult.Failure(it) }
         (request.cover as? ImageChoice.Candidate)?.let { chosen ->
             val tile = model.covers.first { it.candidate.optionId == chosen.optionId }
-            draft.cover = DraftCover(tile.candidate.url, tile.provider, required = true)
+            draft.cover = DraftCover(tile.candidate.url, tile.provider)
             draft.changes += AppliedChange.Cover(tile.provider.toMetadataSource())
         }
         val genresAdded =

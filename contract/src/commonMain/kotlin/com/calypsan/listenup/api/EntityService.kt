@@ -4,9 +4,7 @@ import com.calypsan.listenup.api.dto.entity.EntityChange
 import com.calypsan.listenup.api.dto.entity.EntityUpsert
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.EntitySyncPayload
-import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.EntityId
-import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.core.StoryWorldHistoryId
 import kotlinx.rpc.annotations.Rpc
 
@@ -38,12 +36,6 @@ interface EntityService {
         source: EntityId,
         target: EntityId,
     ): AppResult<EntitySyncPayload>
-
-    /** The live entities homed on [seriesId], if the caller can see the series. */
-    suspend fun listEntitiesForSeries(seriesId: SeriesId): AppResult<List<EntitySyncPayload>>
-
-    /** The live entities homed on [bookId], if the caller can see the book. */
-    suspend fun listEntitiesForBook(bookId: BookId): AppResult<List<EntitySyncPayload>>
 
     /** [entityId]'s edit history, newest first. Anyone who can see the entity may read it. */
     suspend fun listHistory(entityId: EntityId): AppResult<List<EntityChange>>

@@ -22,7 +22,7 @@ import com.calypsan.listenup.server.metadata.spi.MetadataProviderId
  * iTunes is covers-only in ListenUp — Audible is authoritative for every textual field —
  * so this implements exactly one capability. Each hit's original artwork URL and its
  * high-resolution rendition map to [CoverMeta.url] / [CoverMeta.maxSizeUrl]; the cover
- * fan-out in `CoverSearchService` prefers the max rendition. Hits with no high-res URL are
+ * enrichment compose prefers the max rendition. Hits with no high-res URL are
  * dropped. iTunes is region-agnostic, so [locale] is ignored.
  *
  * In Find (matching redesign) it is an *attaching* [BookFindSource]: it never identifies a book; its hits

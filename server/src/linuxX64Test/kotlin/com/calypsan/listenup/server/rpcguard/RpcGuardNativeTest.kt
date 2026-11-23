@@ -1,7 +1,8 @@
 package com.calypsan.listenup.server.rpcguard
 
-import com.calypsan.listenup.api.PingService
+import com.calypsan.listenup.api.InstanceService
 import com.calypsan.listenup.api.contractJson
+import com.calypsan.listenup.api.dto.ServerInfo
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.foundation.FoundationDeps
@@ -24,12 +25,12 @@ import kotlinx.rpc.withService
 import io.ktor.server.routing.routing
 
 /**
- * P5-1 native proof: a generated `PingServiceGuarded` wrapping a throwing impl must convert the
+ * P5-1 native proof: a generated `InstanceServiceGuarded` wrapping a throwing impl must convert the
  * escaped exception into `AppResult.Failure(InternalError(...))` with a correlation id and the
  * constant user-facing message (no stacktrace can ride InternalError) — running on linuxX64 over
  * the real CIO/krpc transport.
  *
- * Lives in `linuxX64Test` because `PingServiceGuarded` is generated into `:contract`'s linuxX64
+ * Lives in `linuxX64Test` because `InstanceServiceGuarded` is generated into `:contract`'s linuxX64
  * source set, not commonMain.
  */
 class RpcGuardNativeTest :
@@ -41,7 +42,7 @@ class RpcGuardNativeTest :
                     routing {
                         rpc("/api/rpc/public") {
                             rpcConfig { serialization { json(contractJson) } }
-                            registerService<PingService> { PingServiceGuarded(ThrowingPing()) }
+                            registerService<InstanceService> { InstanceServiceGuarded(ThrowingInstance()) }
                         }
                     }
                 }
@@ -58,12 +59,12 @@ class RpcGuardNativeTest :
                         installKrpc()
                     }
                 try {
-                    val ping =
+                    val instance =
                         rpcClient
                             .rpc("ws://127.0.0.1:$port/api/rpc/public") {
                                 rpcConfig { serialization { json(contractJson) } }
-                            }.withService<PingService>()
-                    val result = ping.ping()
+                            }.withService<InstanceService>()
+                    val result = instance.getServerInfo()
                     val failure = result.shouldBeInstanceOf<AppResult.Failure>()
                     val error = failure.error.shouldBeInstanceOf<InternalError>()
                     error.correlationId.shouldNotBeNull()
@@ -82,6 +83,6 @@ class RpcGuardNativeTest :
         }
     })
 
-private class ThrowingPing : PingService {
-    override suspend fun ping(): AppResult<String> = throw RuntimeException("boom")
+private class ThrowingInstance : InstanceService {
+    override suspend fun getServerInfo(): AppResult<ServerInfo> = throw IllegalStateException("boom")
 }

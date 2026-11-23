@@ -16,7 +16,7 @@ import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
 
 /**
- * Tests for the query methods behind the PlaybackProgressService RPC surface:
+ * Tests for the per-user position queries:
  * [PlaybackPositionRepository.listForUser] and [PlaybackPositionRepository.findByBookIds].
  *
  * Mutation and sync-substrate tests live in [PlaybackPositionRepositoryTest].

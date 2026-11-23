@@ -1,10 +1,7 @@
 package com.calypsan.listenup.server.services
 
-import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.core.FolderId
-import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 
@@ -96,36 +93,4 @@ internal class BookFinder(
             )
         }
     }
-
-    /**
-     * Returns the full book aggregates for every book that has a junction row for
-     * [contributorId] in `book_contributors`.
-     *
-     * Used by [com.calypsan.listenup.server.api.ContributorServiceImpl.listBooksByContributor].
-     * Opens its own read transaction — independent of the substrate's orchestration.
-     */
-    suspend fun findByContributor(contributorId: ContributorId): List<BookSyncPayload> =
-        suspendTransaction(db) {
-            val bookIds =
-                db.bookContributorsQueries
-                    .bookIdsForContributor(contributorId.value)
-                    .executeAsList()
-            db.readBookPayloads(bookIds)
-        }
-
-    /**
-     * Returns the full book aggregates for every book that has a membership row for
-     * [seriesId] in `book_series_memberships`, in series-position order.
-     *
-     * Used by [com.calypsan.listenup.server.api.SeriesServiceImpl.listBooksBySeries].
-     * Opens its own read transaction — independent of the substrate's orchestration.
-     */
-    suspend fun findBySeries(seriesId: SeriesId): List<BookSyncPayload> =
-        suspendTransaction(db) {
-            val bookIds =
-                db.bookSeriesMembershipsQueries
-                    .bookIdsForSeries(seriesId.value)
-                    .executeAsList()
-            db.readBookPayloads(bookIds)
-        }
 }

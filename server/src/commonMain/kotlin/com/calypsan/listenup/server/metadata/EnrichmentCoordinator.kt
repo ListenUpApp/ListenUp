@@ -129,7 +129,7 @@ internal data class ComposedProfiles(
  * For each metadata domain it needs, the coordinator fans a lookup across the
  * registered providers that both implement the domain's capability *and* the operator
  * routed to that domain ([EnrichmentRoutes.providersFor]) — once each, in parallel,
- * failure-contained (promoting `CoverSearchService`'s pattern: a provider that errors
+ * failure-contained (a provider that errors
  * or throws is logged and skipped, never sinking the others; [CancellationException]
  * is always re-raised). It then resolves each field first-non-empty by walking that
  * field's chain from [EnrichmentRoutes.orderFor], so a lean catalog early in a chain

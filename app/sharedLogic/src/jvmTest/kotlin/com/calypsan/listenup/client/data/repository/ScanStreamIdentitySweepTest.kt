@@ -4,7 +4,6 @@ import com.calypsan.listenup.api.ScannerService
 import com.calypsan.listenup.api.event.ScanEvent
 import com.calypsan.listenup.api.dto.scan.ScanIssue
 import com.calypsan.listenup.api.dto.scanner.ScanResult
-import com.calypsan.listenup.api.dto.scanner.ScanResultSummary
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.streaming.RpcEvent
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
@@ -80,8 +79,6 @@ class ScanStreamIdentitySweepTest :
                     connectionClosed.await()
                     throw CancellationException("Client cancelled")
                 }
-
-            override suspend fun scanFull(): AppResult<ScanResultSummary> = error("not used")
 
             override suspend fun lastScanResult(): AppResult<ScanResult> = error("not used")
 

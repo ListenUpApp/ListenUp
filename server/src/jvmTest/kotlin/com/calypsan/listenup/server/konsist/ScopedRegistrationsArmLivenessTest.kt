@@ -36,7 +36,7 @@ class ScopedRegistrationsArmLivenessTest :
                     .count { "/contract/src/commonMain/" in it.path && it.hasAnnotationWithName("Rpc") }
             val armed = Regex("""guard\([^;]*\blive\b""", RegexOption.DOT_MATCHES_ALL)
 
-            withClue("@Rpc interfaces discovered in contract/src/commonMain (36 today); fewer means discovery collapsed") {
+            withClue("@Rpc interfaces discovered in contract/src/commonMain (33 today); fewer means discovery collapsed") {
                 (declaredRpcInterfaces >= MINIMUM_RPC_INTERFACES) shouldBe true
             }
             withClue("registerService<…> mounts a service with no principal and no liveness probe") {
@@ -55,9 +55,9 @@ class ScopedRegistrationsArmLivenessTest :
 private val ANONYMOUS_REGISTRATION = Regex("""registerService<(\w+)>""")
 
 /**
- * The services callable before sign-in: a health ping, instance discovery, and the public halves of
- * auth and invites (their signed-in halves are separate `@Rpc` interfaces, registered scoped).
+ * The services callable before sign-in: instance discovery, and the public halves of auth and
+ * invites (their signed-in halves are separate `@Rpc` interfaces, registered scoped).
  */
-private val ANONYMOUS_SERVICES = listOf("PingService", "InstanceService", "AuthServicePublic", "InviteServicePublic")
+private val ANONYMOUS_SERVICES = listOf("InstanceService", "AuthServicePublic", "InviteServicePublic")
 
 private const val MINIMUM_RPC_INTERFACES = 30

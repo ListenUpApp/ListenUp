@@ -6,7 +6,6 @@ import com.calypsan.listenup.api.dto.GenreSummary
 import com.calypsan.listenup.api.dto.GenreUpdate
 import com.calypsan.listenup.api.dto.MergeReceipt
 import com.calypsan.listenup.api.dto.MergeUndoResult
-import com.calypsan.listenup.api.dto.UnmappedStringSummary
 import com.calypsan.listenup.api.dto.auth.Permission
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.GenreError
@@ -19,7 +18,6 @@ import com.calypsan.listenup.core.MergeReceiptId
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.OpenRead
 import com.calypsan.listenup.server.auth.PermissionPolicy
-import com.calypsan.listenup.server.db.sqldelight.Genres
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.services.BookRepository
@@ -34,14 +32,14 @@ private const val MAX_BROWSE_LIMIT = 1000
 
 /**
  * [GenreService] implementation. Genres are a curator-controlled hierarchical
- * taxonomy with materialized-path storage; this class implements the read,
- * admin, and unmapped-curation surfaces against [GenreRepository] +
+ * taxonomy with materialized-path storage; this class implements the read
+ * and admin surfaces against [GenreRepository] +
  * [BookRepository], all over SQLDelight ([sqlDb]).
  *
  * Genre reads + writes go through [genreRepository] (the SQLDelight syncable genre
- * substrate) and the generated junction/alias/pending queries on [sqlDb]. The genre
+ * substrate) and the generated junction/alias queries on [sqlDb]. The genre
  * substrate is single-engine with [BookRepository] now, so the cross-aggregate flows
- * ([deleteGenre], [mergeGenres], [mapUnmappedToGenre]) keep their **sequential** shape:
+ * ([deleteGenre], [mergeGenres]) keep their **sequential** shape:
  * the synchronous junction/alias writes commit first (inside a short
  * [suspendTransaction]), the genre soft-delete runs through the substrate (its own
  * transaction, bumping revision + publishing), and the affected books are re-upserted
@@ -54,12 +52,11 @@ private const val MAX_BROWSE_LIMIT = 1000
  * descendant snapshot, bulk `rewritePathPrefix`, parent re-point, then a per-affected-row
  * re-upsert so the substrate publishes one `genre.Updated` per row.
  *
- * Genre reads ([listGenres], [getGenre], [getGenreChildren]) are
+ * Genre reads ([getGenreBySlug]) are
  * open to any authenticated user; [browseBooks] is access-filtered so a non-admin caller
  * receives only the ids of books they can reach (via [BookAccessPolicy]) — a browse can't
  * enumerate a quarantined or private-collection-only book; ROOT/ADMIN see every book.
- * Edits ([createGenre], [updateGenre], [moveGenre], [mapUnmappedToGenre]) and the
- * [listUnmappedStrings] queue that feeds the mapping screen are gated on
+ * Edits ([createGenre], [updateGenre], [moveGenre]) are gated on
  * [Permission.EDIT_METADATA]; merge, delete and merge-undo ([mergeGenres], [deleteGenre],
  * [undoGenreMerge], and the [listMergeReceipts] that feeds undo) on
  * [Permission.CURATE_LIBRARY] — both via [permissionPolicy]:
@@ -97,56 +94,6 @@ internal class GenreServiceImpl(
             principal = principal,
             clock = clock,
         )
-
-    @OpenRead(reason = "shared vocabulary; names no book")
-    override suspend fun listGenres(): AppResult<List<GenreSummary>> =
-        suspendTransaction(sqlDb) {
-            val rows = sqlDb.genresQueries.listLiveOrderedByPath().executeAsList()
-            // One grouped count over LIVE books (a soft-deleted book keeps its book_genres
-            // row — FK cascade is hard-delete only — so the query excludes tombstones).
-            val counts: Map<String, Long> =
-                sqlDb.bookGenresQueries
-                    .bookCountsOverLiveBooks { genreId, bookCount -> genreId to bookCount }
-                    .executeAsList()
-                    .toMap()
-            val summaries =
-                rows.map { row ->
-                    GenreSummary(
-                        id = GenreId(row.id),
-                        name = row.name,
-                        slug = row.slug,
-                        path = row.path,
-                        parentId = row.parent_id?.let(::GenreId),
-                        depth = row.depth.toInt(),
-                        sortOrder = row.sort_order.toInt(),
-                        bookCount = (counts[row.id] ?: 0L).toInt(),
-                    )
-                }
-            AppResult.Success(summaries)
-        }
-
-    @OpenRead(reason = "shared vocabulary; names no book")
-    override suspend fun getGenre(id: GenreId): AppResult<GenreSyncPayload?> {
-        val payload = genreRepository.findById(id.value)
-        return AppResult.Success(payload?.takeIf { it.deletedAt == null })
-    }
-
-    @OpenRead(reason = "shared vocabulary; names no book")
-    override suspend fun getGenreChildren(parentId: GenreId): AppResult<List<GenreSyncPayload>> =
-        suspendTransaction(sqlDb) {
-            // Parent existence + liveness check inside the same transaction as the children read.
-            val parentRow = sqlDb.genresQueries.selectById(parentId.value).executeAsOneOrNull()
-            if (parentRow == null || parentRow.deleted_at != null) {
-                return@suspendTransaction AppResult.Failure(
-                    GenreError.NotFound(debugInfo = "parentId=${parentId.value}"),
-                )
-            }
-            val children =
-                sqlDb.genresQueries
-                    .liveChildrenOrdered(parentId.value)
-                    .executeAsList()
-            AppResult.Success(children.map { it.toPayload() })
-        }
 
     override suspend fun browseBooks(
         genreId: GenreId,
@@ -428,64 +375,6 @@ internal class GenreServiceImpl(
         return mergeReceipts.undo(receiptId)
     }
 
-    override suspend fun listUnmappedStrings(): AppResult<List<UnmappedStringSummary>> {
-        principal.requirePermission(permissionPolicy, Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
-        return suspendTransaction(sqlDb) {
-            val summaries =
-                sqlDb.pendingBookGenresQueries.aggregateByString().executeAsList().map { agg ->
-                    UnmappedStringSummary(
-                        rawString = agg.raw_string,
-                        bookCount = agg.book_count.toInt(),
-                        firstSeenAt = agg.first_seen,
-                    )
-                }
-            AppResult.Success(summaries)
-        }
-    }
-
-    override suspend fun mapUnmappedToGenre(
-        rawString: String,
-        genreId: GenreId,
-    ): AppResult<Unit> {
-        principal.requirePermission(permissionPolicy, Permission.EDIT_METADATA)?.let { return AppResult.Failure(it) }
-        val trimmed = rawString.trim()
-        // Sequential single-engine cutover (see deleteGenre): the alias-add, pending→junction
-        // conversion, and pending-row delete commit first; the affected books are re-upserted
-        // afterwards. All SQLDelight, run sequentially — no SQLITE_BUSY.
-        val genre = genreRepository.findById(genreId.value)
-        if (genre == null || genre.deletedAt != null) {
-            return AppResult.Failure(genreNotFound(genreId))
-        }
-
-        val affectedBookIds = sqlDb.pendingBookGenresQueries.bookIdsByRawString(trimmed).executeAsList()
-        if (affectedBookIds.isEmpty()) {
-            return AppResult.Failure(GenreError.UnmappedStringNotFound(debugInfo = "rawString=$trimmed"))
-        }
-
-        suspendTransaction(sqlDb) {
-            // 1. Persist the alias so future scans resolve the string automatically (delete-then-insert).
-            sqlDb.genreAliasesQueries.deleteByRawString(trimmed)
-            sqlDb.genreAliasesQueries.insert(raw_string = trimmed, genre_id = genreId.value)
-
-            // 2. Convert pending → real junction rows (insert-or-ignore — idempotent if a book
-            //    already has the target genre linked).
-            for (bookId in affectedBookIds) {
-                sqlDb.bookGenresQueries.insertIfAbsent(book_id = bookId, genre_id = genreId.value)
-            }
-
-            // 3. Drop the pending rows now that the mapping is canonical.
-            sqlDb.pendingBookGenresQueries.deleteAllForRawString(trimmed)
-        }
-
-        // 4. Re-upsert each affected book — bumps revision, publishes `book.Updated`.
-        when (val reupsert = reupsertBooks(affectedBookIds)) {
-            is AppResult.Success -> Unit
-            is AppResult.Failure -> return AppResult.Failure(reupsert.error)
-        }
-
-        return AppResult.Success(Unit)
-    }
-
     private fun genreNotFound(id: GenreId): GenreError.NotFound = GenreError.NotFound(debugInfo = "id=${id.value}")
 
     /**
@@ -516,8 +405,8 @@ internal class GenreServiceImpl(
 
     /**
      * Re-upserts every live book whose id appears in [bookIds]. Skips books that have
-     * vanished between snapshot and re-read. Used by [deleteGenre], [mergeGenres], and
-     * [mapUnmappedToGenre] to bump revisions on books whose `BookSyncPayload.genres` must
+     * vanished between snapshot and re-read. Used by [deleteGenre] and [mergeGenres]
+     * to bump revisions on books whose `BookSyncPayload.genres` must
      * reflect the junction cascade. One batched [BookRepository.findAllByIds] read replaces
      * the prior per-book `findById` N+1.
      */
@@ -616,24 +505,6 @@ internal class GenreServiceImpl(
         }
         return AppResult.Success(Unit)
     }
-
-    /** Maps a generated [Genres] row to the [GenreSyncPayload] domain shape. */
-    private fun Genres.toPayload(): GenreSyncPayload =
-        GenreSyncPayload(
-            id = id,
-            name = name,
-            slug = slug,
-            path = path,
-            parentId = parent_id,
-            depth = depth.toInt(),
-            sortOrder = sort_order.toInt(),
-            color = color,
-            description = description,
-            revision = revision,
-            updatedAt = updated_at,
-            createdAt = created_at,
-            deletedAt = deleted_at,
-        )
 }
 
 /** Validated parameters needed to execute a `moveGenre` write. */

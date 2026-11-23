@@ -10,7 +10,6 @@ import com.calypsan.listenup.api.sync.BookSeriesPayload
 import com.calypsan.listenup.api.sync.CoverPayload
 import com.calypsan.listenup.api.sync.CoverSource
 import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.api.ContributorServiceImpl
 import com.calypsan.listenup.server.api.SeriesServiceImpl
 import com.calypsan.listenup.server.sync.ChangeBus
@@ -112,7 +111,6 @@ class BookRepositoryCoverPathTest :
                         seriesRepo = seriesRepo,
                         bookRepo = repo,
                         sqlDb = db.sql,
-                        accessPolicy = BookAccessPolicy(db.sql, db.driver),
                         readingOrders = ReadingOrderRepository(db.sql, ChangeBus(), SyncRegistry()),
                         principal = rootPrincipal(),
                     )
@@ -156,7 +154,6 @@ class BookRepositoryCoverPathTest :
                         contributorRepo = contributorRepo,
                         bookRepo = repo,
                         sqlDb = db.sql,
-                        accessPolicy = BookAccessPolicy(db.sql, db.driver),
                         principal = rootPrincipal(),
                     )
                 runTest {

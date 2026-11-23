@@ -14,14 +14,11 @@ import com.calypsan.listenup.api.sync.ChapterSource
 import com.calypsan.listenup.api.sync.CoverPayload
 import com.calypsan.listenup.api.sync.CoverSource
 import com.calypsan.listenup.api.sync.parseSeriesSequence
-import com.calypsan.listenup.server.logging.loggerFor
 import com.calypsan.listenup.server.matching.review.BookMood
 import com.calypsan.listenup.server.matching.review.MoodLabelIdentity
 import com.calypsan.listenup.server.matching.review.ReviewKeys
 import com.calypsan.listenup.server.metadata.spi.SeriesMeta
 import com.calypsan.listenup.server.services.MatchCoverColumns
-
-private val log = loggerFor<MatchPreparer>()
 
 /** A match ready for its one transaction: every catalogue row resolved, the cover file stored. */
 internal data class MatchWritePlan(
@@ -57,8 +54,8 @@ internal fun interface MatchCoverStore {
 
 /**
  * Resolves a [MatchDraft] into a [MatchWritePlan] against [book] as it is now (spec, *Apply*, step 2): names to
- * ids, the cover's bytes fetched and stored before any transaction. A required cover that can't be fetched is
- * [MetadataError.CoverDownloadFailed] with nothing written; a best-effort one (the legacy apply) is dropped.
+ * ids, the cover's bytes fetched and stored before any transaction. A cover that can't be fetched is
+ * [MetadataError.CoverDownloadFailed] with nothing written.
  */
 internal class MatchPreparer(
     private val catalogs: MatchCatalogs,
@@ -70,15 +67,10 @@ internal class MatchPreparer(
         book: BookSyncPayload,
         currentMoods: List<BookMood>,
     ): AppResult<MatchWritePlan> {
-        var changes = draft.changes
         val wanted = draft.cover
         val cover = wanted?.let { covers.store(book.id, it.url) }
         if (wanted != null && cover == null) {
-            if (wanted.required) {
-                return AppResult.Failure(MetadataError.CoverDownloadFailed(debugInfo = "cover fetch or store failed"))
-            }
-            log.warn { "Match cover for ${book.id} couldn't be fetched — applying without it" }
-            changes = changes.filterNot { it is AppliedChange.Cover }
+            return AppResult.Failure(MetadataError.CoverDownloadFailed(debugInfo = "cover fetch or store failed"))
         }
         val at = now()
         val stamps =
@@ -111,7 +103,7 @@ internal class MatchPreparer(
                 ladderRungIds = draft.ladders.flatMap { catalogs.ladderRungs(it) }.distinct(),
                 moodsToLink = link,
                 moodsToUnlink = unlink,
-                changes = changes,
+                changes = draft.changes,
             ),
         )
     }
@@ -185,10 +177,6 @@ internal class MatchPreparer(
                 null
             }
 
-            is LabelPlan.ReplaceAll -> {
-                plan.labels.distinctBy(ReviewKeys::text).flatMap { catalogs.genreIds(it) }.distinct()
-            }
-
             is LabelPlan.AddRemove -> {
                 val removed = book.genres.filter { g -> plan.remove.any { ReviewKeys.text(it) == ReviewKeys.text(g.name) } }
                 (book.genres.map { it.id } - removed.map { it.id }.toSet() + plan.add.flatMap { catalogs.genreIds(it) })
@@ -205,11 +193,6 @@ internal class MatchPreparer(
         return when (plan) {
             LabelPlan.Unchanged -> {
                 emptyList<String>() to emptyList()
-            }
-
-            is LabelPlan.ReplaceAll -> {
-                val target = plan.labels.mapNotNull { catalogs.moodId(it) }.toSet()
-                (target - currentIds).toList() to (currentIds - target).toList()
             }
 
             is LabelPlan.AddRemove -> {

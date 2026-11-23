@@ -16,6 +16,7 @@ import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.rootPrincipal
+import com.calypsan.listenup.server.testing.liveGenre
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -164,8 +165,8 @@ class GenreServiceImplMoveTest :
                     val result = service.moveGenre(GenreId("g-fant"), newParentId = GenreId("g-new"))
                     require(result is AppResult.Success)
 
-                    val fant = (service.getGenre(GenreId("g-fant")) as AppResult.Success).data
-                    val epic = (service.getGenre(GenreId("g-epic")) as AppResult.Success).data
+                    val fant = sql.liveGenre(GenreId("g-fant"))
+                    val epic = sql.liveGenre(GenreId("g-epic"))
                     fant?.path shouldBe "/new/fantasy"
                     fant?.depth shouldBe 1
                     fant?.parentId shouldBe "g-new"
@@ -191,7 +192,7 @@ class GenreServiceImplMoveTest :
                     val result = service.moveGenre(GenreId("g-fant"), newParentId = null)
                     require(result is AppResult.Success)
 
-                    val fant = (service.getGenre(GenreId("g-fant")) as AppResult.Success).data
+                    val fant = sql.liveGenre(GenreId("g-fant"))
                     fant?.path shouldBe "/fantasy"
                     fant?.depth shouldBe 0
                     fant?.parentId shouldBe null
@@ -221,9 +222,9 @@ class GenreServiceImplMoveTest :
                     val result = service.moveGenre(GenreId("g-fic"), newParentId = GenreId("g-newroot"))
                     require(result is AppResult.Success)
 
-                    val fic = (service.getGenre(GenreId("g-fic")) as AppResult.Success).data
-                    val fiction = (service.getGenre(GenreId("g-fiction")) as AppResult.Success).data
-                    val fictionFant = (service.getGenre(GenreId("g-fiction-fant")) as AppResult.Success).data
+                    val fic = sql.liveGenre(GenreId("g-fic"))
+                    val fiction = sql.liveGenre(GenreId("g-fiction"))
+                    val fictionFant = sql.liveGenre(GenreId("g-fiction-fant"))
 
                     fic?.path shouldBe "/new-root/fic"
                     fiction?.path shouldBe "/fiction"
@@ -254,13 +255,13 @@ class GenreServiceImplMoveTest :
                 )
                 runTest {
                     val service = makeService(sql, driver)
-                    val fantBefore = (service.getGenre(GenreId("g-fant")) as AppResult.Success).data!!.revision
-                    val epicBefore = (service.getGenre(GenreId("g-epic")) as AppResult.Success).data!!.revision
+                    val fantBefore = sql.liveGenre(GenreId("g-fant"))!!.revision
+                    val epicBefore = sql.liveGenre(GenreId("g-epic"))!!.revision
 
                     service.moveGenre(GenreId("g-fant"), newParentId = GenreId("g-new"))
 
-                    val fantAfter = (service.getGenre(GenreId("g-fant")) as AppResult.Success).data!!.revision
-                    val epicAfter = (service.getGenre(GenreId("g-epic")) as AppResult.Success).data!!.revision
+                    val fantAfter = sql.liveGenre(GenreId("g-fant"))!!.revision
+                    val epicAfter = sql.liveGenre(GenreId("g-epic"))!!.revision
 
                     (fantAfter > fantBefore) shouldBe true
                     (epicAfter > epicBefore) shouldBe true
@@ -284,7 +285,7 @@ class GenreServiceImplMoveTest :
                     val result = service.moveGenre(GenreId("g-fant"), newParentId = GenreId("g-fic"))
                     // No-op is success; path stays the same.
                     require(result is AppResult.Success)
-                    val fant = (service.getGenre(GenreId("g-fant")) as AppResult.Success).data
+                    val fant = sql.liveGenre(GenreId("g-fant"))
                     fant?.path shouldBe "/fiction/fantasy"
                     fant?.depth shouldBe 1
                 }

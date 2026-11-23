@@ -14,9 +14,7 @@ import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.api.error.WorldEventError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.EntityKind
-import com.calypsan.listenup.api.sync.WorldEventSyncPayload
 import com.calypsan.listenup.api.sync.WorldEventType
-import com.calypsan.listenup.core.EntityId
 import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.core.WorldEventId
 import com.calypsan.listenup.domain.storyworld.WorldEventRules
@@ -35,7 +33,6 @@ import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import com.calypsan.listenup.server.testing.worldEventRepository
 import io.kotest.core.spec.style.FunSpec
-import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -143,63 +140,6 @@ class WorldEventServiceImplTest :
                         .applyBatch(batchOf(eventUpsert("w1", homeSeriesId = world.redRising.value, homeBookId = "open")))
                         .failure()
                         .shouldBeInstanceOf<ValidationError>()
-                }
-            }
-        }
-
-        test("listings leave out every event whose home or anchor the member can't see") {
-            withSqlDatabase {
-                runTest {
-                    val world = storyWorld()
-                    val saga = world.redRising.value
-                    world.asRoot().applyBatch(
-                        batchOf(
-                            eventUpsert("free", type = WorldEventType.ENTERS_SCENE, text = "", homeSeriesId = saga, subject = "darrow"),
-                            eventUpsert(
-                                "at-open",
-                                type = WorldEventType.ENTERS_SCENE,
-                                text = "",
-                                homeSeriesId = saga,
-                                bookId = "open",
-                                positionMs = 1L,
-                                subject = "darrow",
-                            ),
-                            eventUpsert(
-                                "at-hidden",
-                                type = WorldEventType.ENTERS_SCENE,
-                                text = "",
-                                homeSeriesId = saga,
-                                bookId = "hidden",
-                                positionMs = 1L,
-                                subject = "darrow",
-                            ),
-                        ),
-                    ) shouldBe AppResult.Success(Unit)
-                    val member = world.asMember()
-
-                    member
-                        .listEventsForSeries(world.redRising)
-                        .shouldBeInstanceOf<AppResult.Success<List<WorldEventSyncPayload>>>()
-                        .data
-                        .map { it.id }
-                        .toSet() shouldBe setOf("free", "at-open")
-                    member
-                        .listEventsForEntity(EntityId("darrow"))
-                        .shouldBeInstanceOf<AppResult.Success<List<WorldEventSyncPayload>>>()
-                        .data
-                        .map { it.id }
-                        .toSet() shouldBe setOf("free", "at-open")
-                    member
-                        .listEventsForSeries(world.sealed)
-                        .shouldBeInstanceOf<AppResult.Success<List<WorldEventSyncPayload>>>()
-                        .data
-                        .shouldBeEmpty()
-                    world
-                        .asRoot()
-                        .listEventsForSeries(world.redRising)
-                        .shouldBeInstanceOf<AppResult.Success<List<WorldEventSyncPayload>>>()
-                        .data
-                        .size shouldBe 3
                 }
             }
         }

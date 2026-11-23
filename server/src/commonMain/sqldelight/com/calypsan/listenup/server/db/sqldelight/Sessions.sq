@@ -111,7 +111,7 @@ revokeByIdForUser:
 UPDATE sessions SET revoked_at = :revoked_at
 WHERE id = :id AND user_id = :user_id AND revoked_at IS NULL;
 
--- Revoke all live sessions for a user (logoutAll).
+-- Revoke all live sessions for a user (password reset, demotion, removal).
 revokeAllForUser:
 UPDATE sessions SET revoked_at = :revoked_at WHERE user_id = :user_id AND revoked_at IS NULL;
 

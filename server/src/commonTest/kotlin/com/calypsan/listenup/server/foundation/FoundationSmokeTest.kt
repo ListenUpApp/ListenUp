@@ -1,7 +1,8 @@
 package com.calypsan.listenup.server.foundation
 
-import com.calypsan.listenup.api.PingService
+import com.calypsan.listenup.api.InstanceService
 import com.calypsan.listenup.api.contractJson
+import com.calypsan.listenup.api.dto.ServerInfo
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
@@ -31,9 +32,13 @@ private val jwt = JwtConfiguration("x".repeat(32), "listenup", "listenup-client"
 
 private fun deps(): FoundationDeps = FoundationDeps(jwt, sessionLiveness = { _, _ -> true })
 
-/** Test-scope ping impl — unguarded by design (the rpc-guard decorator is jvmMain-only). */
-private class TestPing : PingService {
-    override suspend fun ping(): AppResult<String> = AppResult.Success("pong")
+/** The [ServerInfo] the test instance answers with — distinct values, so a round-trip that drops or swaps one shows. */
+private val TEST_SERVER_INFO =
+    ServerInfo(name = "Smoke", version = "9.9.9", apiVersion = "v-smoke", setupRequired = true, instanceId = "smoke-instance")
+
+/** Test-scope instance service — unguarded by design (the rpc-guard decorator is jvmMain-only). */
+private class TestInstance : InstanceService {
+    override suspend fun getServerInfo(): AppResult<ServerInfo> = AppResult.Success(TEST_SERVER_INFO)
 }
 
 /**
@@ -69,16 +74,16 @@ class FoundationSmokeTest :
             }
         }
 
-        test("RPC ping serves over a real CIO server") {
+        test("an RPC call serves over a real CIO server") {
             // installFoundation installs the Krpc transport but registers no service (guarded
             // registration is jvmMain-only today — see installFoundation's KDoc); the smoke
-            // registers an unguarded test ping via the configure hook, in test scope.
+            // registers an unguarded test instance service via the configure hook, in test scope.
             val server =
                 foundationServer(port = 0, deps = deps()) {
                     routing {
                         rpc("/api/rpc/public") {
                             rpcConfig { serialization { json(contractJson) } }
-                            registerService<PingService> { TestPing() }
+                            registerService<InstanceService> { TestInstance() }
                         }
                     }
                 }
@@ -97,12 +102,12 @@ class FoundationSmokeTest :
                         installKrpc()
                     }
                 try {
-                    val ping =
+                    val instance =
                         rpcClient
                             .rpc("ws://127.0.0.1:$port/api/rpc/public") {
                                 rpcConfig { serialization { json(contractJson) } }
-                            }.withService<PingService>()
-                    (ping.ping() as AppResult.Success).data shouldBe "pong"
+                            }.withService<InstanceService>()
+                    (instance.getServerInfo() as AppResult.Success).data shouldBe TEST_SERVER_INFO
                 } finally {
                     rpcClient.close()
                 }

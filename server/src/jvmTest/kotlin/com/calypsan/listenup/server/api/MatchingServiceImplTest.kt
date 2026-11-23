@@ -9,6 +9,8 @@ import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.server.auth.MetadataRateBucket
+import com.calypsan.listenup.server.auth.MetadataRateLimiter
 import com.calypsan.listenup.server.auth.PermissionPolicy
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.matching.BookFinder
@@ -17,6 +19,7 @@ import com.calypsan.listenup.server.matching.PeopleFinder
 import com.calypsan.listenup.server.metadata.spi.EnrichmentRoutes
 import com.calypsan.listenup.server.metadata.spi.MetadataProviderId
 import com.calypsan.listenup.server.metadata.spi.MetadataProviderRegistry
+import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.bookPayloadFixture
 import com.calypsan.listenup.server.testing.memberPrincipal
@@ -26,14 +29,22 @@ import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldNotBeEmpty
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
+import kotlin.time.Instant
+
+/** Calls fired in a burst — twice `SEARCH`'s capacity, so the assertion survives a refill on a slow runner. */
+private const val FIND_BURST = 40
+
+private val NOW = Instant.fromEpochMilliseconds(1_730_000_000_000L)
 
 private class ServiceRig(
     db: SqlTestDatabases,
     libraryRegion: String? = null,
     book: BookSyncPayload? = bookPayloadFixture(id = "b1", title = "Project Hail Mary"),
+    rateLimiter: MetadataRateLimiter? = null,
 ) {
     val audible = FakeRegionalFindSource(MetadataProviderId.AUDIBLE)
     val service =
@@ -50,6 +61,7 @@ private class ServiceRig(
                 com.calypsan.listenup.server.matching.apply
                     .MatchRig(db)
                     .details(),
+            rateLimiter = rateLimiter,
         )
 }
 
@@ -132,6 +144,47 @@ class MatchingServiceImplTest :
                 runTest {
                     admin.findBookMatches(BookId("b2"), BookFindRequest()).shouldBeInstanceOf<AppResult.Failure>().error shouldBe
                         MetadataError.NotFound(debugInfo = "no book for id b2")
+                }
+            }
+        }
+
+        test("a Find burst from one user is throttled, and the first calls of it are not") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("b1")
+                val rig = ServiceRig(this, rateLimiter = MetadataRateLimiter(FixedClock(NOW)))
+                val userA = rig.service.copyWith(rootPrincipal("user-a"))
+                runTest {
+                    val outcomes = (1..FIND_BURST).map { userA.findBookMatches(BookId("b1"), BookFindRequest()) }
+
+                    outcomes
+                        .filterIsInstance<AppResult.Failure>()
+                        .map { it.error }
+                        .filterIsInstance<AuthError.RateLimited>()
+                        .shouldNotBeEmpty()
+                    // The control: the first `capacity` calls start against a full bucket, so a limiter that
+                    // rejected everything would not satisfy the assertion above.
+                    outcomes.take(MetadataRateBucket.SEARCH.perMinuteLimit).forEach {
+                        it.shouldBeInstanceOf<AppResult.Success<*>>()
+                    }
+                }
+            }
+        }
+
+        test("a second user is unaffected by the first user's burst") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("b1")
+                // ONE limiter shared by both per-request copies, exactly as production wires it.
+                val rig = ServiceRig(this, rateLimiter = MetadataRateLimiter(FixedClock(NOW)))
+                val userA = rig.service.copyWith(rootPrincipal("user-a"))
+                val userB = rig.service.copyWith(rootPrincipal("user-b"))
+                runTest {
+                    repeat(FIND_BURST) { userA.findBookMatches(BookId("b1"), BookFindRequest()) }
+                    userA.findBookMatches(BookId("b1"), BookFindRequest()).shouldBeInstanceOf<AppResult.Failure>()
+
+                    // The key is the user, not the process: user B's bucket is untouched.
+                    userB.findBookMatches(BookId("b1"), BookFindRequest()).shouldBeInstanceOf<AppResult.Success<*>>()
                 }
             }
         }

@@ -16,18 +16,16 @@ enum class MetadataRateBucket(
     val perMinuteLimit: Int,
 ) {
     /**
-     * `searchBooks` / `searchContributorMetadata` — the wizard's opening move. A match wizard issues
-     * ONE search and then fetches per candidate, so a search is the rarer of the two calls; twenty a
-     * minute covers a user retyping a title several times over, and typing is what bounds this in
-     * practice.
+     * `findBookMatches` / `findPeople` — the opening move of a match. A match issues ONE find and then
+     * reviews per candidate, so a find is the rarer of the two calls; twenty a minute covers a user
+     * retyping a title several times over, and typing is what bounds this in practice.
      */
     SEARCH(20),
 
     /**
-     * `getBookMetadata` / `getBookChapters` / `getContributorMetadata` — the per-candidate fetches
-     * that follow a search. The wizard issues several per search (core, chapters, contributor
-     * profile) and a user may preview a handful of candidates, so this sits well above [SEARCH]:
-     * sixty a minute leaves room for a whole wizard session without a legitimate user meeting it.
+     * `reviewBookMatch` / `reviewPersonMatch` — the per-candidate fetches that follow a find. A user
+     * may review a handful of candidates per find, so this sits well above [SEARCH]: sixty a minute
+     * leaves room for a whole matching session without a legitimate user meeting it.
      */
     FETCH(60),
 }
@@ -36,8 +34,7 @@ enum class MetadataRateBucket(
  * In-memory, per-user token-bucket throttle for the authenticated metadata-lookup reads — the
  * [LoginRateLimiter] sibling for a surface whose callers all have a user id.
  *
- * The five read methods on `MetadataLookupService` carry no `canEdit` gate, so any member reaches
- * them, and every one of them fans out to an external catalog through a provider limiter that
+ * The find and review methods on `MatchingService` fan out to external catalogs, and every one of them fans out to an external catalog through a provider limiter that
  * *waits* rather than rejects. That makes an unthrottled burst a head-of-line block on everyone
  * else's metadata work rather than only the burster's own. This caps it per user, in front of that
  * shared queue.

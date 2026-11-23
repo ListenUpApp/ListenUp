@@ -27,7 +27,7 @@ import kotlin.time.Clock
  *
  * Service-layer helpers beyond the base substrate:
  *  - [findById] — fetch one non-deleted tag by id
- *  - [findByIds] — batch fetch non-deleted tags by id (the N+1 fix for `listTagsForBook`)
+ *  - [findByIds] — batch fetch non-deleted tags by id
  *  - [findBySlug] — fetch one non-deleted tag by slug (the stable URL identity)
  *  - [listAll] — fetch all non-deleted tags, ordered by name
  *  - [updateName] — rename a tag (updates [Tag.name] only; slug is preserved)
@@ -150,9 +150,7 @@ class TagRepository(
      * Returns the non-deleted tags whose ids appear in [ids], in the same order as
      * [ids] and skipping ids that are absent or tombstoned.
      *
-     * This is the batched read that replaces the per-id `findById` loop in
-     * `TagServiceImpl.listTagsForBook` — one round-trip (per 900-id chunk) instead of
-     * one per junction row.
+     * One round-trip (per 900-id chunk) instead of one `findById` per id.
      */
     suspend fun findByIds(ids: List<String>): List<Tag> {
         if (ids.isEmpty()) return emptyList()

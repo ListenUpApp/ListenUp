@@ -13,7 +13,6 @@ import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.api.dto.auth.RegistrationStatusEvent
 import com.calypsan.listenup.api.dto.auth.SocketTicket
 import com.calypsan.listenup.api.dto.scanner.ScanResult
-import com.calypsan.listenup.api.dto.scanner.ScanResultSummary
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.event.ScanEvent
@@ -107,8 +106,6 @@ private class SessionExpiredAuthService : AuthServicePublic {
 
 /** `observeProgress()` throws synchronously while building the flow (a precondition/DI-style fault). */
 private class SyncThrowScannerService : ScannerService {
-    override suspend fun scanFull(): AppResult<ScanResultSummary> = error("not used in this test")
-
     override suspend fun lastScanResult(): AppResult<ScanResult> = error("not used in this test")
 
     override fun observeProgress(): Flow<RpcEvent<ScanEvent>> = error("boom during flow construction")

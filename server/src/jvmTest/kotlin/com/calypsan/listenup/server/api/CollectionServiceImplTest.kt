@@ -29,9 +29,11 @@ import com.calypsan.listenup.server.testing.makeBooksVisibleTo
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
+import com.calypsan.listenup.server.testing.collectionAccess
+import com.calypsan.listenup.server.testing.collectionBookIds
+import com.calypsan.listenup.server.testing.inboxBookIds
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
-import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -103,12 +105,11 @@ class CollectionServiceImplTest :
                     created.data.isOwner shouldBe true
                     created.data.callerPermission shouldBe SharePermission.Write
 
-                    val list = service.listCollections()
-                    require(list is AppResult.Success)
-                    list.data shouldHaveSize 1
-                    list.data.first().id shouldBe created.data.id
-                    list.data.first().isOwner shouldBe true
-                    list.data.first().callerPermission shouldBe SharePermission.Write
+                    db.collectionAccess("u1", created.data.id, UserRole.ADMIN).let { access ->
+                        access.canAccess shouldBe true
+                        access.isOwner shouldBe true
+                        access.permission shouldBe SharePermission.Write
+                    }
                 }
             }
         }
@@ -192,16 +193,10 @@ class CollectionServiceImplTest :
 
                     db.makeBooksVisibleTo("u1", "book1")
                     service.addBookToCollection(collectionId, BookId("book1")) shouldBe AppResult.Success(Unit)
-                    service.listCollectionBooks(collectionId).let { books ->
-                        require(books is AppResult.Success)
-                        books.data shouldBe listOf(BookId("book1"))
-                    }
+                    db.collectionBookIds(collectionId) shouldBe listOf(BookId("book1"))
 
                     service.removeBookFromCollection(collectionId, BookId("book1")) shouldBe AppResult.Success(Unit)
-                    service.listCollectionBooks(collectionId).let { books ->
-                        require(books is AppResult.Success)
-                        books.data shouldHaveSize 0
-                    }
+                    db.collectionBookIds(collectionId) shouldHaveSize 0
                 }
             }
         }
@@ -246,11 +241,8 @@ class CollectionServiceImplTest :
                     val created = service.createCollection("test-library", "Disposable")
                     require(created is AppResult.Success)
                     service.deleteCollection(created.data.id) shouldBe AppResult.Success(Unit)
-                    // Gone from listing.
-                    service.listCollections().let { collections ->
-                        require(collections is AppResult.Success)
-                        collections.data shouldHaveSize 0
-                    }
+                    // Gone: not even its owner reaches it.
+                    db.collectionAccess("u1", created.data.id, UserRole.ADMIN).canAccess shouldBe false
 
                     // Seed an inbox collection directly; deleting it is rejected.
                     // type='INBOX' must be stamped explicitly — is_inbox column is gone.
@@ -325,97 +317,9 @@ class CollectionServiceImplTest :
             }
         }
 
-        // ── listCollections ──────────────────────────────────────────────────────
+        // ── shareCollection / revokeShare ────────────────────────────────────────
 
-        test("listCollections returns owned + shared, admin sees all") {
-            withSqlDatabase {
-                val db = this
-                sql.seedTestLibraryAndFolder()
-                sql.seedTestUser("u1")
-                sql.seedTestUser("u2")
-                runTest {
-                    val service = makeService(db)
-
-                    // u1 owns colOwned and colSharedOut.
-                    val owner = service.actAs("u1", UserRole.ADMIN)
-                    val colOwned = owner.createCollection("test-library", "Owned")
-                    val colSharedOut = owner.createCollection("test-library", "SharedOut")
-                    require(colOwned is AppResult.Success)
-                    require(colSharedOut is AppResult.Success)
-
-                    // u2 owns "u2-col" — a member-owned row from before only admins could create collections.
-                    val u2 = service.actAs("u2")
-                    db.newCollectionRepo(ChangeBus(), SyncRegistry()).upsert(
-                        CollectionSyncPayload(
-                            id = "u2-col",
-                            libraryId = "test-library",
-                            ownerId = "u2",
-                            name = "U2Owned",
-                            revision = 0L,
-                            updatedAt = 0L,
-                        ),
-                    )
-
-                    // Share colSharedOut with u2 (read).
-                    val grantRepo =
-                        db.newCollectionGrantRepo(ChangeBus(), SyncRegistry())
-                    grantRepo.upsert(
-                        CollectionShareSyncPayload(
-                            id = "share1",
-                            collectionId = colSharedOut.data.id.value,
-                            sharedWithUserId = "u2",
-                            sharedByUserId = "u1",
-                            permission = SharePermission.Read,
-                            revision = 0L,
-                            updatedAt = 0L,
-                        ),
-                    )
-
-                    // u2 sees own + shared.
-                    val u2List = u2.listCollections()
-                    require(u2List is AppResult.Success)
-                    u2List.data.map { it.id } shouldContainExactlyInAnyOrder
-                        listOf(CollectionId("u2-col"), colSharedOut.data.id)
-
-                    // Admin sees all three.
-                    val admin = service.actAs("admin", UserRole.ADMIN)
-                    val adminList = admin.listCollections()
-                    require(adminList is AppResult.Success)
-                    adminList.data.map { it.id } shouldContainExactlyInAnyOrder
-                        listOf(colOwned.data.id, colSharedOut.data.id, CollectionId("u2-col"))
-                }
-            }
-        }
-
-        // ── listCollectionBooks ──────────────────────────────────────────────────
-
-        test("listCollectionBooks returns live junction book ids for an accessible collection") {
-            withSqlDatabase {
-                val db = this
-                sql.seedTestLibraryAndFolder()
-                sql.seedTestUser("u1")
-                sql.seedTestBook("book1")
-                sql.seedTestBook("book2")
-                runTest {
-                    val service = makeService(db).actAs("u1", UserRole.ADMIN)
-                    val created = service.createCollection("test-library", "Reading List")
-                    require(created is AppResult.Success)
-                    val collectionId = created.data.id
-
-                    db.makeBooksVisibleTo("u1", "book1", "book2")
-                    service.addBookToCollection(collectionId, BookId("book1"))
-                    service.addBookToCollection(collectionId, BookId("book2"))
-
-                    val books = service.listCollectionBooks(collectionId)
-                    require(books is AppResult.Success)
-                    books.data shouldContainExactlyInAnyOrder listOf(BookId("book1"), BookId("book2"))
-                }
-            }
-        }
-
-        // ── shareCollection / updateShare / revokeShare / listShares ──────────────
-
-        test("shareCollection: owner shares read with u2; u2 now sees it in listCollections (Read, not owner)") {
+        test("shareCollection: owner shares read with u2; u2 now reaches it (Read, not owner)") {
             withSqlDatabase {
                 val db = this
                 sql.seedTestLibraryAndFolder()
@@ -434,12 +338,11 @@ class CollectionServiceImplTest :
                     shared.data.sharedWithUserId shouldBe UserId("u2")
                     shared.data.permission shouldBe SharePermission.Read
 
-                    val u2List = service.actAs("u2").listCollections()
-                    require(u2List is AppResult.Success)
-                    u2List.data shouldHaveSize 1
-                    u2List.data.first().id shouldBe collectionId
-                    u2List.data.first().isOwner shouldBe false
-                    u2List.data.first().callerPermission shouldBe SharePermission.Read
+                    db.collectionAccess("u2", collectionId).let { access ->
+                        access.canAccess shouldBe true
+                        access.isOwner shouldBe false
+                        access.permission shouldBe SharePermission.Read
+                    }
                 }
             }
         }
@@ -518,53 +421,6 @@ class CollectionServiceImplTest :
             }
         }
 
-        test("updateShare read→write upgrades u2's permission") {
-            withSqlDatabase {
-                val db = this
-                sql.seedTestLibraryAndFolder()
-                sql.seedTestUser("u1")
-                sql.seedTestUser("u2")
-                runTest {
-                    val service = makeService(db)
-                    val owner = service.actAs("u1", UserRole.ADMIN)
-                    val created = owner.createCollection("test-library", "Shared")
-                    require(created is AppResult.Success)
-                    val collectionId = created.data.id
-
-                    owner.shareCollection(collectionId, "u2", SharePermission.Read).let {
-                        require(it is AppResult.Success)
-                    }
-
-                    val updated = owner.updateShare(collectionId, "u2", SharePermission.Write)
-                    require(updated is AppResult.Success)
-                    updated.data.permission shouldBe SharePermission.Write
-
-                    // u2 now reads the collection at Write permission.
-                    val u2List = service.actAs("u2").listCollections()
-                    require(u2List is AppResult.Success)
-                    u2List.data.first().callerPermission shouldBe SharePermission.Write
-                }
-            }
-        }
-
-        test("updateShare requires an active share — NotFound otherwise") {
-            withSqlDatabase {
-                val db = this
-                sql.seedTestLibraryAndFolder()
-                sql.seedTestUser("u1")
-                sql.seedTestUser("u2")
-                runTest {
-                    val owner = makeService(db).actAs("u1", UserRole.ADMIN)
-                    val created = owner.createCollection("test-library", "Shared")
-                    require(created is AppResult.Success)
-
-                    val updated = owner.updateShare(created.data.id, "u2", SharePermission.Write)
-                    require(updated is AppResult.Failure)
-                    updated.error.shouldBeInstanceOf<CollectionError.NotFound>()
-                }
-            }
-        }
-
         test("revokeShare soft-deletes the active share; u2 no longer sees the collection") {
             withSqlDatabase {
                 val db = this
@@ -581,18 +437,12 @@ class CollectionServiceImplTest :
                     owner.shareCollection(collectionId, "u2", SharePermission.Read).let {
                         require(it is AppResult.Success)
                     }
-                    // Precondition: u2 sees it.
-                    service.actAs("u2").listCollections().let { collections ->
-                        require(collections is AppResult.Success)
-                        collections.data shouldHaveSize 1
-                    }
+                    // Precondition: u2 reaches it.
+                    db.collectionAccess("u2", collectionId).canAccess shouldBe true
 
                     owner.revokeShare(collectionId, "u2") shouldBe AppResult.Success(Unit)
 
-                    service.actAs("u2").listCollections().let { collections ->
-                        require(collections is AppResult.Success)
-                        collections.data shouldHaveSize 0
-                    }
+                    db.collectionAccess("u2", collectionId).canAccess shouldBe false
                 }
             }
         }
@@ -626,30 +476,6 @@ class CollectionServiceImplTest :
                     val u2Revoke = u2.revokeShare(collectionId, "u3")
                     require(u2Revoke is AppResult.Failure)
                     u2Revoke.error.shouldBeInstanceOf<AuthError.PermissionDenied>()
-                }
-            }
-        }
-
-        test("listShares returns active shares for an owner-visible collection") {
-            withSqlDatabase {
-                val db = this
-                sql.seedTestLibraryAndFolder()
-                sql.seedTestUser("u1")
-                sql.seedTestUser("u2")
-                sql.seedTestUser("u3")
-                runTest {
-                    val owner = makeService(db).actAs("u1", UserRole.ADMIN)
-                    val created = owner.createCollection("test-library", "Shared")
-                    require(created is AppResult.Success)
-                    val collectionId = created.data.id
-
-                    owner.shareCollection(collectionId, "u2", SharePermission.Read)
-                    owner.shareCollection(collectionId, "u3", SharePermission.Write)
-
-                    val shares = owner.listShares(collectionId)
-                    require(shares is AppResult.Success)
-                    shares.data.map { it.sharedWithUserId } shouldContainExactlyInAnyOrder
-                        listOf(UserId("u2"), UserId("u3"))
                 }
             }
         }
@@ -707,9 +533,7 @@ class CollectionServiceImplTest :
 
                     service.addToInbox("book1", "test-library") shouldBe AppResult.Success(Unit)
 
-                    val inboxBooks = service.actAs("admin", UserRole.ADMIN).listInbox(LibraryId("test-library"))
-                    require(inboxBooks is AppResult.Success)
-                    inboxBooks.data shouldBe listOf(BookId("book1"))
+                    db.inboxBookIds("test-library") shouldBe listOf(BookId("book1"))
 
                     // Unknown book → BookNotFound.
                     val ghost = service.addToInbox("ghost", "test-library")
@@ -750,26 +574,20 @@ class CollectionServiceImplTest :
                     released shouldBe AppResult.Success(Unit)
 
                     // Inbox is now empty.
-                    val inboxBooks = admin.listInbox(LibraryId("test-library"))
-                    require(inboxBooks is AppResult.Success)
-                    inboxBooks.data shouldHaveSize 0
+                    db.inboxBookIds("test-library") shouldHaveSize 0
 
                     // book1 landed in collA.
-                    val collABooks = admin.listCollectionBooks(collA.data.id)
-                    require(collABooks is AppResult.Success)
-                    collABooks.data shouldBe listOf(BookId("book1"))
+                    db.collectionBookIds(collA.data.id) shouldBe listOf(BookId("book1"))
 
                     // book2 (empty target) landed in ALL_BOOKS — the public substrate.
                     val allBooks = service.getOrCreateSystemCollection("test-library", SystemCollectionType.ALL_BOOKS)
                     require(allBooks is AppResult.Success)
-                    val allBooksMembers = admin.listCollectionBooks(allBooks.data.id)
-                    require(allBooksMembers is AppResult.Success)
-                    allBooksMembers.data shouldBe listOf(BookId("book2"))
+                    db.collectionBookIds(allBooks.data.id) shouldBe listOf(BookId("book2"))
                 }
             }
         }
 
-        test("listInbox / releaseBooks require admin") {
+        test("releaseBooks requires admin") {
             withSqlDatabase {
                 val db = this
                 sql.seedTestLibraryAndFolder()
@@ -781,10 +599,6 @@ class CollectionServiceImplTest :
                     service.addToInbox("book1", "test-library") shouldBe AppResult.Success(Unit)
 
                     val member = service.actAs("u1", UserRole.MEMBER)
-
-                    val memberList = member.listInbox(LibraryId("test-library"))
-                    require(memberList is AppResult.Failure)
-                    memberList.error.shouldBeInstanceOf<AuthError.PermissionDenied>()
 
                     val memberRelease = member.releaseBooks(LibraryId("test-library"), mapOf(BookId("book1") to emptyList()))
                     require(memberRelease is AppResult.Failure)

@@ -61,7 +61,7 @@ internal fun interface PhotoPins {
  * filename stem against entity ids called every real photo an orphan.
  *
  * Orphans arise from two sources:
- *  1. [com.calypsan.listenup.server.api.ContributorMetadataApplier] wrote a
+ *  1. A match's person Apply ([com.calypsan.listenup.server.matching.person.ContributorPhotoFiles]) wrote a
  *     photo before the DB transaction committed and then the transaction rolled
  *     back — the file persists, the row does not. The same write-then-commit order
  *     means a sweep can land *between* the two, which is what [ORPHAN_GRACE] is for.

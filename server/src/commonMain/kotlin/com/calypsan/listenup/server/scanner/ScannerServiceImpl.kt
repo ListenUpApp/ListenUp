@@ -3,12 +3,10 @@ package com.calypsan.listenup.server.scanner
 import com.calypsan.listenup.api.ScannerService
 import com.calypsan.listenup.api.dto.scan.ScanIssue
 import com.calypsan.listenup.api.dto.scanner.ScanResult
-import com.calypsan.listenup.api.dto.scanner.ScanResultSummary
 import com.calypsan.listenup.api.dto.scanner.ScanScope
 import com.calypsan.listenup.api.error.ScanError
 import com.calypsan.listenup.api.event.ScanEvent
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.api.result.map
 import com.calypsan.listenup.api.streaming.RpcEvent
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.auth.PrincipalProvider
@@ -26,7 +24,7 @@ import com.calypsan.listenup.server.auth.requireAdmin
  * this class just translates between the wire contract and the internal types.
  *
  * [resolveLibraryId] is a suspend function that returns the single library id
- * for this process. It is called on every `scanFull` and `lastScanResult` call
+ * for this process. It is called on every `lastScanResult` call
  * so the implementation stays correct even when the id is resolved lazily
  * (e.g. from [com.calypsan.listenup.server.services.LibraryRegistry]). The
  * result is stable for the process lifetime so the underlying query is cheap
@@ -39,12 +37,9 @@ import com.calypsan.listenup.server.auth.requireAdmin
  * `lastScanResult` already have to handle the configuration failure mode;
  * lumping "not yet" in is acceptable.
  *
- * `scanFull()` is ROOT/ADMIN-gated via the bound [principal] — triggering a disk-walking
- * full scan is a privileged server operation. The Koin singleton carries
- * [PrincipalProvider.None], so an unscoped `scanFull` call is denied rather than silently
- * run privileged; transports bind the caller's principal via [copyWith]. `lastScanResult()`
- * and `observeProgress()` answer every signed-in caller, but a non-admin receives counts only:
- * no paths and no book content.
+ * The Koin singleton carries [PrincipalProvider.None]; transports bind the caller's principal via
+ * [copyWith]. `lastScanResult()` and `observeProgress()` answer every signed-in caller, but a
+ * non-admin (or an unscoped call) receives counts only: no paths and no book content.
  */
 internal class ScannerServiceImpl(
     private val orchestrator: ScanOrchestrator,
@@ -53,12 +48,6 @@ internal class ScannerServiceImpl(
     private val scanIssues: ScanIssueStore,
     private val principal: PrincipalProvider = PrincipalProvider.None,
 ) : ScannerService {
-    override suspend fun scanFull(): AppResult<ScanResultSummary> {
-        // Admin-only: triggering a disk-walking full scan is a privileged server operation.
-        principal.requireAdmin()?.let { return AppResult.Failure(it) }
-        return orchestrator.scanLibrary(resolveLibraryId()).map { it.toSummary() }
-    }
-
     override suspend fun lastScanResult(): AppResult<ScanResult> {
         val result =
             orchestrator.lastResult(resolveLibraryId())

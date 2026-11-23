@@ -202,25 +202,6 @@ class AdminUserServiceImpl(
         }
     }
 
-    override suspend fun searchUsers(query: String): AppResult<List<User>> {
-        principal.requireAdmin()?.let { return AppResult.Failure(it) }
-        val needle = query.trim()
-        return suspendTransaction(sql) {
-            AppResult.Success(
-                // ACTIVE only: search is an active-roster operation; pending/denied registrations
-                // have their own surfaces and must not leak in (sibling of listUsers).
-                sql.usersQueries
-                    .selectActiveLive()
-                    .executeAsList()
-                    .map { it.toAuthUser() }
-                    .filter { user ->
-                        user.displayName.contains(needle, ignoreCase = true) ||
-                            user.email.contains(needle, ignoreCase = true)
-                    }.map { it.toContract() },
-            )
-        }
-    }
-
     override suspend fun updateUser(
         id: UserId,
         patch: AdminUserPatch,

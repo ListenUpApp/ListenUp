@@ -24,6 +24,7 @@ import com.calypsan.listenup.server.testing.junctionDiagnostic
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
+import com.calypsan.listenup.server.testing.inboxBookIds
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.booleans.shouldBeFalse
@@ -107,7 +108,7 @@ class CollectionMembershipWriteFailureTest :
                     h.bookAccessPolicy.canAccess("member", UserRole.MEMBER, "book1").shouldBeFalse()
                     // And it is still held: back in the inbox, retryable, not stranded in no collection.
                     h.junctionDiagnostic("book1") shouldBe setOf(inboxIdOf(admin))
-                    admin.listInbox(LibraryId("test-library")) shouldBe AppResult.Success(listOf(BookId("book1")))
+                    inboxBookIds("test-library") shouldBe listOf(BookId("book1"))
                     // Nothing about the held book changed, so nothing is announced for it.
                     h.revisionTouch.touched shouldNotContain "book1"
                 }
@@ -163,7 +164,7 @@ class CollectionMembershipWriteFailureTest :
                     h.junctionDiagnostic("book1") shouldBe setOf(inboxIdOf(admin))
                     h.bookAccessPolicy.canAccess("member", UserRole.MEMBER, "book1").shouldBeFalse()
                     h.revisionTouch.touched shouldNotContain "book1"
-                    admin.listInbox(LibraryId("test-library")) shouldBe AppResult.Success(listOf(BookId("book1")))
+                    inboxBookIds("test-library") shouldBe listOf(BookId("book1"))
                 }
             }
         }
@@ -336,7 +337,7 @@ class CollectionMembershipWriteFailureTest :
                     h.revisionTouch.touched shouldContain "book1"
                     h.revisionTouch.touched shouldContain "book3"
                     h.revisionTouch.touched shouldNotContain "book2"
-                    admin.listInbox(LibraryId("test-library")) shouldBe AppResult.Success(listOf(BookId("book2")))
+                    inboxBookIds("test-library") shouldBe listOf(BookId("book2"))
                 }
             }
         }

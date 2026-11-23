@@ -27,6 +27,7 @@ import kotlinx.rpc.krpc.ktor.client.rpc
 import kotlinx.rpc.krpc.ktor.client.rpcConfig
 import kotlinx.rpc.krpc.serialization.json.json
 import kotlinx.rpc.withService
+import com.calypsan.listenup.api.LibraryAdminService
 import com.calypsan.listenup.api.ScannerService
 
 /**
@@ -46,7 +47,7 @@ import com.calypsan.listenup.api.ScannerService
  * triggers an initial full scan via `bootstrapScannerOnStartup` so by the
  * time the fixture is returned, [HttpClient] requests can race the
  * bootstrap scan — tests should account for that (e.g. poll
- * `ScannerService.lastScanResult`, or call `scanFull()` and accept that the
+ * `ScannerService.lastScanResult`, or call `LibraryAdminService.scanLibrary()` and accept that the
  * first call may return `AlreadyRunning` while bootstrap is still running).
  */
 internal class ScannerEndToEndFixture private constructor(
@@ -61,6 +62,13 @@ internal class ScannerEndToEndFixture private constructor(
             .rpc(baseUrl.replace("http://", "ws://") + "/api/rpc/authed") {
                 rpcConfig { serialization { json(contractJson) } }
             }.withService<ScannerService>()
+
+    /** An authed [LibraryAdminService] proxy — how the app starts a scan. */
+    fun libraryAdminService(): LibraryAdminService =
+        client
+            .rpc(baseUrl.replace("http://", "ws://") + "/api/rpc/authed") {
+                rpcConfig { serialization { json(contractJson) } }
+            }.withService<LibraryAdminService>()
 
     override fun close() {
         client.close()

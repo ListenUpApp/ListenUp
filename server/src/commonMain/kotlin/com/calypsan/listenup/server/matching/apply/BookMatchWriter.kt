@@ -24,8 +24,7 @@ import kotlin.uuid.Uuid
  * revision moves exactly once. Nothing lands unless all of it does; a fault anywhere rolls every write back.
  *
  * [basedOnRevision], when given, is re-checked inside the transaction: a book that moved since is
- * [MetadataError.ReviewOutdated] and nothing is written. The legacy apply passes null (last write wins, as it
- * always has).
+ * [MetadataError.ReviewOutdated] and nothing is written.
  */
 internal class BookMatchWriter(
     private val db: ListenUpDatabase,

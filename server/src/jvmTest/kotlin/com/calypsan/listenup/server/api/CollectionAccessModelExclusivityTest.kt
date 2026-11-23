@@ -15,6 +15,7 @@ import com.calypsan.listenup.server.testing.junctionDiagnostic
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
+import com.calypsan.listenup.server.testing.inboxBookIds
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.booleans.shouldBeFalse
@@ -260,7 +261,7 @@ class CollectionAccessModelExclusivityTest :
 
                     // Quarantine B, exactly as a scan does when the inbox gate is on.
                     admin.addBookToCollection(CollectionId(inboxId), BookId("B")) shouldBe AppResult.Success(Unit)
-                    admin.listInbox(LibraryId("test-library")) shouldBe AppResult.Success(listOf(BookId("B")))
+                    inboxBookIds("test-library") shouldBe listOf(BookId("B"))
 
                     // Curating a held book into a real collection is the transition under test:
                     // SystemCollectionType documents both system collections as exclusive with real
@@ -271,7 +272,7 @@ class CollectionAccessModelExclusivityTest :
                     admin.addBookToCollection(c.data.id, BookId("B")) shouldBe AppResult.Success(Unit)
 
                     // The invariant: B is no longer held.
-                    admin.listInbox(LibraryId("test-library")) shouldBe AppResult.Success(emptyList())
+                    inboxBookIds("test-library") shouldBe emptyList()
                     // mechanism diagnostic — not the invariant this test asserts.
                     h.junctionDiagnostic("B").let { collectionIds ->
                         collectionIds shouldContain c.data.id.value

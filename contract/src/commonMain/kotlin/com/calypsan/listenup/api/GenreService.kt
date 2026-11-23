@@ -5,9 +5,7 @@ import com.calypsan.listenup.api.dto.GenreSummary
 import com.calypsan.listenup.api.dto.GenreUpdate
 import com.calypsan.listenup.api.dto.MergeReceipt
 import com.calypsan.listenup.api.dto.MergeUndoResult
-import com.calypsan.listenup.api.dto.UnmappedStringSummary
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.api.sync.GenreSyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.GenreId
 import com.calypsan.listenup.core.MergeReceiptId
@@ -16,46 +14,16 @@ import kotlinx.rpc.annotations.Rpc
 /**
  * RPC contract for genre access and curator-edit mutations.
  *
- * Three surface categories:
- * - **Observation** — [listGenres], [getGenre], [getGenreChildren], [browseBooks] are safe to
- *   call repeatedly. Clients observe Room locally for tree reads; per-entity reads fall back
- *   here for cache-miss situations.
+ * Two surface categories:
+ * - **Observation** — [browseBooks], [getGenreStats] and [getGenreBySlug] are safe to call
+ *   repeatedly. Clients read the genre tree itself from their local Room mirror.
  * - **Curator admin** — [createGenre], [updateGenre], [deleteGenre], [moveGenre], [mergeGenres]
  *   mutate the genre taxonomy. The sync firehose delivers the authoritative payload to all connected
  *   clients; affected books are re-upserted so their `BookSyncPayload.genres` reflects the change.
- * - **Unmapped curation** — [listUnmappedStrings] and [mapUnmappedToGenre] drive the curator
- *   workflow for raw genre strings the scanner couldn't resolve.
- *
- * Single-entity reads return [GenreSyncPayload] directly — the substrate-sync wire shape is the
- * canonical wire type for a genre, mirroring the [ContributorService.getContributor] precedent.
  */
 @Rpc
 interface GenreService {
     // ── Observation ─────────────────────────────────────────────────────────
-
-    /**
-     * Returns a tree-shaped summary of every live genre, each row carrying its
-     * book count via JOIN. Tombstoned genres are excluded. Ordered by [path] so
-     * the client can render the tree without a second sort.
-     */
-    suspend fun listGenres(): AppResult<List<GenreSummary>>
-
-    /**
-     * Returns the genre aggregate for [id], or `null` when no live genre with
-     * that id exists on the server.
-     *
-     * Mirrors [ContributorService.getContributor] in semantics — clients call
-     * this on a cache miss against their local Room mirror.
-     */
-    suspend fun getGenre(id: GenreId): AppResult<GenreSyncPayload?>
-
-    /**
-     * Returns the direct children of [parentId] (one depth level only — does
-     * NOT include further descendants). Empty list when [parentId] has no
-     * children; [com.calypsan.listenup.api.error.GenreError.NotFound] when
-     * [parentId] doesn't reference a live genre.
-     */
-    suspend fun getGenreChildren(parentId: GenreId): AppResult<List<GenreSyncPayload>>
 
     /**
      * Returns book ids linked to [genreId]. When [includeDescendants] is true,
@@ -182,30 +150,4 @@ interface GenreService {
      * name now). Requires the caller's `canEdit` flag.
      */
     suspend fun undoGenreMerge(receiptId: MergeReceiptId): AppResult<MergeUndoResult>
-
-    // ── Unmapped curation ───────────────────────────────────────────────────
-
-    /**
-     * Returns one row per distinct raw string in `pending_book_genres`,
-     * aggregated by string. Ordered by `bookCount DESC, rawString ASC` so
-     * high-impact strings surface to the curator first.
-     */
-    suspend fun listUnmappedStrings(): AppResult<List<UnmappedStringSummary>>
-
-    /**
-     * Maps the raw string [rawString] to live genre [genreId]:
-     * - Adds (or replaces) a `genre_aliases` row binding [rawString] to [genreId].
-     * - For every book currently in `pending_book_genres` with [rawString],
-     *   inserts a `book_genres` row (insert-or-ignore) and removes the pending row.
-     * - All affected books are re-upserted.
-     *
-     * Returns [com.calypsan.listenup.api.error.GenreError.NotFound] when [genreId]
-     * doesn't reference a live genre. Returns
-     * [com.calypsan.listenup.api.error.GenreError.UnmappedStringNotFound] when no
-     * `pending_book_genres` row matches [rawString].
-     */
-    suspend fun mapUnmappedToGenre(
-        rawString: String,
-        genreId: GenreId,
-    ): AppResult<Unit>
 }

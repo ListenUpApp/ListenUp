@@ -6,8 +6,7 @@ import kotlinx.serialization.Serializable
 /**
  * The provider-neutral locale a metadata lookup runs in.
  *
- * This is the single locale type on the [com.calypsan.listenup.api.MetadataLookupService]
- * RPC signatures — it crosses the wire and is read by both client and server. Each server
+ * This is the single locale type on the metadata RPC signatures — it crosses the wire and is read by both client and server. Each server
  * provider maps it to its own regional vocabulary (Audible maps [region] to an
  * `AudibleRegion`, iTunes to a storefront country); the contract stays neutral so no single
  * catalog's region enum leaks into the general surface or onto the client export.

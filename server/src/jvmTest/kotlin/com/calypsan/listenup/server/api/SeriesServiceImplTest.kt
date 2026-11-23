@@ -28,7 +28,6 @@ import com.calypsan.listenup.server.testing.withSqlDatabase
 import com.calypsan.listenup.server.testing.rootPrincipal
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
-import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
@@ -68,43 +67,6 @@ class SeriesServiceImplTest :
 
                     val success = result.shouldBeInstanceOf<AppResult.Success<SeriesSyncPayload?>>()
                     success.data shouldBe null
-                }
-            }
-        }
-
-        test("listBooksBySeries returns all books belonging to the series in position order") {
-            withSqlDatabase {
-                sql.seedTestLibraryAndFolder()
-                val deps = makeSeriesServiceAndDeps(this)
-                val service = deps.service
-                val seriesRepo = deps.seriesRepo
-                val bookRepo = deps.bookRepo
-                runTest {
-                    val seriesId = seriesRepo.resolveOrCreate("The Stormlight Archive")
-                    bookRepo.upsert(bookFixtureWithSeries("b1", "The Way of Kings", seriesId, 1.0))
-                    bookRepo.upsert(bookFixtureWithSeries("b2", "Words of Radiance", seriesId, 2.0, rootRelPath = "WoR"))
-
-                    val result = service.listBooksBySeries(seriesId)
-
-                    val success = result.shouldBeInstanceOf<AppResult.Success<List<BookSyncPayload>>>()
-                    success.data shouldHaveSize 2
-                }
-            }
-        }
-
-        test("listBooksBySeries returns empty list when series has no books") {
-            withSqlDatabase {
-                sql.seedTestLibraryAndFolder()
-                val deps = makeSeriesServiceAndDeps(this)
-                val service = deps.service
-                val seriesRepo = deps.seriesRepo
-                runTest {
-                    val seriesId = seriesRepo.resolveOrCreate("Empty Series")
-
-                    val result = service.listBooksBySeries(seriesId)
-
-                    val success = result.shouldBeInstanceOf<AppResult.Success<List<BookSyncPayload>>>()
-                    success.data.shouldBeEmpty()
                 }
             }
         }
@@ -357,7 +319,6 @@ private fun makeSeriesServiceAndDeps(dbs: SqlTestDatabases): SeriesServiceDeps {
             seriesRepo = seriesRepo,
             bookRepo = bookRepo,
             sqlDb = dbs.sql,
-            accessPolicy = BookAccessPolicy(dbs.sql, dbs.driver),
             readingOrders = ReadingOrderRepository(dbs.sql, ChangeBus(), SyncRegistry()),
             principal = rootPrincipal(),
         )

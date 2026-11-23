@@ -10,7 +10,6 @@ import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.SeriesError
 import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.SeriesSyncPayload
 import com.calypsan.listenup.core.MergeReceiptId
 import com.calypsan.listenup.core.SeriesId
@@ -64,10 +63,7 @@ import com.calypsan.listenup.server.auth.requirePermission
  * [com.calypsan.listenup.domain.series.SeriesTree] and writes through the same substrate upsert
  * as [updateSeries].
  *
- * [getSeries] (series metadata) is open to any authenticated user, but [listBooksBySeries]
- * is access-filtered: a non-admin caller receives only the sibling books they can reach
- * (via [BookAccessPolicy]), so a quarantined or private-collection-only book in the series
- * never leaks its metadata; ROOT/ADMIN see every book.
+ * [getSeries] (series metadata) is open to any authenticated user.
  * Edits ([updateSeries] and the other non-curate mutations) are gated on [Permission.EDIT_METADATA];
  * merge, delete and merge-undo ([mergeSeries], [deleteSeries], [undoSeriesMerge], and the
  * [listMergeReceipts] that feeds undo) on [Permission.CURATE_LIBRARY] — both via
@@ -81,7 +77,6 @@ internal class SeriesServiceImpl(
     private val seriesRepo: SeriesRepository,
     private val bookRepo: BookRepository,
     private val sqlDb: ListenUpDatabase,
-    private val accessPolicy: BookAccessPolicy,
     private val readingOrders: ReadingOrderRepository,
     private val permissionPolicy: PermissionPolicy = PermissionPolicy(sqlDb),
     private val principal: PrincipalProvider = PrincipalProvider.None,
@@ -116,7 +111,6 @@ internal class SeriesServiceImpl(
             seriesRepo = seriesRepo,
             bookRepo = bookRepo,
             sqlDb = sqlDb,
-            accessPolicy = accessPolicy,
             readingOrders = readingOrders,
             permissionPolicy = permissionPolicy,
             principal = principal,
@@ -128,25 +122,6 @@ internal class SeriesServiceImpl(
     @OpenRead(reason = "every member already receives every series row through sync")
     override suspend fun getSeries(id: SeriesId): AppResult<SeriesSyncPayload?> =
         AppResult.Success(seriesRepo.findById(id.value))
-
-    override suspend fun listBooksBySeries(id: SeriesId): AppResult<List<BookSyncPayload>> {
-        val accessible = accessibleBookIdFilter()
-        return AppResult.Success(
-            bookRepo.findBySeries(id).filter { accessible == null || it.id in accessible },
-        )
-    }
-
-    /**
-     * The caller's reachable book-id set, or null when the caller is ROOT/ADMIN (unfiltered —
-     * every book). Resolved from [principal] (bound per-request via [copyWith]) through the same
-     * [BookAccessPolicy] seam [BookServiceImpl] uses, so a series listing can never leak a sibling
-     * book the caller can't reach. An absent principal — a wiring bug, since every RPC/REST caller
-     * is scoped — collapses to the empty set (deny all) rather than leaking.
-     */
-    private suspend fun accessibleBookIdFilter(): Set<String>? {
-        val p = principal.current() ?: return emptySet()
-        return accessPolicy.accessibleBookIds(p.userId.value, p.role)
-    }
 
     override suspend fun updateSeries(
         id: SeriesId,
@@ -341,14 +316,12 @@ fun createSeriesService(
     seriesRepo: SeriesRepository,
     bookRepo: BookRepository,
     sqlDb: ListenUpDatabase,
-    driver: app.cash.sqldelight.db.SqlDriver,
     readingOrders: ReadingOrderRepository,
 ): SeriesService =
     SeriesServiceImpl(
         seriesRepo = seriesRepo,
         bookRepo = bookRepo,
         sqlDb = sqlDb,
-        accessPolicy = BookAccessPolicy(sqlDb, driver),
         readingOrders = readingOrders,
     )
 

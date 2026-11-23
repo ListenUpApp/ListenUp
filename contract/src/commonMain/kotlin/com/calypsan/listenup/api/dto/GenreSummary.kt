@@ -5,7 +5,7 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
- * Read-time summary returned by [com.calypsan.listenup.api.GenreService.listGenres]
+ * Read-time summary returned by [com.calypsan.listenup.api.GenreService.getGenreBySlug]
  * and curator screens. Carries enough hierarchy detail ([path], [parentId], [depth])
  * for the client to render the tree without a second lookup.
  *

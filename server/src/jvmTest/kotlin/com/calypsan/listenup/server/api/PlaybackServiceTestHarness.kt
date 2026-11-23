@@ -133,7 +133,6 @@ internal fun TestDeps.service(
         coverUrlSigner = coverSigner,
         playbackPositionRepository = positionRepo,
         listeningEventRepository = eventRepo,
-        userStatsRepository = statsRepo,
         accessPolicy = accessPolicy,
         principal = principal(userId, role),
         sql = sql,

@@ -192,7 +192,6 @@ fun booksModule(
                 contributorRepo = get(),
                 bookRepo = get(),
                 sqlDb = get<ListenUpDatabase>(),
-                accessPolicy = get<BookAccessPolicy>(),
                 permissionPolicy = get<PermissionPolicy>(),
                 principal = unscopedPlaceholder("ContributorService"),
             )
@@ -251,7 +250,6 @@ private fun Module.seriesServiceBinding() {
             seriesRepo = get(),
             bookRepo = get(),
             sqlDb = get<ListenUpDatabase>(),
-            accessPolicy = get<BookAccessPolicy>(),
             readingOrders = get<ReadingOrderRepository>(),
             permissionPolicy = get<PermissionPolicy>(),
             principal = unscopedPlaceholder("SeriesService"),

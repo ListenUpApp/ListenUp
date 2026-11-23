@@ -37,7 +37,7 @@ import kotlinx.io.files.SystemFileSystem
 
 /**
  * Pins the liveness rule of [OrphanImageCleanupTask] against the filenames production actually
- * writes. Every writer — `ContributorMetadataApplier` and the `PUT` upload path — names a photo or
+ * writes. Every writer — `ContributorPhotoFiles` and the `PUT` upload path — names a photo or
  * cover by the **SHA-256 of its bytes**, never by the entity id; a rule that matched stems against
  * ids called every real image an orphan and deleted it. These fixtures write real bytes and name the
  * file by their real hash, exactly as production does.

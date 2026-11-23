@@ -2,7 +2,6 @@ package com.calypsan.listenup.api
 
 import com.calypsan.listenup.api.dto.scan.ScanIssue
 import com.calypsan.listenup.api.dto.scanner.ScanResult
-import com.calypsan.listenup.api.dto.scanner.ScanResultSummary
 import com.calypsan.listenup.api.event.ScanEvent
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.streaming.RpcEvent
@@ -11,9 +10,8 @@ import kotlinx.rpc.annotations.Rpc
 
 /**
  * Scanner contract. Mounted at `/api/rpc/authed` behind the JWT gate — every RPC call
- * requires a valid access token. `scanFull()` is additionally ROOT/ADMIN-gated inside the
- * server implementation on both transports (RPC and `POST /api/v1/scan`); a member receives
- * `AppResult.Failure(AuthError.PermissionDenied)`. `lastScanResult()` and `observeProgress()`
+ * requires a valid access token. Scans are started through `LibraryAdminService.scanLibrary`.
+ * `lastScanResult()` and `observeProgress()`
  * answer any authenticated user, but a non-admin receives counts only: no paths, no book
  * content. First-party clients trigger scans through
  * `LibraryAdminService`.
@@ -25,8 +23,6 @@ import kotlinx.rpc.annotations.Rpc
  * [RpcEvent.Data] for each underlying event; the guard wraps any internal
  * failures as [RpcEvent.Error].
  *
- *  - `scanFull()` returns immediately with `Failure(AlreadyRunning)` if a
- *    scan is in flight.
  *  - `lastScanResult()` returns the most-recent completed scan's result for
  *    read-after-scan flows that don't want to subscribe. The books list is present
  *    only for ROOT/ADMIN; a non-admin gets the same counts with the content blanked.
@@ -37,8 +33,6 @@ import kotlinx.rpc.annotations.Rpc
  */
 @Rpc
 interface ScannerService {
-    suspend fun scanFull(): AppResult<ScanResultSummary>
-
     suspend fun lastScanResult(): AppResult<ScanResult>
 
     fun observeProgress(): Flow<RpcEvent<ScanEvent>>

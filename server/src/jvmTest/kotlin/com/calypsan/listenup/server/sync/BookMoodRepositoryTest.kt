@@ -25,8 +25,8 @@ import kotlinx.coroutines.test.runTest
 /**
  * Tests for [BookMoodRepository] and the batched [MoodRepository.findByIds] read —
  * the composite-key twin of `BookTagRepositoryTest`. Covers upsert/softDelete,
- * bulk cascade variants, query helpers, sync-event publication, the batched read
- * that fixes the `listMoodsForBook` N+1, and pullSince tombstone inclusion.
+ * bulk cascade variants, query helpers, sync-event publication, the batched read,
+ * and pullSince tombstone inclusion.
  *
  * All tests use a real migrated database with fully-satisfied FK constraints:
  * library + folder rows are seeded via [seedTestLibraryAndFolder], book rows via
@@ -290,31 +290,6 @@ class BookMoodRepositoryTest :
                     val first = sub.await()
                     first.repo.domainName shouldBe "book_moods"
                     first.event.shouldBeInstanceOf<SyncEvent.Deleted>()
-                }
-            }
-        }
-
-        // ── softDeleteAllForMood ──────────────────────────────────────────────────
-
-        test("softDeleteAllForMood tombstones all junction rows for the mood") {
-            withSqlDatabase {
-                sql.seedTestLibraryAndFolder()
-                sql.seedTestBook("book1")
-                sql.seedTestBook("book2")
-                val registry = SyncRegistry()
-                val bus = ChangeBus()
-                val moodRepo = MoodRepository(db = sql, bus = bus, registry = registry)
-                val bookMoodRepo = BookMoodRepository(db = sql, bus = bus, registry = registry, driver = driver)
-
-                runTest {
-                    moodRepo.upsert(Mood("m1", "Tense", "tense", 0, 0))
-                    bookMoodRepo.upsert(BookMoodSyncPayload("book1:m1", "book1", "m1", 1000L, 0L))
-                    bookMoodRepo.upsert(BookMoodSyncPayload("book2:m1", "book2", "m1", 2000L, 0L))
-
-                    val count = bookMoodRepo.softDeleteAllForMood("m1")
-                    count shouldBe 2
-
-                    bookMoodRepo.findAllForMood("m1").shouldBeEmpty()
                 }
             }
         }

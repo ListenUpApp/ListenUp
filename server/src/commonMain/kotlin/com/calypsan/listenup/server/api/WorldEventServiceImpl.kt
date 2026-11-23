@@ -12,9 +12,6 @@ import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.api.error.WorldEventError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.WorldEventSyncPayload
-import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.core.EntityId
-import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.core.StoryWorldHistoryId
 import com.calypsan.listenup.core.WorldEventId
 import com.calypsan.listenup.domain.storyworld.WorldEventRules
@@ -51,38 +48,6 @@ internal class WorldEventServiceImpl(
         batchProblem(batch)?.let { return AppResult.Failure(it) }
         for (op in batch.ops) opProblem(caller, op)?.let { return AppResult.Failure(it) }
         return eventRepo.applyBatch(batch.ops.map { it.normalized() }, caller.userId)
-    }
-
-    override suspend fun listEventsForSeries(seriesId: SeriesId): AppResult<List<WorldEventSyncPayload>> {
-        val caller = principal.current() ?: return denied()
-        if (!accessPolicy.canAccessSeries(
-                caller.userId.value,
-                caller.role,
-                seriesId.value,
-            )
-        ) {
-            return AppResult.Success(emptyList())
-        }
-        return AppResult.Success(visibleTo(caller, eventRepo.listLiveForSeries(seriesId)))
-    }
-
-    override suspend fun listEventsForBook(bookId: BookId): AppResult<List<WorldEventSyncPayload>> {
-        val caller = principal.current() ?: return denied()
-        if (!accessPolicy.canAccess(
-                caller.userId.value,
-                caller.role,
-                bookId.value,
-            )
-        ) {
-            return AppResult.Success(emptyList())
-        }
-        // A book-homed event can only be anchored to its own book, which the caller can see.
-        return AppResult.Success(eventRepo.listLiveForBook(bookId))
-    }
-
-    override suspend fun listEventsForEntity(entityId: EntityId): AppResult<List<WorldEventSyncPayload>> {
-        val caller = principal.current() ?: return denied()
-        return AppResult.Success(visibleTo(caller, eventRepo.listLiveMentioning(entityId)))
     }
 
     override suspend fun listHistory(eventId: WorldEventId): AppResult<List<WorldEventChange>> {
@@ -182,17 +147,6 @@ internal class WorldEventServiceImpl(
                 verdicts.getOrPut(Triple(it.homeSeriesId, it.homeBookId, it.bookId)) { canSee(caller, it) }
             }
         return changes.map { it.copy(before = visible(it.before), after = visible(it.after)) }
-    }
-
-    /** [events] the caller can see, one visibility probe per distinct (home, anchor). */
-    private suspend fun visibleTo(
-        caller: UserPrincipal,
-        events: List<WorldEventSyncPayload>,
-    ): List<WorldEventSyncPayload> {
-        val verdicts = mutableMapOf<Triple<String?, String?, String?>, Boolean>()
-        return events.filter { event ->
-            verdicts.getOrPut(Triple(event.homeSeriesId, event.homeBookId, event.bookId)) { canSee(caller, event) }
-        }
     }
 
     private suspend fun canSee(
