@@ -21,6 +21,7 @@ class CategoriesSession(
     val onMove: (id: String, newParentId: String?) -> Unit,
     val onMerge: (source: String, target: String) -> Unit,
     val onClearError: () -> Unit,
+    val onRetry: () -> Unit,
     /** The merge history open for one genre (#1061), or null. */
     val mergeHistory: StateFlow<GenreMergeHistory?>,
     val mergeHistoryActions: MergeHistoryActions,
@@ -65,6 +66,7 @@ fun graphCategories(koin: Koin): OpenCategories =
             onMove = viewModel::moveGenre,
             onMerge = viewModel::mergeGenres,
             onClearError = viewModel::clearError,
+            onRetry = viewModel::retry,
             mergeHistory = viewModel.mergeHistory,
             mergeHistoryActions =
                 MergeHistoryActions(

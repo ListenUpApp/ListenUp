@@ -20,6 +20,7 @@ class LibrarySettingsSession(
     val onOpenBrowserPath: (String) -> Unit,
     val onBrowserUp: () -> Unit,
     val onClearError: () -> Unit,
+    val onRetry: () -> Unit,
     override val close: () -> Unit,
 ) : RouteSession
 
@@ -41,6 +42,7 @@ fun graphLibrarySettings(koin: Koin): OpenLibrarySettings =
             onOpenBrowserPath = viewModel::loadBrowserDirectory,
             onBrowserUp = viewModel::browserNavigateUp,
             onClearError = viewModel::clearError,
+            onRetry = viewModel::retry,
             close = store::clear,
         )
     }

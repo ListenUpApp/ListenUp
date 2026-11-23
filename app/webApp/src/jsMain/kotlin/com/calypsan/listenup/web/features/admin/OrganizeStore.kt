@@ -25,6 +25,7 @@ class OrganizeSession(
     val onDismissPreview: () -> Unit,
     val onDismissReport: () -> Unit,
     val onResume: () -> Unit,
+    val onRetry: () -> Unit,
     override val close: () -> Unit,
 ) : RouteSession
 
@@ -48,6 +49,7 @@ fun graphOrganize(koin: Koin): OpenOrganize =
             onDismissPreview = viewModel::dismissPreview,
             onDismissReport = viewModel::dismissRunReport,
             onResume = viewModel::resumeAfterFailure,
+            onRetry = viewModel::retry,
             close = store::clear,
         )
     }

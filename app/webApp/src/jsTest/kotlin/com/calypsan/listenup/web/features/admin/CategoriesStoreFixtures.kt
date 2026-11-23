@@ -32,6 +32,7 @@ fun fixedCategories(
             onMove = onMove,
             onMerge = onMerge,
             onClearError = onClearError,
+            onRetry = {},
             mergeHistory = MutableStateFlow(mergeHistory),
             mergeHistoryActions = mergeHistoryActions,
             close = {},

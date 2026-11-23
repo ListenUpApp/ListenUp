@@ -173,7 +173,7 @@ private fun librarySettingsShapes(): Map<String, @Composable () -> Unit> {
         scanStarted: Boolean = false,
     ): @Composable () -> Unit =
         {
-            LibrarySettingsPage(state, scanStarted, {}, {}, {}, {}, {}, {}, {}, {})
+            LibrarySettingsPage(state, scanStarted, {}, {}, {}, {}, {}, {}, {}, {}, {})
         }
 
     return shapes(
@@ -286,6 +286,7 @@ private fun categoryShapes(): Map<String, @Composable () -> Unit> {
                 { _, _ -> },
                 {},
                 {},
+                {},
                 null,
                 MergeHistoryActions.None,
             )
@@ -328,7 +329,7 @@ private fun peopleShapes(): Map<String, @Composable () -> Unit> {
         permissions: UserPermissionsUiState = permissionsReady(),
     ): @Composable () -> Unit =
         {
-            UserDetailPage(state = state, permissions = permissions, actions = PermissionsPanelActions(), onOpenAdmin = {})
+            UserDetailPage(state = state, permissions = permissions, actions = PermissionsPanelActions(), onRetry = {}, onOpenAdmin = {})
         }
 
     return shapes(
@@ -428,11 +429,11 @@ private fun bookHit() =
     )
 
 private fun collectionShapes(): Map<String, @Composable () -> Unit> {
-    fun list(state: AdminCollectionsUiState): @Composable () -> Unit = { CollectionsPage(state, {}, {}, {}, {}, {}, {}) }
+    fun list(state: AdminCollectionsUiState): @Composable () -> Unit = { CollectionsPage(state, {}, {}, {}, {}, {}, {}, {}) }
 
     fun detail(state: AdminCollectionDetailUiState): @Composable () -> Unit =
         {
-            CollectionDetailPage(state, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
+            CollectionDetailPage(state, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
         }
 
     return shapes(

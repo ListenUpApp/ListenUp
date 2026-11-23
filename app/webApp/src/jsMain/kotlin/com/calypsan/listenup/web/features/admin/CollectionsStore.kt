@@ -16,6 +16,7 @@ class CollectionsSession(
     val onCreate: (String) -> Unit,
     val onDelete: (String) -> Unit,
     val onClearError: () -> Unit,
+    val onRetry: () -> Unit,
     val onClearCreateSuccess: () -> Unit,
     override val close: () -> Unit,
 ) : RouteSession
@@ -33,6 +34,7 @@ fun graphCollections(koin: Koin): OpenCollections =
             onCreate = viewModel::createCollection,
             onDelete = viewModel::deleteCollection,
             onClearError = viewModel::clearError,
+            onRetry = viewModel::retry,
             onClearCreateSuccess = viewModel::clearCreateSuccess,
             close = store::clear,
         )
@@ -54,6 +56,7 @@ class CollectionDetailSession(
     val onShare: (String) -> Unit,
     val onRevokeShare: (String) -> Unit,
     val onClearError: () -> Unit,
+    val onRetry: () -> Unit,
     val onClearSaveSuccess: () -> Unit,
     override val close: () -> Unit,
 ) : RouteSession
@@ -86,6 +89,7 @@ fun graphCollectionDetail(koin: Koin): OpenCollectionDetail =
             onShare = viewModel::shareWithUser,
             onRevokeShare = viewModel::revokeShare,
             onClearError = viewModel::clearError,
+            onRetry = viewModel::retry,
             onClearSaveSuccess = viewModel::clearSaveSuccess,
             close = store::clear,
         )

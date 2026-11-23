@@ -179,7 +179,7 @@ class PeopleTest :
             onOpenAdmin: () -> Unit = {},
         ): HTMLElement =
             mounts.mount {
-                UserDetailPage(state = state, permissions = permissions, actions = actions, onOpenAdmin = onOpenAdmin)
+                UserDetailPage(state = state, permissions = permissions, actions = actions, onRetry = {}, onOpenAdmin = onOpenAdmin)
             }
 
         fun switches(host: HTMLElement): List<HTMLInputElement> =

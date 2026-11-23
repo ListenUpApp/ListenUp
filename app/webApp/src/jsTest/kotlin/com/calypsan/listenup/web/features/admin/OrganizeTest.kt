@@ -79,6 +79,7 @@ internal fun noopOrganizeActions() =
         onDismissPreview = {},
         onDismissReport = {},
         onResume = {},
+        onRetry = {},
     )
 
 private fun buttons(host: HTMLElement): List<HTMLButtonElement> =
