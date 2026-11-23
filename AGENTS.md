@@ -303,7 +303,7 @@ App builds are **not** part of the PR gate — PRs run lint + tests only. `build
 Releases are explicit and manual via the **Release** workflow (`workflow_dispatch`):
 
 - **Version** lives in the `VERSION` file at the repo root (one number line). Drive Android `versionName` from it; iOS `MARKETING_VERSION` and the server image tag follow. Build numbers are auto-derived per platform (Android `versionCode` from commit count, iOS `CURRENT_PROJECT_VERSION` from the CI run number).
-- **To bump + ship:** run the Release workflow and type the new number in the `version` input (it commits `VERSION` + tags `v<x>`). Leave it blank to re-ship the current `VERSION`.
+- **To bump + ship:** run the Release workflow and type the new number in the `version` input (it commits `VERSION`; the tag `v<x>` is cut by the last job, on the commit that was built, once every platform job has passed). Leave it blank to re-ship the current `VERSION`. The release refuses a commit whose CI is not green; tick `skip_ci_check` to override, and say why in the run notes.
 - **Per-platform:** the `android` / `ios` / `server` checkboxes scope a run — use them for single-platform hotfixes.
 - iOS stops at **TestFlight** (no auto-submit to App Store review). Android ships to the **Play internal** track (status `completed` — delivered to internal testers; promotion to production stays manual). The **server** job links a Kotlin/Native `server.kexe` (`:server:linkReleaseExecutableLinuxX64`), packages it into a two-stage distroless image (`server/Dockerfile.native`) that compiles a modern SQLite (≥ 3.43) in-build, and pushes it to GHCR (`ghcr.io/listenupapp/listenup-server`, tagged with the version, commit SHA, and `latest`). It is a hard gate — a failed server build fails the release.
 
