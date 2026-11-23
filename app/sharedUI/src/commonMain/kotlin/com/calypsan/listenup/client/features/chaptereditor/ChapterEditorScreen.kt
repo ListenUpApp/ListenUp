@@ -20,9 +20,12 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -96,7 +99,7 @@ fun ChapterEditorScreen(
     val playheadMs: () -> Long? =
         remember(isThisBookLoaded, position) { { if (isThisBookLoaded) position.value else null } }
 
-    var rowAction by remember { mutableStateOf<RowAction?>(null) }
+    var rowAction by rememberRowAction()
     var lane by remember { mutableStateOf<TimelineLane?>(null) }
 
     val editing = state as? ChapterEditorUiState.Editing
@@ -294,7 +297,7 @@ private fun rememberRowMenu(
     }
 
 /** Which of a row's dialogs is open, if any. The overflow itself is the row's own menu. */
-private sealed interface RowAction {
+internal sealed interface RowAction {
     val chapterId: String
 
     /** Editing the title. */
@@ -320,6 +323,78 @@ private sealed interface RowAction {
     }
 }
 
+/** The open row dialog, if any — saveable, so a rotation reopens the dialog the user was in. */
+@Composable
+internal fun rememberRowAction(): MutableState<RowAction?> =
+    rememberSaveable(stateSaver = RowActionSaver) { mutableStateOf(null) }
+
+/** Saves a [RowAction] as its kind and the ids it carries; every variant is rebuilt from those alone. */
+private val RowActionSaver: Saver<RowAction?, List<String>> =
+    Saver(
+        save = { action ->
+            when (action) {
+                null -> {
+                    null
+                }
+
+                is RowAction.Renaming -> {
+                    listOf(RENAMING, action.chapterId)
+                }
+
+                is RowAction.Deleting -> {
+                    listOf(DELETING, action.chapterId)
+                }
+
+                is RowAction.EditingTime -> {
+                    listOf(EDITING_TIME, action.chapterId)
+                }
+
+                is RowAction.EditingMarker -> {
+                    listOf(EDITING_MARKER, action.chapterId, action.edit.tier.name, action.edit.isNew.toString())
+                }
+            }
+        },
+        restore = { saved ->
+            val chapterId = saved.getOrNull(1) ?: return@Saver null
+            when (saved.firstOrNull()) {
+                RENAMING -> {
+                    RowAction.Renaming(chapterId)
+                }
+
+                DELETING -> {
+                    RowAction.Deleting(chapterId)
+                }
+
+                EDITING_TIME -> {
+                    RowAction.EditingTime(chapterId)
+                }
+
+                EDITING_MARKER -> {
+                    val tier = ChapterMarkerTier.entries.firstOrNull { it.name == saved.getOrNull(2) }
+                    tier?.let { markerTier ->
+                        RowAction.EditingMarker(
+                            ChapterMarkerEdit(
+                                chapterId,
+                                markerTier,
+                                isNew =
+                                    saved.getOrNull(3) == "true",
+                            ),
+                        )
+                    }
+                }
+
+                else -> {
+                    null
+                }
+            }
+        },
+    )
+
+private const val RENAMING = "renaming"
+private const val DELETING = "deleting"
+private const val EDITING_TIME = "editing-time"
+private const val EDITING_MARKER = "editing-marker"
+
 /**
  * The dialogs a row's controls lead to.
  *
@@ -327,7 +402,7 @@ private sealed interface RowAction {
  * that can be reached — the dialogs are steps in a sequence, and the type says so.
  */
 @Composable
-private fun RowActionDialogs(
+internal fun RowActionDialogs(
     action: RowAction?,
     chapterOf: (String) -> Chapter?,
     onAction: (RowAction?) -> Unit,
@@ -398,7 +473,7 @@ private fun ChapterEditorBody(
     onEditTime: (String) -> Unit,
     onEditMarker: (String, ChapterMarkerTier) -> Unit,
 ) {
-    var query by remember { mutableStateOf("") }
+    var query by rememberSaveable { mutableStateOf("") }
     when (state) {
         ChapterEditorUiState.Loading -> {
             Box(Modifier.fillMaxSize().padding(padding), Alignment.Center) { ListenUpLoadingIndicator() }
