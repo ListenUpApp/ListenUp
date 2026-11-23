@@ -38,6 +38,8 @@ import listenup.composeapp.generated.resources.admin_inbox_needs_attention
 import listenup.composeapp.generated.resources.admin_inbox_needs_attention_subtitle
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 
 /**
  * The "needs attention" half of the inbox — folders the scanner walked but could not import.
@@ -61,6 +63,7 @@ internal fun LazyGridScope.scanIssueItems(
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.semantics { heading() },
             )
             Text(
                 text = stringResource(Res.string.admin_inbox_needs_attention_subtitle),
