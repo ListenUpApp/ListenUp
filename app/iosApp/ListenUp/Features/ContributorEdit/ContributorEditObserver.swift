@@ -5,7 +5,6 @@ import Shared
 /// Observes `ContributorEditViewModel`, flattening `ContributorEditUiState` into
 /// `@Observable` properties and dispatching edits as `ContributorEditUiEvent`s.
 @Observable
-@MainActor
 final class ContributorEditObserver {
     /// Loading, failed to load, or editing — the sheet switches on this first.
     private(set) var phase: EditScreenPhase = .loading
@@ -145,7 +144,7 @@ final class ContributorEditObserver {
 
     /// The staged frame wins; with none, a staged new photo shows its centre crop and the saved photo its saved
     /// frame. Pure, so it is unit-tested without live Kotlin state.
-    nonisolated static func displayFrame(
+    static func displayFrame(
         staged: ImageFrameValue?,
         saved: ImageFrameValue?,
         hasStagedImage: Bool

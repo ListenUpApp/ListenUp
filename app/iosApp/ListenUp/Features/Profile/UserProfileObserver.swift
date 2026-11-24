@@ -30,7 +30,6 @@ enum ProfileStatFormat {
 /// Observes `UserProfileViewModel`, flattening `UserProfileUiState` into flat
 /// `@Observable` properties the SwiftUI screen binds to. Thin over `FlowBridge`.
 @Observable
-@MainActor
 final class UserProfileObserver {
     private(set) var phase: UserProfilePhase = .loading
     private(set) var displayName: String = ""

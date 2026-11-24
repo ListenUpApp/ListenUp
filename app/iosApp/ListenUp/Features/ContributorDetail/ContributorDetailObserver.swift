@@ -6,7 +6,6 @@ import Shared
 /// `ContributorDetailUiState` into flat `@Observable` properties, plus a
 /// `navActions` secondary flow. Thin over `FlowBridge`.
 @Observable
-@MainActor
 final class ContributorDetailObserver {
     // MARK: - Flattened state
 
@@ -80,7 +79,7 @@ final class ContributorDetailObserver {
     var canAdjustPhoto: Bool { Self.canAdjustPhoto(canEditMetadata: canEditMetadata, imagePath: imagePath) }
 
     /// Pure, so the menu decision is unit-tested without live Kotlin state.
-    nonisolated static func canAdjustPhoto(canEditMetadata: Bool, imagePath: String?) -> Bool {
+    static func canAdjustPhoto(canEditMetadata: Bool, imagePath: String?) -> Bool {
         canEditMetadata && imagePath?.isEmpty == false
     }
 

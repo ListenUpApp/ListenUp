@@ -41,14 +41,14 @@ struct ContributorRowTests {
         #expect(row != ContributorRow(id: "c-1", name: "Ann Leckie", bookCount: 5, imagePath: nil))
     }
 
-    @MainActor @Test func coversShowOnTheWideCardOnlyAndNeverAtAccessibilityTextSizes() {
+    @Test func coversShowOnTheWideCardOnlyAndNeverAtAccessibilityTextSizes() {
         #expect(PersonRow.showsPreviewCovers(style: .card, dynamicTypeSize: .large, coverCount: 2))
         #expect(!PersonRow.showsPreviewCovers(style: .listRow, dynamicTypeSize: .large, coverCount: 2))
         #expect(!PersonRow.showsPreviewCovers(style: .card, dynamicTypeSize: .accessibility1, coverCount: 2))
         #expect(!PersonRow.showsPreviewCovers(style: .card, dynamicTypeSize: .xxxLarge, coverCount: 0))
     }
 
-    @MainActor @Test func theNameWrapsAtLargeTextRatherThanTruncating() {
+    @Test func theNameWrapsAtLargeTextRatherThanTruncating() {
         #expect(PersonRow.nameLines(.large) == 1)
         #expect(PersonRow.nameLines(.xxxLarge) == 2)
         #expect(PersonRow.nameLines(.accessibility3) == 3)

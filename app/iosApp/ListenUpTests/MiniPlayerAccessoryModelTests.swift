@@ -11,7 +11,6 @@ func systemMinutes(_ minutes: Int64) -> String {
 }
 
 @Suite("The mini player accessory, per state")
-@MainActor
 struct MiniPlayerAccessoryModelTests {
     /// 511 s left in the chapter: eight minutes, floored.
     private let left: Int64 = 511_000

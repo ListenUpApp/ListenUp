@@ -29,7 +29,7 @@ struct LeaderboardPeriodSelectionTests {
     /// The segmented control spans the leaderboard column. On the narrowest supported phone
     /// (iPhone SE, 375pt, minus Discover's 20pt compact inset each side, minus the card's 16pt
     /// padding each side) all four segments must fit at the default text size without truncating.
-    @Test @MainActor func fourSegmentsFitOnTheNarrowestPhone() {
+    @Test func fourSegmentsFitOnTheNarrowestPhone() {
         let titles = LeaderboardPeriodOption.allCases.map { String(localized: $0.titleKey) }
         let control = UISegmentedControl(items: titles)
         let needed = control.intrinsicContentSize.width

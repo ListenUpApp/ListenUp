@@ -165,7 +165,7 @@ struct PersonFindSections<Row: View>: View {
     }
 }
 
-extension PersonFindPhase: MatchAnnouncedFindPhase {
+extension PersonFindPhase: @MainActor MatchAnnouncedFindPhase {
     var isSearching: Bool {
         if case .searching = self { return true }
         return false

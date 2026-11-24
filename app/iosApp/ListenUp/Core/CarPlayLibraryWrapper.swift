@@ -10,7 +10,6 @@ import Foundation
 /// whose lifetime the library screen manages. It also deliberately ignores the series/author/
 /// narrator surfaces — the car browse is books only.
 @Observable
-@MainActor
 final class CarPlayLibraryWrapper {
     /// Sorted library books, empty until the first loaded state arrives. Loading and error are
     /// collapsed to "no rows yet": the Library tab simply stays empty rather than surfacing a

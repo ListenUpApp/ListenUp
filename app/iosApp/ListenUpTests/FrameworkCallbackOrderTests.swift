@@ -6,7 +6,6 @@ import AVFoundation
 /// reach the engine in the order they were issued (`app/iosApp/CLAUDE.md` rule 7). Regression pins: they hold
 /// for the queue, and would fail if a callback went back to an unordered `Task`.
 @Suite("Framework callbacks run in order with instructions")
-@MainActor
 struct FrameworkCallbackOrderTests {
     @Test("A remote pause, a remote skip and a shared-player play reach the engine in issue order")
     func remoteCommandsAndInstructionsKeepIssueOrder() async {

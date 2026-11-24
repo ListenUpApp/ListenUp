@@ -4,7 +4,6 @@ import UIKit
 @testable import ListenUp
 
 /// Volume Boost as a segmented choice that stays open (player spec §5.5.3, PB1–PB5; HIG, Segmented controls).
-@MainActor
 @Suite("The Volume Boost sheet", .serialized)
 struct BoostSheetTests {
     private final class Calls {

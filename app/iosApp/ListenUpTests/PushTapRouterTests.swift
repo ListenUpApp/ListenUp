@@ -40,7 +40,6 @@ struct PushTapRouterTests {
 
     /// End-to-end shade path: the wire-shaped payload JSON (the Kotlin `PushTapRoutingTest` pins
     /// the decode itself) resolves through `PushTapRouting` and is held in `pending`.
-    @MainActor
     @Test func handleTapHoldsARegistrationApprovalPayload() {
         let router = PushTapRouter()
 
@@ -51,7 +50,6 @@ struct PushTapRouterTests {
         #expect(router.pending == nil)
     }
 
-    @MainActor
     @Test func handleTapIgnoresMalformedPayload() {
         let router = PushTapRouter()
 
@@ -71,7 +69,6 @@ struct PushTapRouterTests {
     }
 
     /// Two windows see the same held tap; only the front one gets it, and only once.
-    @MainActor
     @Test func aTapLandsInExactlyOneWindow() {
         let router = PushTapRouter()
         let back = UUID()
@@ -87,7 +84,6 @@ struct PushTapRouterTests {
     }
 
     /// A closed front window stops holding taps hostage: the next shell to claim takes it.
-    @MainActor
     @Test func aClosedFrontWindowReleasesTheTap() {
         let router = PushTapRouter()
         let closed = UUID()

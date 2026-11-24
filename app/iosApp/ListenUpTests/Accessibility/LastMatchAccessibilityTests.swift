@@ -5,7 +5,6 @@ import Testing
 
 /// Book Detail's last-match row for VoiceOver and large text: the sentence is read, both actions are buttons with
 /// full 44-point targets, and at AX5 they stack inside the screen rather than run off it.
-@MainActor
 @Suite("Last match accessibility", .serialized)
 struct LastMatchAccessibilityTests {
     private let model = LastMatchRowModel(

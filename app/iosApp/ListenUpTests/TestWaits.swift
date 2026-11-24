@@ -18,7 +18,6 @@ import Synchronization
 /// - **Conditions nothing observes** — the engine fake's actor-isolated state
 ///   (`await engine.lastGainDb`) and the progress fake's recorded-call arrays, which are neither
 ///   `@Observable` nor exposed through a predicate gate.
-@MainActor
 func awaitUntil(
     timeout: Duration = .seconds(30),
     pollInterval: Duration = .milliseconds(20),
@@ -58,7 +57,6 @@ func awaitUntil(
 ///
 /// (Prefer the fakes' `AsyncGate` waits where a fake can signal causally; use this for a
 /// coordinator `@Observable` transition no fake owns, e.g. the engine-event-driven phase promotion.)
-@MainActor
 func awaitObservation(
     timeout: Duration = .seconds(240),
     sourceLocation: SourceLocation = #_sourceLocation,
@@ -74,7 +72,7 @@ func awaitObservation(
             return
         }
         let wake = OneShotWake()
-        let watchdog = Task { @MainActor in
+        let watchdog = Task {
             try? await Task.sleep(until: deadline)
             wake.fire()
         }
@@ -89,7 +87,7 @@ func awaitObservation(
 /// Resumes one continuation exactly once, whichever of its two wakers — the observation
 /// `onChange` (which fires on the mutating thread) or the watchdog — gets there first; the loser
 /// is a no-op. A fire that lands before `arm` resumes the continuation the moment it is armed.
-private final class OneShotWake: Sendable {
+private nonisolated final class OneShotWake: Sendable {
     private enum State {
         case idle
         case armed(CheckedContinuation<Void, Never>)

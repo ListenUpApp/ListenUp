@@ -12,7 +12,6 @@ import Shared
 /// page; `reloadedToken` counts `ReviewReloaded`, which Review says out loud. Errors reach the person through
 /// the shared bus as well as inline, so this observer keeps no error state of its own.
 @Observable
-@MainActor
 final class PersonMatchObserver {
     private(set) var find: PersonFind = .initial
     private(set) var review: PersonReviewPhase = .noneChosen

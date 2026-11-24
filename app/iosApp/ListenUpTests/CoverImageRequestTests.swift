@@ -55,7 +55,7 @@ struct CoverImageRequestTests {
     /// End-to-end through `CoverImageRequest.book`: the player call sites pass no `coverHash`,
     /// so the resulting request must be path-keyed — never stamped with the bookId, which is
     /// what poisoned the shared cache with the previous book's bytes.
-    @Test @MainActor func bookRequestWithoutHashIsPathKeyed() {
+    @Test func bookRequestWithoutHashIsPathKeyed() {
         let request = CoverImageRequest.book(
             bookId: "book-B", coverPath: "/covers/a.jpg", coverHash: nil, targetPixels: 100,
             serverBase: "https://x"
@@ -64,7 +64,7 @@ struct CoverImageRequestTests {
         #expect(request?.url?.isFileURL == true)
     }
 
-    @Test @MainActor func bookRequestWithHashIsHashKeyed() {
+    @Test func bookRequestWithHashIsHashKeyed() {
         let request = CoverImageRequest.book(
             bookId: "book-B", coverPath: "/covers/a.jpg", coverHash: "abc123", targetPixels: 100,
             serverBase: nil
@@ -76,7 +76,7 @@ struct CoverImageRequestTests {
 
     /// With the server URL mirrored, a versioned cover resolves to the content-addressed server URL
     /// in the same call — no await — keyed on the token-free `"<id>:<hash>"`.
-    @Test @MainActor func hashedCoverWithServerBaseBuildsServerRequestSynchronously() {
+    @Test func hashedCoverWithServerBaseBuildsServerRequestSynchronously() {
         let request = CoverImageRequest.book(
             bookId: "book-B", coverPath: "/covers/a.jpg", coverHash: "abc123", targetPixels: 100,
             serverBase: "https://x"
@@ -86,14 +86,14 @@ struct CoverImageRequestTests {
     }
 
     /// The token is attached at load time by `AuthenticatingDataLoader`, never baked into the request.
-    @Test @MainActor func serverRequestCarriesNoToken() {
+    @Test func serverRequestCarriesNoToken() {
         let request = CoverImageRequest.book(
             bookId: "book-B", coverPath: nil, coverHash: "abc123", targetPixels: 100, serverBase: "https://x"
         )
         #expect(request?.urlRequest?.value(forHTTPHeaderField: "Authorization") == nil)
     }
 
-    @Test @MainActor func requestIsResizedForTheTargetPixels() {
+    @Test func requestIsResizedForTheTargetPixels() {
         let request = CoverImageRequest.book(
             bookId: "book-B", coverPath: nil, coverHash: "abc123", targetPixels: 240, serverBase: "https://x"
         )
@@ -101,7 +101,7 @@ struct CoverImageRequestTests {
     }
 
     /// After the server load fails, a downloaded cover falls back to its local file.
-    @Test @MainActor func serverFailureFallsBackToLocalFile() {
+    @Test func serverFailureFallsBackToLocalFile() {
         let request = CoverImageRequest.book(
             bookId: "book-B", coverPath: "/covers/a.jpg", coverHash: "abc123", targetPixels: 100,
             serverBase: "https://x", serverFailed: true
@@ -110,7 +110,7 @@ struct CoverImageRequestTests {
         #expect(request?.imageID == "book-B:abc123")
     }
 
-    @Test @MainActor func unhashedCoverWithoutFileUsesBareServerURL() {
+    @Test func unhashedCoverWithoutFileUsesBareServerURL() {
         let request = CoverImageRequest.book(
             bookId: "book-B", coverPath: nil, coverHash: nil, targetPixels: 100, serverBase: "https://x"
         )
@@ -118,7 +118,7 @@ struct CoverImageRequestTests {
         #expect(request?.imageID == request?.url?.absoluteString)
     }
 
-    @Test @MainActor func noSourceYieldsNoRequest() {
+    @Test func noSourceYieldsNoRequest() {
         #expect(CoverImageRequest.book(
             bookId: "book-B", coverPath: nil, coverHash: "abc123", targetPixels: 100, serverBase: nil
         ) == nil)

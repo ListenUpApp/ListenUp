@@ -2,7 +2,7 @@ import Foundation
 import KotlinStdlib
 import Shared
 
-extension Array where Element == Float {
+nonisolated extension Array where Element == Float {
     /// Bridges to a Kotlin `FloatArray` via a single bulk `memcpy` crossing.
     ///
     /// Swift Export cannot construct a Kotlin `FloatArray` from Swift — every generated

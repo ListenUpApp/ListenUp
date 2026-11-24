@@ -4,7 +4,6 @@ import Shared
 import Testing
 @testable import ListenUp
 
-@MainActor
 @Suite("ContributorDetailObserver")
 struct ContributorDetailObserverTests {
     // `apply` needs live KMP ContributorDetailUiState instances — behavioural

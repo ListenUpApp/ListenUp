@@ -44,7 +44,6 @@ struct LibrarySectionCountsValue: Equatable {
 /// the shared ViewModel re-emits the Library on every position save, and a sidebar that re-rendered with each one would
 /// flicker for as long as a book plays.
 @Observable
-@MainActor
 final class SectionCountsHolder {
     private(set) var counts: LibrarySectionCountsValue = .zero
 

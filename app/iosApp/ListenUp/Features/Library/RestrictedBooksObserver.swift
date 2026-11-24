@@ -5,7 +5,6 @@ import Shared
 /// Empty for anyone who is not an admin, so no card needs a role check. Published once, through the
 /// environment, from `MainTabView`.
 @Observable
-@MainActor
 final class RestrictedBooksObserver {
     private(set) var restrictedBookIds: Set<String> = []
 

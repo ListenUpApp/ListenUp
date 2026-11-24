@@ -152,7 +152,6 @@ actor FakePlaybackEngine: PlaybackEngine {
 
 // MARK: - Task 2 seam fakes
 
-@MainActor
 final class FakeProgressReporting: PlaybackProgressReporting {
     private(set) var startedCalls: [(String, Int64, Float)] = []
     private(set) var pausedCalls: [(String, Int64, Float)] = []
@@ -273,7 +272,6 @@ final class FakeProgressReporting: PlaybackProgressReporting {
     }
 }
 
-@MainActor
 final class FakeSkipIntervalProviding: SkipIntervalProviding {
     let forwardSeconds: AsyncStream<Int>
     private let forwardContinuation: AsyncStream<Int>.Continuation
@@ -297,7 +295,6 @@ final class FakeSkipIntervalProviding: SkipIntervalProviding {
 
 /// The shared player's instructions, driven by the test: each `send` reaches the coordinator before it returns,
 /// as the production bridge hands each collected command over.
-@MainActor
 final class FakeEngineInstructions: EngineInstructionSource {
     private var receive: (@MainActor (EngineInstruction) -> Void)?
     /// Instructions sent before the coordinator started listening, handed over when it does.
@@ -315,7 +312,6 @@ final class FakeEngineInstructions: EngineInstructionSource {
 }
 
 /// Records every fact the coordinator reports to the shared player.
-@MainActor
 final class FakeEngineFacts: EngineFactReporting {
     private(set) var phases: [EnginePhaseFact] = []
     private(set) var positions: [Int64] = []
@@ -373,7 +369,6 @@ extension ListenUp.PreparedPlayback {
 }
 
 /// A coordinator over fakes, plus the fakes a test drives it through and observes it by.
-@MainActor
 struct PlayerHarness {
     let coordinator: PlayerCoordinator
     let engine: FakePlaybackEngine

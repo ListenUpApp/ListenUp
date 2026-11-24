@@ -9,7 +9,6 @@ import Nuke
 /// time a contributor photo is streamed it is persisted to disk for offline use — independent of
 /// Nuke's evictable cache. Mirrors `CoverImageRequest` and the Compose `ContributorCoverImage`.
 enum ContributorImageRequest {
-    @MainActor
     static func contributor(
         contributorId: String,
         imagePath: String?,

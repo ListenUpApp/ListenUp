@@ -11,7 +11,6 @@ import Foundation
 /// Takes the two side effects as injected async closures so the wiring is unit-testable without
 /// faking the large `SyncRepository` protocol. Both run on the main actor (the closures call
 /// Swift Export-bridged suspend functions, which hop dispatchers internally).
-@MainActor
 final class SyncSessionController {
     private let connectRealtime: @MainActor () async -> Void
     private let resumeDownloads: @MainActor () async -> Void

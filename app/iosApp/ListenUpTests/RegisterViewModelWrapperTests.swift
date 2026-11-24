@@ -1,7 +1,6 @@
 import Testing
 @testable import ListenUp
 
-@MainActor
 @Suite("RegisterViewModelWrapper")
 struct RegisterViewModelWrapperTests {
     // Behavioural verification needs a live KMP RegisterViewModel — deferred to

@@ -17,7 +17,6 @@ import UIKit
 /// navigation-entitlement-only); in-car search is Siri, via the existing App Intents. Discover
 /// is deliberately absent — it is mostly a leaderboard and a friend activity feed, which is the
 /// wrong thing to put in front of someone driving.
-@MainActor
 final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate {
     /// The template handed to `setRootTemplate` on connect.
     ///

@@ -245,7 +245,7 @@ struct EditProfileView: View {
 
     /// Adjust Photo is offered when there is an image to frame: a staged pick, a staged re-frame, or a saved
     /// image avatar. Never for initials. Pure, so it is unit-tested.
-    nonisolated static func canAdjustAvatar(staged: StagedAvatar, hasImageAvatar: Bool) -> Bool {
+    static func canAdjustAvatar(staged: StagedAvatar, hasImageAvatar: Bool) -> Bool {
         switch staged {
         case .image, .reframed:
             return true
@@ -257,7 +257,7 @@ struct EditProfileView: View {
     }
 
     /// The frame the avatar is shown with now, which Adjust Photo opens at: a staged one wins over the stored one.
-    nonisolated static func currentAvatarFrame(staged: StagedAvatar, stored: ImageFrameValue?) -> ImageFrameValue? {
+    static func currentAvatarFrame(staged: StagedAvatar, stored: ImageFrameValue?) -> ImageFrameValue? {
         switch staged {
         case .image(_, let frame):
             return frame
@@ -271,7 +271,7 @@ struct EditProfileView: View {
     /// Remove is offered when there's a real image avatar to clear, or an upload is staged
     /// (so the user can back out of a fresh pick) — never when already reverted. Pure so
     /// the decision is unit-tested without constructing live VM state.
-    nonisolated static func canRemoveAvatar(staged: StagedAvatar, hasImageAvatar: Bool) -> Bool {
+    static func canRemoveAvatar(staged: StagedAvatar, hasImageAvatar: Bool) -> Bool {
         switch staged {
         case .image:
             return true

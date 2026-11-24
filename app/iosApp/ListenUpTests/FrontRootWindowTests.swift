@@ -3,7 +3,6 @@ import Testing
 @testable import ListenUp
 
 /// Which window's root presents what the whole app shares — the invite sheet and the error alert.
-@MainActor
 @Suite("FrontRootWindow")
 struct FrontRootWindowTests {
 

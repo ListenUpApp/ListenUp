@@ -23,7 +23,6 @@ import SwiftUI
 /// field, and widening the export surface for one sentence is the wrong trade. Less specific, never
 /// wrong.
 @Observable
-@MainActor
 final class GlobalErrorObserver {
     /// The process's one consumer of the error bus, or nil before the first sign-in.
     private(set) static var shared: GlobalErrorObserver?
@@ -49,14 +48,14 @@ final class GlobalErrorObserver {
 
     /// Whether the shared alert presents this error. A refused delete because another book shares the folder is
     /// presented by Book Detail's own alert, which names that book; posting it here too would stack two alerts.
-    nonisolated static func postsToSharedAlert(code: String) -> Bool {
+    static func postsToSharedAlert(code: String) -> Bool {
         code != "BOOK_FOLDER_NOT_EXCLUSIVE"
     }
 
     /// What the alert says: the error's own words, except that a genuine server fault (`INTERNAL_ERROR` with a
     /// correlation id) also names its reference, the head of that id, so a screenshot leads straight to the
     /// server's log line. The same rule as Kotlin's `AppError.serverReference`, read from the exported fields.
-    nonisolated static func alertText(code: String, message: String, correlationId: String?) -> String {
+    static func alertText(code: String, message: String, correlationId: String?) -> String {
         guard code == "INTERNAL_ERROR",
               let id = correlationId?.trimmingCharacters(in: .whitespaces), !id.isEmpty
         else { return message }

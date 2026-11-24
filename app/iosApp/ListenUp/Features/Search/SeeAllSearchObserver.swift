@@ -5,7 +5,6 @@ import Shared
 /// `SeeAllPhase`, and drains tapped-hit `SearchNavAction`s into a one-shot `pendingNavigation`.
 /// Thin over `FlowBridge`, mirroring `SearchObserver`.
 @Observable
-@MainActor
 final class SeeAllSearchObserver {
     // MARK: - Flattened state
 

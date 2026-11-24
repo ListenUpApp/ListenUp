@@ -3,7 +3,7 @@ import Foundation
 /// One playable audio segment, resolved for the engine. The coordinator builds
 /// these from the KMP timeline — picking the local file when downloaded, the
 /// remote URL otherwise — so `AudioEngine` never sees a KMP type.
-struct AudioSegment: Equatable, Sendable {
+nonisolated struct AudioSegment: Equatable, Sendable {
     /// The resolved playable URL (a `file://` URL when downloaded, else remote).
     let url: URL
     /// This segment's duration in milliseconds.
@@ -33,7 +33,7 @@ struct AudioSegment: Equatable, Sendable {
 
 /// An event emitted by `AudioEngine` on its single output stream. One stream,
 /// one consumer (`PlayerCoordinator`), carrying both position and lifecycle.
-enum AudioEngineEvent: Sendable, Equatable {
+nonisolated enum AudioEngineEvent: Sendable, Equatable {
     /// A real position sample — whole-book position and the current rate
     /// (0 when paused, the playback speed when playing).
     case position(ms: Int64, rate: Double)
@@ -46,7 +46,7 @@ enum AudioEngineEvent: Sendable, Equatable {
 }
 
 /// `AudioEngine` readiness.
-enum AudioEngineStatus: Sendable, Equatable {
+nonisolated enum AudioEngineStatus: Sendable, Equatable {
     /// No item loaded.
     case idle
     /// An item is loaded but stalled, waiting on data.
@@ -56,7 +56,7 @@ enum AudioEngineStatus: Sendable, Equatable {
 }
 
 /// Resolves a whole-book position to the segment that contains it.
-enum SegmentMath {
+nonisolated enum SegmentMath {
     /// Returns the index of the segment containing `positionMs`, or `nil` if
     /// `segments` is empty. A position past the end clamps to the last segment.
     static func segmentIndex(forPositionMs positionMs: Int64, in segments: [AudioSegment]) -> Int? {

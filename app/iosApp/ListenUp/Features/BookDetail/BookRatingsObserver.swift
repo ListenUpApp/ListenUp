@@ -11,7 +11,6 @@ import Shared
 /// Kotlin values are projected to Swift value types at this boundary, so the view never holds a
 /// bridged object. Thin over `FlowBridge`; the mapping is a pure, testable static.
 @Observable
-@MainActor
 final class BookRatingsObserver {
     // MARK: - State
 
@@ -52,8 +51,8 @@ final class BookRatingsObserver {
     // MARK: - Effects
 
     /// What VoiceOver hears for a one-shot effect. iOS offers no Undo (there is no toast), so a removal is
-    /// announced instead. `nonisolated` so tests can call it off the main actor.
-    nonisolated static func announcement(for event: BookRatingsEvent) -> String {
+    /// announced instead.
+    static func announcement(for event: BookRatingsEvent) -> String {
         switch event.sealedType() {
         case .ratingRemoved:
             return String(localized: "book.detail_rating_removed")
@@ -62,9 +61,8 @@ final class BookRatingsObserver {
 
     // MARK: - State mapping
 
-    /// Pure: project the shared state onto native values. `nonisolated` so tests can call it off
-    /// the main actor.
-    nonisolated static func phase(from state: BookRatingsUiState) -> BookRatingsPhase {
+    /// Pure: project the shared state onto native values.
+    static func phase(from state: BookRatingsUiState) -> BookRatingsPhase {
         switch state.sealedType() {
         case .loading:
             return .loading
@@ -111,7 +109,7 @@ final class BookRatingsObserver {
 
     /// The shared decision about the score's row, as a native value. `.shown` reuses the score already
     /// projected, so the row and the snapshot never disagree.
-    nonisolated static func scoreRow(from row: ScoreRow, external: ExternalScore?) -> ScoreRowModel {
+    static func scoreRow(from row: ScoreRow, external: ExternalScore?) -> ScoreRowModel {
         switch row.sealedType() {
         case .shown: return external.map { .shown($0) } ?? .absent
         case .checking: return .checking

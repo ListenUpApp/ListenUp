@@ -4,7 +4,6 @@ import UIKit
 
 /// The observer publishes the recent books as the app icon's quick actions, and clears them on
 /// sign-out. The loader and the sink are injected, so no Koin and no `UIApplication` are involved.
-@MainActor
 @Suite("RecentBookShortcutsObserver")
 struct RecentBookShortcutsObserverTests {
     private let bundleID = "com.example.listenup"

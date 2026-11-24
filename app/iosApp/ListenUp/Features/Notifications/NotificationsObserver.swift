@@ -60,7 +60,6 @@ struct NotificationRowModel: Identifiable, Equatable {
 /// `NotificationsPhase` whose rows are value-typed `NotificationRowModel`s — the bridged
 /// `AppNotification`s never reach a `ForEach`. Mirrors `DevicesObserver`.
 @Observable
-@MainActor
 final class NotificationsObserver {
     private(set) var phase: NotificationsPhase = .loading
 

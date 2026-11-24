@@ -12,7 +12,6 @@ import SwiftUI
 /// Mirrors `AuthStateObserver`: bind the KMP flow once, map to a native value enum at the boundary
 /// so SwiftUI never diffs a bridged Kotlin object.
 @Observable
-@MainActor
 final class ConnectionHealthObserver {
 
     // MARK: - State

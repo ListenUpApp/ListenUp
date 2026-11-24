@@ -5,7 +5,6 @@ import UIKit
 
 /// The Library's section index read the way VoiceOver meets it (spec §5.2): one adjustable control
 /// named "Section index" whose value says where a swipe will jump.
-@MainActor
 @Suite("Section index accessibility", .serialized)
 struct SectionIndexAccessibilityTests {
     @Test func theIndexIsOneAdjustableStopWhoseValueNamesTheJump() async throws {

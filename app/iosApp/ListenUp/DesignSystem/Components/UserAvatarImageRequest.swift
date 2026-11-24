@@ -12,7 +12,6 @@ import Nuke
 /// an unreliable delete lands — the race that left avatars stale. `ensureUserAvatarCached` keeps the
 /// durable file fresh in the background for offline/other consumers.
 enum UserAvatarImageRequest {
-    @MainActor
     static func avatar(
         userId: String,
         version: Int64,

@@ -1,7 +1,6 @@
 import Testing
 @testable import ListenUp
 
-@MainActor
 struct SyncSessionControllerTests {
     @Test func connectAndResumeRunsBothActions() async {
         var connectCount = 0

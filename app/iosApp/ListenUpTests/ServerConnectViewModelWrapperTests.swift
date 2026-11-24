@@ -3,7 +3,6 @@ import Testing
 import Shared
 @testable import ListenUp
 
-@MainActor
 @Suite("ServerConnectViewModelWrapper")
 struct ServerConnectViewModelWrapperTests {
     // A Local Network denial is the one connect failure the user fixes outside the app: iOS never

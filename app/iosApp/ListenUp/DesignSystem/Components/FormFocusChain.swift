@@ -30,7 +30,6 @@ extension FormFocusChain {
 
 /// What Return does in a chained field: move to the next field, or — at the end of the run — hand
 /// over to `onEnd` (submit the form, or clear focus to dismiss the keyboard).
-@MainActor
 enum FormFocus {
     static func advance<Field: FormFocusChain>(
         from field: Field,
@@ -57,20 +56,20 @@ enum FormFocus {
 // MARK: - The app's chained forms
 
 /// Sign In: Email → Password; Return in Password signs in.
-enum LoginFocusField: FormFocusChain { case email, password }
+enum LoginFocusField: @MainActor FormFocusChain { case email, password }
 
 /// Create Account: names, email, then the two passwords; Return in Confirm creates the account.
-enum RegisterFocusField: FormFocusChain { case firstName, lastName, email, password, confirmPassword }
+enum RegisterFocusField: @MainActor FormFocusChain { case firstName, lastName, email, password, confirmPassword }
 
 /// First-run admin setup — the same shape as Create Account.
-enum SetupFocusField: FormFocusChain { case firstName, lastName, email, password, confirmPassword }
+enum SetupFocusField: @MainActor FormFocusChain { case firstName, lastName, email, password, confirmPassword }
 
 /// Claim Invite's password step: names, then the password; Return in Password joins.
-enum ClaimInviteFocusField: FormFocusChain { case firstName, lastName, password }
+enum ClaimInviteFocusField: @MainActor FormFocusChain { case firstName, lastName, password }
 
 /// Edit Profile: two independent runs — the name pair and the password trio. The tagline stands
 /// alone. Every run ends by putting the keyboard away; saving stays on the Done button.
-enum EditProfileFocusField: FormFocusChain {
+enum EditProfileFocusField: @MainActor FormFocusChain {
     case tagline, firstName, lastName, currentPassword, newPassword, confirmPassword
 
     var next: EditProfileFocusField? {
@@ -86,7 +85,7 @@ enum EditProfileFocusField: FormFocusChain {
 /// Book Edit: the identity run (Title → Subtitle → Sort Title; the multi-line Description takes
 /// Return as a newline, so it is not in the chain) and the catalog run (Publisher → Year, ISBN →
 /// ASIN; Year's number pad has no Return key, so it ends its run).
-enum BookEditFocusField: FormFocusChain {
+enum BookEditFocusField: @MainActor FormFocusChain {
     case title, subtitle, sortTitle, publisher, year, isbn, asin
 
     var next: BookEditFocusField? {

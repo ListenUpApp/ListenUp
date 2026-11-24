@@ -8,7 +8,6 @@ import Shared
 ///
 /// SSE inbox updates flow through the shared VM's `state` — no extra wiring needed here.
 @Observable
-@MainActor
 final class AdminInboxObserver {
     // MARK: - State
 
@@ -45,8 +44,7 @@ final class AdminInboxObserver {
     }
 
     /// Pure: project the sealed `AdminInboxUiState` onto the flattened phase.
-    /// `nonisolated` so tests can exercise it off the main actor (mirrors the backup observers).
-    nonisolated static func phase(from state: AdminInboxUiState) -> AdminInboxPhase {
+    static func phase(from state: AdminInboxUiState) -> AdminInboxPhase {
         switch state.sealedType() {
         case .loading:
             return .loading

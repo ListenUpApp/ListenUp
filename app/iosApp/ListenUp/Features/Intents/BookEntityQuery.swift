@@ -11,7 +11,6 @@ struct BookEntityQuery: EntityStringQuery {
     /// Title-or-author match for a spoken/typed phrase. A blank string yields the
     /// repository's empty result. Capped at 10 so Siri's disambiguation list stays
     /// usable.
-    @MainActor
     func entities(matching string: String) async throws -> [BookEntity] {
         let items = await firstEmission(of: Dependencies.shared.bookRepository.search(query: string).asAsyncSequence())
         return items.prefix(10).map(BookEntity.from)
@@ -19,7 +18,6 @@ struct BookEntityQuery: EntityStringQuery {
 
     /// Re-hydrate known entity ids (Shortcuts persists the selected book by id).
     /// Missing ids — a book deleted since the shortcut was built — drop out.
-    @MainActor
     func entities(for identifiers: [String]) async throws -> [BookEntity] {
         var results: [BookEntity] = []
         for id in identifiers {
@@ -33,7 +31,6 @@ struct BookEntityQuery: EntityStringQuery {
     /// Suggestions shown in the Shortcuts editor. The repository search treats a
     /// blank query as "no match", so this is intentionally empty rather than a
     /// catalog dump — title resolution happens on the spoken phrase.
-    @MainActor
     func suggestedEntities() async throws -> [BookEntity] {
         []
     }
@@ -45,7 +42,6 @@ struct BookEntityQuery: EntityStringQuery {
     /// Generic over `AsyncSequence` to avoid naming the generated flow-sequence type —
     /// the same approach `FlowBridge.bind` takes. `@MainActor`-confined so the
     /// non-`Sendable` flow iterator never crosses an isolation boundary.
-    @MainActor
     private func firstEmission<S: AsyncSequence>(of sequence: S) async -> [BookListItem]
     where S.Element == [BookListItem] {
         do {

@@ -1,6 +1,5 @@
 import SwiftUI
 
-@MainActor
 extension BookDetailView {
     /// Who can't see this book — admins only (a member's `visibility` is nil), and never in the
     /// triage layout, where the held section already says "Hidden from all members".

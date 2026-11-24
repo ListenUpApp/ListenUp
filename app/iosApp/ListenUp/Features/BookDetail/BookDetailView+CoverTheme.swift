@@ -1,6 +1,5 @@
 import SwiftUI
 
-@MainActor
 extension BookDetailView {
     /// The band's colour: the cover's wash when it has one, else Book Detail's neutral hero tone.
     var heroWash: Color { Self.heroWash(coverTheme.colors, scheme: colorScheme) }

@@ -21,7 +21,6 @@ enum NotificationTapOutcome: Equatable {
 /// most recently brought to the front, which is the window iOS shows for the tap. Each shell reports
 /// when its window becomes active and *claims* the tap; the router hands it to one claimant only.
 @Observable
-@MainActor
 final class PushTapRouter {
     /// A shade tap's resolved destination, held until `MainTabView`'s consumer appends it.
     /// Last tap wins: a second tap arriving before consumption overwrites the first, deliberately —
@@ -32,7 +31,7 @@ final class PushTapRouter {
     private(set) var frontSceneID: UUID?
 
     /// THE target switch. `.unknown` degrades to nil-route (open app) with a log, per house rule.
-    nonisolated static func outcome(for target: NotificationTarget) -> NotificationTapOutcome {
+    static func outcome(for target: NotificationTarget) -> NotificationTapOutcome {
         switch target.sealedType() {
         case .book(let bookType):
             let book = bookType.value
@@ -77,7 +76,7 @@ final class PushTapRouter {
 
     /// THE routing decision: the front window takes the tap; before any window has reported (a cold
     /// launch), the first shell to claim it does.
-    nonisolated static func routesTap(to sceneID: UUID, frontSceneID: UUID?) -> Bool {
+    static func routesTap(to sceneID: UUID, frontSceneID: UUID?) -> Bool {
         FrontWindow.receives(sceneID, frontSceneID: frontSceneID)
     }
 }
@@ -86,7 +85,7 @@ final class PushTapRouter {
 enum FrontWindow {
     /// The front window receives it; before any window has reported (a cold launch), the first
     /// shell to claim it does.
-    nonisolated static func receives(_ sceneID: UUID, frontSceneID: UUID?) -> Bool {
+    static func receives(_ sceneID: UUID, frontSceneID: UUID?) -> Bool {
         frontSceneID == nil || frontSceneID == sceneID
     }
 }

@@ -6,7 +6,7 @@ import Foundation
 /// exception and getting it wrong is invisible: a suppressed banner looks exactly like a push that
 /// never arrived. Mirrors `PlayerLayoutMode` — and the Android side's `PushForegroundPolicy`, so
 /// the two platforms answer this the same way.
-enum PushForegroundPolicy {
+nonisolated enum PushForegroundPolicy {
     /// Whether the payload in `userInfo` should present while the app is foregrounded.
     ///
     /// A visible app normally suppresses the banner — the running UI is the better surface. A test

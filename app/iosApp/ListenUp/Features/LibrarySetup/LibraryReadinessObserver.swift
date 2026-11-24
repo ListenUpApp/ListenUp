@@ -83,7 +83,6 @@ struct ScanProgress: Equatable {
 /// Thin over ``FlowBridge``. Drives the post-auth onboarding gate at the app root:
 /// `needsSetup` routes into the library-setup wizard; everything else mounts the main app.
 @Observable
-@MainActor
 final class LibraryReadinessObserver {
     private(set) var phase: LibraryReadinessPhase = .checking
 

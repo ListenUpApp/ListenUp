@@ -6,7 +6,6 @@ import ListenupContract
 
 /// A book switch on the mini player reads as deliberate: the old book goes out and the new one comes in, Reduce Motion
 /// swaps instantly, and the bar is never empty for a frame (Simon, 2026-10-14).
-@MainActor
 @Suite("Mini player book switch", .serialized)
 struct MiniPlayerBookSwitchTests {
     private static func model(
@@ -75,7 +74,6 @@ struct MiniPlayerBookSwitchTests {
 
 /// The model a switch test changes under a hosted accessory.
 @Observable
-@MainActor
 final class SwitchHolder {
     var model: MiniPlayerAccessoryModel
     init(model: MiniPlayerAccessoryModel) { self.model = model }

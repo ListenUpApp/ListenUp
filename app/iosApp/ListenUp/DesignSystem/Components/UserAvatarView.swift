@@ -210,7 +210,6 @@ private struct UserAvatarPhotoLayer: View {
 /// avatar `type` and its `version` so a `UserAvatarView` re-renders when the avatar changes,
 /// not merely when the user id does (the #11 fix).
 @Observable
-@MainActor
 final class AvatarProfileObserver {
     private(set) var avatarType: String?
     /// The observed row's `updatedAt`, doubling as the avatar's content version.

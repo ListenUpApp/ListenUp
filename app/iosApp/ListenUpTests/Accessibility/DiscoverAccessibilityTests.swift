@@ -6,7 +6,6 @@ import Testing
 /// What VoiceOver hears on Discover: a listener card is one book stop named book-first plus one
 /// person stop; Shuffle says what it does; a leaderboard row is read rank first and says You on your
 /// own row; an activity avatar is named for the profile it opens (spec §8.2).
-@MainActor
 @Suite("Discover accessibility", .serialized)
 struct DiscoverAccessibilityTests {
     private let now = Date(timeIntervalSince1970: 1_000_000_000)

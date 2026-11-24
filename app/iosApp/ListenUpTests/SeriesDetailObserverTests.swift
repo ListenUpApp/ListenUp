@@ -1,7 +1,6 @@
 import Testing
 @testable import ListenUp
 
-@MainActor
 @Suite("SeriesDetailObserver")
 struct SeriesDetailObserverTests {
     // `apply` needs live KMP SeriesDetailUiState instances — behavioural

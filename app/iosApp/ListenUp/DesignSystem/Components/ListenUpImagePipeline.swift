@@ -30,7 +30,6 @@ enum ListenUpImagePipeline {
         return configuration
     }
 
-    @MainActor
     static func install() {
         ImagePipeline.shared = ImagePipeline(
             configuration: makeConfiguration(dataLoader: AuthenticatingDataLoader.shared)

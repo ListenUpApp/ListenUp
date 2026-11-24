@@ -20,7 +20,6 @@ enum ForgotPasswordPhase: Equatable {
 /// Observes `ForgotPasswordViewModel.state`, flattening each sealed arm into
 /// [ForgotPasswordPhase]. Thin over `FlowBridge`, mirroring `LoginViewModelWrapper`.
 @Observable
-@MainActor
 final class ForgotPasswordObserver {
     private(set) var phase: ForgotPasswordPhase = .enterEmail
 

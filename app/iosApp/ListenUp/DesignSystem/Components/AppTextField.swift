@@ -54,7 +54,7 @@ struct AppTextField: View {
 
     /// The leading SF Symbol to render: an explicit `icon` always wins; otherwise the
     /// `Kind` supplies a sensible default (lock for secure, magnifyingglass for search).
-    nonisolated static func leadingIcon(explicit: String?, kind: Kind) -> String? {
+    static func leadingIcon(explicit: String?, kind: Kind) -> String? {
         if let explicit { return explicit }
         switch kind {
         case .secure: return "lock"
@@ -65,19 +65,19 @@ struct AppTextField: View {
 
     /// The trailing clear button appears for a search field, or a field marked `clearable`, with
     /// text to clear.
-    nonisolated static func showsClearButton(kind: Kind, text: String, clearable: Bool = false) -> Bool {
+    static func showsClearButton(kind: Kind, text: String, clearable: Bool = false) -> Bool {
         (kind == .search || (kind == .text && clearable)) && !text.isEmpty
     }
 
     /// A stable a11y/UI-test identifier derived from the placeholder.
-    nonisolated static func accessibilityIdentifier(placeholder: String) -> String {
+    static func accessibilityIdentifier(placeholder: String) -> String {
         "\(placeholder.lowercased().replacingOccurrences(of: " ", with: "_"))_field"
     }
 
     /// Whether the keyboard return key should default to the `.search` label: true only
     /// for a search field with no explicit `submitLabel`. (`SubmitLabel` isn't `Equatable`,
     /// so the decision is exposed as a predicate the view and tests share.)
-    nonisolated static func defaultsToSearchSubmitLabel(explicit: SubmitLabel?, kind: Kind) -> Bool {
+    static func defaultsToSearchSubmitLabel(explicit: SubmitLabel?, kind: Kind) -> Bool {
         explicit == nil && kind == .search
     }
 

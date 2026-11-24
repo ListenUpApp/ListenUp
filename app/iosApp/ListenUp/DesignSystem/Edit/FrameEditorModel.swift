@@ -7,7 +7,6 @@ import Shared
 /// exactly the clamp Android and the web use, and projects the frame into a native value after every step.
 /// The only place the editor touches Kotlin.
 @Observable
-@MainActor
 final class FrameEditorModel {
     /// The frame being edited; always canonical, so it is exactly what Done or Save stores.
     private(set) var frame: ImageFrameValue

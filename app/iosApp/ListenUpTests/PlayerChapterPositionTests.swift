@@ -3,7 +3,6 @@ import Testing
 import Shared
 
 @Suite("Chapter position")
-@MainActor
 struct PlayerChapterPositionTests {
     /// The coordinator's chapter index (the lock screen's re-stamp at a boundary) tracks the COARSE
     /// position, so it moves ~1×/s instead of on every display frame.

@@ -11,7 +11,6 @@ import Shared
 ///
 /// Thin over `FlowBridge`, mirroring `AdminBackupsObserver`.
 @Observable
-@MainActor
 final class OrganizeSettingsObserver {
     // MARK: - State
 
@@ -59,7 +58,7 @@ final class OrganizeSettingsObserver {
         VoiceOverAnnouncement.post(message)
     }
 
-    nonisolated static func phase(from state: OrganizeSettingsUiState) -> OrganizePhase {
+    static func phase(from state: OrganizeSettingsUiState) -> OrganizePhase {
         switch state.sealedType() {
         case .loading:
             return .loading
@@ -70,7 +69,7 @@ final class OrganizeSettingsObserver {
         }
     }
 
-    nonisolated static func effect(of event: OrganizeSettingsEvent) -> OrganizeEffect {
+    static func effect(of event: OrganizeSettingsEvent) -> OrganizeEffect {
         switch event.sealedType() {
         case .rulesSaved: return .confirmSaved
         case .alreadyOrganized: return .alreadyOrganized
@@ -131,7 +130,7 @@ struct OrganizeReadyModel: Equatable {
     static var seriesPrefixes: [OrganizeSeriesPrefix] { [.bookNDash, .nDash, .bracketN, .none] }
     static var authorForms: [OrganizeAuthorForm] { [.firstLast, .lastFirst] }
 
-    nonisolated static func from(_ ready: OrganizeSettingsUiStateReady) -> OrganizeReadyModel {
+    static func from(_ ready: OrganizeSettingsUiStateReady) -> OrganizeReadyModel {
         OrganizeReadyModel(
             preset: ready.settings.preset,
             seriesPrefix: ready.settings.seriesPrefix,
@@ -185,7 +184,7 @@ struct OrganizePreviewModel: Equatable {
     /// How many before→after rows the sheet lists, as on Android.
     static let rowsShown = 8
 
-    nonisolated static func from(_ preview: OrganizePreviewDto) -> OrganizePreviewModel {
+    static func from(_ preview: OrganizePreviewDto) -> OrganizePreviewModel {
         let rows = preview.entries.prefix(rowsShown).map(OrganizePreviewRow.from)
         let planned = Int(preview.bookCount) + Int(preview.renamedInPlaceCount)
         return OrganizePreviewModel(
@@ -212,7 +211,7 @@ struct OrganizePreviewRow: Equatable, Identifiable {
 
     /// An in-place rename's folder is unchanged, so its filenames are the story; showing the folder
     /// on both sides would make a real edit read as a no-op. A move shows the folder it leaves.
-    nonisolated static func from(_ entry: OrganizePreviewEntryDto) -> OrganizePreviewRow {
+    static func from(_ entry: OrganizePreviewEntryDto) -> OrganizePreviewRow {
         OrganizePreviewRow(
             id: entry.bookId,
             before: entry.renamedFrom ?? (entry.fromPath.split(separator: "/").last.map(String.init) ?? entry.fromPath),
@@ -237,7 +236,7 @@ struct OrganizeRunModel: Equatable {
     /// 0...1. Zero until the server says how many books there are.
     var fraction: Double { total > 0 ? min(Double(completed) / Double(total), 1) : 0 }
 
-    nonisolated static func from(_ run: OrganizeRunProgress) -> OrganizeRunModel {
+    static func from(_ run: OrganizeRunProgress) -> OrganizeRunModel {
         OrganizeRunModel(
             completed: Int(run.completed),
             total: Int(run.total),

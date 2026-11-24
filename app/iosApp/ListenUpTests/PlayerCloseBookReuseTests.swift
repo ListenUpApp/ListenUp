@@ -5,7 +5,6 @@ import Testing
 /// unload the engine. The coordinator is an app-lifetime singleton, so neither may leave it unable to
 /// play the next book or with its subscriptions severed.
 @Suite("Close book leaves the player reusable")
-@MainActor
 struct PlayerCloseBookReuseTests {
     /// The regression: play → close book → play another book must reach `.playing`, not a failure
     /// on a dead engine.

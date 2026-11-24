@@ -4,7 +4,6 @@ import UIKit
 @testable import ListenUp
 
 /// Stands in for the shared download service: counts attaches, and holds each drain open until the test lets it go.
-@MainActor
 private final class FakeEvents: BackgroundDownloadEvents {
     struct DrainFailed: Error {}
 
@@ -33,7 +32,6 @@ private final class FakeEvents: BackgroundDownloadEvents {
 }
 
 /// Counts calls of a completion handler and records whether each came on the main thread.
-@MainActor
 private final class Handler {
     private(set) var calls = 0
     private(set) var onMain = true
@@ -46,7 +44,6 @@ private final class Handler {
     }
 }
 
-@MainActor
 private func settle(until condition: @escaping @MainActor () -> Bool) async {
     for _ in 0 ..< 200 where !condition() {
         await Task.yield()
@@ -56,7 +53,6 @@ private func settle(until condition: @escaping @MainActor () -> Bool) async {
 /// The app delegate's half of background downloads: the system's completion handler stays in Swift and is called
 /// exactly once, on the main actor, only after the shared layer has filed the wake's events.
 @Suite("Background download hand-off")
-@MainActor
 struct AppDelegateBackgroundSessionTests {
     @Test func theHandlerWaitsForTheDrainAndIsCalledOnceOnTheMainActor() async {
         let events = FakeEvents()

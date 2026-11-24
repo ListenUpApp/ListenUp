@@ -95,7 +95,7 @@ struct ImageEditHeader<ImageContent: View>: View {
                 // accepts, for every consumer of this shared header (avatar, contributor, cover).
                 // The size is bounded (2,048 px, parity with Android) so a huge photo is never decoded
                 // at full size.
-                let jpeg = await Self.loadNormalizedJPEG(from: newItem)
+                let jpeg = await PhotoPickerLoader.loadNormalizedJPEG(from: newItem)
                 if !Task.isCancelled {
                     if framing != nil {
                         // Framed photos go through Move and Scale; one that can't be opened says so there.
@@ -171,18 +171,20 @@ struct ImageEditHeader<ImageContent: View>: View {
         showsPicker = true
     }
 
-    /// `@concurrent` ⇒ the photo load, decode and JPEG encode run on the cooperative pool, never the
-    /// main actor.
-    @concurrent
-    private nonisolated static func loadNormalizedJPEG(from item: PhotosPickerItem) async -> Data? {
-        guard let data = try? await item.loadTransferable(type: Data.self) else { return nil }
-        return PickedImage.normalizedJPEG(from: data)
-    }
-
     private var clip: AnyShape {
         shape == .circle
             ? AnyShape(Circle())
             : AnyShape(RoundedRectangle(cornerRadius: Radius.l, style: .continuous))
+    }
+}
+
+/// Non-generic `@concurrent` helper so Swift doesn't capture `ImageEditHeader`'s generic `View` conformances across actors.
+private nonisolated enum PhotoPickerLoader {
+    /// The photo load, decode and JPEG encode run on the cooperative pool, never the main actor.
+    @concurrent
+    static func loadNormalizedJPEG(from item: PhotosPickerItem) async -> Data? {
+        guard let data = try? await item.loadTransferable(type: Data.self) else { return nil }
+        return PickedImage.normalizedJPEG(from: data)
     }
 }
 

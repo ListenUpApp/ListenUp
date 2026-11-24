@@ -51,7 +51,6 @@ struct BookHardcoverStatus: Equatable {
 
 /// Observes `BookHardcoverViewModel` and flattens its state for the Book Detail section.
 @Observable
-@MainActor
 final class BookHardcoverObserver {
     private(set) var phase: BookHardcoverPhase = .hidden
     private let viewModel: BookHardcoverViewModel
@@ -73,7 +72,7 @@ final class BookHardcoverObserver {
 
     // MARK: - Pure mappings (unit-tested)
 
-    nonisolated static func phase(from state: BookHardcoverUiState) -> BookHardcoverPhase {
+    static func phase(from state: BookHardcoverUiState) -> BookHardcoverPhase {
         switch state.sealedType() {
         case .hidden: return .hidden
         case .unmatched: return .unmatched
@@ -97,14 +96,14 @@ final class BookHardcoverObserver {
     }
 
     /// The first minute after this device made the match reads "Matched just now", in place of the sync.
-    nonisolated static let justMatched = BookHardcoverStatus(
+    static let justMatched = BookHardcoverStatus(
         text: String(localized: "hardcover.book_row_just_matched"),
         systemImage: "checkmark.circle.fill",
         tone: .settled
     )
 
     // Deliberately no `default`: a new state must fail to compile here rather than borrow another's words.
-    nonisolated static func status(for sync: HardcoverBookSync) -> BookHardcoverStatus {
+    static func status(for sync: HardcoverBookSync) -> BookHardcoverStatus {
         switch sync {
         case .upToDate:
             BookHardcoverStatus(
@@ -135,7 +134,7 @@ final class BookHardcoverObserver {
 
     /// The confirmation's message, naming exactly what leaves (#1541). Deliberately no `default`: a new kind must
     /// fail to compile here rather than borrow another's words.
-    nonisolated static func keepOffMessage(for removes: KeepOffRemoves?) -> String? {
+    static func keepOffMessage(for removes: KeepOffRemoves?) -> String? {
         guard let removes else { return nil }
         switch removes {
         case .reads: return String(localized: "hardcover.keep_off_confirm_body_reads")

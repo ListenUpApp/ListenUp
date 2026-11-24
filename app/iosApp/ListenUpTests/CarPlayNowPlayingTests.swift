@@ -55,7 +55,6 @@ struct CarPlayNowPlayingTests {
 }
 
 @Suite("CarPlay now-playing buttons are pushed only when they change")
-@MainActor
 struct CarPlayButtonsPresenterTests {
     private final class Pushes {
         var values: [CarPlayNowPlayingButtons] = []

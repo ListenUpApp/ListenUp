@@ -4,7 +4,6 @@ import Shared
 /// Observes `SetupViewModel`'s `state` flow, flattening `SetupUiState` into
 /// SwiftUI-native properties. Thin over `FlowBridge`.
 @Observable
-@MainActor
 final class SetupViewModelWrapper {
     private(set) var isLoading: Bool = false
     private(set) var isSuccess: Bool = false

@@ -14,7 +14,7 @@ struct LicenseDetailView: View {
 
     /// Parse a project URL, returning `nil` for a malformed string so the link is
     /// omitted rather than force-unwrapping into a crash when the row renders.
-    nonisolated static func projectURL(_ raw: String) -> URL? { URL(string: raw) }
+    static func projectURL(_ raw: String) -> URL? { URL(string: raw) }
 
     var body: some View {
         Group {

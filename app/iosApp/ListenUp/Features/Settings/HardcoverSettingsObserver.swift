@@ -96,7 +96,6 @@ enum HardcoverEffect: Equatable {
 /// The server owns the connection and does the waiting, so nothing here moves the screen by
 /// itself: Connect and Disconnect change the server's state, and the stream carries it back.
 @Observable
-@MainActor
 final class HardcoverSettingsObserver {
     private(set) var phase: HardcoverPhase = .loading
     /// The error to show, from a failed Connect or Disconnect. Cleared when the alert is dismissed.
@@ -150,9 +149,8 @@ final class HardcoverSettingsObserver {
 
     // MARK: - Pure mappings (unit-tested)
 
-    /// Projects the shared UI state onto the screen's phase. `nonisolated` so tests can run it off
-    /// the main actor.
-    nonisolated static func phase(from state: HardcoverSettingsUiState) -> HardcoverPhase {
+    /// Projects the shared UI state onto the screen's phase.
+    static func phase(from state: HardcoverSettingsUiState) -> HardcoverPhase {
         switch state.sealedType() {
         case .loading:
             return .loading
@@ -211,7 +209,7 @@ final class HardcoverSettingsObserver {
     }
 
     /// What an event does. Nil only for an approval page the server sent as an unparseable URL.
-    nonisolated static func effect(of event: HardcoverSettingsEvent) -> HardcoverEffect? {
+    static func effect(of event: HardcoverSettingsEvent) -> HardcoverEffect? {
         switch event.sealedType() {
         case .openVerificationPage(let openType):
             return URL(string: openType.value.url).map(HardcoverEffect.open)
@@ -223,12 +221,12 @@ final class HardcoverSettingsObserver {
     /// The sentence VoiceOver announces when an approval lands while the user waits on this screen.
     /// Nil for every other change: opening the screen already connected isn't news, and neither is
     /// a busy flag flipping.
-    nonisolated static func announcement(from old: HardcoverPhase, to new: HardcoverPhase) -> String? {
+    static func announcement(from old: HardcoverPhase, to new: HardcoverPhase) -> String? {
         guard case .linking = old, case .connected(let connected) = new else { return nil }
         return String(localized: .hardcoverRowSubtitleConnected(connected.username))
     }
 
-    nonisolated static func syncLine(from status: HardcoverSyncStatus) -> HardcoverSyncLine {
+    static func syncLine(from status: HardcoverSyncStatus) -> HardcoverSyncLine {
         switch status.sealedType() {
         case .idle: .idle
         case .syncing: .syncing
@@ -238,7 +236,7 @@ final class HardcoverSettingsObserver {
 
     // Deliberately no `default`: a new problem must fail to compile here rather than borrow another's
     // words. A failed Sync Now is a passing notice; a stuck push or pull is a standing problem.
-    nonisolated static func syncLine(for problem: HardcoverSyncProblem) -> HardcoverSyncLine {
+    static func syncLine(for problem: HardcoverSyncProblem) -> HardcoverSyncLine {
         switch problem {
         case .syncNowFailed: .syncNowFailed(String(localized: "hardcover.sync_now_failed_notice"))
         case .pushStalled: .stalled(String(localized: "hardcover.problem_push_stalled"))
@@ -249,7 +247,7 @@ final class HardcoverSettingsObserver {
     /// Each mode's name, for the Update Hardcover menu, in title style: HIG, Menus — "To be consistent
     /// with platform experiences, use title-style capitalization." Deliberately no `default`: a new mode
     /// must fail to compile here rather than borrow a name.
-    nonisolated static func shareModeLabel(_ mode: HardcoverShareMode) -> String {
+    static func shareModeLabel(_ mode: HardcoverShareMode) -> String {
         switch mode {
         case .asIListen: String(localized: "hardcover.share_mode_as_i_listen").titleStyled
         case .finishedOnly: String(localized: "hardcover.share_mode_finished_only").titleStyled
@@ -258,7 +256,7 @@ final class HardcoverSettingsObserver {
 
     /// What the chosen mode sends to Hardcover, row by row; Only when I finish ends with a quiet line
     /// saying nothing is shared while listening.
-    nonisolated static func sharedLines(for mode: HardcoverShareMode) -> [HardcoverSharedLine] {
+    static func sharedLines(for mode: HardcoverShareMode) -> [HardcoverSharedLine] {
         switch mode {
         case .asIListen:
             [
@@ -286,7 +284,7 @@ final class HardcoverSettingsObserver {
 
     /// "Last synced 5 minutes ago", "Last synced just now", or "Not synced yet". The relative phrase is
     /// the system's own, so it reads naturally in every language the app ships.
-    nonisolated static func lastSyncedText(_ date: Date?, now: Date) -> String {
+    static func lastSyncedText(_ date: Date?, now: Date) -> String {
         guard let date else { return String(localized: "hardcover.never_synced") }
         if now.timeIntervalSince(date) < 60 { return String(localized: "hardcover.last_synced_just_now") }
         let relative = RelativeDateTimeFormatter()
@@ -296,7 +294,7 @@ final class HardcoverSettingsObserver {
 
     // Deliberately no `default` branches: a new reason must fail to compile here rather than
     // borrow another's explanation.
-    nonisolated private static func failureMessage(for failure: HardcoverLinkFailure) -> String {
+    private static func failureMessage(for failure: HardcoverLinkFailure) -> String {
         switch failure {
         case .denied: String(localized: "hardcover.failure_denied")
         case .expired: String(localized: "hardcover.failure_expired")
@@ -304,7 +302,7 @@ final class HardcoverSettingsObserver {
         }
     }
 
-    nonisolated private static func reasonMessage(for reason: HardcoverBrokenReason) -> String {
+    private static func reasonMessage(for reason: HardcoverBrokenReason) -> String {
         switch reason {
         case .revoked: String(localized: "hardcover.broken_revoked")
         case .cannotDecrypt: String(localized: "hardcover.broken_cannot_decrypt")
@@ -314,7 +312,7 @@ final class HardcoverSettingsObserver {
     }
 
     /// "https://hardcover.app/link" → "hardcover.app/link": what a person types on another device.
-    nonisolated private static func withoutScheme(_ uri: String) -> String {
+    private static func withoutScheme(_ uri: String) -> String {
         guard let range = uri.range(of: "://") else { return uri }
         return String(uri[range.upperBound...])
     }

@@ -39,16 +39,16 @@ struct PDFKitView: UIViewRepresentable {
            let page = document.page(at: target),
            uiView.currentPage !== page {
             uiView.go(to: page)
-            Task { @MainActor in goToPage = nil }
+            Task { goToPage = nil }
         }
         if clearHighlight {
             uiView.highlightedSelections = []
-            Task { @MainActor in clearHighlight = false }
+            Task { clearHighlight = false }
         } else if let sel = highlightSelection {
             uiView.go(to: sel)
             uiView.setCurrentSelection(sel, animate: false)
             uiView.highlightedSelections = [sel]
-            Task { @MainActor in highlightSelection = nil }
+            Task { highlightSelection = nil }
         }
     }
 
@@ -56,7 +56,6 @@ struct PDFKitView: UIViewRepresentable {
         NotificationCenter.default.removeObserver(coordinator)
     }
 
-    @MainActor
     final class Coordinator: NSObject {
         private let parent: PDFKitView
         init(_ parent: PDFKitView) { self.parent = parent }

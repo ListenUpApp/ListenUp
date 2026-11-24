@@ -60,7 +60,6 @@ enum ChapterEditorPhase: Equatable {
 /// left the device and a specific row needs fixing, so it lands in `problem` — inline, staying put
 /// — rather than in the alert a failed save would use.
 @Observable
-@MainActor
 final class ChapterEditorObserver {
     private(set) var phase: ChapterEditorPhase = .loading
     private(set) var bookTitle: String = ""

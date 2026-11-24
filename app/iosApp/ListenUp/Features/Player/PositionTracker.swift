@@ -28,7 +28,6 @@ enum PositionQuantizer {
 /// Smooths `AudioEngine`'s coarse position samples into a per-frame interpolated
 /// position for the UI, driven by `CADisplayLink`. `NSObject` so it can host the
 /// `@objc` display-link selector.
-@MainActor
 @Observable
 final class PositionTracker: NSObject {
     /// Current interpolated whole-book position in milliseconds (per-frame).

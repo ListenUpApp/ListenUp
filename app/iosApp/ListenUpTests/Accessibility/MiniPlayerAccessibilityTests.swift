@@ -6,7 +6,6 @@ import ListenupContract
 @preconcurrency import Shared
 
 /// The mini player accessory read the way VoiceOver meets it, and held to the accessory's fixed height.
-@MainActor
 @Suite("Mini player accessory accessibility", .serialized)
 struct MiniPlayerAccessibilityTests {
     private static func model(_ state: PlayerUiStateLoaded) -> MiniPlayerAccessoryModel {
@@ -146,7 +145,6 @@ private struct TabAccessoryHarness: View {
 }
 
 /// Bands of ink (text, or the hairline's coral) in a window region, read from what was drawn, in points.
-@MainActor
 private struct InkRuns {
     let image: CGImage
     let scale: CGFloat

@@ -4,7 +4,6 @@ import Testing
 /// Every fact the coordinator reports names the load it is about, so the shared player can drop a late fact
 /// about a book it has already moved on from (a failure from the old book must never fail the new one).
 @Suite("Engine facts carry their load's generation")
-@MainActor
 struct EngineFactGenerationTests {
     @Test("Facts carry the generation of the load being executed, and move on with the next load")
     func factsCarryTheLoadGeneration() async {

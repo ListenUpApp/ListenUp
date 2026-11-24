@@ -275,48 +275,48 @@ struct BookRatingSection: View {
             .frame(minHeight: 44)
     }
 
-    // MARK: - Pure helpers (unit-tested; `nonisolated` so tests call them off the main actor)
+    // MARK: - Pure helpers (unit-tested)
 
     /// At this width of its own, the group splits into your half and everyone's.
-    nonisolated static func isSplit(width: CGFloat) -> Bool { width >= 560 }
+    static func isSplit(width: CGFloat) -> Bool { width >= 560 }
 
     /// Remove Rating asks first only when a note would be lost.
-    nonisolated static func removeNeedsConfirmation(_ mine: MyRating) -> Bool {
+    static func removeNeedsConfirmation(_ mine: MyRating) -> Bool {
         !(mine.note ?? "").isEmpty
     }
 
     /// "Add a Note", "Add a Note for Your Listeners" once finished, or "Edit Note", title-styled for a menu (HIG, Menus).
-    nonisolated static func noteActionTitle(_ mine: MyRating, isFinished: Bool = false) -> String {
+    static func noteActionTitle(_ mine: MyRating, isFinished: Bool = false) -> String {
         addNoteTitle(isFinished: isFinished, hasNote: !(mine.note ?? "").isEmpty)
     }
 
     /// "4.5", or "Not rated" before a star is chosen.
-    nonisolated static func valueLabel(_ halfStars: Int) -> String {
+    static func valueLabel(_ halfStars: Int) -> String {
         halfStars < RatingStarsView.minHalfStars
             ? String(localized: "rating.stars_unrated")
             : RatingStarsView.starsLabel(Double(halfStars))
     }
 
     /// "12k ratings", or "1 rating".
-    nonisolated static func countLabel(_ count: Int) -> String {
+    static func countLabel(_ count: Int) -> String {
         if count == 1 { return String(localized: "book.detail_rating_count_one") }
         return String(localized: .bookDetailRatingCount(RatingLabels.shared.compactCount(count: Int32(count))))
     }
 
     /// "Audible, Hardcover, your listeners".
-    nonisolated static func sourcesLabel(_ snapshot: BookRatingsSnapshot) -> String {
+    static func sourcesLabel(_ snapshot: BookRatingsSnapshot) -> String {
         let outside = snapshot.outsideSourcesInScore.map(\.displayName)
         let listeners = snapshot.listenersInScore ? [String(localized: "rating.source_listeners_inline")] : []
         return (outside + listeners).joined(separator: ", ")
     }
 
     /// "12k ratings · Audible, Hardcover, your listeners".
-    nonisolated static func scoreDetail(_ score: ExternalScore, _ snapshot: BookRatingsSnapshot) -> String {
+    static func scoreDetail(_ score: ExternalScore, _ snapshot: BookRatingsSnapshot) -> String {
         String(localized: .bookDetailRatingScoreDetail(countLabel(score.count), sourcesLabel(snapshot)))
     }
 
     /// What VoiceOver says for the score's row.
-    nonisolated static func scoreSentence(_ score: ExternalScore, _ snapshot: BookRatingsSnapshot) -> String {
+    static func scoreSentence(_ score: ExternalScore, _ snapshot: BookRatingsSnapshot) -> String {
         let average = RatingLabels.shared.averageLabel(average: score.average)
         let sources = sourcesLabel(snapshot)
         if score.count == 1 {
@@ -327,7 +327,7 @@ struct BookRatingSection: View {
     }
 
     /// What VoiceOver says for your listeners' row — one decimal, and "1 rating", never "1 ratings".
-    nonisolated static func listenersSentence(_ listeners: ListenersAverage) -> String {
+    static func listenersSentence(_ listeners: ListenersAverage) -> String {
         if listeners.count == 1 {
             return String(localized: .bookDetailRatingListenersA11YOne(listeners.label))
         }

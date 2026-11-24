@@ -2,7 +2,6 @@ import SwiftUI
 
 /// Book Detail's triage pieces for a book held for review, split out of `BookDetailView.swift` for
 /// the same reason `+OverflowMenu` is: that struct sits at SwiftLint's 400-line body cap.
-@MainActor
 extension BookDetailView {
     /// The held card, drawing the layout's triage actions (Release, Edit Details, Match, Edit Chapters); nothing for an
     /// ordinary book. Each opens the same sheet the More menu's item does. The Release alert rides the card that asks

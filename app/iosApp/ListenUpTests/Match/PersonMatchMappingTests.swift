@@ -7,7 +7,6 @@ import Shared
 // Person Match details' boundary: every shared Find, Review and receipt state lands on its native value, so
 // the views only lay out what the mapping already said.
 
-@MainActor
 @Suite("Person Match details mapping")
 struct PersonMatchMappingTests {
     private typealias Fixture = PersonMatchFixtures

@@ -44,7 +44,6 @@ struct NowPlayingInfo: Equatable, Sendable {
 
 /// Remote-command intents `SystemIntegration` forwards to its handler. The
 /// coordinator (Plan 2) conforms to this.
-@MainActor
 protocol RemoteCommandHandler: AnyObject {
     func remoteTogglePlayPause()
     func remotePlay()
@@ -68,7 +67,6 @@ protocol RemoteCommandHandler: AnyObject {
 
 /// Bridges player state to `MPNowPlayingInfoCenter` and routes
 /// `MPRemoteCommandCenter` commands back to a `RemoteCommandHandler`.
-@MainActor
 final class SystemIntegration {
     /// Single-slot cache for the *current* Now Playing artwork, guarded by an unfair lock
     /// (iosApp concurrency rule: guard shared mutable state, no `nonisolated(unsafe)`).

@@ -10,12 +10,10 @@ import Testing
 @Suite("SignOutSequence")
 struct SignOutSequenceTests {
     /// Records the order in which the two sign-out steps ran.
-    @MainActor
     final class Recorder {
         var steps: [String] = []
     }
 
-    @MainActor
     @Test func stopsPlaybackBeforeClearingTheSession() async {
         let recorder = Recorder()
 
@@ -30,7 +28,6 @@ struct SignOutSequenceTests {
         #expect(recorder.steps == ["stopPlayback", "clearSession"])
     }
 
-    @MainActor
     @Test func awaitsPlaybackTeardownBeforeClearingTheSession() async {
         let recorder = Recorder()
 

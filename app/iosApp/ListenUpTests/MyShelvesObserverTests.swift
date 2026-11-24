@@ -5,7 +5,6 @@ import Testing
 @testable import ListenUp
 
 /// The My Shelves list's mapping from the shared `MyShelvesUiState` (spec §3.2 H24).
-@MainActor
 @Suite("My Shelves observer")
 struct MyShelvesObserverTests {
     private func shelf(_ id: String, _ name: String) -> Shelf {
@@ -46,7 +45,6 @@ struct MyShelvesObserverTests {
 }
 
 /// The list's failure state offers a way out (spec §3.3: never stranded), read back as VoiceOver would find it.
-@MainActor
 @Suite("My Shelves list", .serialized)
 struct MyShelvesContentTests {
     @Test func aFailedReadOffersTryAgain() async {

@@ -6,7 +6,6 @@ import Testing
 
 /// Coverage for the Edit Profile screen: the avatar `Remove`-affordance decision, the Swift-side
 /// `StagedAvatar` projection, and the `apply` flatten over the sealed `EditProfileUiState`.
-@MainActor
 @Suite("EditProfileAvatar")
 struct EditProfileObserverTests {
     // MARK: - Remove affordance

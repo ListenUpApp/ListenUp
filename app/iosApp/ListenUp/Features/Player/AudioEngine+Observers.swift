@@ -3,7 +3,7 @@ import AVFoundation
 /// A raw framework callback (KVO / periodic time observer / `NotificationCenter`), funneled
 /// through the engine's single ordered inbox so they are drained in FIFO order on the actor.
 /// Carries only `Sendable` values so it can cross from the callback thread to the actor safely.
-enum EngineSignal: Sendable {
+nonisolated enum EngineSignal: Sendable {
     case timeControl(AVPlayer.TimeControlStatus)
     case periodicTick
     case itemEnded(ObjectIdentifier)

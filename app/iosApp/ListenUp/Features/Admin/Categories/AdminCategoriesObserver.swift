@@ -10,7 +10,6 @@ import Shared
 /// Every action forwards straight to the Kotlin VM; expansion state lives there too, so the
 /// tree the admin sees is the same one Android and the web would show.
 @Observable
-@MainActor
 final class AdminCategoriesObserver {
     // MARK: - State
 
@@ -54,8 +53,7 @@ final class AdminCategoriesObserver {
 
     // MARK: - State mapping
 
-    /// `nonisolated` so tests can exercise it off the main actor (mirrors the inbox observer).
-    nonisolated static func phase(from state: AdminCategoriesUiState) -> AdminCategoriesPhase {
+    static func phase(from state: AdminCategoriesUiState) -> AdminCategoriesPhase {
         switch state.sealedType() {
         case .loading:
             return .loading

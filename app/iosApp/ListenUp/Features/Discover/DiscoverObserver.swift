@@ -10,7 +10,6 @@ import Foundation
 ///
 /// Thin over `FlowBridge`; all mapping logic lives in pure, testable initializers/helpers.
 @Observable
-@MainActor
 final class DiscoverObserver {
     // MARK: - State
 
@@ -80,8 +79,8 @@ final class DiscoverObserver {
         newForYou = Self.booksPhase(from: state)
     }
 
-    /// Pure: Something New's phase for a shared state. `nonisolated` — testable off-actor.
-    nonisolated static func booksPhase(from state: DiscoverBooksUiState) -> DiscoverBooksPhase {
+    /// Pure: Something New's phase for a shared state.
+    static func booksPhase(from state: DiscoverBooksUiState) -> DiscoverBooksPhase {
         switch state.sealedType() {
         case .loading: .loading
         case .ready(let readyType): .ready(readyType.value.books.map(DiscoverBook.init(from:)))
@@ -144,8 +143,8 @@ final class DiscoverObserver {
     /// (`cached_active_sessions` is keyed by `userId`), live listeners first and then the recent-listen fill, each half
     /// newest-first (the DAO's `ORDER BY isLive DESC, lastActiveAtMs DESC`) — the same list Android and web draw, so
     /// iOS neither de-duplicates nor re-sorts it. Mapping to a native value type here keeps bridged Kotlin sessions
-    /// off the `ForEach` diff path (perf rule 8). `nonisolated` — testable off-actor.
-    nonisolated static func currentlyListeningRows(
+    /// off the `ForEach` diff path (perf rule 8).
+    static func currentlyListeningRows(
         from sessions: [CurrentlyListeningUiSession]
     ) -> [CurrentlyListeningRow] {
         sessions.map(CurrentlyListeningRow.init(from:))

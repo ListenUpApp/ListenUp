@@ -35,7 +35,6 @@ private struct ThrowingSequence: AsyncSequence, Sendable {
     func makeAsyncIterator() -> Iterator { Iterator(remaining: values) }
 }
 
-@MainActor
 @Suite("FlowBridge")
 struct FlowBridgeTests {
     @Test func deliversEveryValueToTheSink() async {

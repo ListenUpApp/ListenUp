@@ -10,7 +10,6 @@ import Shared
 /// and runs the post-restore full resync itself, so this observer only forwards actions and
 /// projects state. Thin over `FlowBridge` (iosApp rule 8).
 @Observable
-@MainActor
 final class RestoreBackupObserver {
     // MARK: - State
 
@@ -46,8 +45,7 @@ final class RestoreBackupObserver {
     }
 
     /// Pure: project the sealed `RestoreBackupUiState` onto the restore phase.
-    /// `nonisolated` so tests can exercise it off the main actor.
-    nonisolated static func phase(from state: RestoreBackupUiState) -> RestorePhase {
+    static func phase(from state: RestoreBackupUiState) -> RestorePhase {
         switch state.sealedType() {
         case .idle(let idleType):
             let idle = idleType.value
@@ -64,8 +62,8 @@ final class RestoreBackupObserver {
 
     /// Pure: map the live restore progress event into a short status label. Mirrors the Android
     /// `restoreStatusLabel` mapping (RestoreBackupScreen.kt), routed through the `admin.restore_status_*`
-    /// keys. `nonisolated` so tests can exercise it off the main actor.
-    nonisolated static func statusLabel(from event: BackupEvent?) -> String {
+    /// keys.
+    static func statusLabel(from event: BackupEvent?) -> String {
         guard let event else { return String(localized: "admin.restore_status_default") }
         switch event.sealedType() {
         case .validating:

@@ -19,7 +19,6 @@ struct EngineBook: Equatable, Sendable {
 /// the audio session, interruptions and route changes, the gain stage, the lock screen and remote
 /// commands, and position persistence (pause, seek, scene phase). Player UI reads `PlayerObserver`.
 @Observable
-@MainActor
 final class PlayerCoordinator: RemoteCommandHandler {
 
     // MARK: - Engine state

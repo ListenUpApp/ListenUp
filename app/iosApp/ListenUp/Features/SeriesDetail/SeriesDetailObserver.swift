@@ -5,7 +5,6 @@ import Shared
 /// Observes `SeriesDetailViewModel`, flattening `SeriesDetailUiState` into flat
 /// `@Observable` properties, and drives playback via `PlayerCoordinator`.
 @Observable
-@MainActor
 final class SeriesDetailObserver {
     private(set) var isLoading: Bool = true
     private(set) var error: String?
@@ -72,7 +71,7 @@ final class SeriesDetailObserver {
     /// The CTA on a page with sub-series. It names the book — "Continue The Hero of Ages", or "Start
     /// The Final Empire" on a series not yet begun — because a bare "Continue Book 3" is ambiguous
     /// across four series; the line underneath says where. A finished page reads "Listen again".
-    nonisolated static func groupedContinueLabel(_ resume: SeriesResumeInfo?) -> String {
+    static func groupedContinueLabel(_ resume: SeriesResumeInfo?) -> String {
         guard let resume else { return String(localized: "series.listen_again") }
         return resume.hasStarted
             ? SeriesHierarchyText.continueTitle(bookTitle: resume.title)
@@ -85,7 +84,7 @@ final class SeriesDetailObserver {
     /// so a never-started series reads "Start Book N" / "Start listening" even though a
     /// [resumeTarget] (the first book) always exists, and one with Book 1 finished reads
     /// "Continue Book 2" though Book 2 has no progress of its own.
-    nonisolated static func continueLabel(
+    static func continueLabel(
         hasBooks: Bool,
         resumeTargetIsNil: Bool,
         resume: SeriesResumeInfo?,

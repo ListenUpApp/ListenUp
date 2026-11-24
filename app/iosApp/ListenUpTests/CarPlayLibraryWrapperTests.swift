@@ -8,7 +8,6 @@ import Testing
 /// Library screen — visible as a permanently frozen library after unplugging from a car. Guards
 /// that CarPlay always gets its own fresh instance from the Koin `factory` binding.
 @Suite("CarPlay library wrapper ownership")
-@MainActor
 struct CarPlayLibraryWrapperTests {
     @Test func carPlayGetsAFreshViewModelNotTheSharedOne() {
         let shared = Dependencies.shared.libraryViewModel

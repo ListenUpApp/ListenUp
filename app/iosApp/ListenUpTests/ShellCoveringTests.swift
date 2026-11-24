@@ -34,11 +34,9 @@ struct ShellCoveringLayoutTests {
     }
 }
 
-@MainActor
 @Suite("The tab shell keeps one identity through a readiness re-check", .serialized)
 struct ShellCoveringIdentityTests {
     @Observable
-    @MainActor
     final class PhaseModel {
         var phase: LibraryReadinessPhase = .ready
     }

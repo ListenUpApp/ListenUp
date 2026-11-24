@@ -71,7 +71,7 @@ struct NowPlayingTitleBlock: View {
     }
 
     /// The folded menu's rows: each name with its book count as the menu item's subtitle.
-    nonisolated static func menuRows(_ people: [ContributorNavRef]) -> [BylineMenuRow] {
+    static func menuRows(_ people: [ContributorNavRef]) -> [BylineMenuRow] {
         people.map { person in
             let books: String? = switch person.bookCount {
             case ...0: nil
@@ -83,7 +83,7 @@ struct NowPlayingTitleBlock: View {
     }
 
     /// The folded menu's section header: the role its names fill.
-    nonisolated static func menuHeader(isAuthors: Bool) -> String {
+    static func menuHeader(isAuthors: Bool) -> String {
         isAuthors ? String(localized: "player.sheet_authors") : String(localized: "player.sheet_narrators")
     }
 

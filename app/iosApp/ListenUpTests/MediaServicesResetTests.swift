@@ -6,7 +6,6 @@ import Testing
 // Retry prepares it afresh. Each test posts on its own center, so a reset reaches only its own coordinator; the
 // `#require`s come before any wait on the save, so a coordinator that ignores the reset fails instead of hanging.
 @Suite("Media-services reset", .serialized)
-@MainActor
 struct MediaServicesResetTests {
     private let session = AudioSessionPoster()
     private static let resetFailure = EngineFailure.couldNotStart(detail: "media services reset")

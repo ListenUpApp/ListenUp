@@ -4,7 +4,6 @@ import Shared
 /// Observes `RegisterViewModel`'s `state` flow, flattening `RegisterUiState`
 /// into SwiftUI-native properties. Thin over `FlowBridge`.
 @Observable
-@MainActor
 final class RegisterViewModelWrapper {
     private(set) var isLoading: Bool = false
     private(set) var isSuccess: Bool = false

@@ -52,6 +52,11 @@ Operational rules for building the native iOS client (`CLAUDE.md` is symlinked t
 7. **iOS 26 minimum. Built with the Swift 6.4 toolchain (Xcode 27.1) in the Swift 6 language
    mode, with strict concurrency. Use the newest platform APIs the floor unlocks.**
    Concurrency conventions:
+   - `ListenUp`, `ListenUpTests`, and `ListenUpScreenshots` compile with
+     `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`: declarations default to `@MainActor`, so only
+     genuine off-main boundaries (audio engine, locks, framework delegates, `@concurrent` helpers)
+     carry `nonisolated`. The extensions (`ListenUpNotificationService`, `ListenUpWidgetsExtension`)
+     and `ListenUpActivityKit` remain `nonisolated`.
    - No `nonisolated(unsafe)` shared mutable state. Isolate it (`@MainActor`) or guard it
      (`OSAllocatedUnfairLock`).
    - Funnel framework callbacks (KVO, time observers, notifications) through a **single

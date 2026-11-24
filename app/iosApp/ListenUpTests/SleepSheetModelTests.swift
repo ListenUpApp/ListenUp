@@ -7,7 +7,6 @@ import ListenupContract
 @preconcurrency import Shared
 
 /// The Sleep sheet's three faces (player spec §5.5.2, PT1–PT8), decided from the snapshot, the progress and the clock.
-@MainActor
 @Suite("The Sleep sheet's model")
 struct SleepSheetModelTests {
     /// 11:18:19 PM UTC on 2026-10-23: 23:41 later is 11:42 PM.
@@ -123,7 +122,6 @@ struct SleepSheetModelTests {
     }
 }
 
-@MainActor
 @Suite("The Sleep sheet, read by VoiceOver", .serialized)
 struct SleepSheetAccessibilityTests {
     private final class Calls {
@@ -259,7 +257,6 @@ struct SleepSheetAccessibilityTests {
 }
 
 /// Whether a test's sheet is still presented: what a `dismiss()` from inside it flips.
-@MainActor
 @Observable
 final class PresentedFlag {
     var isPresented = true

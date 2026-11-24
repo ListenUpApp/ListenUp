@@ -12,7 +12,6 @@ import ListenupContract
 ///
 /// Thin over `FlowBridge`, mirroring `SettingsObserver`.
 @Observable
-@MainActor
 final class AdminSettingsObserver {
     // MARK: - State
 
@@ -98,9 +97,8 @@ struct AdminSettingsReadyModel: Equatable {
     /// Transient save/load failure message (nil when none), surfaced as an inline banner.
     let error: String?
 
-    /// Pure mapping from the Swift Export-bridged KMP `Ready` state. `nonisolated` so tests can
-    /// exercise it without a live observer or main-actor context.
-    nonisolated static func from(_ ready: AdminSettingsUiStateReady) -> AdminSettingsReadyModel {
+    /// Pure mapping from the Swift Export-bridged KMP `Ready` state.
+    static func from(_ ready: AdminSettingsUiStateReady) -> AdminSettingsReadyModel {
         AdminSettingsReadyModel(
             serverName: ready.serverName,
             remoteUrl: ready.remoteUrl,
@@ -136,7 +134,7 @@ struct RatingSourceRowModel: Equatable, Identifiable {
 
     var id: ExternalRatingSource { source }
 
-    nonisolated static func from(_ status: RatingSourceStatus) -> RatingSourceRowModel {
+    static func from(_ status: RatingSourceStatus) -> RatingSourceRowModel {
         RatingSourceRowModel(
             source: status.source,
             enabled: status.enabled,
@@ -149,12 +147,12 @@ struct RatingSourceRowModel: Equatable, Identifiable {
     }
 
     /// The row's whole subtitle: the health line, then Hardcover's connection line beneath it.
-    nonisolated func subtitle(now: Date = Date()) -> String {
+    func subtitle(now: Date = Date()) -> String {
         [healthLine(now: now), connectionLine].compactMap { $0 }.joined(separator: "\n")
     }
 
     /// "Using simonhull's Hardcover account" — Hardcover only, and only once someone has connected.
-    nonisolated var connectionLine: String? {
+    var connectionLine: String? {
         guard source == .hardcover, let connectionUsername else { return nil }
         return String(localized: .adminRatingSourceUsingConnection(connectionUsername))
     }
@@ -162,7 +160,7 @@ struct RatingSourceRowModel: Equatable, Identifiable {
     /// The health line, in the priority the type documents. A pause names a future date, so it
     /// reads as an absolute long date ("October 6, 2026"), not a relative phrase. `now`, `timeZone`
     /// and `locale` are injectable so tests get deterministic text.
-    nonisolated func healthLine(
+    func healthLine(
         now: Date = Date(),
         timeZone: TimeZone = .current,
         locale: Locale = .current
@@ -192,7 +190,7 @@ struct RatingSourceRowModel: Equatable, Identifiable {
         return String(localized: "admin.rating_source_never_fetched")
     }
 
-    private nonisolated static func unavailableLine(_ reason: RatingSourceUnavailable) -> String {
+    private static func unavailableLine(_ reason: RatingSourceUnavailable) -> String {
         switch reason {
         case .notConfigured: return String(localized: "admin.rating_source_not_configured")
         case .noConnection: return String(localized: "admin.rating_source_no_connection")

@@ -39,7 +39,6 @@ struct SpeedSheetModelTests {
     }
 }
 
-@MainActor
 @Suite("The Speed sheet, read by VoiceOver", .serialized)
 struct SpeedSheetAccessibilityTests {
     private final class Calls {

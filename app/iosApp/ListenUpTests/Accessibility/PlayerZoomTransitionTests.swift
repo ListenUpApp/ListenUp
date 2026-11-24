@@ -17,7 +17,6 @@ import UIKit
 /// from below, which moves the presented view itself. The zoom does not move it: on iOS 27.0 (Kit, 2026-10-27) the
 /// presented view sat at full size at y = 0 throughout and went from transparent to opaque while the system drew the
 /// flight out of the cover elsewhere, for both shapes. So the guard is that the page never slides up.
-@MainActor
 @Suite("Player zoom transition", .serialized)
 struct PlayerZoomTransitionTests {
     static let windowSize = CGSize(width: 393, height: 852)
@@ -100,7 +99,6 @@ struct PlayerZoomTransitionTests {
 }
 
 /// What the presented player's view did while it arrived: its on-screen rect and opacity, sampled each frame.
-@MainActor
 struct PlayerFlight: CustomStringConvertible {
     struct Sample {
         let elapsedMs: Int
@@ -199,7 +197,6 @@ struct PlayerFlight: CustomStringConvertible {
 }
 
 /// Counts what the focus-return test watches: the cover's dismissals and each time the book's focus binding turned on.
-@MainActor
 final class FocusProbe {
     var dismissals = 0
     var focusedBook = 0

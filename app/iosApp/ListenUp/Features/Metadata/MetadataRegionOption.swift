@@ -5,7 +5,7 @@ import Shared
 /// region pickers never feed a Swift-Export-bridged `MetadataLocale` into a `ForEach` (per
 /// `iosApp/CLAUDE.md` rule 8). It carries the raw `region`/`language` tokens so it round-trips back
 /// to a `MetadataLocale` for `changeRegion` without re-reading across the Kotlin seam per diff.
-struct MetadataRegionOption: Identifiable, Hashable {
+nonisolated struct MetadataRegionOption: Identifiable, Hashable {
     let region: String
     let language: String?
     let displayName: String

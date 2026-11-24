@@ -17,7 +17,6 @@ struct DiscoveredServerItem: Identifiable, Equatable {
 /// Observes `ServerSelectViewModel` — the sealed `ServerSelectUiState` plus a
 /// navigation-events flow — flattening both into SwiftUI-native state. Thin over `FlowBridge`.
 @Observable
-@MainActor
 final class ServerSelectViewModelWrapper {
     private(set) var servers: [DiscoveredServerItem] = []
     private(set) var isDiscovering: Bool = true

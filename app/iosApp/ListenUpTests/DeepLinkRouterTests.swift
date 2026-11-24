@@ -20,7 +20,6 @@ import Testing
 /// `awaitObservation` suspends on the `@Observable` mutation instead — it enqueues nothing while it
 /// waits, so the delivery gets its slot, and the per-test execution-time allowance (120 s in CI)
 /// remains the bound if the resolve genuinely never happens.
-@MainActor
 @Suite("DeepLinkRouter")
 struct DeepLinkRouterTests {
 

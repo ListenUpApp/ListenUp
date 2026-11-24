@@ -8,7 +8,6 @@ import Testing
 /// failure while the first is still on screen: it waits, it is never silently swallowed, and the
 /// same sentence is not said twice in a row.
 @Suite("ErrorAlertCenter")
-@MainActor
 struct ErrorAlertCenterTests {
     @Test func postShowsTheFirstErrorImmediately() {
         let center = ErrorAlertCenter()

@@ -8,7 +8,6 @@ import ListenupContract
 /// Renders the accessory, in the real system tab bar, per state, to PNGs for the design review and for Simon.
 /// Off unless LU_SNAPSHOT_DIR is set (xcodebuild passes TEST_RUNNER_LU_SNAPSHOT_DIR through), so it never runs in CI.
 /// Test target only: no app launch, no audio.
-@MainActor
 @Suite("Mini player review snapshots", .serialized,
        .enabled(if: ProcessInfo.processInfo.environment["LU_SNAPSHOT_DIR"] != nil))
 struct MiniPlayerSnapshotExportTests {
@@ -83,7 +82,6 @@ struct MiniPlayerSnapshotExportTests {
 }
 
 /// Dark Mode and the accessory's largest Dynamic Type (it caps at xLarge), for the states that crowd it most.
-@MainActor
 @Suite("Mini player review snapshots, appearances", .serialized,
        .enabled(if: ProcessInfo.processInfo.environment["LU_SNAPSHOT_DIR"] != nil))
 struct MiniPlayerAppearanceSnapshotTests {

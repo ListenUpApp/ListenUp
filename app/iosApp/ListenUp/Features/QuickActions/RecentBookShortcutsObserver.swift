@@ -1,6 +1,6 @@
 import Observation
 import UIKit
-import Shared
+@preconcurrency import Shared
 
 /// Keeps the app icon's long-press list showing the four most recent books.
 ///
@@ -9,7 +9,6 @@ import Shared
 /// Callers refresh on the moments Android does — signed in, and whenever the current book changes —
 /// and `clear()` on sign-out.
 @Observable
-@MainActor
 final class RecentBookShortcutsObserver {
     private let bundleIdentifier: String
     private let loadRecentBooks: @MainActor () async -> [RecentBook]
@@ -58,7 +57,7 @@ final class RecentBookShortcutsObserver {
 
     /// The production loader. `getRecentBooksOrEmpty` folds the `AppResult` in Kotlin; Swift never
     /// awaits one. Mapped to native values here, off the UIKit path.
-    nonisolated static func loadFromHome() async -> [RecentBook] {
+    static func loadFromHome() async -> [RecentBook] {
         let limit = Int32(RecentBookQuickActions.maxItems)
         let books = (try? await Dependencies.shared.homeRepository.getRecentBooksOrEmpty(limit: limit)) ?? []
         return books.map { RecentBook(id: $0.bookId, title: $0.title, author: $0.authorNames) }

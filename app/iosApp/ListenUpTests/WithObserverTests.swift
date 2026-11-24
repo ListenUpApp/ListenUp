@@ -2,7 +2,6 @@ import SwiftUI
 import Testing
 @testable import ListenUp
 
-@MainActor
 @Suite("WithObserver", .serialized)
 struct WithObserverTests {
     @Test("ObserverSlot creates its value once for a constant ID")
@@ -104,7 +103,6 @@ struct WithObserverTests {
 }
 
 @Observable
-@MainActor
 private final class FakeScreenObserver {
     var label: String
 
@@ -114,7 +112,6 @@ private final class FakeScreenObserver {
 }
 
 @Observable
-@MainActor
 private final class FakeHostDriver {
     var id: String
     var tick = 0

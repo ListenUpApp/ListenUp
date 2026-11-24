@@ -43,7 +43,6 @@ struct GainState {
 /// writes, and the measurement persistence. Split out of `PlayerCoordinator.swift` to keep that
 /// file inside its 800-line cap — the same split `AudioEngine+Gain.swift` makes for the engine.
 /// `engine`, `progress` and `gain` are internal (not private) so this file can reach them.
-@MainActor
 extension PlayerCoordinator {
     /// The user's volume boost for the loaded book, in dB — what the boost control renders.
     var volumeBoostDb: Float { gain.boostDb }

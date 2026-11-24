@@ -3,7 +3,6 @@ import SwiftUI
 import Testing
 @testable import ListenUp
 
-@MainActor
 @Suite("Book Detail hero and title")
 struct BookDetailTitleTests {
     @Test func statsLineIsLengthYearAndAbridgement() {

@@ -3,7 +3,6 @@ import Testing
 
 /// Pins the mirrored server URL covers build from: an empty or missing URL is "no server", never an
 /// empty base that would produce a malformed cover URL.
-@MainActor
 @Suite("ImageServerBase")
 struct ImageServerBaseTests {
     @Test func mirrorsThePublishedURL() {

@@ -4,7 +4,6 @@ import UIKit
 @testable import ListenUp
 
 @Suite("Now Playing's wash: the cover's, or the player's neutral")
-@MainActor
 struct NowPlayingWashTests {
     @Test("no cover colours: the player's neutral, in light and in dark")
     func neutral() {

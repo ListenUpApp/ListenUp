@@ -4,7 +4,6 @@ import Testing
 @preconcurrency import Shared
 
 @Suite("The shared More menu as native sections")
-@MainActor
 struct PlayerMenuModelTests {
     @Test("a book in a series with a PDF and a boost: the rows in order, Close Book destructive and alone")
     func rows() {

@@ -2,7 +2,6 @@ import Foundation
 import Testing
 @testable import ListenUp
 
-@MainActor
 @Suite("PlayerRequestRouter")
 struct PlayerRequestRouterTests {
     @Test func theFrontWindowClaimsARequestOnce() {

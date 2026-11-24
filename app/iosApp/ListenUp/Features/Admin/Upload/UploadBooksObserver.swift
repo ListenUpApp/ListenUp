@@ -18,7 +18,6 @@ import UIKit
 /// `GlobalErrorObserver` presents (iosApp rule 10); the phase's own message is the screen's inline
 /// account of the same thing, beside the way to start over.
 @Observable
-@MainActor
 final class UploadBooksObserver {
     // MARK: - State
 
@@ -130,7 +129,7 @@ final class UploadBooksObserver {
     // MARK: - Mapping
 
     /// The system progress UI's second line: "File N of M" while uploading, then the server's turn.
-    nonisolated static func subtitle(for phase: UploadBooksPhase) -> String {
+    static func subtitle(for phase: UploadBooksPhase) -> String {
         switch phase {
         case .uploading(let progress):
             String(
@@ -142,7 +141,7 @@ final class UploadBooksObserver {
         }
     }
 
-    nonisolated static func phase(from state: UploadBooksUiState) -> UploadBooksPhase {
+    static func phase(from state: UploadBooksUiState) -> UploadBooksPhase {
         switch state.sealedType() {
         case .idle:
             return .idle
@@ -170,7 +169,7 @@ final class UploadBooksObserver {
     }
 
     /// The sentence for a refused selection — the same words, and the same limits, as Android.
-    nonisolated static func notice(for refusal: UploadSelectionRefusal) -> UploadNotice {
+    static func notice(for refusal: UploadSelectionRefusal) -> UploadNotice {
         switch refusal.sealedType() {
         case .tooManyFiles(let tooManyType):
             let refused = tooManyType.value
@@ -196,7 +195,7 @@ final class UploadBooksObserver {
         }
     }
 
-    private nonisolated static func fileSize(_ bytes: Int64) -> String {
+    private static func fileSize(_ bytes: Int64) -> String {
         ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
     }
 }
@@ -264,7 +263,6 @@ struct UploadNotice: Equatable, Identifiable {
 /// The fallback when no continued-processing task can run: the screen stays awake while it runs, and a
 /// background task lets the file in flight finish if ListenUp is sent to the background. Background
 /// time is short and ends when iOS says so; the expiry handler gives the time back as it must.
-@MainActor
 final class UploadKeepAlive: UploadHold {
     private var backgroundTask: UIBackgroundTaskIdentifier = .invalid
 

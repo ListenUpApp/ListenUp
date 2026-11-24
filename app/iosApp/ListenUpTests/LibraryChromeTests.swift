@@ -5,7 +5,6 @@ import Testing
 
 /// The Library screen's chrome: which switcher it shows, what its title names, and what its toolbar
 /// Sort menu offers for each section.
-@MainActor
 @Suite("Library chrome")
 struct LibraryChromeTests {
     // MARK: - Section switcher and title

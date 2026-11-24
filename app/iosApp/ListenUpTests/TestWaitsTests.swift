@@ -3,17 +3,15 @@ import Observation
 
 /// Observable state the tests below mutate (or deliberately never mutate).
 @Observable
-@MainActor
 private final class Flag {
     var isSet = false
 }
 
 @Suite("awaitObservation")
-@MainActor
 struct AwaitObservationTests {
     @Test func resumesWhenTheObservedStateMutates() async {
         let flag = Flag()
-        Task { @MainActor in flag.isSet = true }
+        Task { flag.isSet = true }
         await awaitObservation { flag.isSet }
         #expect(flag.isSet)
     }

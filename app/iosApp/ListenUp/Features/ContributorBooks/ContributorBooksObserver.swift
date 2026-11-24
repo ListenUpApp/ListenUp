@@ -83,7 +83,6 @@ struct ContributorBooksSnapshot: Equatable {
 /// `@Observable` properties. Thin over `FlowBridge`; the Kotlin books are projected to native
 /// `BookRow` value types at this boundary so the grid never feeds bridged objects to a `ForEach`.
 @Observable
-@MainActor
 final class ContributorBooksObserver {
     private(set) var phase: ContributorBooksPhase = .loading
     private(set) var contributorName: String = ""

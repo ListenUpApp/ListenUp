@@ -6,7 +6,6 @@ import ListenupContract
 /// `HomePhase`, and surfaces a Continue Listening failure as a clearable inline error.
 /// Thin over `FlowBridge`; all mapping logic lives in pure, testable initializers.
 @Observable
-@MainActor
 final class HomeViewModelWrapper {
     // MARK: - State
 

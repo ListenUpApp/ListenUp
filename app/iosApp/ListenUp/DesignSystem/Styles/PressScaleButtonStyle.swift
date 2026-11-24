@@ -45,7 +45,7 @@ struct PressScaleButtonStyle: ButtonStyle {
     /// The label's opacity: dimmed while disabled. A custom style draws its own label, so it owns the
     /// disabled appearance the system styles give for free (HIG, Buttons: system buttons "offer …
     /// built-in interaction states"; a custom one must supply them).
-    nonisolated static func labelOpacity(isEnabled: Bool) -> Double {
+    static func labelOpacity(isEnabled: Bool) -> Double {
         isEnabled ? 1 : 0.4
     }
 

@@ -8,7 +8,6 @@ import Shared
 /// the outgoing book's place is saved. Which book is loaded, retry and dismiss are the shared
 /// player's (`PlayerSessionPlayTest`, `PlayerSessionErrorsTest`).
 @Suite("Player switch path")
-@MainActor
 struct PlayerSwitchPathTests {
     private let chapters = [
         Chapter(id: "c0", title: "c0", duration: 1000, startTime: 0, partTitle: nil, bookTitle: nil)

@@ -7,7 +7,6 @@ import Shared
 /// and breadcrumb are projected to native value types at this boundary — mirrors
 /// `FacetBooksObserver`.
 @Observable
-@MainActor
 final class GenrePageObserver {
     private(set) var phase: GenrePagePhase = .loading
     private(set) var name: String = ""

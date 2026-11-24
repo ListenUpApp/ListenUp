@@ -53,7 +53,7 @@ struct SettingsObserverTests {
 
     // MARK: - State mapping
 
-    @MainActor private func makeObserver() -> SettingsObserver {
+    private func makeObserver() -> SettingsObserver {
         SettingsObserver(viewModel: Dependencies.shared.createSettingsViewModel(), stopPlayback: {})
     }
 
@@ -105,7 +105,7 @@ struct SettingsObserverTests {
         )
     }
 
-    @MainActor private func flags(of observer: SettingsObserver) -> [Bool] {
+    private func flags(of observer: SettingsObserver) -> [Bool] {
         [
             observer.autoRewindEnabled,
             observer.wifiOnlyDownloads,
@@ -115,7 +115,7 @@ struct SettingsObserverTests {
         ]
     }
 
-    @MainActor @Test func applyMapsEveryField() {
+    @Test func applyMapsEveryField() {
         let observer = makeObserver()
         observer.apply(distinctiveState)
 
@@ -132,7 +132,7 @@ struct SettingsObserverTests {
     }
 
     /// One switch on at a time: the five are told apart, not just copied as a block.
-    @MainActor @Test func applyKeepsEachSwitchInItsOwnField() {
+    @Test func applyKeepsEachSwitchInItsOwnField() {
         let observer = makeObserver()
         for index in 0..<5 {
             observer.apply(stateWithOnlyFlag(index))
@@ -140,7 +140,7 @@ struct SettingsObserverTests {
         }
     }
 
-    @MainActor @Test func aSecondStateReplacesEveryField() {
+    @Test func aSecondStateReplacesEveryField() {
         let observer = makeObserver()
         observer.apply(distinctiveState)
         observer.apply(stateWithOnlyFlag(1))
@@ -159,7 +159,7 @@ struct SettingsObserverTests {
 
     // MARK: - Send a test notification
 
-    @MainActor @Test func aTestNotificationTheServerAcceptedSaysSent() {
+    @Test func aTestNotificationTheServerAcceptedSaysSent() {
         let observer = makeObserver()
         #expect(observer.testNotification == .idle)
 
@@ -168,7 +168,7 @@ struct SettingsObserverTests {
         #expect(observer.testNotification.detail == String(localized: "settings.test_notification_sent"))
     }
 
-    @MainActor @Test func aTestNotificationTheServerRefusedSaysWhy() {
+    @Test func aTestNotificationTheServerRefusedSaysWhy() {
         let observer = makeObserver()
         let error = TransportErrorTimeout(correlationId: nil, debugInfo: nil)
 

@@ -4,7 +4,6 @@ import UIKit
 
 /// A tapped quick action waits for the session to settle, plays when signed in, and is dropped (the
 /// app just opens) when signed out or when the item is not one of ours.
-@MainActor
 @Suite("QuickActionRouter")
 struct QuickActionRouterTests {
     private let bundleID = "com.example.listenup"

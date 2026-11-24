@@ -6,7 +6,6 @@ import Observation
 /// process has already read paints at once (`fadesIn == false`); one decoded now crossfades in (`fadesIn == true`).
 /// Reusable by any hero: Book Detail, Home's slot, and (Player PR 3) Now Playing.
 @Observable
-@MainActor
 final class CoverThemeObserver {
     private(set) var colors: CoverColors?
     private(set) var fadesIn = false

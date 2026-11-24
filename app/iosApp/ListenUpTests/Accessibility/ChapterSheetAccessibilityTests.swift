@@ -7,7 +7,6 @@ import ListenupContract
 
 /// The Chapters sheet (player spec §5.5.4, PC1–PC4): it opens centred on the chapter you're in, names that chapter as
 /// playing with its time left, and offers every other one as a place to play from.
-@MainActor
 @Suite("The Chapters sheet", .serialized)
 struct ChapterSheetAccessibilityTests {
     /// 68 one-minute chapters, in chapter 39 with 40 seconds of it left.

@@ -19,7 +19,6 @@ import Shared
 ///
 /// Thin over `FlowBridge`, mirroring `AdminObserver`.
 @Observable
-@MainActor
 final class ImportFlowObserver {
     // MARK: - State
 

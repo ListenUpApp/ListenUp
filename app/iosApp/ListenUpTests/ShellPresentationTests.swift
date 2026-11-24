@@ -3,7 +3,6 @@ import Testing
 import UIKit
 @testable import ListenUp
 
-@MainActor
 @Suite("The shell's presentations", .serialized)
 struct ShellPresentationModelTests {
     @Test func presentingASheetThenDismissingClearsIt() {
@@ -47,11 +46,9 @@ struct ShellPresentationModelTests {
     }
 }
 
-@MainActor
 @Suite("A presentation above the identified tab view survives its rebuild", .serialized)
 struct ShellPresentationSurvivalTests {
     @Observable
-    @MainActor
     final class Flip {
         var flag = false
     }

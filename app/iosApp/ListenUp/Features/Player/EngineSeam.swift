@@ -6,7 +6,7 @@ typealias EngineLoadGeneration = Int32
 
 /// One instruction from the shared player, in the order it was issued. Native mirror of Kotlin's
 /// `EngineCommand`; the Kotlin adapter maps it once, so the coordinator never sees a bridged type.
-enum EngineInstruction: Sendable {
+nonisolated enum EngineInstruction: Sendable {
     case load(bookId: String, prepared: PreparedPlayback, generation: EngineLoadGeneration = 0)
     case play
     case pause
@@ -18,10 +18,10 @@ enum EngineInstruction: Sendable {
 }
 
 /// What the engine is doing, as the coordinator reports it to the shared player.
-enum EnginePhaseFact: Sendable, Equatable { case idle, buffering, playing, paused, ended }
+nonisolated enum EnginePhaseFact: Sendable, Equatable { case idle, buffering, playing, paused, ended }
 
 /// A typed engine failure: mapped once, here at the engine edge, never from message text.
-enum EngineFailure: Sendable, Equatable {
+nonisolated enum EngineFailure: Sendable, Equatable {
     case connectionLost(detail: String?)
     case unsupportedFormat(detail: String?)
     case couldNotStart(detail: String?)
@@ -32,7 +32,6 @@ enum EngineFailure: Sendable, Equatable {
 /// Pushed, not pulled: the coordinator queues a load's start behind every instruction it has already received.
 /// A stream it drained left issued instructions unread in the stream's buffer, so a load could finish and play
 /// before the `.seek` sent right after it had even been seen.
-@MainActor
 protocol EngineInstructionSource {
     /// Start delivering. `receive` runs on the main actor, once per instruction, in the order they were issued.
     func deliver(to receive: @escaping @MainActor (EngineInstruction) -> Void)
@@ -40,7 +39,6 @@ protocol EngineInstructionSource {
 
 /// Where the coordinator reports engine facts. `@MainActor`, like `PlaybackProgressReporting`. Every fact about a
 /// book carries the generation of the `.load` the coordinator is executing; the route is not about a book.
-@MainActor
 protocol EngineFactReporting {
     func phase(_ phase: EnginePhaseFact, generation: EngineLoadGeneration)
     func position(ms: Int64, generation: EngineLoadGeneration)

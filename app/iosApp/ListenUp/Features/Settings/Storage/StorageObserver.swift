@@ -92,7 +92,6 @@ enum StoragePendingDeletion: Equatable, Identifiable {
 /// raw Kotlin summaries are kept privately (off the diff path) for the id→object lookup the VM's
 /// `confirmDeleteBook(book:)` needs.
 @Observable
-@MainActor
 final class StorageObserver {
     private(set) var isLoading: Bool = true
     private(set) var totalStorageUsed: Int64 = 0

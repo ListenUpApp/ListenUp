@@ -117,7 +117,7 @@ struct ImportBookReviewRow: View {
                     .foregroundStyle(.secondary)
                 TextField(
                     String(localized: "import.book_search_hint"),
-                    text: Binding(get: { search.query }, set: onQueryChange)
+                    text: Binding(get: { search.query }, set: { onQueryChange($0) })
                 )
                 .textFieldStyle(.plain)
                 .autocorrectionDisabled()

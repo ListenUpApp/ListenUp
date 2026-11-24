@@ -7,7 +7,6 @@ import Shared
 /// Person Match details for VoiceOver and large text (spec, "Accessibility requirements"): headings for every
 /// Review section, ticks that are toggles, a row that says who, what and where in one stop, 44-point targets,
 /// an Apply tray that leaves the screen to the review at AX5, and a receipt with Undo.
-@MainActor
 @Suite("Person Match details accessibility", .serialized)
 struct PersonMatchAccessibilityTests {
     private typealias Fixture = PersonMatchFixtures

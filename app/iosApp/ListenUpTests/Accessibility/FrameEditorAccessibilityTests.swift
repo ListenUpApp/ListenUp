@@ -5,7 +5,6 @@ import UIKit
 
 /// What VoiceOver finds in Move and Scale: one adjustable stage with the named moves, the toolbar in HIG
 /// order, a labelled zoom slider, and the could-not-open state.
-@MainActor
 @Suite("Move and Scale accessibility", .serialized)
 struct FrameEditorAccessibilityTests {
     private static func photo() -> UIImage {

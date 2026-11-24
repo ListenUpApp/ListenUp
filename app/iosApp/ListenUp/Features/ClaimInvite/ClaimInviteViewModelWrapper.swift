@@ -5,7 +5,6 @@ import Shared
 /// Observes `ClaimInviteViewModel`'s `state` flow, flattening `ClaimInviteUiState` into
 /// SwiftUI-native properties. Thin over `FlowBridge`.
 @Observable
-@MainActor
 final class ClaimInviteViewModelWrapper {
     enum Phase: Equatable {
         case codeEntry

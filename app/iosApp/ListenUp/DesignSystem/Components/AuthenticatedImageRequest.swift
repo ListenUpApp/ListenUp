@@ -12,7 +12,6 @@ import Nuke
 /// rather than copying the tail a third time.
 enum AuthenticatedImageRequest {
     /// Resize processors for a target pixel width (empty when `targetPixels <= 0`).
-    @MainActor
     static func processors(targetPixels: CGFloat) -> [any ImageProcessing] {
         targetPixels > 0 ? [ImageProcessors.Resize(width: targetPixels, unit: .pixels)] : []
     }
@@ -32,7 +31,6 @@ enum AuthenticatedImageRequest {
     /// A Nuke request for an authenticated server URL: attaches `Authorization: Bearer` but keys the
     /// cache on `cacheKey` when supplied (else the URL, Nuke's default) so a cached image survives
     /// token rotation and never re-downloads just because the access token rotated.
-    @MainActor
     static func authenticated(
         url: URL,
         processors: [any ImageProcessing],

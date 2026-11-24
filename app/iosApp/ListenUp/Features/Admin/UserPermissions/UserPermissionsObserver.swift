@@ -5,7 +5,6 @@ import Shared
 /// Observes the shared `UserPermissionsViewModel`, flattening its state into a native model the SwiftUI
 /// screen binds to. Thin over `FlowBridge`, like the other admin observers.
 @Observable
-@MainActor
 final class UserPermissionsObserver {
     private(set) var phase: UserPermissionsPhase = .loading
 

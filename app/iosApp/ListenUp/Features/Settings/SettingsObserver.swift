@@ -12,7 +12,6 @@ import Shared
 /// formatting helpers (`skipLabel`, `sleepTimerLabel`, `themeLabel`) that the view
 /// renders and the tests pin.
 @Observable
-@MainActor
 final class SettingsObserver {
     // MARK: - Flattened state (synced — server storage)
 

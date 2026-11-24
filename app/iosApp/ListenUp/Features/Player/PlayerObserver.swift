@@ -335,7 +335,6 @@ struct PlayerSnapshot: Equatable {
 /// at this boundary (rule 8). Every player surface — the mini player, Now Playing, the reader strip,
 /// CarPlay, the Live Activity, Book and Series Detail — reads this and acts through it.
 @Observable
-@MainActor
 final class PlayerObserver {
     private(set) var snapshot = PlayerSnapshot()
     /// The running duration timer's remainder: it ticks every second, so it is kept out of `snapshot` (which would

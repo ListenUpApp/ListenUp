@@ -11,7 +11,6 @@ import Shared
 ///
 /// Thin over `FlowBridge`, mirroring `LeaderboardObserver`.
 @Observable
-@MainActor
 final class CreateInviteObserver {
     // MARK: - State
 
@@ -54,9 +53,8 @@ final class CreateInviteObserver {
         phase = Self.phase(from: ready.status)
     }
 
-    /// Pure: project a `CreateInviteStatus` onto the sheet's phase. `nonisolated` so tests can
-    /// exercise it off the main actor.
-    nonisolated static func phase(from status: CreateInviteStatus) -> CreateInvitePhase {
+    /// Pure: project a `CreateInviteStatus` onto the sheet's phase.
+    static func phase(from status: CreateInviteStatus) -> CreateInvitePhase {
         switch status.sealedType() {
         case .idle:
             return .idle

@@ -5,7 +5,6 @@ import ListenUpActivityKit
 /// `HomeRepository.getResumeBookOrNull()`, the same offline-first "Continue Listening" source the Home
 /// screen renders. Its `bookId` feeds `ResumePlaybackIntent`.
 /// Registered with `AppDependencyManager` at launch (see `ListenUpApp`).
-@MainActor
 struct LastPlayedBookProvider: LastPlayedBookProviding {
 
     func mostRecentBookId() async -> String? {

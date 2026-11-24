@@ -6,7 +6,6 @@ import Testing
 /// A seek or skip moves the lock screen's, Control Center's and CarPlay's clock at once, not at the next
 /// play, pause or chapter change.
 @Suite("A seek moves the now-playing clock")
-@MainActor
 struct SeekNowPlayingTests {
     private func makeHarness() async -> (PlayerHarness, MPNowPlayingSession) {
         let session = MPNowPlayingSession(players: [AVPlayer()])

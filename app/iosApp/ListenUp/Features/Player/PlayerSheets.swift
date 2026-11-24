@@ -70,14 +70,14 @@ struct BoostPickerSheet: View {
     }
 
     /// A segment's words: "Off", then "+3" … "+12" (the readout above carries the unit).
-    nonisolated static func segmentLabel(_ db: Float) -> String {
+    static func segmentLabel(_ db: Float) -> String {
         let rounded = Int(db.rounded())
         if rounded == 0 { return String(localized: "player.boost_off") }
         return String(format: String(localized: "player.boost_pill_db"), rounded)
     }
 
     /// "Off" for no boost, else "+N dB" — the readout and chip label shared shape.
-    nonisolated static func formatBoost(_ db: Float) -> String {
+    static func formatBoost(_ db: Float) -> String {
         let rounded = Int(db.rounded())
         if rounded == 0 { return String(localized: "player.boost_off") }
         return String(format: String(localized: "player.boost_db"), rounded)
@@ -86,7 +86,7 @@ struct BoostPickerSheet: View {
     /// The pill variant: "0 dB" at the floor, else "+N" with no unit so the control never
     /// truncates. The floor spells the unit out because the pill carries no label of its own —
     /// "Off" never said WHAT was off — and naming it there is what makes the bare "+N" legible.
-    nonisolated static func formatBoostPill(_ db: Float) -> String {
+    static func formatBoostPill(_ db: Float) -> String {
         let rounded = Int(db.rounded())
         if rounded == 0 { return String(localized: "player.boost_pill_zero_db") }
         return String(format: String(localized: "player.boost_pill_db"), rounded)

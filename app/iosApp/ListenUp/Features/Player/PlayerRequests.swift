@@ -15,7 +15,6 @@ enum PlayerRequest: Equatable {
 /// a notification tap to one window. Each shell reports when its window becomes active and claims;
 /// the router hands the request to one claimant only.
 @Observable
-@MainActor
 final class PlayerRequestRouter {
     /// The request waiting for a window. A newer request replaces an unclaimed older one: the last
     /// thing the listener asked for is the one they want.

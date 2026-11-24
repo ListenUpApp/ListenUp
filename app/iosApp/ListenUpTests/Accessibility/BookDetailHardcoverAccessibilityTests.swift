@@ -4,7 +4,6 @@ import Testing
 @testable import ListenUp
 
 /// Book Detail's Readers and Hardcover card, read the way VoiceOver and large text meet them (#1562).
-@MainActor
 @Suite("Book Detail Hardcover accessibility", .serialized)
 struct BookDetailHardcoverAccessibilityTests {
     private let readers = [

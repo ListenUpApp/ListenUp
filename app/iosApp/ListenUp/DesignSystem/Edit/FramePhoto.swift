@@ -6,10 +6,9 @@ import UIKit
 /// in a 420 pt cut-out, bounded so a huge photo is never decoded at full size.
 enum FramePhoto {
     /// The longest edge Move and Scale decodes, in pixels.
-    static let editorPixels: CGFloat = 2048
+    nonisolated static let editorPixels: CGFloat = 2048
 
     /// A saved contributor photo, from the same sources its avatar streams from.
-    @MainActor
     static func contributor(contributorId: String, imagePath: String?) async -> UIImage? {
         let request = await ContributorImageRequest.contributor(
             contributorId: contributorId,
@@ -20,7 +19,6 @@ enum FramePhoto {
     }
 
     /// A user's saved avatar, at its current version.
-    @MainActor
     static func avatar(userId: String, version: Int64) async -> UIImage? {
         let request = await UserAvatarImageRequest.avatar(userId: userId, version: version, targetPixels: editorPixels)
         return await image(for: request)

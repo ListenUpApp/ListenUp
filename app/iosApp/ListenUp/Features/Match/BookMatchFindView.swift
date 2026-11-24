@@ -350,7 +350,7 @@ protocol MatchAnnouncedFindPhase: Equatable {
     var finishedAnnouncement: String? { get }
 }
 
-extension MatchFindPhase: MatchAnnouncedFindPhase {
+extension MatchFindPhase: @MainActor MatchAnnouncedFindPhase {
     var isSearching: Bool {
         if case .searching = self { return true }
         return false

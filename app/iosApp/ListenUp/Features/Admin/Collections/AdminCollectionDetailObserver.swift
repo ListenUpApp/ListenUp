@@ -9,7 +9,6 @@ import Shared
 /// `showAddMemberSheet`, `hideAddMemberSheet`, `loadUsersForSharing`, `clearError`,
 /// `clearSaveSuccess`) forward directly to the Kotlin VM.
 @Observable
-@MainActor
 final class AdminCollectionDetailObserver {
     // MARK: - State
 

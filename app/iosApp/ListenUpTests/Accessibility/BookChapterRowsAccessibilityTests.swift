@@ -4,7 +4,6 @@ import Testing
 
 /// Chapter rows are buttons that say what they do — "Play from chapter 7: Chapter 7" — the current one selected, and
 /// collapsed to the five-row window around it (spec §2.5).
-@MainActor
 @Suite("Book Detail chapter rows", .serialized)
 struct BookChapterRowsAccessibilityTests {
     private let all = (0..<12).map { index in

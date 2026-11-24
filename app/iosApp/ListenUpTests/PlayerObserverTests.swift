@@ -5,7 +5,6 @@ import ListenupContract
 @preconcurrency import Shared
 
 @Suite("PlayerObserver maps the shared state to native values")
-@MainActor
 struct PlayerObserverTests {
     @Test("nothing loaded hides the mini player")
     func nothingLoaded() {

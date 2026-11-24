@@ -38,12 +38,12 @@ struct SeriesContent: View {
     private var horizontalMargin: CGFloat { sizeClass == .regular ? 36 : 16 }
 
     /// A name sort: the sections carry letters to head them.
-    nonisolated static func isLettered(_ sections: [LetterRun.Section<SeriesRow>]) -> Bool {
+    static func isLettered(_ sections: [LetterRun.Section<SeriesRow>]) -> Bool {
         sections.first.map { !$0.letter.isEmpty } ?? false
     }
 
     /// Where an index letter jumps: the first series under it, by the id each card scrolls to.
-    nonisolated static func scrollTarget(
+    static func scrollTarget(
         forLetter letter: String,
         in sections: [LetterRun.Section<SeriesRow>]
     ) -> String? {

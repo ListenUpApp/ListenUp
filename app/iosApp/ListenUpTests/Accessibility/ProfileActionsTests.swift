@@ -3,7 +3,6 @@ import Testing
 @testable import ListenUp
 
 /// The profile's Downloads row goes where Settings › Manage storage goes: the storage screen.
-@MainActor
 @Suite("Profile actions", .serialized)
 struct ProfileActionsTests {
     private func host() async -> HostedView {

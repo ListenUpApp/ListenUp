@@ -13,7 +13,6 @@ import ListenupContract
 ///
 /// Thin over `FlowBridge`, mirroring `LeaderboardObserver`.
 @Observable
-@MainActor
 final class AdminObserver {
     // MARK: - State
 

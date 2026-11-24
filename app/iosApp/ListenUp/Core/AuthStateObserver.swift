@@ -5,7 +5,6 @@ import SwiftUI
 /// The single source of truth for authentication state in the iOS app — placed at
 /// the app root, it drives top-level navigation.
 @Observable
-@MainActor
 final class AuthStateObserver {
 
     // MARK: - State

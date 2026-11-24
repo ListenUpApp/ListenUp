@@ -13,7 +13,6 @@ enum CreateEditShelfPhase: Equatable {
 /// Observes `CreateEditShelfViewModel`, flattening its sealed state into
 /// `@Observable` properties and forwarding nav actions to a dismiss callback.
 @Observable
-@MainActor
 final class CreateEditShelfObserver {
     private(set) var phase: CreateEditShelfPhase = .idle
     var onClose: (() -> Void)?

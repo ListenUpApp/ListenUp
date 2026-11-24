@@ -51,7 +51,6 @@ struct NotificationPrefRowModel: Identifiable, Equatable {
 /// last-write-wins, so a rapid double-flip is harmless — the optimistic state already gives
 /// immediate feedback, and the server converges on the final value. Mirrors `DevicesObserver`.
 @Observable
-@MainActor
 final class NotificationPrefsObserver {
     private(set) var phase: NotificationPrefsPhase = .loading
 

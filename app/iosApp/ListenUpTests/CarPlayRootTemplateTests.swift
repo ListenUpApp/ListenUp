@@ -9,7 +9,6 @@ import Testing
 /// the environment CI and a blind dev box never exercise (four crash logs proved it on
 /// 2026-08-08). Now-playing is pushed, never embedded; these tests keep that true as the root
 /// grows into a tab bar for Library and Search.
-@MainActor
 @Suite("CarPlay root template")
 struct CarPlayRootTemplateTests {
     @Test func theRootIsATabBarOfTheTwoBrowseLists() throws {

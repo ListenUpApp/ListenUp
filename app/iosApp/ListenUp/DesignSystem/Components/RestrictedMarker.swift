@@ -30,17 +30,17 @@ struct RestrictedMarker: ViewModifier {
     }
 
     /// Held wins the corner: a held book never wears the lock, whatever its collections.
-    nonisolated static func shows(isHeld: Bool, isRestricted: Bool) -> Bool {
+    static func shows(isHeld: Bool, isRestricted: Bool) -> Bool {
         !isHeld && isRestricted
     }
 
     /// Clear of the 22pt selection circle and its padding (8 + 22 + 6).
-    nonisolated static func leadingOffset(isSelecting: Bool) -> CGFloat {
+    static func leadingOffset(isSelecting: Bool) -> CGFloat {
         isSelecting ? 36 : 0
     }
 
     /// A card whose children are folded into one VoiceOver label ends with why the lock is there.
-    nonisolated static func label(_ base: String, isRestricted: Bool) -> String {
+    static func label(_ base: String, isRestricted: Bool) -> String {
         isRestricted ? "\(base). \(String(localized: "library.restricted_a11y"))" : base
     }
 }

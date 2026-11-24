@@ -56,7 +56,6 @@ extension NowPlayingInfo {
     }
 }
 
-@MainActor
 extension PlayerCoordinator {
     func updateNowPlaying() {
         // Nothing held (nothing loaded, or a failed load) has no now-playing content — clear the

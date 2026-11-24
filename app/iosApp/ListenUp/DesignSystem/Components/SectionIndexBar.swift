@@ -121,7 +121,7 @@ struct SectionIndexBar: View {
 
     private func endDrag() {
         endDragTask?.cancel()
-        endDragTask = Task { @MainActor in
+        endDragTask = Task {
             try? await Task.sleep(for: .milliseconds(300))
             guard !Task.isCancelled else { return }
             // Only the popup goes: the adjustable value keeps the letter the reader jumped to.

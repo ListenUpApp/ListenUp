@@ -14,7 +14,6 @@ enum SignOutSequence {
     /// The order is load-bearing: `clearSession` runs the shared logout, which revokes the
     /// session server-side and drops the tokens. A stream still running at that point would be
     /// left issuing requests with a revoked token.
-    @MainActor
     static func run(
         stopPlayback: () async -> Void,
         clearSession: () -> Void

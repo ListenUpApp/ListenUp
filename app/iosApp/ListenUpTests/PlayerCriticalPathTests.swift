@@ -9,7 +9,6 @@ import Testing
 /// gaps: pause carries the reached position, the finish truth, and the typed failure reports.
 
 @Suite("Pause persistence")
-@MainActor
 struct PausePersistenceTests {
     /// Pausing reports the user's current place. Pause is one of the three save triggers and must
     /// carry the position that was reached.
@@ -34,7 +33,6 @@ struct PausePersistenceTests {
 }
 
 @Suite("Finish truth")
-@MainActor
 struct FinishTruthTests {
     /// End-of-media reports where the listener actually was, not the book's duration, and tells the
     /// shared player the engine ended.
@@ -69,7 +67,6 @@ struct FinishTruthTests {
 }
 
 @Suite("Buffering promotion")
-@MainActor
 struct BufferingPromotionTests {
     /// Audio actually advancing promotes a `.buffering` phase to `.playing`. The engine's `.ready` is a
     /// KVO *transition*; if it lands inside the loading gate it is dropped and nothing re-emits it.
@@ -100,7 +97,6 @@ struct BufferingPromotionTests {
 }
 
 @Suite("Engine failures")
-@MainActor
 struct EngineFailureTests {
     /// A prepared book whose timeline yields no playable segments is reported as could-not-start.
     @Test func emptyTimelineReportsCouldNotStart() async {
