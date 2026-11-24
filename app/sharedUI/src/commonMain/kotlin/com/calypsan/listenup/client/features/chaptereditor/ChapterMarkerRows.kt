@@ -61,7 +61,7 @@ internal fun LazyListScope.chapterMarkerHeaders(
 ) {
     ChapterMarkerTier.entries.reversed().forEach { tier ->
         tier.titleOn(chapter)?.let { title ->
-            item(key = "marker-$tier-${chapter.id}") {
+            item(key = "marker-$tier-${chapter.id}", contentType = "marker-header") {
                 ChapterMarkerHeader(
                     title = title,
                     tier = tier,

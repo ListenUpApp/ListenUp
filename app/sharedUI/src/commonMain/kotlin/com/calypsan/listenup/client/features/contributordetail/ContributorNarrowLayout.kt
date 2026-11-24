@@ -73,7 +73,7 @@ internal fun NarrowContributorPortfolio(
         contentPadding = PaddingValues(bottom = 32.dp),
     ) {
         // 1. Color-blocked hero — avatar, role chips, name, aka, life dates.
-        item {
+        item(key = "hero", contentType = "hero") {
             NarrowColorHero(
                 state = state,
                 contributorId = contributorId,
@@ -88,7 +88,7 @@ internal fun NarrowContributorPortfolio(
         }
 
         // 2. Stat chip + About, on the surface below the hero.
-        item {
+        item(key = "bio", contentType = "bio") {
             Column(modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.screenMargin, vertical = 20.dp)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     HeroStatChip(
@@ -118,6 +118,7 @@ internal fun NarrowContributorPortfolio(
         items(
             items = state.roleSections,
             key = { it.role },
+            contentType = { "role-section" },
         ) { section ->
             NarrowWorkSection(
                 section = section,

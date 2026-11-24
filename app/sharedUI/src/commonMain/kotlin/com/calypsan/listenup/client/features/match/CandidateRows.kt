@@ -61,7 +61,7 @@ internal fun LazyListScope.candidateGroups(
     onCompare: (CandidateUi) -> Unit,
     onRetrySources: () -> Unit,
 ) {
-    item(key = "count") {
+    item(key = "count", contentType = "count") {
         ResultCount(
             text =
                 if (results.all.size == 1) {
@@ -71,12 +71,14 @@ internal fun LazyListScope.candidateGroups(
                 },
         )
     }
-    results.partialFailure?.let { partial -> item(key = "partial") { PartialBanner(partial, onRetrySources) } }
+    results.partialFailure?.let { partial ->
+        item(key = "partial", contentType = "partial") { PartialBanner(partial, onRetrySources) }
+    }
     listOf(
         "strong" to results.strong,
         "maybe" to results.maybe,
     ).filter { it.second.isNotEmpty() }.forEach { (key, candidates) ->
-        item(key = key) {
+        item(key = key, contentType = "candidate-group") {
             SectionGroup(
                 label =
                     stringResource(

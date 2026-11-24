@@ -227,8 +227,12 @@ internal fun LibrarySettingsContent(
             contentPadding = PaddingValues(horizontal = Spacing.screenMargin, vertical = Spacing.xl),
             verticalArrangement = Arrangement.spacedBy(Spacing.sectionGap),
         ) {
-            item { ScanPathsSection(state = state, onRemoveRequest = onRemoveRequest, onAddFolder = onAddFolder) }
-            item { ScanningSection(isScanning = state.isScanning, onTriggerScan = onTriggerScan) }
+            item(key = "scan-paths", contentType = "scan-paths") {
+                ScanPathsSection(state = state, onRemoveRequest = onRemoveRequest, onAddFolder = onAddFolder)
+            }
+            item(key = "scanning", contentType = "scanning") {
+                ScanningSection(isScanning = state.isScanning, onTriggerScan = onTriggerScan)
+            }
         }
     }
 }
@@ -371,6 +375,7 @@ private fun FolderBrowserDialog(
                         items(
                             count = state.browserEntries.size,
                             key = { state.browserEntries[it].path },
+                            contentType = { "directory" },
                         ) { index ->
                             val entry = state.browserEntries[index]
                             Row(

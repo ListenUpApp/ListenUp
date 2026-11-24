@@ -212,6 +212,26 @@ private val ShelfGridContentPadding =
  * Ready-state content: an adaptive cover grid with full-span hero, optional description,
  * and a "Books in shelf" header.
  */
+@Composable
+private fun rememberShelfIsWide(): Boolean {
+    val windowSizeClass = currentWindowAdaptiveInfoV2().windowSizeClass
+    val gridWidth =
+        when {
+            windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND) -> {
+                ShelfGridWidth.Expanded
+            }
+
+            windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND) -> {
+                ShelfGridWidth.Medium
+            }
+
+            else -> {
+                ShelfGridWidth.Compact
+            }
+        }
+    return gridWidth != ShelfGridWidth.Compact
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ShelfDetailContent(
@@ -260,22 +280,7 @@ private fun ShelfDetailContent(
         }
     }
 
-    val windowSizeClass = currentWindowAdaptiveInfoV2().windowSizeClass
-    val gridWidth =
-        when {
-            windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND) -> {
-                ShelfGridWidth.Expanded
-            }
-
-            windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND) -> {
-                ShelfGridWidth.Medium
-            }
-
-            else -> {
-                ShelfGridWidth.Compact
-            }
-        }
-    val isWide = gridWidth != ShelfGridWidth.Compact
+    val isWide = rememberShelfIsWide()
 
     LazyVerticalGrid(
         state = gridState,
@@ -323,7 +328,7 @@ private fun ShelfDetailContent(
                     },
                 ),
     ) {
-        item(span = { GridItemSpan(maxLineSpan) }) {
+        item(key = "hero", span = { GridItemSpan(maxLineSpan) }, contentType = "hero") {
             ShelfHero(
                 detail = detail,
                 isWide = isWide,
@@ -332,7 +337,7 @@ private fun ShelfDetailContent(
         }
 
         detail.description?.takeIf { it.isNotBlank() }?.let { description ->
-            item(span = { GridItemSpan(maxLineSpan) }) {
+            item(key = "description", span = { GridItemSpan(maxLineSpan) }, contentType = "description") {
                 ShelfDescription(
                     description = description,
                     isExpanded = isDescriptionExpanded,
@@ -341,7 +346,7 @@ private fun ShelfDetailContent(
             }
         }
 
-        item(span = { GridItemSpan(maxLineSpan) }) {
+        item(key = "books-header", span = { GridItemSpan(maxLineSpan) }, contentType = "books-header") {
             ShelfBooksHeader(
                 sort = sort,
                 onSortChange = { sort = it },
@@ -350,11 +355,15 @@ private fun ShelfDetailContent(
         }
 
         if (detail.books.isEmpty()) {
-            item(span = { GridItemSpan(maxLineSpan) }) {
+            item(key = "empty", span = { GridItemSpan(maxLineSpan) }, contentType = "empty") {
                 ShelfEmptyState(isOwner = isOwner)
             }
         } else {
-            itemsIndexed(items = sortedBooks, key = { _, book -> book.id.value }) { index, book ->
+            itemsIndexed(
+                items = sortedBooks,
+                key = { _, book -> book.id.value },
+                contentType = { _, _ -> "book" },
+            ) { index, book ->
                 val reorderActions =
                     shelfReorderActions(
                         items = sortedBooks,

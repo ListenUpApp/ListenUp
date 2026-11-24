@@ -260,7 +260,7 @@ private fun ChapterListPane(
             // In the list rather than above it, so the offer scrolls away instead of taking height
             // from a phone's already-stacked panes.
             if (isBrowsing && partSuggestion != null) {
-                item(key = "part-suggestion") {
+                item(key = "part-suggestion", contentType = "part-suggestion") {
                     PartSuggestionCard(
                         suggestion = partSuggestion,
                         onAccept = markers.onAcceptSuggestion,
@@ -274,7 +274,7 @@ private fun ChapterListPane(
             // to whatever now occupies its old position.
             visible.forEach { numbered ->
                 if (isBrowsing) chapterMarkerHeaders(numbered.chapter, markers)
-                item(key = numbered.chapter.id) {
+                item(key = numbered.chapter.id, contentType = "chapter") {
                     ChapterEditRow(
                         chapter = numbered.chapter,
                         number = numbered.number,
@@ -296,7 +296,7 @@ private fun ChapterListPane(
             // Absent, not disabled, without a playhead — the same call iOS and web made: with no
             // playhead the add would land on the first chapter's boundary and be refused silently.
             if (onAddAtPlayhead != null && hasPlayhead) {
-                item(key = "add-at-playhead") {
+                item(key = "add-at-playhead", contentType = "add-at-playhead") {
                     TextButton(
                         onClick = onAddAtPlayhead,
                         modifier = Modifier.fillMaxWidth().padding(top = 8.dp),

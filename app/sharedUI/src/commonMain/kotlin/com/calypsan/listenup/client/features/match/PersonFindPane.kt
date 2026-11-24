@@ -82,7 +82,7 @@ internal fun PersonFindPane(
                 ),
             verticalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {
-            item(key = "search") {
+            item(key = "search", contentType = "search") {
                 MatchSearchField(
                     query = state.query,
                     label = stringResource(Res.string.match_search_person_label),
@@ -90,7 +90,7 @@ internal fun PersonFindPane(
                 )
             }
             state.inLibrary?.let { library ->
-                item(key = "library") {
+                item(key = "library", contentType = "library") {
                     LibraryStrip(
                         library = library,
                         steps =
@@ -102,12 +102,16 @@ internal fun PersonFindPane(
                     )
                 }
             }
-            if (state is PersonFindUiState.Searching) item(key = "searching") { SearchingIndicator() }
+            if (state is PersonFindUiState.Searching) {
+                item(key = "searching", contentType = "searching") { SearchingIndicator() }
+            }
             if (state is PersonFindUiState.Failed) {
-                item(key = "failure") { FindFailureContent(failure = state.failure, onRetry = actions::retry) }
+                item(key = "failure", contentType = "failure") {
+                    FindFailureContent(failure = state.failure, onRetry = actions::retry)
+                }
             }
             if (state is PersonFindUiState.NoProfiles) {
-                item(key = "no-profiles") { NoProfiles(onEditByHand = onEditByHand) }
+                item(key = "no-profiles", contentType = "no-profiles") { NoProfiles(onEditByHand = onEditByHand) }
             }
             results?.let { found ->
                 personGroups(

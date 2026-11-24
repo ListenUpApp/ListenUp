@@ -135,14 +135,14 @@ private fun LicensesPhoneLayout(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = 32.dp),
     ) {
-        item {
+        item(key = "hero", contentType = "hero") {
             LicensesMobileHero(
                 rowCount = rows.size,
                 segments = segments,
                 onNavigateBack = onNavigateBack,
             )
         }
-        item {
+        item(key = ITEM_SEARCH, contentType = ITEM_SEARCH) {
             ListenUpSearchField(
                 state = query,
                 onSubmit = {},
@@ -151,7 +151,7 @@ private fun LicensesPhoneLayout(
                 modifier = Modifier.padding(horizontal = Spacing.screenMargin, vertical = Spacing.lg),
             )
         }
-        item {
+        item(key = ITEM_SECTION_HEADER, contentType = ITEM_SECTION_HEADER) {
             LibrariesSectionHeader(
                 label = sectionLabel,
                 modifier =
@@ -162,7 +162,11 @@ private fun LicensesPhoneLayout(
                     ),
             )
         }
-        itemsIndexed(filtered, key = { _, row -> row.uniqueId }) { index, row ->
+        itemsIndexed(
+            items = filtered,
+            key = { _, row -> row.uniqueId },
+            contentType = { _, _ -> "license" },
+        ) { index, row ->
             LicenseLibraryRow(
                 row = row,
                 onClick = { onLicenseClick(row.uniqueId) },
@@ -170,7 +174,7 @@ private fun LicensesPhoneLayout(
                 modifier = Modifier.padding(horizontal = Spacing.screenMargin),
             )
         }
-        item {
+        item(key = "footer", contentType = "footer") {
             LicensesFooter(modifier = Modifier.padding(horizontal = 22.dp, vertical = 16.dp))
         }
     }
@@ -322,7 +326,7 @@ private fun LicensesWideLayout(
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 contentPadding = PaddingValues(bottom = 16.dp),
             ) {
-                item {
+                item(key = ITEM_SEARCH, contentType = ITEM_SEARCH) {
                     ListenUpSearchField(
                         state = query,
                         onSubmit = {},
@@ -330,10 +334,14 @@ private fun LicensesWideLayout(
                         clearable = true,
                     )
                 }
-                item {
+                item(key = ITEM_SECTION_HEADER, contentType = ITEM_SECTION_HEADER) {
                     LibrariesSectionHeader(label = sectionLabel, modifier = Modifier.padding(start = 4.dp))
                 }
-                itemsIndexed(filtered, key = { _, row -> row.uniqueId }) { index, row ->
+                itemsIndexed(
+                    items = filtered,
+                    key = { _, row -> row.uniqueId },
+                    contentType = { _, _ -> "license" },
+                ) { index, row ->
                     LicenseLibraryRow(
                         row = row,
                         onClick = { onLicenseClick(row.uniqueId) },
@@ -344,6 +352,9 @@ private fun LicensesWideLayout(
         }
     }
 }
+
+private const val ITEM_SEARCH = "search"
+private const val ITEM_SECTION_HEADER = "section-header"
 
 @Composable
 private fun LicensesWideHero(onNavigateBack: () -> Unit) {

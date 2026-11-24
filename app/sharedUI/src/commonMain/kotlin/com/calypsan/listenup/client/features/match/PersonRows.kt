@@ -62,12 +62,14 @@ internal fun LazyListScope.personGroups(
     onPick: (PersonCandidateUi) -> Unit,
     onRetrySources: () -> Unit,
 ) {
-    item(key = "count") { ResultCount(text = peopleCount(results.all.size)) }
-    results.partialFailure?.let { partial -> item(key = "partial") { PartialBanner(partial, onRetrySources) } }
+    item(key = "count", contentType = "count") { ResultCount(text = peopleCount(results.all.size)) }
+    results.partialFailure?.let { partial ->
+        item(key = "partial", contentType = "partial") { PartialBanner(partial, onRetrySources) }
+    }
     listOf("strong" to results.strong, "maybe" to results.maybe)
         .filter { it.second.isNotEmpty() }
         .forEach { (key, people) ->
-            item(key = key) {
+            item(key = key, contentType = "person-group") {
                 SectionGroup(
                     label =
                         stringResource(

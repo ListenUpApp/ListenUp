@@ -106,7 +106,7 @@ internal fun GenreDestinationContent(
         horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        item(span = { GridItemSpan(maxLineSpan) }) {
+        item(key = "hero", span = { GridItemSpan(maxLineSpan) }, contentType = "hero") {
             GenreDestinationHero(
                 identity = state.identity,
                 breadcrumb = state.breadcrumb,
@@ -117,7 +117,7 @@ internal fun GenreDestinationContent(
         }
 
         if (state.hasSubs) {
-            item(span = { GridItemSpan(maxLineSpan) }) {
+            item(key = "subtree-toggle", span = { GridItemSpan(maxLineSpan) }, contentType = "subtree-toggle") {
                 Column(modifier = Modifier.padding(bottom = 20.dp)) {
                     SubtreeToggleSection(
                         state = state,
@@ -128,18 +128,19 @@ internal fun GenreDestinationContent(
             }
         }
 
-        item(span = { GridItemSpan(maxLineSpan) }) {
+        item(key = "header", span = { GridItemSpan(maxLineSpan) }, contentType = "header") {
             FacetSectionHeader(bookCount = state.stats.bookCount, modifier = Modifier.padding(bottom = 12.dp))
         }
 
         if (state.books.isEmpty()) {
-            item(span = { GridItemSpan(maxLineSpan) }) {
+            item(key = "empty", span = { GridItemSpan(maxLineSpan) }, contentType = "empty") {
                 EmptyFacetMessage(message = stringResource(Res.string.genre_no_books_in_genre))
             }
         } else {
             items(
                 items = state.books,
                 key = { it.id.value },
+                contentType = { "book" },
             ) { book ->
                 BookCard(
                     cover = book.toCoverModel(),

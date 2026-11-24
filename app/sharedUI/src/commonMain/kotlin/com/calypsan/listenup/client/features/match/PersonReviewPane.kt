@@ -121,10 +121,10 @@ private fun PersonReviewContent(
         contentPadding = PaddingValues(start = Spacing.screenMargin, end = Spacing.screenMargin, bottom = Spacing.xl),
         verticalArrangement = Arrangement.spacedBy(Spacing.sectionGap),
     ) {
-        item(key = "header") { PersonReviewHeader(ready.candidate) }
-        item(key = "summary") { WhatWillChangeNote() }
+        item(key = "header", contentType = "header") { PersonReviewHeader(ready.candidate) }
+        item(key = "summary", contentType = "summary") { WhatWillChangeNote() }
         ready.photo?.let { photo ->
-            item(key = "photo") {
+            item(key = "photo", contentType = "photo") {
                 PhotoSection(
                     photo = photo,
                     contributorId = contributorId,
@@ -135,7 +135,7 @@ private fun PersonReviewContent(
             }
         }
         ready.biography?.let { biography ->
-            item(key = "biography") { BiographySection(biography, viewerId, actions) }
+            item(key = "biography", contentType = "biography") { BiographySection(biography, viewerId, actions) }
         }
     }
 }

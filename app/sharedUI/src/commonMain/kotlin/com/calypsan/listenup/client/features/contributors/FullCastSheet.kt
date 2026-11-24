@@ -181,11 +181,14 @@ private fun CastList(
     ) {
         sections.forEach { section ->
             section.heading?.let { heading ->
-                item(key = "role:$heading") { RoleHeading(heading, Modifier.padding(horizontal = 8.dp)) }
+                item(key = "role:$heading", contentType = "role-heading") {
+                    RoleHeading(heading, Modifier.padding(horizontal = 8.dp))
+                }
             }
             itemsIndexed(
                 items = section.contributors,
                 key = { _, c -> "${section.heading.orEmpty()}:${c.id}" },
+                contentType = { _, _ -> "contributor" },
             ) { index, contributor ->
                 CastRow(
                     contributor = contributor,

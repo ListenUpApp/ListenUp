@@ -272,7 +272,7 @@ private fun InboxPhoneLayout(
             horizontalArrangement = Arrangement.spacedBy(14.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            item(span = { GridItemSpan(maxLineSpan) }) {
+            item(key = ITEM_HERO, span = { GridItemSpan(maxLineSpan) }, contentType = ITEM_HERO) {
                 InboxHero(
                     state = state,
                     isWide = false,
@@ -297,7 +297,7 @@ private fun InboxPhoneLayout(
                 // Empty means BOTH halves are empty. Issues with no held books is a populated
                 // inbox, and telling the user it is empty while listing problems in it would be
                 // the screen contradicting itself.
-                item(span = { GridItemSpan(maxLineSpan) }) {
+                item(key = ITEM_EMPTY, span = { GridItemSpan(maxLineSpan) }, contentType = ITEM_EMPTY) {
                     EmptyInbox(big = false, modifier = Modifier.padding(top = 40.dp))
                 }
             }
@@ -338,7 +338,7 @@ private fun InboxWideLayout(
         horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        item(span = { GridItemSpan(maxLineSpan) }) {
+        item(key = ITEM_HERO, span = { GridItemSpan(maxLineSpan) }, contentType = ITEM_HERO) {
             InboxHero(
                 state = state,
                 isWide = true,
@@ -361,12 +361,15 @@ private fun InboxWideLayout(
                 onBookSelectionToggle = onBookSelectionToggle,
             )
         } else if (state.isEmpty) {
-            item(span = { GridItemSpan(maxLineSpan) }) {
+            item(key = ITEM_EMPTY, span = { GridItemSpan(maxLineSpan) }, contentType = ITEM_EMPTY) {
                 EmptyInbox(big = true, modifier = Modifier.padding(top = 60.dp))
             }
         }
     }
 }
+
+private const val ITEM_HERO = "hero"
+private const val ITEM_EMPTY = "empty"
 
 // ─────────────────────────── Row items ───────────────────────────────
 
@@ -378,7 +381,11 @@ private fun LazyGridScope.inboxRowItems(
     onMatchClick: (String) -> Unit,
     onBookSelectionToggle: (String) -> Unit,
 ) {
-    items(items = state.books, key = { it.id }) { book ->
+    items(
+        items = state.books,
+        key = { it.id },
+        contentType = { "book" },
+    ) { book ->
         InboxRow(
             book = book,
             isSelected = book.id in state.selectedBookIds,

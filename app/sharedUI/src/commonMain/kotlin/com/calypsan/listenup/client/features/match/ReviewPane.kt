@@ -177,10 +177,10 @@ private fun ReviewContent(
         contentPadding = PaddingValues(start = Spacing.screenMargin, end = Spacing.screenMargin, bottom = Spacing.xl),
         verticalArrangement = Arrangement.spacedBy(Spacing.sectionGap),
     ) {
-        item(key = "header") { ReviewHeader(ready.candidate) }
-        item(key = "summary") { WhatWillChangeSummary(ready.summary, sections, listState) }
+        item(key = "header", contentType = "header") { ReviewHeader(ready.candidate) }
+        item(key = "summary", contentType = "summary") { WhatWillChangeSummary(ready.summary, sections, listState) }
         sections.forEach { section ->
-            item(key = section.name) {
+            item(key = section.name, contentType = section.name) {
                 when (section) {
                     ReviewSection.COVER -> {
                         CoverSection(bookId, ready.cover, actions::chooseCover)

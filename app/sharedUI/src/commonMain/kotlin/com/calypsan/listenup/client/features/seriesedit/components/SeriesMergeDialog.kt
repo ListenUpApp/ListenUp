@@ -151,7 +151,11 @@ fun SeriesMergeDialog(
                 modifier = Modifier.heightIn(max = LIST_MAX_HEIGHT_DP.dp).selectableGroup(),
                 verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
-                items(candidates, key = { it.id.value }) { candidate ->
+                items(
+                    items = candidates,
+                    key = { it.id.value },
+                    contentType = { "candidate" },
+                ) { candidate ->
                     CandidateRow(
                         name = candidate.displayName,
                         isSelected = selected == candidate.id,
