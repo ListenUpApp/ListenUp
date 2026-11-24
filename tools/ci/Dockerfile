@@ -34,6 +34,8 @@ LABEL org.opencontainers.image.source="https://github.com/ListenUpApp/ListenUp"
 LABEL org.opencontainers.image.description="Pre-baked Linux CI runner image for ListenUp (JDK 21, Node 24, pnpm, FFmpeg, GStreamer+fdkaacdec, native server link libs, Playwright Chromium)"
 
 ENV DEBIAN_FRONTEND=noninteractive \
+    LANG=C.UTF-8 \
+    LC_ALL=C.UTF-8 \
     JAVA_HOME=/opt/java/openjdk \
     GST_PLUGIN_PATH=/opt/listenup/gst-plugins \
     PLAYWRIGHT_BROWSERS_PATH=/opt/ms-playwright \
