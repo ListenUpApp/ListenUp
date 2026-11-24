@@ -1,0 +1,85 @@
+name: CI Runner Image
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/ci/Dockerfile'
+      - 'tools/ci/Dockerfile.dockerignore'
+      - 'tools/scripts/build-gst-fdkaac.sh'
+      - 'app/webApp/web/package.json'
+      - '.github/workflows/ci-image.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'tools/ci/Dockerfile'
+      - 'tools/ci/Dockerfile.dockerignore'
+      - 'tools/scripts/build-gst-fdkaac.sh'
+      - 'app/webApp/web/package.json'
+      - '.github/workflows/ci-image.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build & Smoke-Test CI Image
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Build image locally for smoke test
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: tools/ci/Dockerfile
+          push: false
+          load: true
+          tags: listenup-ci:smoke
+
+      - name: Smoke-test pre-baked toolchains
+        run: |
+          docker run --rm listenup-ci:smoke bash -euo pipefail -c '
+            java -version 2>&1 | grep -q "version \"21\."
+            node -v | grep -q "^v24\."
+            pnpm -v
+            ffmpeg -version | head -1
+            ffprobe -version | head -1
+            gst-inspect-1.0 fdkaacdec | head -3
+            gst-inspect-1.0 matroskademux | head -3
+            ldd /opt/listenup/gst-plugins/libgstfdkaac.so | grep /opt/listenup/gst-plugins/fdk-aac/lib/libfdk-aac
+            pkg-config --modversion libargon2 sqlite3 libcurl
+            chrome_bin="$(find "$PLAYWRIGHT_BROWSERS_PATH" -type f -name chrome | head -n 1)"
+            test -x "$chrome_bin"
+            "$chrome_bin" --version
+          '
+
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push CI image to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: tools/ci/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/listenupapp/listenup-ci:latest
+            ghcr.io/listenupapp/listenup-ci:${{ github.sha }}
