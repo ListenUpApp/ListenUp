@@ -1,6 +1,5 @@
 package com.calypsan.listenup.server.konsist
 
-import com.lemonappdev.konsist.api.Konsist
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.ints.shouldBeGreaterThanOrEqual
@@ -53,8 +52,7 @@ class LibraryWritesGoThroughBrokerRule :
 
         test("library-content packages have no direct FS-write tokens — the broker is the sole library writer") {
             val serverCommonMainFiles =
-                Konsist
-                    .scopeFromProduction()
+                serverProductionScope()
                     .files
                     .filter { it.path.contains("server/src/commonMain") }
 
@@ -86,8 +84,7 @@ class LibraryWritesGoThroughBrokerRule :
 
         test("every io-layer function that writes is a forbidden token, or a reviewed non-library write") {
             val ioFunctions =
-                Konsist
-                    .scopeFromProduction()
+                serverProductionScope()
                     .files
                     .filter { it.path.contains("server/src/commonMain") && it.packagee?.name == IO_PACKAGE }
                     .flatMap { it.functions(includeNested = false) }
@@ -163,6 +160,7 @@ class LibraryWritesGoThroughBrokerRule :
                 "listDirectory",
                 "isSymlink",
                 "canonicalize",
+                "listDirectory",
                 "openSeekableSource",
                 "readEnv",
                 "userHomeDir",

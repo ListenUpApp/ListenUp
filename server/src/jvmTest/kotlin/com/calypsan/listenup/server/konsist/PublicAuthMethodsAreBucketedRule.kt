@@ -52,7 +52,7 @@ class PublicAuthMethodsAreBucketedRule :
             // A conscious edit: adding a service to the unauthenticated mount must be seen here.
             publicServices shouldBe setOf("InstanceService", "AuthServicePublic", "InviteServicePublic")
 
-            val production = Konsist.scopeFromProduction()
+            val production = serverAndContractProductionScope()
             val offenders = mutableListOf<String>()
             var checkedCount = 0
 
@@ -94,7 +94,7 @@ class PublicAuthMethodsAreBucketedRule :
         }
 
         test("every exemption names a method its public contract still declares") {
-            val production = Konsist.scopeFromProduction()
+            val production = serverAndContractProductionScope()
             val stale =
                 exempt.flatMap { (service, methods) ->
                     val declared =
