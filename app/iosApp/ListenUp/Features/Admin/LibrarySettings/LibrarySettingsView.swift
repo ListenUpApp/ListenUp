@@ -7,26 +7,16 @@ import Shared
 /// Mirrors `AdminView`'s structure: a system grouped `Form` in a readable column. The shared `LibrarySettingsViewModel` is
 /// bridged through `LibrarySettingsObserver`, which flattens its state into native value types.
 struct LibrarySettingsView: View {
-    @Environment(\.dependencies) private var deps
-
-    @State private var observer: LibrarySettingsObserver?
     @State private var pendingRemove: LibraryFolderRowModel?
 
     var body: some View {
-        Group {
-            if let observer {
-                content(observer)
-            } else {
-                LoadingStateView()
-            }
-        }
-        .background(Color.luSurface)
-        .navigationTitle(String(localized: "admin.library_settings"))
-        .navigationBarTitleDisplayMode(.large)
-        .onAppear {
-            if observer == nil {
-                observer = LibrarySettingsObserver(viewModel: deps.createLibrarySettingsViewModel())
-            }
+        WithObserver {
+            LibrarySettingsObserver(viewModel: $0.createLibrarySettingsViewModel())
+        } content: { observer in
+            content(observer)
+                .background(Color.luSurface)
+                .navigationTitle(String(localized: "admin.library_settings"))
+                .navigationBarTitleDisplayMode(.large)
         }
     }
 

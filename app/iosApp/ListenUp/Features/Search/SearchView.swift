@@ -12,50 +12,41 @@ struct SearchView: View {
     /// Changes when ⌘F asks for the search field (`MainShellModel.focusSearch`).
     var focusRequest: Int = 0
 
-    @Environment(\.dependencies) private var deps
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-    @State private var observer: SearchObserver?
     @State private var searchText = ""
     @State private var scope: SearchScope = .all
     @FocusState private var isSearchFieldFocused: Bool
 
     var body: some View {
-        Group {
-            if let observer {
-                content(observer)
-                    .searchable(
-                        text: $searchText,
-                        placement: .navigationBarDrawer(displayMode: .always),
-                        prompt: Text(String(localized: "search.search_placeholder"))
-                    )
-                    .searchFocused($isSearchFieldFocused)
-                    .searchScopes($scope) {
-                        Text(String(localized: "search.tab_all")).tag(SearchScope.all)
-                        Text(String(localized: "library.books")).tag(SearchScope.books)
-                        Text(String(localized: "search.people")).tag(SearchScope.people)
-                        Text(String(localized: "common.series")).tag(SearchScope.series)
-                        Text(String(localized: "book.detail_tags")).tag(SearchScope.tags)
-                    }
-                    .onChange(of: searchText) { _, newValue in observer.setQuery(newValue) }
-                    .onChange(of: scope) { _, newScope in observer.selectScope(newScope) }
-                    .onChange(of: observer.pendingNavigation) { _, route in
-                        guard let route else { return }
-                        navigate(to: route)
-                        observer.pendingNavigation = nil
-                    }
-            } else {
-                Color.luSurface
-            }
+        WithObserver {
+            SearchObserver(viewModel: $0.searchViewModel)
+        } content: { observer in
+            content(observer)
+                .searchable(
+                    text: $searchText,
+                    placement: .navigationBarDrawer(displayMode: .always),
+                    prompt: Text(String(localized: "search.search_placeholder"))
+                )
+                .searchFocused($isSearchFieldFocused)
+                .searchScopes($scope) {
+                    Text(String(localized: "search.tab_all")).tag(SearchScope.all)
+                    Text(String(localized: "library.books")).tag(SearchScope.books)
+                    Text(String(localized: "search.people")).tag(SearchScope.people)
+                    Text(String(localized: "common.series")).tag(SearchScope.series)
+                    Text(String(localized: "book.detail_tags")).tag(SearchScope.tags)
+                }
+                .onChange(of: searchText) { _, newValue in observer.setQuery(newValue) }
+                .onChange(of: scope) { _, newScope in observer.selectScope(newScope) }
+                .onChange(of: observer.pendingNavigation) { _, route in
+                    guard let route else { return }
+                    navigate(to: route)
+                    observer.pendingNavigation = nil
+                }
+                .navigationTitle(String(localized: "common.search"))
+                .navigationBarTitleDisplayMode(.large)
+                // ⌘F from the menu bar puts the cursor in the field (HIG, Keyboards: Command-F is find).
+                .onChange(of: focusRequest) { _, _ in isSearchFieldFocused = true }
         }
-        .navigationTitle(String(localized: "common.search"))
-        .navigationBarTitleDisplayMode(.large)
-        .onAppear {
-            if observer == nil {
-                observer = SearchObserver(viewModel: deps.searchViewModel)
-            }
-        }
-        // ⌘F from the menu bar puts the cursor in the field (HIG, Keyboards: Command-F is find).
-        .onChange(of: focusRequest) { _, _ in isSearchFieldFocused = true }
     }
 
     // MARK: - Content by phase

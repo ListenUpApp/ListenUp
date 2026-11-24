@@ -9,30 +9,22 @@ struct SeeAllSearchView: View {
     let destination: SearchSeeAllDestination
     @Binding var path: NavigationPath
 
-    @Environment(\.dependencies) private var deps
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-    @State private var observer: SeeAllSearchObserver?
 
     var body: some View {
-        Group {
-            if let observer {
-                content(observer)
-                    .onChange(of: observer.pendingNavigation) { _, route in
-                        guard let route else { return }
-                        navigate(to: route)
-                        observer.pendingNavigation = nil
-                    }
-            } else {
-                Color.luSurface
-            }
-        }
-        .navigationTitle(destination.type.title)
-        .navigationBarTitleDisplayMode(.inline)
-        .task {
-            if observer == nil {
-                observer = SeeAllSearchObserver(viewModel: deps.createSeeAllSearchViewModel())
-            }
-            observer?.load(query: destination.query, type: destination.type)
+        WithObserver(id: destination) { deps in
+            let obs = SeeAllSearchObserver(viewModel: deps.createSeeAllSearchViewModel())
+            obs.load(query: destination.query, type: destination.type)
+            return obs
+        } content: { observer in
+            content(observer)
+                .onChange(of: observer.pendingNavigation) { _, route in
+                    guard let route else { return }
+                    navigate(to: route)
+                    observer.pendingNavigation = nil
+                }
+                .navigationTitle(destination.type.title)
+                .navigationBarTitleDisplayMode(.inline)
         }
     }
 

@@ -11,29 +11,20 @@ import Shared
 struct AdminCollectionDetailView: View {
     let collectionId: String
 
-    @Environment(\.dependencies) private var deps
     @Environment(\.restrictedBooks) private var restrictedBooks
 
-    @State private var observer: AdminCollectionDetailObserver?
     @State private var pendingRemoveBookId: String?
     @State private var pendingRevokeUserId: String?
 
     var body: some View {
-        Group {
-            if let observer {
-                content(observer: observer)
-            } else {
-                LoadingStateView()
-            }
-        }
-        .background(Color.luSurface)
-        .navigationBarTitleDisplayMode(.large)
-        .onAppear {
-            if observer == nil {
-                observer = AdminCollectionDetailObserver(
-                    viewModel: deps.createAdminCollectionDetailViewModel(collectionId: collectionId)
-                )
-            }
+        WithObserver(id: collectionId) {
+            AdminCollectionDetailObserver(
+                viewModel: $0.createAdminCollectionDetailViewModel(collectionId: collectionId)
+            )
+        } content: { observer in
+            content(observer: observer)
+                .background(Color.luSurface)
+                .navigationBarTitleDisplayMode(.large)
         }
     }
 

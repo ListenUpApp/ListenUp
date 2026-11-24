@@ -11,76 +11,76 @@ import Shared
 /// Per-row actions sit in a context menu, the way the collections tiles do; creating a top-level
 /// genre is the toolbar's plus. Every mutation is a sheet or a confirmation, never inline.
 struct AdminCategoriesView: View {
-    @Environment(\.dependencies) private var deps
-    @State private var observer: AdminCategoriesObserver?
     @State private var nameSheet: GenreNameSheetTarget?
     @State private var moveSource: GenrePickModel?
     @State private var mergeSource: GenrePickModel?
     @State private var pendingDelete: GenreRowModel?
 
     var body: some View {
-        Group {
-            if let observer {
-                content(observer: observer)
-            } else {
-                LoadingStateView()
-            }
-        }
-        .background(Color.luSurface)
-        .navigationTitle(String(localized: "common.categories"))
-        .navigationBarTitleDisplayMode(.large)
-        .toolbar { toolbarItems }
-        .onAppear {
-            if observer == nil {
-                observer = AdminCategoriesObserver(viewModel: deps.createAdminCategoriesViewModel())
-            }
-        }
-        .sheet(item: $nameSheet) { target in
-            GenreNameSheet(target: target) { name in
-                switch target {
-                case .create(let parentId, _):
-                    observer?.createGenre(name: name, parentId: parentId)
-                case .rename(let id, _):
-                    observer?.renameGenre(id: id, name: name)
+        WithObserver {
+            AdminCategoriesObserver(viewModel: $0.createAdminCategoriesViewModel())
+        } content: { observer in
+            content(observer: observer)
+                .background(Color.luSurface)
+                .navigationTitle(String(localized: "common.categories"))
+                .navigationBarTitleDisplayMode(.large)
+                .toolbar { toolbarItems(observer: observer) }
+                .sheet(item: $nameSheet) { target in
+                    GenreNameSheet(target: target) { name in
+                        switch target {
+                        case .create(let parentId, _):
+                            observer.createGenre(name: name, parentId: parentId)
+                        case .rename(let id, _):
+                            observer.renameGenre(id: id, name: name)
+                        }
+                    }
                 }
-            }
-        }
-        .sheet(item: $moveSource) { source in
-            GenreMoveSheet(source: source, candidates: moveCandidates(for: source)) { newParentId in
-                observer?.moveGenre(id: source.id, newParentId: newParentId)
-            }
-        }
-        .sheet(
-            item: Binding(get: { observer?.mergeHistory }, set: { if $0 == nil { observer?.closeMergeHistory() } })
-        ) { open in
-            GenreMergeHistorySheet(
-                open: open,
-                onUndo: { observer?.undoGenreMerge(receiptId: $0) },
-                onRetry: { observer?.retryMergeHistory() },
-                onDone: { observer?.closeMergeHistory() }
-            )
-        }
-        .sheet(item: $mergeSource) { source in
-            GenreMergeSheet(source: source, candidates: mergeCandidates(for: source)) { targetId in
-                observer?.mergeGenres(source: source.id, target: targetId)
-            }
-        }
-        .confirmationDialog(
-            String(localized: "common.delete"),
-            isPresented: Binding(
-                get: { pendingDelete != nil },
-                set: { if !$0 { pendingDelete = nil } }
-            ),
-            titleVisibility: .visible,
-            presenting: pendingDelete
-        ) { row in
-            Button(String(localized: "common.delete"), role: .destructive) {
-                observer?.deleteGenre(id: row.id)
-                pendingDelete = nil
-            }
-            Button(String(localized: "common.cancel"), role: .cancel) { pendingDelete = nil }
-        } message: { row in
-            Text(String(localized: .adminConfirmDeleteItem(row.name)))
+                .sheet(item: $moveSource) { source in
+                    GenreMoveSheet(
+                        source: source,
+                        candidates: moveCandidates(for: source, observer: observer)
+                    ) { newParentId in
+                        observer.moveGenre(id: source.id, newParentId: newParentId)
+                    }
+                }
+                .sheet(
+                    item: Binding(
+                        get: { observer.mergeHistory },
+                        set: { if $0 == nil { observer.closeMergeHistory() } }
+                    )
+                ) { open in
+                    GenreMergeHistorySheet(
+                        open: open,
+                        onUndo: { observer.undoGenreMerge(receiptId: $0) },
+                        onRetry: { observer.retryMergeHistory() },
+                        onDone: { observer.closeMergeHistory() }
+                    )
+                }
+                .sheet(item: $mergeSource) { source in
+                    GenreMergeSheet(
+                        source: source,
+                        candidates: mergeCandidates(for: source, observer: observer)
+                    ) { targetId in
+                        observer.mergeGenres(source: source.id, target: targetId)
+                    }
+                }
+                .confirmationDialog(
+                    String(localized: "common.delete"),
+                    isPresented: Binding(
+                        get: { pendingDelete != nil },
+                        set: { if !$0 { pendingDelete = nil } }
+                    ),
+                    titleVisibility: .visible,
+                    presenting: pendingDelete
+                ) { row in
+                    Button(String(localized: "common.delete"), role: .destructive) {
+                        observer.deleteGenre(id: row.id)
+                        pendingDelete = nil
+                    }
+                    Button(String(localized: "common.cancel"), role: .cancel) { pendingDelete = nil }
+                } message: { row in
+                    Text(String(localized: .adminConfirmDeleteItem(row.name)))
+                }
         }
     }
 
@@ -104,7 +104,7 @@ struct AdminCategoriesView: View {
             Section {
                 ForEach(ready.rows) { row in
                     genreRow(row, observer: observer)
-                        .contextMenu { rowMenu(row: row, ready: ready) }
+                        .contextMenu { rowMenu(row: row, ready: ready, observer: observer) }
                 }
             } header: {
                 Text(
@@ -148,7 +148,11 @@ struct AdminCategoriesView: View {
     /// same order, as Compose's long-press menu. Each shows only to those allowed it: adding, renaming
     /// and moving need Edit metadata; merging, its history and deleting need Curate library.
     @ViewBuilder
-    private func rowMenu(row: GenreRowModel, ready: AdminCategoriesReadyModel) -> some View {
+    private func rowMenu(
+        row: GenreRowModel,
+        ready: AdminCategoriesReadyModel,
+        observer: AdminCategoriesObserver
+    ) -> some View {
         if ready.canEditMetadata {
             Button {
                 nameSheet = .create(parentId: row.id, parentName: row.name)
@@ -168,7 +172,7 @@ struct AdminCategoriesView: View {
                 Label(String(localized: "admin.merge_into"), systemImage: "arrow.triangle.merge")
             }
             Button {
-                observer?.openMergeHistory(id: row.id)
+                observer.openMergeHistory(id: row.id)
             } label: {
                 Label(String(localized: "merge_history.open"), systemImage: "clock.arrow.circlepath")
             }
@@ -213,11 +217,11 @@ struct AdminCategoriesView: View {
     // MARK: - Toolbar
 
     @ToolbarContentBuilder
-    private var toolbarItems: some ToolbarContent {
+    private func toolbarItems(observer: AdminCategoriesObserver) -> some ToolbarContent {
         ToolbarItem(placement: .topBarTrailing) {
-            if case .ready(let ready) = observer?.phase, !ready.rows.isEmpty {
+            if case .ready(let ready) = observer.phase, !ready.rows.isEmpty {
                 Button {
-                    if ready.allExpanded { observer?.collapseAll() } else { observer?.expandAll() }
+                    if ready.allExpanded { observer.collapseAll() } else { observer.expandAll() }
                 } label: {
                     Image(
                         systemName: ready.allExpanded ? "rectangle.compress.vertical" : "rectangle.expand.vertical"
@@ -229,7 +233,7 @@ struct AdminCategoriesView: View {
             }
         }
         ToolbarItem(placement: .topBarTrailing) {
-            if case .ready(let ready) = observer?.phase, ready.canEditMetadata {
+            if case .ready(let ready) = observer.phase, ready.canEditMetadata {
                 Button {
                     nameSheet = .create(parentId: nil, parentName: nil)
                 } label: {
@@ -264,13 +268,13 @@ struct AdminCategoriesView: View {
         }
     }
 
-    private func moveCandidates(for source: GenrePickModel) -> [GenrePickModel] {
-        guard case .ready(let ready) = observer?.phase else { return [] }
+    private func moveCandidates(for source: GenrePickModel, observer: AdminCategoriesObserver) -> [GenrePickModel] {
+        guard case .ready(let ready) = observer.phase else { return [] }
         return GenreTree.moveCandidates(all: ready.picks, source: source)
     }
 
-    private func mergeCandidates(for source: GenrePickModel) -> [GenrePickModel] {
-        guard case .ready(let ready) = observer?.phase else { return [] }
+    private func mergeCandidates(for source: GenrePickModel, observer: AdminCategoriesObserver) -> [GenrePickModel] {
+        guard case .ready(let ready) = observer.phase else { return [] }
         return GenreTree.mergeCandidates(all: ready.picks, source: source)
     }
 }

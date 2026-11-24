@@ -9,27 +9,17 @@ struct NotificationsView: View {
     /// Where a tapped row's resolved outcome lands — appends onto the owning tab's path.
     let route: (NotificationTapOutcome) -> Void
 
-    @Environment(\.dependencies) private var deps
-    @State private var observer: NotificationsObserver?
-
     /// One formatter for every row — creating one per row is measurable list-scroll work.
     @MainActor private static let relativeFormatter = RelativeDateTimeFormatter()
 
     var body: some View {
-        Group {
-            if let observer {
-                content(observer: observer)
-            } else {
-                LoadingStateView()
-            }
-        }
-        .background(Color.luSurface)
-        .navigationTitle(String(localized: "notifications.title"))
-        .navigationBarTitleDisplayMode(.large)
-        .onAppear {
-            if observer == nil {
-                observer = NotificationsObserver(viewModel: deps.createNotificationsViewModel())
-            }
+        WithObserver {
+            NotificationsObserver(viewModel: $0.createNotificationsViewModel())
+        } content: { observer in
+            content(observer: observer)
+                .background(Color.luSurface)
+                .navigationTitle(String(localized: "notifications.title"))
+                .navigationBarTitleDisplayMode(.large)
         }
     }
 

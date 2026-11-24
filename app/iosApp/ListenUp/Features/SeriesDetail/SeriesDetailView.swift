@@ -21,8 +21,6 @@ import Shared
 struct SeriesDetailView: View {
     let seriesId: String
 
-    @Environment(\.dependencies) private var deps
-    @State private var observer: SeriesDetailObserver?
     @State private var reversed: Bool = false
     @Environment(\.presentShellSheet) private var presentShellSheet
     @State private var showAuthors: Bool = false
@@ -34,7 +32,7 @@ struct SeriesDetailView: View {
     /// The series actually on screen — the survivor after a merge, otherwise the one we were opened
     /// with. Re-targeting in place is deliberate: pushing the survivor would leave the deleted
     /// series in the back stack for the reader to return to, and popping to the library would lose
-    /// their place. `.task(id:)` reloads when this changes.
+    /// their place. `WithObserver(id:)` reloads when this changes.
     private var activeSeriesId: String { mergedIntoSeriesId ?? seriesId }
 
     /// Up to this many author names render inline as tappable chips; beyond it the hero collapses to
@@ -42,62 +40,57 @@ struct SeriesDetailView: View {
     private let inlineAuthorLimit = 2
 
     var body: some View {
-        Group {
-            if let observer, !observer.isLoading {
-                if let errorMessage = observer.error {
-                    errorView(message: errorMessage)
+        WithObserver(id: activeSeriesId) { deps in
+            let vm = deps.createSeriesDetailViewModel()
+            let obs = SeriesDetailObserver(viewModel: vm, playerObserver: deps.playerObserver)
+            obs.loadSeries(seriesId: activeSeriesId)
+            return obs
+        } content: { observer in
+            Group {
+                if !observer.isLoading {
+                    if let errorMessage = observer.error {
+                        errorView(message: errorMessage)
+                    } else {
+                        content(observer: observer)
+                    }
                 } else {
-                    content(observer: observer)
+                    loadingView
                 }
-            } else {
-                loadingView
             }
-        }
-        .background(Color.luSurface)
-        .navigationTitle(observer?.seriesName ?? String(localized: "common.series"))
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            // Edit is the menu's only action, so a reader without Edit metadata gets no menu at all.
-            if observer?.editAccess.offersEditing == true {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Menu {
-                        Button {
-                            presentShellSheet(.seriesEdit(seriesId: activeSeriesId))
+            .background(Color.luSurface)
+            .navigationTitle(observer.seriesName)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                // Edit is the menu's only action, so a reader without Edit metadata gets no menu at all.
+                if observer.editAccess.offersEditing {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Menu {
+                            Button {
+                                presentShellSheet(.seriesEdit(seriesId: activeSeriesId))
+                            } label: {
+                                Label(String(localized: "common.edit"), systemImage: "pencil")
+                            }
                         } label: {
-                            Label(String(localized: "common.edit"), systemImage: "pencil")
+                            Image(systemName: "ellipsis.circle")
+                                .accessibilityLabel(String(localized: "common.more_actions"))
                         }
-                    } label: {
-                        Image(systemName: "ellipsis.circle")
-                            .accessibilityLabel(String(localized: "common.more_actions"))
                     }
                 }
             }
-        }
-        .sheet(isPresented: $showAuthors) {
-            SeriesAuthorsSheet(
-                authors: observer?.seriesAuthors ?? [],
-                onClose: { showAuthors = false }
-            )
-        }
-        .sheet(
-            isPresented: Binding(
-                get: { observer?.addSubSeries.isVisible ?? false },
-                set: { if !$0 { observer?.send(.dismissed) } }
-            )
-        ) {
-            if let observer {
+            .sheet(isPresented: $showAuthors) {
+                SeriesAuthorsSheet(
+                    authors: observer.seriesAuthors,
+                    onClose: { showAuthors = false }
+                )
+            }
+            .sheet(
+                isPresented: Binding(
+                    get: { observer.addSubSeries.isVisible },
+                    set: { if !$0 { observer.send(.dismissed) } }
+                )
+            ) {
                 AddSubSeriesSheet(model: observer.addSubSeries, send: observer.send)
             }
-        }
-        .task(id: activeSeriesId) {
-            let vm = deps.createSeriesDetailViewModel()
-            let obs = SeriesDetailObserver(viewModel: vm, playerObserver: deps.playerObserver)
-            observer = obs
-            obs.loadSeries(seriesId: activeSeriesId)
-        }
-        .onDisappear {
-            // Release the observer; its deinit cancels the FlowBridge subscriptions.
-            observer = nil
         }
     }
 

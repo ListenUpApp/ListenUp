@@ -16,31 +16,19 @@ struct FacetBooksView: View {
     let facetId: String
     let facetName: String
 
-    @Environment(\.dependencies) private var deps
-    @State private var observer: FacetBooksObserver?
-
     var body: some View {
-        Group {
-            if let observer {
-                content(observer)
-            } else {
-                LoadingStateView()
-            }
-        }
-        .background(Color.luSurface)
-        .navigationTitle(observer?.facetName ?? facetName)
-        .navigationBarTitleDisplayMode(.inline)
-        .task(id: facetId) {
+        WithObserver(id: "\(kind)-\(facetId)") { deps in
             let obs = FacetBooksObserver(
                 viewModel: deps.createBrowseFacetViewModel(),
                 fallbackName: facetName
             )
-            observer = obs
             obs.load(kind: kind.shared, facetId: facetId)
-        }
-        .onDisappear {
-            // Release the observer; its deinit cancels the FlowBridge subscriptions.
-            observer = nil
+            return obs
+        } content: { observer in
+            content(observer)
+                .background(Color.luSurface)
+                .navigationTitle(observer.facetName)
+                .navigationBarTitleDisplayMode(.inline)
         }
     }
 

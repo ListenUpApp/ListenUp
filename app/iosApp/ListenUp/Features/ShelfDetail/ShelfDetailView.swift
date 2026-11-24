@@ -11,34 +11,23 @@ import Shared
 struct ShelfDetailView: View {
     let shelfId: String
 
-    @Environment(\.dependencies) private var deps
-    @State private var observer: ShelfDetailObserver?
     @Environment(\.presentShellSheet) private var presentShellSheet
 
     var body: some View {
-        Group {
-            if let observer {
-                content(observer)
-            } else {
-                LoadingStateView()
-            }
-        }
-        .background(Color.luSurface)
-        .navigationTitle(observer?.shelfName ?? "")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button(String(localized: "common.edit")) { presentShellSheet(.shelfForm(shelfId: shelfId)) }
-            }
-        }
-        .task(id: shelfId) {
+        WithObserver(id: shelfId) { deps in
             let obs = ShelfDetailObserver(viewModel: deps.createShelfDetailViewModel())
-            observer = obs
             obs.loadShelf(shelfId)
-        }
-        .onDisappear {
-            // Release the observer; its deinit cancels the FlowBridge subscriptions.
-            observer = nil
+            return obs
+        } content: { observer in
+            content(observer)
+                .background(Color.luSurface)
+                .navigationTitle(observer.shelfName)
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button(String(localized: "common.edit")) { presentShellSheet(.shelfForm(shelfId: shelfId)) }
+                    }
+                }
         }
     }
 

@@ -9,10 +9,8 @@ import Shared
 struct CreateEditShelfView: View {
     let shelfId: String?
 
-    @Environment(\.dependencies) private var deps
     @Environment(\.dismiss) private var dismiss
 
-    @State private var observer: CreateEditShelfObserver?
     @State private var name: String = ""
     @State private var description: String = ""
     @State private var isPrivate: Bool = false
@@ -20,9 +18,11 @@ struct CreateEditShelfView: View {
     @State private var showDeleteConfirmation: Bool = false
 
     private var isEditMode: Bool { shelfId != nil }
-    private var isSaving: Bool { observer?.phase == .saving }
+    private func isSaving(_ observer: CreateEditShelfObserver) -> Bool { observer.phase == .saving }
     private var trimmedName: String { name.trimmingCharacters(in: .whitespacesAndNewlines) }
-    private var canSave: Bool { !trimmedName.isEmpty && observer?.phase != .saving }
+    private func canSave(_ observer: CreateEditShelfObserver) -> Bool {
+        !trimmedName.isEmpty && observer.phase != .saving
+    }
     /// Whether the form differs from what it opened on — the shared ViewModel's answer, the one Android
     /// and web ask too. Edit mode has nothing to lose until the shelf has loaded into the form.
     private func hasChanges(_ observer: CreateEditShelfObserver) -> Bool {
@@ -30,79 +30,70 @@ struct CreateEditShelfView: View {
     }
 
     var body: some View {
-        Group {
-            if let observer {
-                EditSheetScaffold(
-                    title: isEditMode
-                        ? String(localized: "shelf.edit_shelf_title")
-                        : String(localized: "shelf.create_shelf_title"),
-                    hasChanges: hasChanges(observer),
-                    canSave: canSave,
-                    isSaving: isSaving,
-                    onCancel: { dismiss() },
-                    onSave: {
-                        observer.save(
-                            name: trimmedName,
-                            description: description.trimmingCharacters(in: .whitespacesAndNewlines),
-                            isPrivate: isPrivate
-                        )
-                    }
-                ) {
-                    formContent(observer)
-                }
-                .alert(
-                    String(localized: "common.error"),
-                    isPresented: Binding(
-                        get: {
-                            if case .error = observer.phase { return true }
-                            return false
-                        },
-                        set: { if !$0 { observer.dismissError() } }
-                    )
-                ) {
-                    Button(String(localized: "common.ok"), role: .cancel) { observer.dismissError() }
-                } message: {
-                    if case .error(let msg) = observer.phase {
-                        Text(msg)
-                    }
-                }
-                .confirmationDialog(
-                    String(localized: "shelf.delete_shelf"),
-                    isPresented: $showDeleteConfirmation,
-                    titleVisibility: .visible
-                ) {
-                    Button(String(localized: "shelf.delete_shelf"), role: .destructive) {
-                        observer.delete()
-                    }
-                    Button(String(localized: "common.cancel"), role: .cancel) {}
-                } message: {
-                    Text(String(localized: "shelf.this_will_permanently_delete_this"))
-                }
-                .onChange(of: observer.phase) { _, phase in
-                    if case .loaded(let loadedName, let loadedDesc, let loadedPrivate) = phase, !seeded {
-                        name = loadedName
-                        description = loadedDesc
-                        isPrivate = loadedPrivate
-                        seeded = true
-                    }
-                }
-            } else {
-                LoadingStateView()
-            }
-        }
-        .task(id: shelfId) {
+        WithObserver(id: shelfId) { deps in
             let obs = CreateEditShelfObserver(viewModel: deps.createCreateEditShelfViewModel())
             obs.onClose = { dismiss() }
-            observer = obs
             if let id = shelfId {
                 obs.prepareEdit(shelfId: id)
             } else {
                 obs.prepareCreate()
             }
-        }
-        .onDisappear {
-            // Release the observer; its deinit cancels the FlowBridge subscriptions.
-            observer = nil
+            return obs
+        } content: { observer in
+            EditSheetScaffold(
+                title: isEditMode
+                    ? String(localized: "shelf.edit_shelf_title")
+                    : String(localized: "shelf.create_shelf_title"),
+                hasChanges: hasChanges(observer),
+                canSave: canSave(observer),
+                isSaving: isSaving(observer),
+                onCancel: { dismiss() },
+                onSave: {
+                    observer.save(
+                        name: trimmedName,
+                        description: description.trimmingCharacters(in: .whitespacesAndNewlines),
+                        isPrivate: isPrivate
+                    )
+                }
+            ) {
+                formContent(observer)
+            }
+            .alert(
+                String(localized: "common.error"),
+                isPresented: Binding(
+                    get: {
+                        if case .error = observer.phase { return true }
+                        return false
+                    },
+                    set: { if !$0 { observer.dismissError() } }
+                )
+            ) {
+                Button(String(localized: "common.ok"), role: .cancel) { observer.dismissError() }
+            } message: {
+                if case .error(let msg) = observer.phase {
+                    Text(msg)
+                }
+            }
+            .confirmationDialog(
+                String(localized: "shelf.delete_shelf"),
+                isPresented: $showDeleteConfirmation,
+                titleVisibility: .visible
+            ) {
+                Button(String(localized: "shelf.delete_shelf"), role: .destructive) {
+                    observer.delete()
+                }
+                Button(String(localized: "common.cancel"), role: .cancel) {}
+            } message: {
+                Text(String(localized: "shelf.this_will_permanently_delete_this"))
+            }
+            .onChange(of: observer.phase, initial: true) { _, phase in
+                if case .loaded(let loadedName, let loadedDesc, let loadedPrivate) = phase, !seeded {
+                    name = loadedName
+                    description = loadedDesc
+                    isPrivate = loadedPrivate
+                    seeded = true
+                }
+            }
         }
     }
 

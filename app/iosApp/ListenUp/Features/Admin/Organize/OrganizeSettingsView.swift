@@ -13,25 +13,14 @@ import Shared
 /// the current one (HIG, Pickers; Lists and tables). Styles appear only where their folder exists, as
 /// on Android and web.
 struct OrganizeSettingsView: View {
-    @Environment(\.dependencies) private var deps
-
-    @State private var observer: OrganizeSettingsObserver?
-
     var body: some View {
-        Group {
-            if let observer {
-                content(observer)
-            } else {
-                LoadingStateView()
-            }
-        }
-        .background(Color.luSurface)
-        .navigationTitle(String(localized: "admin.organize"))
-        .navigationBarTitleDisplayMode(.large)
-        .onAppear {
-            if observer == nil {
-                observer = OrganizeSettingsObserver(viewModel: deps.createOrganizeSettingsViewModel())
-            }
+        WithObserver {
+            OrganizeSettingsObserver(viewModel: $0.createOrganizeSettingsViewModel())
+        } content: { observer in
+            content(observer)
+                .background(Color.luSurface)
+                .navigationTitle(String(localized: "admin.organize"))
+                .navigationBarTitleDisplayMode(.large)
         }
     }
 

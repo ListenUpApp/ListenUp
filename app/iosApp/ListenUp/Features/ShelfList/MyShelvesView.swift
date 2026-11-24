@@ -3,31 +3,26 @@ import SwiftUI
 /// The My Shelves list (spec §3.2 H24), reached from Home's See All: every shelf the reader owns, as Home's shelf
 /// tiles in a grid that flows from the width, with New Shelf in the toolbar.
 struct MyShelvesView: View {
-    @Environment(\.dependencies) private var deps
-    @State private var observer: MyShelvesObserver?
     @Environment(\.presentShellSheet) private var presentShellSheet
 
     var body: some View {
-        MyShelvesContent(phase: observer?.phase ?? .loading, onRetry: { observer?.refresh() })
-            .background(Color.luSurface)
-            .navigationTitle(String(localized: "home.my_shelves_ios"))
-            .navigationBarTitleDisplayMode(.large)
-            .toolbar {
-                ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        presentShellSheet(.shelfForm(shelfId: nil))
-                    } label: {
-                        Label(String(localized: "home.new_shelf_ios"), systemImage: "plus")
+        WithObserver {
+            MyShelvesObserver(viewModel: $0.createMyShelvesViewModel())
+        } content: { observer in
+            MyShelvesContent(phase: observer.phase, onRetry: { observer.refresh() })
+                .background(Color.luSurface)
+                .navigationTitle(String(localized: "home.my_shelves_ios"))
+                .navigationBarTitleDisplayMode(.large)
+                .toolbar {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button {
+                            presentShellSheet(.shelfForm(shelfId: nil))
+                        } label: {
+                            Label(String(localized: "home.new_shelf_ios"), systemImage: "plus")
+                        }
                     }
                 }
-            }
-            .task {
-                if observer == nil { observer = MyShelvesObserver(viewModel: deps.createMyShelvesViewModel()) }
-            }
-            .onDisappear {
-                // Release the observer; its deinit cancels the FlowBridge subscription and clears the ViewModel.
-                observer = nil
-            }
+        }
     }
 }
 

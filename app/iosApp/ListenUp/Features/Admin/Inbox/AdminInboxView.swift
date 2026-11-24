@@ -15,10 +15,8 @@ import Shared
 ///
 /// SSE updates flow through the shared VM into the observer — no extra wiring here.
 struct AdminInboxView: View {
-    @Environment(\.dependencies) private var deps
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
-    @State private var observer: AdminInboxObserver?
     @State private var showingReleaseConfirm = false
     /// Bumped once per landed release, to fire the release haptic.
     @State private var releases = 0
@@ -40,34 +38,27 @@ struct AdminInboxView: View {
 
     /// "Waiting for you to release" while books are held; nothing once the inbox is clear. A regular width draws its own
     /// header with the inbox's subtitle (`padHeader`), so the system's would be the inbox named twice.
-    private var waitingSubtitle: String {
-        guard !isRegularWidth, case .ready(let ready) = observer?.phase, ready.hasBooks else { return "" }
+    private func waitingSubtitle(_ observer: AdminInboxObserver) -> String {
+        guard !isRegularWidth, case .ready(let ready) = observer.phase, ready.hasBooks else { return "" }
         return String(localized: "admin.inbox_entry_subtitle")
     }
 
     var body: some View {
-        Group {
-            if let observer {
-                content(observer: observer)
-            } else {
-                LoadingStateView()
-            }
-        }
-        .background(Color.luSurface)
-        .navigationTitle(String(localized: "common.inbox"))
-        // The iPad sidebar's Inbox entry carries one line; the board's second, "Waiting for you to release", is here.
-        .navigationSubtitle(waitingSubtitle)
-        .navigationBarTitleDisplayMode(.large)
-        .toolbar { selectToolbarItems }
-        // Selecting replaces Back with Select all, as Done is the way out (HIG, Lists and tables).
-        .navigationBarBackButtonHidden(isSelecting)
-        .navigationDestination(item: $openedBook) { BookDetailView(bookId: $0.id) }
-        // Match details: pushed onto this stack on a compact width, a full-screen split view on a regular one.
-        .bookMatchDetails($matchTarget)
-        .onAppear {
-            if observer == nil {
-                observer = AdminInboxObserver(viewModel: deps.createAdminInboxViewModel())
-            }
+        WithObserver {
+            AdminInboxObserver(viewModel: $0.createAdminInboxViewModel())
+        } content: { observer in
+            content(observer: observer)
+                .background(Color.luSurface)
+                .navigationTitle(String(localized: "common.inbox"))
+                // The iPad sidebar's Inbox entry carries one line; the board's second, "Waiting for you to release", is here.
+                .navigationSubtitle(waitingSubtitle(observer))
+                .navigationBarTitleDisplayMode(.large)
+                .toolbar { selectToolbarItems(observer: observer) }
+                // Selecting replaces Back with Select all, as Done is the way out (HIG, Lists and tables).
+                .navigationBarBackButtonHidden(isSelecting(observer))
+                .navigationDestination(item: $openedBook) { BookDetailView(bookId: $0.id) }
+                // Match details: pushed onto this stack on a compact width, a full-screen split view on a regular one.
+                .bookMatchDetails($matchTarget)
         }
     }
 
@@ -82,7 +73,7 @@ struct AdminInboxView: View {
             readyBody(observer: observer, ready: ready)
                 .alert(
                     String(localized: "common.something_went_wrong"),
-                    isPresented: errorPresented(ready: ready),
+                    isPresented: errorPresented(observer: observer, ready: ready),
                     actions: {
                         Button(String(localized: "common.ok"), role: .cancel) { observer.clearError() }
                     },
@@ -336,20 +327,20 @@ struct AdminInboxView: View {
     /// Browsing: Select. Selecting: Select all (or Deselect all) leading, Done trailing — Done leaves
     /// the mode and drops the selection.
     @ToolbarContentBuilder
-    private var selectToolbarItems: some ToolbarContent {
-        if case .ready(let ready) = observer?.phase, ready.hasBooks {
+    private func selectToolbarItems(observer: AdminInboxObserver) -> some ToolbarContent {
+        if case .ready(let ready) = observer.phase, ready.hasBooks {
             if mode(ready) == .selecting {
                 ToolbarItem(placement: .topBarLeading) {
                     Button(ready.allSelected
                            ? String(localized: "admin.inbox_deselect_all")
                            : String(localized: "admin.inbox_select_all")) {
-                        if ready.allSelected { observer?.clearSelection() } else { observer?.selectAll() }
+                        if ready.allSelected { observer.clearSelection() } else { observer.selectAll() }
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(String(localized: "common.done")) {
                         isSelectRequested = false
-                        observer?.clearSelection()
+                        observer.clearSelection()
                     }
                     .fontWeight(.semibold)
                 }
@@ -363,8 +354,8 @@ struct AdminInboxView: View {
 
     // MARK: - Helpers
 
-    private var isSelecting: Bool {
-        guard case .ready(let ready) = observer?.phase else { return false }
+    private func isSelecting(_ observer: AdminInboxObserver) -> Bool {
+        guard case .ready(let ready) = observer.phase else { return false }
         return mode(ready) == .selecting
     }
 
@@ -379,10 +370,10 @@ struct AdminInboxView: View {
         }
     }
 
-    private func errorPresented(ready: AdminInboxReadyModel) -> Binding<Bool> {
+    private func errorPresented(observer: AdminInboxObserver, ready: AdminInboxReadyModel) -> Binding<Bool> {
         Binding(
             get: { ready.error != nil },
-            set: { presenting in if !presenting { observer?.clearError() } }
+            set: { presenting in if !presenting { observer.clearError() } }
         )
     }
 
