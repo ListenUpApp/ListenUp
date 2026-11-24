@@ -37,6 +37,7 @@ import com.calypsan.listenup.web.features.home.HomePage
 import com.calypsan.listenup.web.features.home.continuing
 import com.calypsan.listenup.web.features.home.finishedSlot
 import com.calypsan.listenup.web.features.home.nothingSlot
+import com.calypsan.listenup.web.features.home.homeActions
 import com.calypsan.listenup.web.features.home.readyHome
 import com.calypsan.listenup.web.features.home.scanning
 import com.calypsan.listenup.web.features.home.shelf
@@ -68,33 +69,33 @@ private fun homeShapes1(): Map<String, @Composable () -> Unit> =
             // and the loaded page across a live scan, a bare sync, an empty shelf and
             // all four stats states. It joins this contract by hand like the pages
             // above — a state nobody lists here is a state whose classes go unchecked.
-            HomePage(HomeUiState.Loading, HomeStatsUiState.Loading, HomeActions.None)
+            HomePage(HomeUiState.Loading, HomeStatsUiState.Loading, homeActions())
         },
         shape("#2: HomePage( HomeUiState.Error(UnexpectedClientError(),") {
             HomePage(
                 HomeUiState.Error(UnexpectedClientError(), TimeOfDay.Afternoon),
                 HomeStatsUiState.Loading,
-                HomeActions.None,
+                homeActions(),
             )
         },
         shape("#3: HomePage(readyHome(), HomeStatsUiState.Loading, Home") {
-            HomePage(readyHome(), HomeStatsUiState.Loading, HomeActions.None)
+            HomePage(readyHome(), HomeStatsUiState.Loading, homeActions())
         },
         shape("#4: HomePage(readyHome(), HomeStatsUiState.Empty, HomeAc") {
-            HomePage(readyHome(), HomeStatsUiState.Empty, HomeActions.None)
+            HomePage(readyHome(), HomeStatsUiState.Empty, homeActions())
         },
         shape("#5: HomePage( readyHome(), HomeStatsUiState.Error(isRetr") {
             HomePage(
                 readyHome(),
                 HomeStatsUiState.Error(isRetryable = true),
-                HomeActions.None,
+                homeActions(),
             )
         },
         shape("#6: HomePage( readyHome(everythingInProgress = listOf(co") {
             HomePage(
                 readyHome(everythingInProgress = listOf(continuing("b1", "The Institute"))),
                 weekStats(topGenres = listOf(GenreShare("Fiction", 3), GenreShare("Sci-Fi", 1))),
-                HomeActions.None,
+                homeActions(),
             )
         },
         shape("#7: HomePage( readyHome(everythingInProgress = listOf(Co") {
@@ -102,18 +103,18 @@ private fun homeShapes1(): Map<String, @Composable () -> Unit> =
             HomePage(
                 readyHome(everythingInProgress = listOf(ContinueListeningItem.Loading("b2"))),
                 weekStats(),
-                HomeActions.None,
+                homeActions(),
             )
         },
         shape("#8: HomePage( readyHome(isBuildingInitialLibrary = true)") {
             HomePage(
                 readyHome(isBuildingInitialLibrary = true),
                 weekStats(),
-                HomeActions.None,
+                homeActions(),
             )
         },
         shape("#9: HomePage(readyHome(scanProgress = scanning()), weekS") {
-            HomePage(readyHome(scanProgress = scanning()), weekStats(), HomeActions.None)
+            HomePage(readyHome(scanProgress = scanning()), weekStats(), homeActions())
         },
         shape("#10: HomePage( readyHome(myShelves = listOf(shelf(Finishe") {
             // With shelves, so the row's own classes are checked, and without,
@@ -121,7 +122,7 @@ private fun homeShapes1(): Map<String, @Composable () -> Unit> =
             HomePage(
                 readyHome(myShelves = listOf(shelf("Finished"))),
                 weekStats(),
-                HomeActions.None,
+                homeActions(),
             )
         },
         shape("#11: HomePage( readyHome(slot = finishedSlot(), everythin") {
@@ -130,7 +131,7 @@ private fun homeShapes1(): Map<String, @Composable () -> Unit> =
             HomePage(
                 readyHome(slot = finishedSlot(), everythingInProgress = emptyList()),
                 weekStats(),
-                HomeActions.None,
+                homeActions(),
                 isWide = true,
             )
         },
@@ -138,18 +139,18 @@ private fun homeShapes1(): Map<String, @Composable () -> Unit> =
             HomePage(
                 readyHome(slot = HomeSlot.NothingInProgress(candidate = null)),
                 weekStats(),
-                HomeActions.None,
+                homeActions(),
             )
         },
         shape("#13: HomePage(readyHome(slot = finishedSlot()), weekStats") {
             // Every slot kind, first sync, the notice and the failed row.
-            HomePage(readyHome(slot = finishedSlot()), weekStats(), HomeActions.None, isWide = true)
+            HomePage(readyHome(slot = finishedSlot()), weekStats(), homeActions(), isWide = true)
         },
         shape("#14: HomePage(readyHome(slot = nothingSlot()), weekStats(") {
-            HomePage(readyHome(slot = nothingSlot()), weekStats(), HomeActions.None, isWide = true)
+            HomePage(readyHome(slot = nothingSlot()), weekStats(), homeActions(), isWide = true)
         },
         shape("#15: HomePage(readyHome(slot = welcomeSlot(2)), HomeStats") {
-            HomePage(readyHome(slot = welcomeSlot(2)), HomeStatsUiState.Empty, HomeActions.None)
+            HomePage(readyHome(slot = welcomeSlot(2)), HomeStatsUiState.Empty, homeActions())
         },
     )
 
@@ -159,28 +160,28 @@ private fun homeShapes2(): Map<String, @Composable () -> Unit> =
             HomePage(
                 readyHome(slot = HomeSlot.FirstSync, isLibraryArriving = true),
                 HomeStatsUiState.Loading,
-                HomeActions.None,
+                homeActions(),
             )
         },
         shape("#17: HomePage( readyHome(connectivity = HomeConnectivity.") {
             HomePage(
                 readyHome(connectivity = HomeConnectivity.ServerUnreachable),
                 weekStats(),
-                HomeActions.None,
+                homeActions(),
             )
         },
         shape("#18: HomePage( readyHome(continueListeningError = Unexpec") {
             HomePage(
                 readyHome(continueListeningError = UnexpectedClientError()),
                 weekStats(),
-                HomeActions.None,
+                homeActions(),
             )
         },
         shape("#19: HomePage( readyHome(myShelves = listOf(shelf(Road tr") {
             HomePage(
                 readyHome(myShelves = listOf(shelf("Road trip", isPrivate = true, seconds = 3_600L))),
                 weekStats(currentStreakDays = 3, longestStreakDays = 9),
-                HomeActions.None,
+                homeActions(),
                 isWide = true,
             )
         },

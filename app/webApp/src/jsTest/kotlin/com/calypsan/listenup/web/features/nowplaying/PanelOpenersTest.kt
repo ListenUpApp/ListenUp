@@ -53,14 +53,9 @@ class PanelOpenersTest :
 
         fun wideBar(isNowPlayingOpen: Boolean = false): ViewportFrame =
             frames.mount(WIDE, WIDE_HEIGHT) {
-                TransportBar(
+                testTransportBar(
                     state = LONG_BOOK.copy(sleepTimer = SleepTimerState.Active(SleepTimerMode.Duration(30), 1_421_000, 1_800_000, 0)),
                     progress = LONG_PROGRESS,
-                    onPrimary = {},
-                    onSeek = {},
-                    onSkipBack = {},
-                    onSkipForward = {},
-                    onSetSpeed = {},
                     isNowPlayingOpen = isNowPlayingOpen,
                 )
             }
@@ -71,7 +66,7 @@ class PanelOpenersTest :
         ): ViewportFrame =
             frames.mount(width, height) {
                 CompositionLocalProvider(LocalCoverThemes provides NoCoverThemes) {
-                    NowPlayingPage(state = LONG_BOOK, progress = LONG_PROGRESS, actions = NowPlayingActions())
+                    NowPlayingPage(state = LONG_BOOK, progress = LONG_PROGRESS, actions = nowPlayingActions())
                 }
             }
 

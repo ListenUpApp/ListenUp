@@ -127,7 +127,7 @@ class AdminTryAgainTest :
                         onRetry = { retries++ },
                         onOpenAdmin = {},
                         mergeHistory = null,
-                        mergeHistoryActions = MergeHistoryActions.None,
+                        mergeHistoryActions = mergeHistoryActions(),
                     )
                 }
 
@@ -159,7 +159,7 @@ class AdminTryAgainTest :
                     UserDetailPage(
                         state = UserDetailUiState.Error(offline),
                         permissions = UserPermissionsUiState.Loading,
-                        actions = PermissionsPanelActions(),
+                        actions = permissionsPanelActions(),
                         onRetry = { retries++ },
                         onOpenAdmin = {},
                     )
@@ -176,7 +176,7 @@ class AdminTryAgainTest :
                 mounts.mount {
                     PermissionsPanel(
                         state = UserPermissionsUiState.Error(offline),
-                        actions = PermissionsPanelActions(onRetry = { retries++ }),
+                        actions = permissionsPanelActions(onRetry = { retries++ }),
                     )
                 }
 

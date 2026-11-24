@@ -21,8 +21,8 @@ class LibrarySession(
     val state: StateFlow<LibraryUiState>,
     val onEvent: (LibraryUiEvent) -> Unit,
     override val close: () -> Unit,
-    /** Shares a book from its menu through the one share builder; a spec's session shares nothing. */
-    val onShareBook: suspend (bookId: String, title: String) -> ShareOutcome = { _, _ -> ShareOutcome.FAILED },
+    /** Shares a book from its menu through the one share builder. */
+    val onShareBook: suspend (bookId: String, title: String) -> ShareOutcome,
 ) : RouteSession
 
 /**

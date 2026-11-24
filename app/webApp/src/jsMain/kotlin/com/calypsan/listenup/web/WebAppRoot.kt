@@ -90,7 +90,7 @@ fun WebAppRoot(
     graph: WebGraph,
     onToast: (String) -> Unit,
     onActionToast: ShowActionToast,
-    onSignOut: () -> Unit = {},
+    onSignOut: () -> Unit,
 ) {
     var collapsed by remember { mutableStateOf(false) }
     // Starts false so a member never sees the entry flash; an admin's entry appears the moment

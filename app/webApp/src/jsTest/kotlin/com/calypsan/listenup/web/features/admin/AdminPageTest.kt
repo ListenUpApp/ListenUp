@@ -92,6 +92,17 @@ private fun page(
         onCopyInviteLink = onCopyInviteLink,
         onClearError = {},
         onRetry = {},
+        onOpenLibrarySettings = {},
+        onOpenInbox = {},
+        onOpenServerSettings = {},
+        onOpenCategories = {},
+        onOpenCollections = {},
+        onOpenBackups = {},
+        onOpenImports = {},
+        onOpenInvite = {},
+        onOpenUpload = {},
+        onOpenOrganize = {},
+        onOpenUser = {},
         landOnPending = landOnPending,
     )
 }

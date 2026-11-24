@@ -9,8 +9,8 @@ import com.calypsan.listenup.client.presentation.hardcover.HardcoverMatchedBook
 import com.calypsan.listenup.client.presentation.hardcover.KeepOffRemoves
 import com.calypsan.listenup.web.MountRegistry
 import com.calypsan.listenup.web.awaitFrame
-import com.calypsan.listenup.web.features.bookdetail.BookDetailPage
 import com.calypsan.listenup.web.features.bookdetail.readyBook
+import com.calypsan.listenup.web.features.bookdetail.testBookDetailPage
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
@@ -267,12 +267,8 @@ class BookHardcoverPanelTest :
         test("on Book Detail it sits in the side rail, in the visit's stage order: before Details") {
             val host =
                 mounts.mount {
-                    BookDetailPage(
+                    testBookDetailPage(
                         state = readyBook(),
-                        onPlayFromChapter = {},
-                        onOpenLibrary = {},
-                        onPlay = {},
-                        onRetryConnection = {},
                         hardcover = BookHardcoverUiState.NeedsMatch,
                     )
                 }

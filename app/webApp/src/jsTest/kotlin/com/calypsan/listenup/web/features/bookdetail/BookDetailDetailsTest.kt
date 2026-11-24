@@ -59,12 +59,8 @@ class BookDetailDetailsTest :
             onOpenFiles: () -> Unit = {},
         ): HTMLElement =
             mounts.mount {
-                BookDetailPage(
+                testBookDetailPage(
                     state = full,
-                    onPlayFromChapter = {},
-                    onOpenLibrary = {},
-                    onPlay = {},
-                    onRetryConnection = {},
                     documents = documents,
                     onOpenFiles = onOpenFiles,
                 )

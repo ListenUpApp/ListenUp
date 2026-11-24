@@ -34,7 +34,7 @@ class NowPlayingTitleCentringTest :
         ): ViewportFrame =
             frames.mount(width = width, height = PHONE_HEIGHT) {
                 CompositionLocalProvider(LocalCoverThemes provides NoCoverThemes) {
-                    NowPlayingPage(state = state, progress = PlayerProgress.Zero, actions = NowPlayingActions())
+                    NowPlayingPage(state = state, progress = PlayerProgress.Zero, actions = nowPlayingActions())
                 }
             }
 

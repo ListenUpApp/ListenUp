@@ -79,7 +79,7 @@ class TransportBarPhoneTest :
                         classes("tall-page")
                         style { height(TALL_PAGE_PX.px) }
                     })
-                    TransportBar(
+                    testTransportBar(
                         state =
                             loadedPlayerState(
                                 title = "The Way of Kings",
@@ -97,11 +97,6 @@ class TransportBarPhoneTest :
                                 bookPositionMs = 0,
                                 bookDurationMs = BOOK_MS,
                             ),
-                        onPrimary = {},
-                        onSeek = {},
-                        onSkipBack = {},
-                        onSkipForward = {},
-                        onSetSpeed = {},
                     )
                 }
                 ToastHost(toasts)

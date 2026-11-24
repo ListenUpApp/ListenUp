@@ -69,7 +69,7 @@ class BookPickersTest :
 
         fun dialogs(
             ready: BookDetailUiState.Ready,
-            pickers: BookPickers = BookPickers(),
+            pickers: BookPickers = bookPickers(),
         ): HTMLElement = mounts.mount { BookPickerDialogs(ready = ready, pickers = pickers) }
 
         fun closeAny(host: HTMLElement) {
@@ -80,7 +80,7 @@ class BookPickersTest :
             val host =
                 dialogs(
                     readyBook().copy(showShelfPicker = true),
-                    BookPickers(myShelves = listOf(shelf(name = "Bedtime"), shelf("s2", "Commute"))),
+                    bookPickers(myShelves = listOf(shelf(name = "Bedtime"), shelf("s2", "Commute"))),
                 )
 
             targets(host) shouldContainExactly listOf("Bedtime", "Commute")
@@ -92,7 +92,7 @@ class BookPickersTest :
             val host =
                 dialogs(
                     readyBook().copy(showShelfPicker = true),
-                    BookPickers(myShelves = listOf(shelf("s-bedtime")), onAddToShelf = { picked += it }),
+                    bookPickers(myShelves = listOf(shelf("s-bedtime")), onAddToShelf = { picked += it }),
                 )
 
             (host.querySelector(".sel-target") as HTMLElement).click()
@@ -106,7 +106,7 @@ class BookPickersTest :
             val host =
                 dialogs(
                     readyBook().copy(showShelfPicker = true),
-                    BookPickers(
+                    bookPickers(
                         myShelves = listOf(shelf("s1", "Bedtime"), shelf("s2", "Commute")),
                         shelvesContainingBook = listOf(shelf("s1", "Bedtime")),
                     ),
@@ -126,7 +126,7 @@ class BookPickersTest :
             val host =
                 dialogs(
                     readyBook().copy(showShelfPicker = true),
-                    BookPickers(
+                    bookPickers(
                         myShelves = listOf(shelf("s1")),
                         shelvesContainingBook = listOf(shelf("s1")),
                         onAddToShelf = { picked += it },
@@ -141,7 +141,7 @@ class BookPickersTest :
         }
 
         test("a listener with no shelves is told so, and can still make one") {
-            val host = dialogs(readyBook().copy(showShelfPicker = true), BookPickers())
+            val host = dialogs(readyBook().copy(showShelfPicker = true), bookPickers())
 
             host.textContent.orEmpty() shouldContain "no shelves yet"
             host.textContent.orEmpty() shouldContain "Create shelf"
@@ -155,7 +155,7 @@ class BookPickersTest :
             val host =
                 dialogs(
                     readyBook().copy(showCollectionPicker = true, isAdmin = false),
-                    BookPickers(collections = listOf(collectionOf())),
+                    bookPickers(collections = listOf(collectionOf())),
                 )
 
             host.querySelector("dialog").shouldBeNull()
@@ -165,7 +165,7 @@ class BookPickersTest :
             val host =
                 dialogs(
                     readyBook().copy(showCollectionPicker = true, isAdmin = true),
-                    BookPickers(collections = listOf(collectionOf(name = "Staff picks"))),
+                    bookPickers(collections = listOf(collectionOf(name = "Staff picks"))),
                 )
 
             targets(host) shouldContainExactly listOf("Staff picks")
@@ -183,7 +183,7 @@ class BookPickersTest :
             val host =
                 dialogs(
                     readyBook().copy(shelfError = "That shelf is gone."),
-                    BookPickers(onClearShelfError = { cleared++ }),
+                    bookPickers(onClearShelfError = { cleared++ }),
                 )
 
             val notice = (host.querySelector(".bd-pick-err") as? HTMLElement).shouldNotBeNull()
@@ -209,7 +209,7 @@ class BookPickersTest :
             val host =
                 dialogs(
                     readyBook().copy(showShelfPicker = true, isAddingToShelf = true),
-                    BookPickers(myShelves = listOf(shelf())),
+                    bookPickers(myShelves = listOf(shelf())),
                 )
 
             (host.querySelector(".sel-target") as HTMLButtonElement).hasAttribute("disabled") shouldBe true

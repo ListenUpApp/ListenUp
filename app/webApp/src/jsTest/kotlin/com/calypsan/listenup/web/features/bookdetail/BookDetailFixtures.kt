@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.bookdetail
 
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Composition
 import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.client.domain.model.AudioFile
@@ -7,11 +8,16 @@ import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.domain.model.BookDetail
 import com.calypsan.listenup.client.domain.model.BookDocument
 import com.calypsan.listenup.client.domain.model.BookSeries
+import com.calypsan.listenup.client.domain.model.Collection
 import com.calypsan.listenup.client.domain.model.Genre
 import com.calypsan.listenup.client.domain.model.Mood
+import com.calypsan.listenup.client.domain.model.Shelf
 import com.calypsan.listenup.client.domain.model.Tag
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailSection
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
+import com.calypsan.listenup.client.presentation.bookdetail.BookRatingsUiState
+import com.calypsan.listenup.client.presentation.bookdetail.BookReadersUiState
+import com.calypsan.listenup.client.presentation.hardcover.BookHardcoverUiState
 import com.calypsan.listenup.client.presentation.bookdetail.ReadingStage
 import com.calypsan.listenup.client.presentation.bookdetail.BookSeriesPath
 import com.calypsan.listenup.client.presentation.bookdetail.ChapterUiModel
@@ -222,4 +228,136 @@ private const val SAMPLE_CHANNELS = 2
 internal fun disposeAll(compositions: MutableList<Composition>) {
     compositions.forEach { it.dispose() }
     compositions.clear()
+}
+
+/** Builds [BookPickers] with no-op callback defaults for specs. */
+@Suppress("LongParameterList")
+internal fun bookPickers(
+    myShelves: List<Shelf> = emptyList(),
+    shelvesContainingBook: List<Shelf> = emptyList(),
+    collections: List<Collection> = emptyList(),
+    onShowShelfPicker: () -> Unit = {},
+    onHideShelfPicker: () -> Unit = {},
+    onAddToShelf: (String) -> Unit = {},
+    onCreateShelfAndAdd: (String) -> Unit = {},
+    onClearShelfError: () -> Unit = {},
+    onShowCollectionPicker: () -> Unit = {},
+    onHideCollectionPicker: () -> Unit = {},
+    onAddToCollection: (String) -> Unit = {},
+    onCreateCollectionAndAdd: (String) -> Unit = {},
+    onClearCollectionError: () -> Unit = {},
+): BookPickers =
+    BookPickers(
+        myShelves = myShelves,
+        shelvesContainingBook = shelvesContainingBook,
+        collections = collections,
+        onShowShelfPicker = onShowShelfPicker,
+        onHideShelfPicker = onHideShelfPicker,
+        onAddToShelf = onAddToShelf,
+        onCreateShelfAndAdd = onCreateShelfAndAdd,
+        onClearShelfError = onClearShelfError,
+        onShowCollectionPicker = onShowCollectionPicker,
+        onHideCollectionPicker = onHideCollectionPicker,
+        onAddToCollection = onAddToCollection,
+        onCreateCollectionAndAdd = onCreateCollectionAndAdd,
+        onClearCollectionError = onClearCollectionError,
+    )
+
+/** Renders [BookDetailPage] with no-op callback defaults for specs. */
+@Composable
+@Suppress("LongParameterList")
+internal fun testBookDetailPage(
+    state: BookDetailUiState,
+    onOpenLibrary: () -> Unit = {},
+    onPlay: () -> Unit = {},
+    onPlayFromChapter: (Long) -> Unit = {},
+    onEdit: () -> Unit = {},
+    onEditChapters: () -> Unit = {},
+    onMatchMetadata: () -> Unit = {},
+    onOpenGenre: (String) -> Unit = {},
+    onOpenTag: (String) -> Unit = {},
+    onOpenMood: (String) -> Unit = {},
+    onOpenContributor: (String) -> Unit = {},
+    onOpenSeries: (String) -> Unit = {},
+    readers: BookReadersUiState = BookReadersUiState.Loading,
+    ratings: BookRatingsUiState = BookRatingsUiState.Loading,
+    onRate: (halfStars: Int, note: String?) -> Unit = { _, _ -> },
+    onClearRating: () -> Unit = {},
+    onRefreshExternalRating: () -> Unit = {},
+    onSetStars: (halfStars: Int) -> Unit = {},
+    ratingStarsFocusRequest: Int = 0,
+    documents: List<BookDocument> = emptyList(),
+    onRetryConnection: () -> Unit = {},
+    isPreparing: Boolean = false,
+    onMarkComplete: (startedAt: Long?, finishedAt: Long) -> Unit = { _, _ -> },
+    onDiscardProgress: () -> Unit = {},
+    onRestart: () -> Unit = {},
+    onShare: () -> Unit = {},
+    pickers: BookPickers = bookPickers(),
+    nowMs: Long = 0L,
+    onOpenProfile: (String) -> Unit = {},
+    onSeeAllReaders: () -> Unit = {},
+    hardcover: BookHardcoverUiState = BookHardcoverUiState.Hidden,
+    onFindHardcoverMatch: () -> Unit = {},
+    onRemoveHardcoverMatch: () -> Unit = {},
+    onSetHardcoverSynced: (Boolean) -> Unit = {},
+    onOpenChapterMap: () -> Unit = {},
+    onOpenFiles: () -> Unit = {},
+    bookId: String? = null,
+    onDeleteBook: () -> Unit = {},
+    onClearDeleteError: () -> Unit = {},
+    onReleaseFromInbox: () -> Unit = {},
+    onRestoreToAllBooks: () -> Unit = {},
+    onOpenCollection: (String) -> Unit = {},
+    lastMatchRow: @Composable () -> Unit = {},
+    landOnReaders: Boolean = false,
+    onLandedOnReaders: () -> Unit = {},
+) {
+    BookDetailPage(
+        state = state,
+        onOpenLibrary = onOpenLibrary,
+        onPlay = onPlay,
+        onPlayFromChapter = onPlayFromChapter,
+        onEdit = onEdit,
+        onEditChapters = onEditChapters,
+        onMatchMetadata = onMatchMetadata,
+        onOpenGenre = onOpenGenre,
+        onOpenTag = onOpenTag,
+        onOpenMood = onOpenMood,
+        onOpenContributor = onOpenContributor,
+        onOpenSeries = onOpenSeries,
+        readers = readers,
+        ratings = ratings,
+        onRate = onRate,
+        onClearRating = onClearRating,
+        onRefreshExternalRating = onRefreshExternalRating,
+        onSetStars = onSetStars,
+        ratingStarsFocusRequest = ratingStarsFocusRequest,
+        documents = documents,
+        onRetryConnection = onRetryConnection,
+        isPreparing = isPreparing,
+        onMarkComplete = onMarkComplete,
+        onDiscardProgress = onDiscardProgress,
+        onRestart = onRestart,
+        onShare = onShare,
+        pickers = pickers,
+        nowMs = nowMs,
+        onOpenProfile = onOpenProfile,
+        onSeeAllReaders = onSeeAllReaders,
+        hardcover = hardcover,
+        onFindHardcoverMatch = onFindHardcoverMatch,
+        onRemoveHardcoverMatch = onRemoveHardcoverMatch,
+        onSetHardcoverSynced = onSetHardcoverSynced,
+        onOpenChapterMap = onOpenChapterMap,
+        onOpenFiles = onOpenFiles,
+        bookId = bookId,
+        onDeleteBook = onDeleteBook,
+        onClearDeleteError = onClearDeleteError,
+        onReleaseFromInbox = onReleaseFromInbox,
+        onRestoreToAllBooks = onRestoreToAllBooks,
+        onOpenCollection = onOpenCollection,
+        lastMatchRow = lastMatchRow,
+        landOnReaders = landOnReaders,
+        onLandedOnReaders = onLandedOnReaders,
+    )
 }

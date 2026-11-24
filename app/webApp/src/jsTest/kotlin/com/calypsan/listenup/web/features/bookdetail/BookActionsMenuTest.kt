@@ -55,12 +55,8 @@ class BookActionsMenuTest :
             onRestart: () -> Unit = {},
         ): HTMLElement =
             mounts.mount {
-                BookDetailPage(
+                testBookDetailPage(
                     state = ready,
-                    onPlayFromChapter = {},
-                    onOpenLibrary = {},
-                    onPlay = {},
-                    onRetryConnection = {},
                     onEdit = onEdit,
                     onEditChapters = onEditChapters,
                     onMatchMetadata = onMatchMetadata,

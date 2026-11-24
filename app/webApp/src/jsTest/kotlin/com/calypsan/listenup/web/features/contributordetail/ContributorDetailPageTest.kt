@@ -42,15 +42,14 @@ class ContributorDetailPageTest :
             onEdit: () -> Unit = {},
         ): HTMLElement =
             mounts.mount {
-                ContributorDetailPage(
-                    onEdit = onEdit,
-                    onAdjustPhoto = {},
+                testContributorDetailPage(
                     state = state,
                     onOpenLibrary = onOpenLibrary,
                     onOpenContributors = onOpenContributors,
                     onOpenBook = onOpenBook,
                     onOpenSeries = onOpenSeries,
                     onOpenRoleBooks = onOpenRoleBooks,
+                    onEdit = onEdit,
                     onConfirmDelete = onConfirmDelete,
                     onDismissDeleteError = onDismissDeleteError,
                 )

@@ -77,7 +77,7 @@ private fun page(
     onClearError: () -> Unit = {},
     onOpenAdmin: () -> Unit = {},
     mergeHistory: GenreMergeHistory? = null,
-    mergeHistoryActions: MergeHistoryActions = MergeHistoryActions.None,
+    mergeHistoryActions: MergeHistoryActions = mergeHistoryActions(),
     parentCrumb: String = "Admin",
 ): HTMLElement {
     val host = document.createElement("div") as HTMLElement

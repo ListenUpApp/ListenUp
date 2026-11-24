@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.contributordetail
 
+import androidx.compose.runtime.Composable
 import com.calypsan.listenup.domain.BookProgress
 import com.calypsan.listenup.api.dto.image.ImageFrame
 import com.calypsan.listenup.client.domain.model.BookListItem
@@ -17,6 +18,39 @@ import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.core.Timestamp
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.hours
+
+/** Renders [ContributorDetailPage] with no-op callback defaults for specs. */
+@Composable
+@Suppress("LongParameterList")
+internal fun testContributorDetailPage(
+    state: ContributorDetailUiState,
+    onOpenLibrary: () -> Unit = {},
+    onOpenContributors: () -> Unit = {},
+    onOpenBook: (String) -> Unit = {},
+    onOpenSeries: (String) -> Unit = {},
+    onOpenRoleBooks: (String) -> Unit = {},
+    onEdit: () -> Unit = {},
+    onMatchMetadata: () -> Unit = {},
+    onConfirmDelete: () -> Unit = {},
+    onDismissDeleteError: () -> Unit = {},
+    onAdjustPhoto: (ImageFrame) -> Unit = {},
+    onPhotoAdjusted: () -> Unit = {},
+) {
+    ContributorDetailPage(
+        state = state,
+        onOpenLibrary = onOpenLibrary,
+        onOpenContributors = onOpenContributors,
+        onOpenBook = onOpenBook,
+        onOpenSeries = onOpenSeries,
+        onOpenRoleBooks = onOpenRoleBooks,
+        onEdit = onEdit,
+        onMatchMetadata = onMatchMetadata,
+        onConfirmDelete = onConfirmDelete,
+        onDismissDeleteError = onDismissDeleteError,
+        onAdjustPhoto = onAdjustPhoto,
+        onPhotoAdjusted = onPhotoAdjusted,
+    )
+}
 
 /**
  * A loaded contributor, for specs about the hero, role panels and series cards.

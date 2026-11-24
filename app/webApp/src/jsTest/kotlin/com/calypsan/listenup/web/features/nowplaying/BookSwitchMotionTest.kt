@@ -32,14 +32,9 @@ class BookSwitchMotionTest :
 
         fun mount(): HTMLElement =
             mounts.mount {
-                TransportBar(
+                testTransportBar(
                     state = state.value,
                     progress = playerProgress(),
-                    onPrimary = {},
-                    onSeek = {},
-                    onSkipBack = {},
-                    onSkipForward = {},
-                    onSetSpeed = {},
                 )
             }
 

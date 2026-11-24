@@ -57,12 +57,8 @@ class BookDetailHeldTest :
             onEditChapters: () -> Unit = {},
         ): HTMLElement =
             mounts.mount {
-                BookDetailPage(
+                testBookDetailPage(
                     state = state,
-                    onPlayFromChapter = {},
-                    onOpenLibrary = {},
-                    onPlay = {},
-                    onRetryConnection = {},
                     onEdit = onEdit,
                     onMatchMetadata = onMatch,
                     onEditChapters = onEditChapters,
@@ -184,12 +180,8 @@ class BookDetailHeldTest :
             fun sidePanels(state: BookDetailUiState): List<String?> {
                 val host =
                     mounts.mount {
-                        BookDetailPage(
+                        testBookDetailPage(
                             state = state,
-                            onPlayFromChapter = {},
-                            onOpenLibrary = {},
-                            onPlay = {},
-                            onRetryConnection = {},
                             ratings = loadedRatings(),
                             hardcover = BookHardcoverUiState.Linked(HELD_MATCH, HardcoverBookSync.UP_TO_DATE),
                             readers = readersData(reader(userId = "u1", progressPct = 40)),
@@ -209,12 +201,8 @@ class BookDetailHeldTest :
             var state by mutableStateOf<BookDetailUiState>(held)
             val host =
                 mounts.mount {
-                    BookDetailPage(
+                    testBookDetailPage(
                         state = state,
-                        onPlayFromChapter = {},
-                        onOpenLibrary = {},
-                        onPlay = {},
-                        onRetryConnection = {},
                         onReleaseFromInbox = { state = held.copy(isHeld = false, canPlay = true) },
                     )
                 }

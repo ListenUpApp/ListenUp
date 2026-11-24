@@ -189,3 +189,40 @@ internal fun nothingSlot(candidate: NextInSeries? = nextBook()): HomeSlot.Nothin
 /** A new listener, with [covers] of the newest books. */
 internal fun welcomeSlot(covers: Int = 4): HomeSlot.NewListener =
     HomeSlot.NewListener(covers = (1..covers).map { ShelfCover("new$it", coverPath = null, coverHash = null) })
+
+/** Builds a [HomeActions] with no-op defaults so specs override only the callbacks they assert. */
+@Suppress("LongParameterList")
+internal fun homeActions(
+    onOpenBook: (String) -> Unit = {},
+    onPlay: (String) -> Unit = {},
+    onOpenLibrary: () -> Unit = {},
+    onOpenDiscover: () -> Unit = {},
+    onOpenShelf: (String) -> Unit = {},
+    onCreateShelf: () -> Unit = {},
+    onRetry: () -> Unit = {},
+    onRetryStats: () -> Unit = {},
+    onOpenReaders: (String) -> Unit = {},
+    onDismissFinished: (String) -> Unit = {},
+    onRateFinished: (String, Int) -> Unit = { _, _ -> },
+    onRetryConnection: () -> Unit = {},
+    onOpenInProgress: () -> Unit = {},
+    onOpenLeaderboard: () -> Unit = {},
+    onSeeAllShelves: () -> Unit = {},
+): HomeActions =
+    HomeActions(
+        onOpenBook = onOpenBook,
+        onPlay = onPlay,
+        onOpenLibrary = onOpenLibrary,
+        onOpenDiscover = onOpenDiscover,
+        onOpenShelf = onOpenShelf,
+        onCreateShelf = onCreateShelf,
+        onRetry = onRetry,
+        onRetryStats = onRetryStats,
+        onOpenReaders = onOpenReaders,
+        onDismissFinished = onDismissFinished,
+        onRateFinished = onRateFinished,
+        onRetryConnection = onRetryConnection,
+        onOpenInProgress = onOpenInProgress,
+        onOpenLeaderboard = onOpenLeaderboard,
+        onSeeAllShelves = onSeeAllShelves,
+    )

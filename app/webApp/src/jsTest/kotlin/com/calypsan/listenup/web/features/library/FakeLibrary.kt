@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web.features.library
 
+import androidx.compose.runtime.Composable
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.ContributorWithBookCount
 import com.calypsan.listenup.client.domain.model.SeriesProgress
@@ -9,6 +10,7 @@ import com.calypsan.listenup.client.presentation.library.BookCardStatus
 import com.calypsan.listenup.client.presentation.library.BookStatusCounts
 import com.calypsan.listenup.client.presentation.library.BookStatusFilter
 import com.calypsan.listenup.client.presentation.library.LetterSection
+import com.calypsan.listenup.client.presentation.library.LibraryUiEvent
 import com.calypsan.listenup.client.presentation.library.LibraryUiState
 import com.calypsan.listenup.client.presentation.library.SortCategory
 import com.calypsan.listenup.client.presentation.library.SortDirection
@@ -18,6 +20,10 @@ import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.core.Timestamp
+import com.calypsan.listenup.web.design.LibraryFacet
+import com.calypsan.listenup.web.features.admin.InboxBadgeState
+import com.calypsan.listenup.web.features.bookdetail.ShareOutcome
+import com.calypsan.listenup.web.features.books.BookSelection
 import kotlinx.coroutines.flow.MutableStateFlow
 
 /**
@@ -28,7 +34,70 @@ import kotlinx.coroutines.flow.MutableStateFlow
  * reason [OpenLibrary] is a seam rather than a direct ViewModel lookup.
  */
 fun fakeLibrary(state: LibraryUiState = LibraryUiState.Loading): OpenLibrary =
-    { LibrarySession(state = MutableStateFlow(state), onEvent = {}, close = {}) }
+    {
+        LibrarySession(
+            state = MutableStateFlow(state),
+            onEvent = {},
+            close = {},
+            onShareBook = { _, _ -> ShareOutcome.FAILED },
+        )
+    }
+
+/** Renders [LibraryPage] with no-op callback defaults for specs. */
+@Composable
+@Suppress("LongParameterList")
+internal fun testLibraryPage(
+    state: LibraryUiState,
+    onEvent: (LibraryUiEvent) -> Unit = {},
+    onOpenBook: (String) -> Unit = {},
+    onSelectFacet: (LibraryFacet) -> Unit = {},
+    heroBookId: String? = null,
+    selecting: Boolean = false,
+    selectedIds: Set<String> = emptySet(),
+    onToggleSelect: (String) -> Unit = {},
+    onStartSelecting: (() -> Unit)? = null,
+    inbox: InboxBadgeState = InboxBadgeState(),
+    onOpenInbox: () -> Unit = {},
+    bookMenu: LibraryBookMenuSource? = null,
+) {
+    LibraryPage(
+        state = state,
+        onEvent = onEvent,
+        onOpenBook = onOpenBook,
+        onSelectFacet = onSelectFacet,
+        heroBookId = heroBookId,
+        selecting = selecting,
+        selectedIds = selectedIds,
+        onToggleSelect = onToggleSelect,
+        onStartSelecting = onStartSelecting,
+        inbox = inbox,
+        onOpenInbox = onOpenInbox,
+        bookMenu = bookMenu,
+    )
+}
+
+/** Builds a [BookSelection] with no-op callback defaults for specs. */
+@Suppress("LongParameterList")
+internal fun testBookSelection(
+    isSelecting: Boolean = false,
+    selectedIds: Set<String> = emptySet(),
+    onToggle: (String) -> Unit = {},
+    onStart: () -> Unit = {},
+    onShelveOne: (String) -> Unit = {},
+    onCollectOne: (String) -> Unit = {},
+    onStartWith: (String) -> Unit = {},
+    isAdmin: Boolean = false,
+): BookSelection =
+    BookSelection(
+        isSelecting = isSelecting,
+        selectedIds = selectedIds,
+        onToggle = onToggle,
+        onStart = onStart,
+        onShelveOne = onShelveOne,
+        onCollectOne = onCollectOne,
+        onStartWith = onStartWith,
+        isAdmin = isAdmin,
+    )
 
 /**
  * A `Loaded` state for specs that need one but do not care about most of it — the class contract

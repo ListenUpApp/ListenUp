@@ -8,7 +8,7 @@ import com.calypsan.listenup.client.presentation.bookdetail.BookRatingsUiState
 import com.calypsan.listenup.client.presentation.bookdetail.PrimaryAction
 import com.calypsan.listenup.web.MountRegistry
 import com.calypsan.listenup.web.awaitFrame
-import com.calypsan.listenup.web.features.ratings.RatingsPanel
+import com.calypsan.listenup.web.features.ratings.testRatingsPanel
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -37,11 +37,9 @@ class BookDetailStatesTest :
             onOpenFiles: () -> Unit = {},
         ): HTMLElement =
             mounts.mount {
-                BookDetailPage(
+                testBookDetailPage(
                     state = state,
-                    onPlayFromChapter = {},
                     onOpenLibrary = onOpenLibrary,
-                    onPlay = {},
                     onRetryConnection = onRetryConnection,
                     onOpenFiles = onOpenFiles,
                 )
@@ -134,7 +132,7 @@ class BookDetailStatesTest :
         test("a finished reader is asked how it was, and to leave a note for their listeners") {
             val host =
                 mounts.mount {
-                    RatingsPanel(
+                    testRatingsPanel(
                         state =
                             BookRatingsUiState.Ready(
                                 listeners = null,
@@ -152,9 +150,6 @@ class BookDetailStatesTest :
                                 isRefreshingExternal = false,
                                 isCheckingExternal = false,
                             ),
-                        onSetStars = {},
-                        onRate = { _, _ -> },
-                        onClear = {},
                         isFinished = true,
                     )
                 }

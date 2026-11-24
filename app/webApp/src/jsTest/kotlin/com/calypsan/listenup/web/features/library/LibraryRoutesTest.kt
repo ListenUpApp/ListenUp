@@ -16,7 +16,7 @@ class LibraryRoutesTest :
 
         test("sort=added-desc asks for newest first, exactly once") {
             val sent = mutableListOf<LibraryUiEvent>()
-            mounts.mount { LibrarySortLanding(sortQuery = "added-desc", onEvent = { sent += it }) }
+            mounts.mount { LibrarySortLanding(sortQuery = "added-desc", onEvent = { sent += it }, onApplied = {}) }
             awaitFrame()
             awaitFrame()
 
@@ -25,7 +25,7 @@ class LibraryRoutesTest :
 
         test("no sort query asks for nothing, so the reader's own sort stands") {
             val sent = mutableListOf<LibraryUiEvent>()
-            mounts.mount { LibrarySortLanding(sortQuery = null, onEvent = { sent += it }) }
+            mounts.mount { LibrarySortLanding(sortQuery = null, onEvent = { sent += it }, onApplied = {}) }
             awaitFrame()
 
             sent.shouldBeEmpty()
@@ -33,7 +33,7 @@ class LibraryRoutesTest :
 
         test("status=in-progress filters the Books to In progress, exactly once") {
             val sent = mutableListOf<LibraryUiEvent>()
-            mounts.mount { LibraryStatusLanding(statusQuery = "in-progress", onEvent = { sent += it }) }
+            mounts.mount { LibraryStatusLanding(statusQuery = "in-progress", onEvent = { sent += it }, onApplied = {}) }
             awaitFrame()
             awaitFrame()
 
@@ -53,8 +53,8 @@ class LibraryRoutesTest :
 
         test("no status query, or an unknown one, asks for nothing") {
             val sent = mutableListOf<LibraryUiEvent>()
-            mounts.mount { LibraryStatusLanding(statusQuery = null, onEvent = { sent += it }) }
-            mounts.mount { LibraryStatusLanding(statusQuery = "finished-ish", onEvent = { sent += it }) }
+            mounts.mount { LibraryStatusLanding(statusQuery = null, onEvent = { sent += it }, onApplied = {}) }
+            mounts.mount { LibraryStatusLanding(statusQuery = "finished-ish", onEvent = { sent += it }, onApplied = {}) }
             awaitFrame()
 
             sent.shouldBeEmpty()
@@ -62,7 +62,7 @@ class LibraryRoutesTest :
 
         test("an unknown sort is ignored") {
             val sent = mutableListOf<LibraryUiEvent>()
-            mounts.mount { LibrarySortLanding(sortQuery = "title", onEvent = { sent += it }) }
+            mounts.mount { LibrarySortLanding(sortQuery = "title", onEvent = { sent += it }, onApplied = {}) }
             awaitFrame()
 
             sent.shouldBeEmpty()

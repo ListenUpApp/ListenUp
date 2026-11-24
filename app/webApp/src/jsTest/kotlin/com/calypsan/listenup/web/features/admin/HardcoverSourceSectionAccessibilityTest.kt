@@ -179,16 +179,8 @@ class HardcoverSourceSectionAccessibilityTest :
             val frame =
                 frames.mount(SMALL_PHONE) {
                     InShell {
-                        ServerSettingsPage(
+                        testServerSettingsPage(
                             state = readyServerSettings().copy(hardcoverSource = SAVED),
-                            onServerName = {},
-                            onRemoteUrl = {},
-                            onHoldNewBooks = {},
-                            onPushNotifications = {},
-                            onSave = {},
-                            onClearError = {},
-                            onRetry = {},
-                            onOpenAdmin = {},
                         )
                     }
                 }

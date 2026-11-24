@@ -29,7 +29,7 @@ class HomeQuietSlotsTest :
                 mounts.mount {
                     NothingInProgressSlot(
                         nothingSlot(nextBook("wor")),
-                        HomeActions.None.copy(onPlay = { played = it }, onOpenLibrary = { browsed = true }),
+                        homeActions(onPlay = { played = it }, onOpenLibrary = { browsed = true }),
                     )
                 }
             host.textContent.orEmpty() shouldContain "Nothing in progress"
@@ -48,7 +48,7 @@ class HomeQuietSlotsTest :
                 mounts.mount {
                     NothingInProgressSlot(
                         nothingSlot(null),
-                        HomeActions.None.copy(onOpenDiscover = { discovered = true }),
+                        homeActions(onOpenDiscover = { discovered = true }),
                     )
                 }
             host.buttonsLabelled("Play").size shouldBe 0
@@ -60,7 +60,7 @@ class HomeQuietSlotsTest :
         test("the welcome invites, counts nothing, and greets by name") {
             val page =
                 mounts.mount {
-                    HomePage(readyHome(slot = welcomeSlot(4), firstName = "Simon"), HomeStatsUiState.Empty, HomeActions.None)
+                    HomePage(readyHome(slot = welcomeSlot(4), firstName = "Simon"), HomeStatsUiState.Empty, homeActions())
                 }
             (page.querySelector(".page-t") as HTMLElement).textContent shouldBe "Welcome, Simon"
             page.textContent.orEmpty() shouldContain "Pick something new"

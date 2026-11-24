@@ -36,13 +36,9 @@ class BookDetailHeroTest :
             onAddToShelf: () -> Unit = {},
         ): HTMLElement =
             mounts.mount {
-                BookDetailPage(
+                testBookDetailPage(
                     state = state,
-                    onPlayFromChapter = {},
-                    onOpenLibrary = {},
-                    onPlay = {},
-                    onRetryConnection = {},
-                    pickers = BookPickers(onShowShelfPicker = onAddToShelf),
+                    pickers = bookPickers(onShowShelfPicker = onAddToShelf),
                 )
             }
 

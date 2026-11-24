@@ -25,10 +25,10 @@ import org.w3c.dom.HTMLElement
 fun TransportBarHost(
     playback: PlaybackSession,
     onOpenBook: (String) -> Unit,
-    onOpenInbox: () -> Unit = {},
+    onOpenInbox: () -> Unit,
     isNowPlayingOpen: Boolean = false,
-    onOpenNowPlaying: (opener: HTMLElement?) -> Unit = {},
-    onCloseNowPlaying: () -> Unit = {},
+    onOpenNowPlaying: (opener: HTMLElement?) -> Unit,
+    onCloseNowPlaying: () -> Unit,
     onFocusChapters: (() -> Unit)? = null,
 ) {
     val openBook by rememberUpdatedState(onOpenBook)

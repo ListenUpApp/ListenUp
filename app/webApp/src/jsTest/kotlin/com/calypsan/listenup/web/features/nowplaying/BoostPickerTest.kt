@@ -20,14 +20,9 @@ private fun boostBar(
     volumeBoostDb: Float = OFF,
     onSetBoost: (Float) -> Unit = {},
 ) {
-    TransportBar(
+    testTransportBar(
         state = loadedPlayerState(durationMs = BOOK_MS, boostDb = volumeBoostDb),
         progress = playerProgress(durationMs = BOOK_MS),
-        onPrimary = {},
-        onSeek = {},
-        onSkipBack = {},
-        onSkipForward = {},
-        onSetSpeed = {},
         onSetBoost = onSetBoost,
     )
 }
@@ -234,7 +229,7 @@ class BoostBarTest :
                                 currentChapterIndex = if (chapters) 0 else null,
                             ),
                         progress = playerProgress(durationMs = BOOK_MS),
-                        actions = NowPlayingActions(onSetBoost = onSetBoost),
+                        actions = nowPlayingActions(onSetBoost = onSetBoost),
                     )
                 }
             }

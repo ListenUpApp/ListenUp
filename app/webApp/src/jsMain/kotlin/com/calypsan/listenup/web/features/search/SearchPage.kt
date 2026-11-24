@@ -63,7 +63,7 @@ fun SearchPage(
     onOpenHit: (SearchHit) -> Unit,
     onRetry: () -> Unit,
     openableTypes: Set<SearchHitType>,
-    onSeeAll: (SearchHitType) -> Unit = {},
+    onSeeAll: (SearchHitType) -> Unit,
 ) {
     Div(attrs = { classes("search-page") }) {
         PageHeader(title = "Search")

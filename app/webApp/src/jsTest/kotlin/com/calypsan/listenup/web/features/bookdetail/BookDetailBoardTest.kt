@@ -16,7 +16,7 @@ class BookDetailBoardTest :
         suspend fun render(): HTMLElement {
             val root =
                 mounts.mount {
-                    BookDetailPage(state = readyBook(), onPlayFromChapter = {}, onOpenLibrary = {}, onPlay = {}, onRetryConnection = {})
+                    testBookDetailPage(state = readyBook())
                 }
             awaitFrame()
             return root

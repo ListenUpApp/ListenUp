@@ -7,6 +7,7 @@ import com.calypsan.listenup.client.presentation.library.BookStatusFilter
 import com.calypsan.listenup.client.presentation.library.LibraryUiEvent
 import com.calypsan.listenup.client.presentation.library.LibraryUiState
 import com.calypsan.listenup.web.MountRegistry
+import com.calypsan.listenup.web.features.bookdetail.ShareOutcome
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,7 +31,12 @@ class LibraryStatusFiltersTest :
             val sent = mutableListOf<LibraryUiEvent>()
             val open =
                 rememberingStatusFilter {
-                    LibrarySession(state = MutableStateFlow<LibraryUiState>(LibraryUiState.Loading), onEvent = { sent += it }, close = {})
+                    LibrarySession(
+                        state = MutableStateFlow<LibraryUiState>(LibraryUiState.Loading),
+                        onEvent = { sent += it },
+                        close = {},
+                        onShareBook = { _, _ -> ShareOutcome.FAILED },
+                    )
                 }
             open().onEvent(LibraryUiEvent.StatusFilterChanged(BookStatusFilter.FINISHED))
             sent.clear()
@@ -42,7 +48,14 @@ class LibraryStatusFiltersTest :
 
         test("a first session sends nothing: All is the ViewModel's own default") {
             val sent = mutableListOf<LibraryUiEvent>()
-            rememberingStatusFilter { LibrarySession(MutableStateFlow(LibraryUiState.Loading), { sent += it }, {}) }()
+            rememberingStatusFilter {
+                LibrarySession(
+                    state = MutableStateFlow(LibraryUiState.Loading),
+                    onEvent = { sent += it },
+                    close = {},
+                    onShareBook = { _, _ -> ShareOutcome.FAILED },
+                )
+            }()
             sent shouldBe emptyList()
         }
 

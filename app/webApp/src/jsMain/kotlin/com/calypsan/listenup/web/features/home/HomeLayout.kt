@@ -29,26 +29,20 @@ data class HomeActions(
     /** Re-runs failed stats, without touching the rest of the page. */
     val onRetryStats: () -> Unit,
     /** Opens a finished book with its readers in view (the finishers line). */
-    val onOpenReaders: (String) -> Unit = {},
+    val onOpenReaders: (String) -> Unit,
     /** Dismisses a book's just-finished card on every device. */
-    val onDismissFinished: (String) -> Unit = {},
+    val onDismissFinished: (String) -> Unit,
     /** Rates a finished book on the 2..10 half-star scale. */
-    val onRateFinished: (String, Int) -> Unit = { _, _ -> },
+    val onRateFinished: (String, Int) -> Unit,
     /** Asks for the server again (the "Can't reach your server" notice's Retry). */
-    val onRetryConnection: () -> Unit = {},
+    val onRetryConnection: () -> Unit,
     /** Opens the Library filtered to In progress: Everything in progress's "In Library". */
-    val onOpenInProgress: () -> Unit = {},
+    val onOpenInProgress: () -> Unit,
     /** Opens Discover's leaderboard on Week: the stats footer. */
-    val onOpenLeaderboard: () -> Unit = {},
+    val onOpenLeaderboard: () -> Unit,
     /** Opens the My shelves list: My shelves' See all. */
-    val onSeeAllShelves: () -> Unit = {},
-) {
-    /** Holds [None]. */
-    companion object {
-        /** For specs that press nothing. */
-        val None = HomeActions({}, {}, {}, {}, {}, {}, {}, {})
-    }
-}
+    val onSeeAllShelves: () -> Unit,
+)
 
 /**
  * "Good evening, Simon": worded here, never by the ViewModel. A new listener is greeted

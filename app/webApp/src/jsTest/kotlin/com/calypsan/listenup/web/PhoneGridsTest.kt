@@ -11,12 +11,12 @@ import com.calypsan.listenup.client.presentation.library.SortCategory
 import com.calypsan.listenup.client.presentation.library.SortDirection
 import com.calypsan.listenup.client.presentation.library.SortState
 import com.calypsan.listenup.web.features.bookedit.BookEditPage
-import com.calypsan.listenup.web.features.contributordetail.ContributorDetailPage
 import com.calypsan.listenup.web.features.contributordetail.bookItem
 import com.calypsan.listenup.web.features.contributordetail.readyContributor
 import com.calypsan.listenup.web.features.contributordetail.roleSection
 import com.calypsan.listenup.web.features.contributordetail.seriesWithBooks
-import com.calypsan.listenup.web.features.library.LibraryPage
+import com.calypsan.listenup.web.features.contributordetail.testContributorDetailPage
+import com.calypsan.listenup.web.features.library.testLibraryPage
 import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.doubles.shouldBeGreaterThanOrEqual
@@ -43,19 +43,13 @@ class PhoneGridsTest :
         fun contributor(width: Int) =
             frames.mount(width) {
                 InShell {
-                    ContributorDetailPage(
-                        onAdjustPhoto = {},
+                    testContributorDetailPage(
                         state =
                             readyContributor(
                                 roleSections =
                                     listOf(roleSection(previewBooks = (1..10).map { bookItem("b$it", "Book number $it") })),
                                 series = listOf(seriesWithBooks(name = "The Dark Tower, told in seven long books")),
                             ),
-                        onOpenLibrary = {},
-                        onOpenContributors = {},
-                        onOpenBook = {},
-                        onConfirmDelete = {},
-                        onDismissDeleteError = {},
                     )
                 }
             }
@@ -112,7 +106,7 @@ class PhoneGridsTest :
             test("at ${width}px the library shows covers two abreast") {
                 val frame =
                     frames.mount(width) {
-                        InShell { LibraryPage(state = library(), onEvent = {}, onOpenBook = {}, onSelectFacet = {}) }
+                        InShell { testLibraryPage(state = library()) }
                     }
                 awaitFrame()
 

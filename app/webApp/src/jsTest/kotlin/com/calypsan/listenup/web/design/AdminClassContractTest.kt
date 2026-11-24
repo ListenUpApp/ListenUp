@@ -49,10 +49,13 @@ import com.calypsan.listenup.web.features.admin.CreateInvitePage
 import com.calypsan.listenup.web.features.admin.ImportFlowPage
 import com.calypsan.listenup.web.features.admin.ImportsPage
 import com.calypsan.listenup.web.features.admin.LibrarySettingsPage
-import com.calypsan.listenup.web.features.admin.MergeHistoryActions
 import com.calypsan.listenup.web.features.admin.OrganizePage
-import com.calypsan.listenup.web.features.admin.PermissionsPanelActions
 import com.calypsan.listenup.web.features.admin.RestorePage
+import com.calypsan.listenup.web.features.admin.mergeHistoryActions
+import com.calypsan.listenup.web.features.admin.permissionsPanelActions
+import com.calypsan.listenup.web.features.admin.testAdminInboxPage
+import com.calypsan.listenup.web.features.admin.testAdminPage
+import com.calypsan.listenup.web.features.admin.testServerSettingsPage
 import com.calypsan.listenup.web.features.admin.ServerSettingsPage
 import com.calypsan.listenup.web.features.admin.UploadPage
 import com.calypsan.listenup.web.features.admin.UserDetailPage
@@ -201,10 +204,7 @@ private fun librarySettingsShapes(): Map<String, @Composable () -> Unit> {
  * renders), and the two states with no profile at all.
  */
 private fun inboxShapes(): Map<String, @Composable () -> Unit> {
-    fun page(state: AdminInboxUiState): @Composable () -> Unit =
-        {
-            AdminInboxPage(state, {}, {}, {}, {}, {}, {}, {}, {}, {})
-        }
+    fun page(state: AdminInboxUiState): @Composable () -> Unit = { testAdminInboxPage(state) }
 
     return shapes(
         // Both halves populated, a row selected (so the bulk bar and the tick render), and both
@@ -231,20 +231,7 @@ private fun inboxShapes(): Map<String, @Composable () -> Unit> {
 }
 
 private fun serverSettingsShapes(): Map<String, @Composable () -> Unit> {
-    fun page(state: AdminSettingsUiState): @Composable () -> Unit =
-        {
-            ServerSettingsPage(
-                state = state,
-                onServerName = {},
-                onRemoteUrl = {},
-                onHoldNewBooks = {},
-                onPushNotifications = {},
-                onSave = {},
-                onClearError = {},
-                onRetry = {},
-                onOpenAdmin = {},
-            )
-        }
+    fun page(state: AdminSettingsUiState): @Composable () -> Unit = { testServerSettingsPage(state) }
 
     return shapes(
         // Dirty and wearing a failed write — `.srv-err` renders nowhere else.
@@ -288,7 +275,7 @@ private fun categoryShapes(): Map<String, @Composable () -> Unit> {
                 {},
                 {},
                 null,
-                MergeHistoryActions.None,
+                mergeHistoryActions(),
             )
         }
 
@@ -329,7 +316,7 @@ private fun peopleShapes(): Map<String, @Composable () -> Unit> {
         permissions: UserPermissionsUiState = permissionsReady(),
     ): @Composable () -> Unit =
         {
-            UserDetailPage(state = state, permissions = permissions, actions = PermissionsPanelActions(), onRetry = {}, onOpenAdmin = {})
+            UserDetailPage(state = state, permissions = permissions, actions = permissionsPanelActions(), onRetry = {}, onOpenAdmin = {})
         }
 
     return shapes(
@@ -558,7 +545,7 @@ private fun adminShapes(): Map<String, @Composable () -> Unit> {
         createdAt = "2026-01-01",
     )
 
-    fun page(state: AdminUiState): @Composable () -> Unit = { AdminPage(state, 0L, {}, {}, {}, {}, { _, _ -> }, {}, {}, {}, {}, {}) }
+    fun page(state: AdminUiState): @Composable () -> Unit = { testAdminPage(state) }
 
     return shapes(
         "admin #1: page(AdminUiState.Loading)" to page(AdminUiState.Loading),

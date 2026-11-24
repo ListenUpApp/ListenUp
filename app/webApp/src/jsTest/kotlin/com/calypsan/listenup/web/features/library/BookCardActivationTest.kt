@@ -27,7 +27,7 @@ class BookCardActivationTest :
             onOpenBook: (String) -> Unit,
         ): HTMLElement =
             mounts.mount {
-                LibraryPage(state = state, onEvent = {}, onOpenBook = { onOpenBook(it) }, onSelectFacet = {})
+                testLibraryPage(state = state, onOpenBook = { onOpenBook(it) })
             }
 
         fun EventTarget.press(key: String) {

@@ -72,11 +72,9 @@ class LibraryBookMenuTest :
             val books = listOf(contractBook("b1", "Dune"))
             val root =
                 mounts.mount {
-                    LibraryPage(
+                    testLibraryPage(
                         state = contractLibrary(books),
-                        onEvent = {},
                         onOpenBook = { opened += it },
-                        onSelectFacet = {},
                         bookMenu = source(),
                     )
                 }
@@ -96,11 +94,8 @@ class LibraryBookMenuTest :
         test("a card with a menu says so to assistive technology, and one without does not") {
             val withMenu =
                 mounts.mount {
-                    LibraryPage(
+                    testLibraryPage(
                         state = contractLibrary(listOf(contractBook("b1", "Dune"))),
-                        onEvent = {},
-                        onOpenBook = {},
-                        onSelectFacet = {},
                         bookMenu = source(),
                     )
                 }
@@ -108,11 +103,8 @@ class LibraryBookMenuTest :
 
             val without =
                 mounts.mount {
-                    LibraryPage(
+                    testLibraryPage(
                         state = contractLibrary(listOf(contractBook("b1", "Dune"))),
-                        onEvent = {},
-                        onOpenBook = {},
-                        onSelectFacet = {},
                     )
                 }
             (without.querySelector(".lib-card") as HTMLElement).getAttribute("aria-haspopup") shouldBe null
@@ -121,11 +113,8 @@ class LibraryBookMenuTest :
         test("choosing Select starts selecting with that book") {
             val root =
                 mounts.mount {
-                    LibraryPage(
+                    testLibraryPage(
                         state = contractLibrary(listOf(contractBook("b1", "Dune"))),
-                        onEvent = {},
-                        onOpenBook = {},
-                        onSelectFacet = {},
                         bookMenu = source(),
                     )
                 }
@@ -144,14 +133,11 @@ class LibraryBookMenuTest :
         test("Share passes the book's title, and an admin's Edit details its id") {
             val root =
                 mounts.mount {
-                    LibraryPage(
+                    testLibraryPage(
                         state =
                             contractLibrary(listOf(contractBook("b1", "Dune"))).let { state ->
                                 state.copy(bookStatus = mapOf(state.books[0].id to BookCardStatus.NotStarted(durationMs = 1L)))
                             },
-                        onEvent = {},
-                        onOpenBook = {},
-                        onSelectFacet = {},
                         bookMenu = source(isAdmin = true),
                     )
                 }
@@ -179,11 +165,8 @@ class LibraryBookMenuTest :
         test("while selecting, a card has no menu: it is a checkbox") {
             val root =
                 mounts.mount {
-                    LibraryPage(
+                    testLibraryPage(
                         state = contractLibrary(listOf(contractBook("b1", "Dune"))),
-                        onEvent = {},
-                        onOpenBook = {},
-                        onSelectFacet = {},
                         selecting = true,
                         bookMenu = source(),
                     )

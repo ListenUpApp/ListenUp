@@ -12,12 +12,12 @@ import com.calypsan.listenup.client.presentation.player.PlayerContributor
 import com.calypsan.listenup.client.presentation.player.PlayerSeriesRef
 import com.calypsan.listenup.client.presentation.player.PrimaryControl
 import com.calypsan.listenup.web.features.admin.finished
-import com.calypsan.listenup.web.features.nowplaying.NowPlayingActions
 import com.calypsan.listenup.web.features.nowplaying.NowPlayingPage
-import com.calypsan.listenup.web.features.nowplaying.TransportBar
 import com.calypsan.listenup.web.features.nowplaying.chapterRows
 import com.calypsan.listenup.web.features.nowplaying.loadedPlayerState
+import com.calypsan.listenup.web.features.nowplaying.nowPlayingActions
 import com.calypsan.listenup.web.features.nowplaying.playerProgress
+import com.calypsan.listenup.web.features.nowplaying.testTransportBar
 import io.kotest.core.spec.style.FunSpec
 
 /**
@@ -56,7 +56,7 @@ private fun nowPlayingShapes(): Map<String, @Composable () -> Unit> =
             NowPlayingPage(
                 state = kings,
                 progress = playerProgress(positionMs = 61_000, durationMs = 3_600_000),
-                actions = NowPlayingActions(),
+                actions = nowPlayingActions(),
             )
             NowPlayingPage(
                 state =
@@ -67,7 +67,7 @@ private fun nowPlayingShapes(): Map<String, @Composable () -> Unit> =
                         authors = emptyList(),
                     ),
                 progress = playerProgress(),
-                actions = NowPlayingActions(),
+                actions = nowPlayingActions(),
             )
             NowPlayingPage(
                 state =
@@ -77,7 +77,7 @@ private fun nowPlayingShapes(): Map<String, @Composable () -> Unit> =
                         narrators = (1..5).map { PlayerContributor("n$it", "Narrator $it", 1) },
                     ),
                 progress = playerProgress(),
-                actions = NowPlayingActions(),
+                actions = nowPlayingActions(),
             )
             NowPlayingPage(
                 state =
@@ -86,7 +86,7 @@ private fun nowPlayingShapes(): Map<String, @Composable () -> Unit> =
                         primary = PrimaryControl.OpenInbox,
                     ),
                 progress = playerProgress(),
-                actions = NowPlayingActions(),
+                actions = nowPlayingActions(),
             )
             NowPlayingPage(
                 state =
@@ -115,7 +115,7 @@ private fun nowPlayingShapes(): Map<String, @Composable () -> Unit> =
                             SleepTimerState.Active(SleepTimerMode.Duration(30), remainingMs = 60_000, totalMs = 1_800_000, startedAt = 0),
                     ),
                 progress = playerProgress(),
-                actions = NowPlayingActions(),
+                actions = nowPlayingActions(),
             )
         },
     )
@@ -141,37 +141,22 @@ private fun playerShapes(): Map<String, @Composable () -> Unit> =
                     currentChapterIndex = 0,
                     boostDb = 6f,
                 )
-            TransportBar(
+            testTransportBar(
                 state = kings,
                 progress = playerProgress(positionMs = 61_000, durationMs = 3_600_000),
-                onPrimary = {},
-                onSeek = {},
-                onSkipBack = {},
-                onSkipForward = {},
-                onSetSpeed = {},
             )
             // A book whose prepare is in flight (the spinner) and one the browser refused to start (the ring).
-            TransportBar(
+            testTransportBar(
                 state = loadedPlayerState(phase = PlayerPhase.Preparing),
                 progress = playerProgress(),
-                onPrimary = {},
-                onSeek = {},
-                onSkipBack = {},
-                onSkipForward = {},
-                onSetSpeed = {},
             )
-            TransportBar(
+            testTransportBar(
                 state =
                     loadedPlayerState(
                         phase = PlayerPhase.Failed(PlaybackError.AutoplayBlocked()),
                         primary = PrimaryControl.TapToPlay,
                     ),
                 progress = playerProgress(),
-                onPrimary = {},
-                onSeek = {},
-                onSkipBack = {},
-                onSkipForward = {},
-                onSetSpeed = {},
             )
             // The bar's other faces: a failure to fix (tinted, Retry), the end (Listen again), an armed sleep
             // timer (the gold countdown), a revoked book (✕ Close) and the sleep fade (Keep listening).
@@ -182,14 +167,9 @@ private fun playerShapes(): Map<String, @Composable () -> Unit> =
                 loadedPlayerState(phase = PlayerPhase.Unavailable(PlaybackError.NoLongerAvailable()), primary = PrimaryControl.Close),
                 loadedPlayerState(phase = PlayerPhase.SleepFading),
             ).forEach { face ->
-                TransportBar(
+                testTransportBar(
                     state = face,
                     progress = playerProgress(),
-                    onPrimary = {},
-                    onSeek = {},
-                    onSkipBack = {},
-                    onSkipForward = {},
-                    onSetSpeed = {},
                 )
             }
             // The expanded player, rendered open. It cannot ride the bar above into

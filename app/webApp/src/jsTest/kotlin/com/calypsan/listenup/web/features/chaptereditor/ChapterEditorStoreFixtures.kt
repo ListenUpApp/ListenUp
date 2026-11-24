@@ -2,9 +2,26 @@ package com.calypsan.listenup.web.features.chaptereditor
 
 import com.calypsan.listenup.client.presentation.chaptereditor.ChapterEditorEvent
 import com.calypsan.listenup.client.presentation.chaptereditor.ChapterEditorUiState
+import com.calypsan.listenup.client.presentation.chaptereditor.ChapterMarkerTier
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
+
+/** Builds [ChapterMarkerCalls] with no-op defaults for specs. */
+fun chapterMarkerCalls(
+    onStart: (String, ChapterMarkerTier, String) -> Unit = { _, _, _ -> },
+    onSave: (String, ChapterMarkerTier, String, String) -> Unit = { _, _, _, _ -> },
+    onRemove: (String, ChapterMarkerTier) -> Unit = { _, _ -> },
+    onAcceptSuggestion: () -> Unit = {},
+    onDismissSuggestion: () -> Unit = {},
+): ChapterMarkerCalls =
+    ChapterMarkerCalls(
+        onStart = onStart,
+        onSave = onSave,
+        onRemove = onRemove,
+        onAcceptSuggestion = onAcceptSuggestion,
+        onDismissSuggestion = onDismissSuggestion,
+    )
 
 /** A session over a state that never changes — the shape specs pass in place of the graph. */
 @Suppress("LongParameterList")
@@ -28,7 +45,7 @@ fun fixedChapterEditor(
     onUndo: () -> Unit = {},
     onResetToSource: () -> Unit = {},
     onSave: () -> Unit = {},
-    markers: ChapterMarkerCalls = ChapterMarkerCalls(),
+    markers: ChapterMarkerCalls = chapterMarkerCalls(),
 ): OpenChapterEditor =
     {
         ChapterEditorSession(

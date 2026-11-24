@@ -16,8 +16,8 @@ import com.calypsan.listenup.web.ViewportFrames
 import com.calypsan.listenup.web.awaitFrame
 import com.calypsan.listenup.web.features.browse.GenreDestinationPage
 import com.calypsan.listenup.web.features.browse.genreReady
-import com.calypsan.listenup.web.features.contributors.ContributorsPage
 import com.calypsan.listenup.web.features.contributors.contributor
+import com.calypsan.listenup.web.features.contributors.testContributorsPage
 import com.calypsan.listenup.web.features.library.VirtualBookGrid
 import com.calypsan.listenup.web.features.library.contractBook
 import com.calypsan.listenup.web.features.library.contractLibrary
@@ -343,11 +343,9 @@ class VirtualListTest :
                 }
             val frame =
                 inShell {
-                    ContributorsPage(
+                    testContributorsPage(
                         state = people,
                         role = ContributorRole.AUTHOR,
-                        onSelectFacet = {},
-                        onOpenContributor = {},
                         letters = lettersOf(people.map { it.contributor.name }),
                     )
                 }

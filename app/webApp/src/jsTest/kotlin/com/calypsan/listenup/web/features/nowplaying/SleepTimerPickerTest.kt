@@ -372,14 +372,9 @@ class SleepTimerBarTest :
             // Unlike the chapters button: a duration timer needs nothing from the book.
             val host =
                 mount {
-                    TransportBar(
+                    testTransportBar(
                         state = loadedPlayerState(durationMs = SEGMENT_MS, chapters = emptyList()),
                         progress = playerProgress(durationMs = SEGMENT_MS),
-                        onPrimary = {},
-                        onSeek = {},
-                        onSkipBack = {},
-                        onSkipForward = {},
-                        onSetSpeed = {},
                     )
                 }
 
@@ -390,7 +385,7 @@ class SleepTimerBarTest :
             val endOfChapter = SleepTimerState.Active(SleepTimerMode.EndOfChapter, 0, 0, 0)
             val host =
                 mount {
-                    TransportBar(
+                    testTransportBar(
                         state =
                             loadedPlayerState(
                                 durationMs = 3_600_000,
@@ -399,11 +394,6 @@ class SleepTimerBarTest :
                                 sleepTimer = endOfChapter,
                             ),
                         progress = PlayerProgress(720_000, 1_200_000, 1_920_000, 3_600_000),
-                        onPrimary = {},
-                        onSeek = {},
-                        onSkipBack = {},
-                        onSkipForward = {},
-                        onSetSpeed = {},
                     )
                 }
 
@@ -417,14 +407,9 @@ class SleepTimerBarTest :
             // can feel broken rather than kind.
             val host =
                 mount {
-                    TransportBar(
+                    testTransportBar(
                         state = loadedPlayerState(durationMs = SEGMENT_MS, sleepTimer = running()),
                         progress = playerProgress(durationMs = SEGMENT_MS),
-                        onPrimary = {},
-                        onSeek = {},
-                        onSkipBack = {},
-                        onSkipForward = {},
-                        onSetSpeed = {},
                     )
                 }
 

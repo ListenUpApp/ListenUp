@@ -23,16 +23,16 @@ data class BookPickers(
     /** The subset of [myShelves] that already holds this book — marked in the picker, as on iOS. */
     val shelvesContainingBook: List<Shelf> = emptyList(),
     val collections: List<Collection> = emptyList(),
-    val onShowShelfPicker: () -> Unit = {},
-    val onHideShelfPicker: () -> Unit = {},
-    val onAddToShelf: (String) -> Unit = {},
-    val onCreateShelfAndAdd: (String) -> Unit = {},
-    val onClearShelfError: () -> Unit = {},
-    val onShowCollectionPicker: () -> Unit = {},
-    val onHideCollectionPicker: () -> Unit = {},
-    val onAddToCollection: (String) -> Unit = {},
-    val onCreateCollectionAndAdd: (String) -> Unit = {},
-    val onClearCollectionError: () -> Unit = {},
+    val onShowShelfPicker: () -> Unit,
+    val onHideShelfPicker: () -> Unit,
+    val onAddToShelf: (String) -> Unit,
+    val onCreateShelfAndAdd: (String) -> Unit,
+    val onClearShelfError: () -> Unit,
+    val onShowCollectionPicker: () -> Unit,
+    val onHideCollectionPicker: () -> Unit,
+    val onAddToCollection: (String) -> Unit,
+    val onCreateCollectionAndAdd: (String) -> Unit,
+    val onClearCollectionError: () -> Unit,
 )
 
 /**

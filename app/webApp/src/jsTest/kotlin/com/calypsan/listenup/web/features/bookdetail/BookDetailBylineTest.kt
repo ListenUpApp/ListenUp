@@ -26,13 +26,9 @@ class BookDetailBylineTest :
             onOpenContributor: (String) -> Unit = {},
         ): HTMLElement =
             mounts.mount {
-                BookDetailPage(
+                testBookDetailPage(
                     state = readyBook(authors = authors, narrators = narrators),
-                    onPlayFromChapter = {},
-                    onOpenLibrary = {},
-                    onPlay = {},
                     onOpenContributor = onOpenContributor,
-                    onRetryConnection = {},
                 )
             }
 

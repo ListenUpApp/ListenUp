@@ -30,7 +30,7 @@ class HomePhoneGeometryTest :
         fun home(width: Int): ViewportFrame =
             frames.mount(width) {
                 InShell {
-                    HomePage(readyHome(), weekStats(), HomeActions.None, isWide = false, selection = null)
+                    HomePage(readyHome(), weekStats(), homeActions(), isWide = false, selection = null)
                 }
             }
 
@@ -48,7 +48,7 @@ class HomePhoneGeometryTest :
                         HomePage(
                             readyHome(slot = finishedSlot()),
                             weekStats(),
-                            HomeActions.None,
+                            homeActions(),
                             isWide = false,
                             selection = null,
                         )

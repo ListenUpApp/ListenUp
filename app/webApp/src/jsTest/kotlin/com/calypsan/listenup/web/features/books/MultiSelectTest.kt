@@ -3,9 +3,9 @@ package com.calypsan.listenup.web.features.books
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.presentation.books.SelectionMode
 import com.calypsan.listenup.web.awaitFrame
-import com.calypsan.listenup.web.features.library.LibraryPage
 import com.calypsan.listenup.web.features.library.contractBook
 import com.calypsan.listenup.web.features.library.contractLibrary
+import com.calypsan.listenup.web.features.library.testLibraryPage
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.nulls.shouldBeNull
@@ -39,11 +39,9 @@ private fun library(
     document.body!!.appendChild(host)
     hosts += host
     renderComposable(root = host) {
-        LibraryPage(
+        testLibraryPage(
             state = contractLibrary(books = books),
-            onEvent = {},
             onOpenBook = onOpenBook,
-            onSelectFacet = {},
             selecting = selecting,
             selectedIds = selectedIds,
             onToggleSelect = onToggleSelect,

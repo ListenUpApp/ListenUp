@@ -63,11 +63,11 @@ fun LibraryPage(
     heroBookId: String? = null,
     selecting: Boolean = false,
     selectedIds: Set<String> = emptySet(),
-    onToggleSelect: (String) -> Unit = {},
+    onToggleSelect: (String) -> Unit,
     onStartSelecting: (() -> Unit)? = null,
     /** The held-for-review count and cover fan for the inbox strip; nothing held draws nothing. */
     inbox: InboxBadgeState = InboxBadgeState(),
-    onOpenInbox: () -> Unit = {},
+    onOpenInbox: () -> Unit,
     /** Each book's menu on right-click, the Menu key or a long press; null offers none. */
     bookMenu: LibraryBookMenuSource? = null,
 ) {

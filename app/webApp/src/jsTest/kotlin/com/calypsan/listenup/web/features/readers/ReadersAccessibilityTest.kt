@@ -61,6 +61,7 @@ class ReadersAccessibilityTest :
                         nowMs = READERS_NOW,
                         onOpenProfile = {},
                         onSeeAll = {},
+                        onLanded = {},
                     )
                 }
             awaitFrame()
@@ -89,6 +90,7 @@ class ReadersAccessibilityTest :
                         nowMs = READERS_NOW,
                         onOpenProfile = {},
                         onSeeAll = {},
+                        onLanded = {},
                     )
                 }
             awaitFrame()
@@ -115,6 +117,7 @@ class ReadersAccessibilityTest :
                             nowMs = READERS_NOW,
                             onOpenProfile = {},
                             onSeeAll = {},
+                            onLanded = {},
                         )
                     }
                 }

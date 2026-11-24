@@ -33,13 +33,9 @@ class BookDetailVisibilityTest :
 
         fun rendered(state: BookDetailUiState): HTMLElement =
             mounts.mount {
-                BookDetailPage(
+                testBookDetailPage(
                     state = state,
-                    onPlayFromChapter = {},
-                    onOpenLibrary = {},
-                    onPlay = {},
-                    onRetryConnection = {},
-                    pickers = BookPickers(onShowCollectionPicker = { pickers++ }),
+                    pickers = bookPickers(onShowCollectionPicker = { pickers++ }),
                     onRestoreToAllBooks = { restores++ },
                     onOpenCollection = { opened += it },
                 )
@@ -144,13 +140,7 @@ class BookDetailVisibilityTest :
                 var state by mutableStateOf<BookDetailUiState>(with(BookVisibility.Stranded))
                 val host =
                     mounts.mount {
-                        BookDetailPage(
-                            state = state,
-                            onPlayFromChapter = {},
-                            onOpenLibrary = {},
-                            onPlay = {},
-                            onRetryConnection = {},
-                        )
+                        testBookDetailPage(state = state)
                     }
 
                 button(host, "Show to all members").focus()

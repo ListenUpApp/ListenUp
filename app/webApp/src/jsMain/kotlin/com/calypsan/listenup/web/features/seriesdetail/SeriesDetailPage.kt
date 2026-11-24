@@ -62,13 +62,13 @@ fun SeriesDetailPage(
     state: SeriesDetailUiState,
     onOpenLibrary: () -> Unit,
     onOpenBook: (String) -> Unit,
-    onPlayBook: (String) -> Unit = {},
-    onEdit: () -> Unit = {},
-    onOpenSeries: (String) -> Unit = {},
-    onToggleSection: (String) -> Unit = {},
+    onPlayBook: (String) -> Unit,
+    onEdit: () -> Unit,
+    onOpenSeries: (String) -> Unit,
+    onToggleSection: (String) -> Unit,
     addSubSeries: AddSubSeriesUiState = AddSubSeriesUiState.Closed(),
-    onAddSubSeriesEvent: (AddSubSeriesEvent) -> Unit = {},
-    onOpenContributor: (String) -> Unit = {},
+    onAddSubSeriesEvent: (AddSubSeriesEvent) -> Unit,
+    onOpenContributor: (String) -> Unit,
 ) {
     Div(attrs = { classes("sd") }) {
         // Renders in every state, including the ones with no series: a page that cannot show what

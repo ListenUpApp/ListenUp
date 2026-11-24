@@ -34,13 +34,7 @@ class MergeHistoryActions(
     val close: () -> Unit,
     val undo: (MergeReceiptId) -> Unit,
     val retry: () -> Unit,
-) {
-    /** Factories. */
-    companion object {
-        /** Actions that do nothing — for pages drawn without a live ViewModel. */
-        val None = MergeHistoryActions(open = {}, close = {}, undo = {}, retry = {})
-    }
-}
+)
 
 /** How the page gets its state. Production resolves the real ViewModel; specs hand over a state. */
 typealias OpenCategories = () -> CategoriesSession

@@ -54,11 +54,11 @@ fun SettingsPage(
     onHideSingleBookSeries: (Boolean) -> Unit,
     onOpenDevices: () -> Unit,
     onOpenNotifications: () -> Unit,
-    onOpenLicences: () -> Unit = {},
+    onOpenLicences: () -> Unit,
     hardcoverRow: HardcoverRowState? = null,
-    onOpenHardcover: () -> Unit = {},
+    onOpenHardcover: () -> Unit,
     canCurateLibrary: Boolean = false,
-    onOpenCategories: () -> Unit = {},
+    onOpenCategories: () -> Unit,
     onDownloadLogs: (() -> Unit)? = null,
 ) {
     Div(attrs = { classes("set") }) {

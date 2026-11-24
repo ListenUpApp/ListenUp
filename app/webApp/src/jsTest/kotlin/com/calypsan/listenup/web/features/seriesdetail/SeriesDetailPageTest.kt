@@ -38,7 +38,7 @@ class SeriesDetailPageTest :
             onOpenContributor: (String) -> Unit = {},
         ): HTMLElement =
             mounts.mount {
-                SeriesDetailPage(
+                testSeriesDetailPage(
                     state = state,
                     onOpenLibrary = onOpenLibrary,
                     onOpenBook = onOpenBook,

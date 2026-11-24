@@ -34,12 +34,8 @@ class BookDetailDeleteTest :
             onClearDeleteError: () -> Unit = {},
         ): HTMLElement =
             mounts.mount {
-                BookDetailPage(
+                testBookDetailPage(
                     state = state(),
-                    onPlayFromChapter = {},
-                    onOpenLibrary = {},
-                    onPlay = {},
-                    onRetryConnection = {},
                     documents = sampleDocuments(),
                     onDeleteBook = onDeleteBook,
                     onClearDeleteError = onClearDeleteError,

@@ -49,7 +49,7 @@ class SearchPageTest :
             openableTypes: Set<SearchHitType> = SearchHitType.entries.toSet(),
         ): HTMLElement =
             mounts.mount {
-                SearchPage(
+                testSearchPage(
                     state = state,
                     onQueryChanged = onQueryChanged,
                     onToggleType = onToggleType,
