@@ -1,15 +1,14 @@
 package com.calypsan.listenup.server.services
 
-import com.calypsan.listenup.api.result.map
 import com.calypsan.listenup.api.dto.RecordPositionResult
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.result.map
 import com.calypsan.listenup.api.sync.PlaybackPositionSyncPayload
 import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.PlaybackPositionId
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
-import com.calypsan.listenup.server.db.sqldelight.Playback_positions
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.FirehoseSuppressed
@@ -18,35 +17,10 @@ import com.calypsan.listenup.server.sync.SqlSyncableRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.SyncableSubstrateQueries
 import com.calypsan.listenup.server.util.KeyedMutex
+import kotlinx.coroutines.currentCoroutineContext
 import kotlin.math.min
 import kotlin.time.Clock
-import kotlin.time.Instant
 import kotlin.uuid.Uuid
-import kotlinx.coroutines.currentCoroutineContext
-
-/**
- * One resolved progress row an ABS import intends to persist as a playback position — the batch
- * counterpart to a single [PlaybackPositionRepository.recordPosition] call's arguments. The importer
- * resolves every ABS `(user, item)` pair to one of these, then hands the whole list to
- * [PlaybackPositionRepository.recordAllForImport] so the writes commit in chunked transactions
- * instead of one read+write commit pair per row.
- *
- * [finishedAt] is when the source says the book was finished, if it says — it dates the finish in
- * place of [lastPlayedAt], exactly as a reader's picked day does on [PlaybackPositionRepository.recordPosition].
- */
-data class ImportPositionWrite(
-    val userId: String,
-    val bookId: String,
-    val positionMs: Long,
-    val lastPlayedAt: Long,
-    val finished: Boolean,
-    val playbackSpeed: Float,
-    val currentChapterId: String?,
-    val volumeBoostDb: Float = 0f,
-    val measuredGainDb: Float? = null,
-    val startedBookOccurredAt: Long? = null,
-    val finishedAt: Long? = null,
-)
 
 /**
  * SQLDelight syncable repository for per-user playback positions (Playback P1).
@@ -71,17 +45,16 @@ data class ImportPositionWrite(
  * `transactionWithResult` lambda, so the suspend [statsRecorder] and [activeSessionRepo] calls —
  * which open their own transactions — cannot nest inside it. Running each hook after the position
  * commits, on the single serialized SQLite connection, is `SQLITE_BUSY`-free. The flip/start
- * decision is taken with the
- * in-transaction `existed`/`priorFinished` view captured before the write, so it is unaffected by the
- * de-nesting.
+ * decision is taken with the in-transaction `existed`/`priorFinished` view captured before the write,
+ * so it is unaffected by the de-nesting.
  */
 class PlaybackPositionRepository(
     db: ListenUpDatabase,
     bus: ChangeBus,
     registry: SyncRegistry,
     clock: Clock = Clock.System,
-    private val statsRecorder: StatsRecorder? = null,
-    private val activeSessionRepo: ActiveSessionRepository? = null,
+    statsRecorder: StatsRecorder? = null,
+    activeSessionRepo: ActiveSessionRepository? = null,
 ) : SqlSyncableRepository<PlaybackPositionSyncPayload, PlaybackPositionId>(
         db = db,
         bus = bus,
@@ -97,6 +70,23 @@ class PlaybackPositionRepository(
      * server runs per data home.
      */
     private val saveLock = KeyedMutex()
+
+    private val cascade =
+        PlaybackPositionCascade(
+            statsRecorder = statsRecorder,
+            activeSessionRepo = activeSessionRepo,
+        )
+
+    private val importBatch =
+        PlaybackPositionImportBatch(
+            db = db,
+            clock = clock,
+            cascade = cascade,
+            findByBookIds = ::findByBookIds,
+            upsertInOpenTransaction = { value, suppressed, userId ->
+                upsertInOpenTransaction(value = value, suppressed = suppressed, clientOpId = null, userId = userId)
+            },
+        )
 
     override val userScoped: Boolean = true
 
@@ -388,43 +378,21 @@ class PlaybackPositionRepository(
                 is SaveOutcome.Settled -> return saved.result
                 is SaveOutcome.Written -> saved
             }
-        val priorFinished = existing?.finished == true
-
-        // De-nested cascade (post-commit). Fire the finished flip when false → true; the caller is
-        // responsible for detecting the flip condition. Each event routes through StatsRecorder,
+        // De-nested cascade (post-commit). Each event routes through StatsRecorder,
         // which runs its own fixed ordering in its own transactions.
-        if (finished && !priorFinished) {
-            activeSessionRepo?.deleteForUserBook(userId, bookId)
-            statsRecorder?.record(
-                StatsEvent.BookCompleted(
-                    userId = userId,
-                    bookId = bookId,
-                    occurredAt = Instant.fromEpochMilliseconds(resolvedFinishedAt ?: clampedLastPlayedAt),
-                    startedAt = resolvedStartedAt?.let(Instant::fromEpochMilliseconds),
-                ),
-            )
-        } else if (!finished) {
-            activeSessionRepo?.startOrRefresh(userId, bookId)
-            if (existing == null) {
-                statsRecorder?.record(
-                    StatsEvent.BookRestarted(
-                        userId = userId,
-                        bookId = bookId,
-                        occurredAt = Instant.fromEpochMilliseconds(startedBookOccurredAt ?: clampedLastPlayedAt),
-                        isReread = false,
-                    ),
-                )
-            } else if (priorFinished) {
-                statsRecorder?.record(
-                    StatsEvent.BookRestarted(
-                        userId = userId,
-                        bookId = bookId,
-                        occurredAt = Instant.fromEpochMilliseconds(startedBookOccurredAt ?: clampedLastPlayedAt),
-                        isReread = true,
-                    ),
-                )
-            }
-        }
+        cascade.fire(
+            PositionCascadeEvent(
+                userId = userId,
+                bookId = bookId,
+                finished = finished,
+                priorFinished = existing?.finished == true,
+                existedBefore = existing != null,
+                completedAtMs = resolvedFinishedAt ?: clampedLastPlayedAt,
+                startedAtMs = resolvedStartedAt,
+                restartedAtMs = startedBookOccurredAt ?: clampedLastPlayedAt,
+                updatePresence = true,
+            ),
+        )
         return AppResult.Success(RecordPositionResult(position = written, accepted = true, serverNowMs = now))
     }
 
@@ -464,152 +432,10 @@ class PlaybackPositionRepository(
 
     /**
      * Batch-persist [rows] for an ABS import — the chunked-transaction counterpart to
-     * [recordPosition]. A per-row [recordPosition] loop costs two commits per row (a `getPosition`
-     * read transaction plus the [upsert] write transaction); a full history import runs tens of
-     * thousands of those. This collapses the burst the same way [BookRepository.resolveOrInsertAll]
-     * does — prepare, then chunked writes — while preserving [recordPosition]'s semantics exactly:
-     *
-     *  1. **PREPARE (no write transaction).** Batch-read the existing positions for every affected
-     *     `(userId, bookId)` (one `IN (…)` read per user via [findByBookIds]), then apply the
-     *     `lastPlayedAt`-wins guard and surrogate-id reuse in memory. A running per-key view folds
-     *     each row onto the one before it, so two import rows for the same `(user, book)` resolve
-     *     exactly as the single-row loop's read-your-writes would (a stale row is dropped, no write).
-     *  2. **WRITE (chunked synchronous transactions).** Process the prepared rows in chunks of
-     *     [PERSIST_CHUNK_SIZE]; each chunk is ONE [suspendTransaction] whose synchronous body calls
-     *     [upsertInOpenTransaction] per row — O(chunks) write transactions, not O(rows). [suppressed]
-     *     is read ONCE in the suspend context and threaded in, exactly as the batched book path does.
-     *  3. **HOOKS (post-commit, sequential).** After the rows commit, fire the per-row
-     *     completion/start cascade [recordPosition] fires after its single upsert — `BookCompleted`
-     *     on a false→true finish, `BookRestarted` (fresh start / re-read) with `startedBookOccurredAt`
-     *     — in prepared order, unreordered within a row. During an import these run under
-     *     [StatsCascadeDeferred], so they are cheap; the authoritative per-user recompute follows.
-     *     The ONE deliberate difference from [recordPosition]: an unfinished row does not touch
-     *     presence. A finish still clears any open session (that stays true), but an import is a
-     *     record of listening that already happened, and claiming it as live is a lie the section
-     *     that reads presence has no way to see through.
-     *
-     * Idempotent by inheritance: the `lastPlayedAt`-wins guard drops a re-applied (older-or-equal)
-     * row before it writes or fires a hook, so re-running an import converges without duplicating a
-     * position or a `book_reads` finish. A no-op on an empty [rows].
+     * [recordPosition]. Delegates to [PlaybackPositionImportBatch].
      */
     suspend fun recordAllForImport(rows: List<ImportPositionWrite>) {
-        if (rows.isEmpty()) return
-
-        // PREPARE — batch-read existing positions per user, then resolve the wins-guard + id-reuse
-        // in memory. The running view (seeded from the DB read, updated per prepared write) makes an
-        // intra-batch second row for the same (user, book) see the first, matching read-your-writes.
-        val existingByKey = HashMap<Pair<String, String>, PlaybackPositionSyncPayload?>()
-        rows.groupBy { it.userId }.forEach { (userId, userRows) ->
-            findByBookIds(UserId(userId), userRows.map { BookId(it.bookId) }.distinct())
-                .forEach { existing -> existingByKey[userId to existing.bookId] = existing }
-        }
-
-        // Same two-clamp reasoning as recordPosition: ABS import rows carry historical timestamps
-        // that are legitimately old (untouched by this clamp — only future-dating is capped), but a
-        // corrupt/future-dated import row must not be able to poison a row the same way a bad device
-        // clock would. One `now` reading for the whole batch — every prepared row is clamped against it.
-        val now = clock.now().toEpochMilliseconds()
-
-        val prepared = ArrayList<PreparedPositionWrite>(rows.size)
-        for (row in rows) {
-            val key = row.userId to row.bookId
-            val existing = existingByKey[key]
-            val clampedLastPlayedAt = min(row.lastPlayedAt, now + SKEW_TOLERANCE_MS)
-            // Poisoned-row override — see recordPosition's Clamp #2 comment.
-            val existingIsPoisoned = existing != null && existing.lastPlayedAt > now + SKEW_TOLERANCE_MS
-            // lastPlayedAt-wins: a stale write is a no-op, exactly as recordPosition returns early.
-            if (existing != null && !existingIsPoisoned && existing.lastPlayedAt >= clampedLastPlayedAt) continue
-
-            val payload =
-                PlaybackPositionSyncPayload(
-                    id = existing?.id ?: Uuid.random().toString(),
-                    bookId = row.bookId,
-                    positionMs = row.positionMs,
-                    lastPlayedAt = clampedLastPlayedAt,
-                    finished = row.finished,
-                    playbackSpeed = row.playbackSpeed,
-                    currentChapterId = row.currentChapterId,
-                    volumeBoostDb = row.volumeBoostDb,
-                    measuredGainDb = row.measuredGainDb,
-                    finishedAt = resolveFinishedAt(row.finishedAt, now),
-                    // ImportPositionWrite carries no record of whether the listener chose their speed
-                    // or boost, so these take the defaults rather than inventing values.
-                    hasCustomSpeed = false,
-                    hasCustomBoost = false,
-                    revision = 0L,
-                    updatedAt = 0L,
-                    createdAt = 0L,
-                    deletedAt = null,
-                )
-            prepared +=
-                PreparedPositionWrite(
-                    userId = row.userId,
-                    payload = payload,
-                    priorFinished = existing?.finished == true,
-                    existedBefore = existing != null,
-                    startedBookOccurredAt = row.startedBookOccurredAt,
-                )
-            existingByKey[key] = payload
-        }
-
-        // WRITE — one suspendTransaction per chunk; upsertInOpenTransaction per row inside it. The
-        // suspend-only FirehoseSuppressed marker is read once here and threaded into every write.
-        val suppressed = currentCoroutineContext()[FirehoseSuppressed.Key] != null
-        for (chunk in prepared.chunked(PERSIST_CHUNK_SIZE)) {
-            suspendTransaction<Unit>(db) {
-                chunk.forEach { row ->
-                    upsertInOpenTransaction(
-                        value = row.payload,
-                        suppressed = suppressed,
-                        clientOpId = null,
-                        userId = row.userId,
-                    )
-                }
-            }
-        }
-
-        // HOOKS — the same de-nested, post-commit cascade recordPosition fires, per row, in order.
-        for (row in prepared) {
-            val finished = row.payload.finished
-            val lastPlayedAt = row.payload.lastPlayedAt
-            val bookId = row.payload.bookId
-            if (finished && !row.priorFinished) {
-                activeSessionRepo?.deleteForUserBook(row.userId, bookId)
-                statsRecorder?.record(
-                    StatsEvent.BookCompleted(
-                        userId = row.userId,
-                        bookId = bookId,
-                        occurredAt = Instant.fromEpochMilliseconds(row.payload.finishedAt ?: lastPlayedAt),
-                    ),
-                )
-            } else if (!finished) {
-                // NO presence write here, unlike recordPosition's cascade. Presence means "listening
-                // right now" and is stamped with the wall clock, but an import's plays are historical
-                // — so refreshing it announced every imported reader as live on a book they last
-                // opened months ago, one row per imported book, and "What Others Are Listening To"
-                // showed whichever of those the import wrote last. Someone actually playing the book
-                // re-establishes presence within ten seconds; nothing here has to guess.
-                if (!row.existedBefore) {
-                    statsRecorder?.record(
-                        StatsEvent.BookRestarted(
-                            userId = row.userId,
-                            bookId = bookId,
-                            occurredAt = Instant.fromEpochMilliseconds(row.startedBookOccurredAt ?: lastPlayedAt),
-                            isReread = false,
-                        ),
-                    )
-                } else if (row.priorFinished) {
-                    statsRecorder?.record(
-                        StatsEvent.BookRestarted(
-                            userId = row.userId,
-                            bookId = bookId,
-                            occurredAt = Instant.fromEpochMilliseconds(row.startedBookOccurredAt ?: lastPlayedAt),
-                            isReread = true,
-                        ),
-                    )
-                }
-            }
-        }
+        importBatch.recordAll(rows)
     }
 
     /**
@@ -682,109 +508,14 @@ class PlaybackPositionRepository(
                 }.executeAsList()
         }
 
-    private fun Playback_positions.toSyncPayload(): PlaybackPositionSyncPayload =
-        PlaybackPositionSyncPayload(
-            id = id,
-            bookId = book_id,
-            positionMs = position_ms,
-            lastPlayedAt = last_played_at,
-            // `finished` is INTEGER 0/1 in SQLite; `playback_speed` is REAL (Double). Convert at the
-            // boundary.
-            finished = finished == 1L,
-            playbackSpeed = playback_speed.toFloat(),
-            currentChapterId = current_chapter_id,
-            volumeBoostDb = volume_boost_db.toFloat(),
-            measuredGainDb = measured_gain_db?.toFloat(),
-            finishedAt = finished_at,
-            hasCustomSpeed = has_custom_speed == 1L,
-            hasCustomBoost = has_custom_boost == 1L,
-            finishedCardDismissedAt = finished_card_dismissed_at,
-            revision = revision,
-            updatedAt = updated_at,
-            createdAt = created_at,
-            deletedAt = deleted_at,
-        )
-
-    /**
-     * A prepared import position write: the resolved [payload] plus the pre-write view the
-     * post-commit hooks decide on ([priorFinished], [existedBefore]) and the imported start date
-     * override. Captured in the PREPARE phase so the WRITE phase stays purely synchronous and the
-     * HOOKS phase fires the exact cascade [recordPosition] would.
-     */
-    private data class PreparedPositionWrite(
-        val userId: String,
-        val payload: PlaybackPositionSyncPayload,
-        val priorFinished: Boolean,
-        val existedBefore: Boolean,
-        val startedBookOccurredAt: Long?,
-    )
-
     private companion object {
         /**
          * Chunk size for `IN (…)` batch reads. Kept under SQLite's default
          * `SQLITE_MAX_VARIABLE_NUMBER` (999) with headroom for any fixed bind params.
          */
         const val SQLITE_IN_CHUNK = 900
-
-        /** Import rows per write transaction — one [suspendTransaction] commits a whole chunk. */
-        const val PERSIST_CHUNK_SIZE = 200
-
-        /** SQLite stores booleans as INTEGER 0/1; map at the write boundary. */
-        private fun Boolean.toDbLong(): Long = if (this) 1L else 0L
     }
 }
-
-/**
- * How far into the future a client-reported `lastPlayedAt` or `finishedAt` is trusted, relative to the
- * server clock — generous for honest clock drift, but nothing further out survives the clamp in
- * [PlaybackPositionRepository.recordPosition] / [PlaybackPositionRepository.recordAllForImport]. Never
- * bounds the past: an offline-for-days device's old timestamp is untouched.
- */
-internal const val SKEW_TOLERANCE_MS = 5 * 60 * 1000L
-
-/**
- * The finish date a write may claim, or null when it claims none the server can use — the caller
- * then dates the finish by its `lastPlayedAt`, as it always has.
- *
- * Bounded above by the same skew ceiling as `lastPlayedAt`: the picker refuses future days, so a
- * later value is a fast device clock, and a finish dated in the future would put a book in a stats
- * window that has not happened yet. NOT bounded below by anything but the epoch: a reader may be
- * recording a book they finished years before ListenUp — or before this server had the book at
- * all — and a floor such as the book's `created_at` would refuse exactly what the picker exists
- * for. A non-positive value is the unset sentinel (an ABS backup's blank `finishedAt` parses to 0),
- * never a real day.
- */
-internal fun resolveFinishedAt(
-    finishedAt: Long?,
-    nowMs: Long,
-): Long? = finishedAt?.takeIf { it > 0 }?.let { min(it, nowMs + SKEW_TOLERANCE_MS) }
-
-/**
- * The start day a finishing write may claim, or null when it claims none the server can use — the read
- * is then started as it always was (the listen-through's start, or derived from listening).
- *
- * Unlike [resolveFinishedAt] it is ignored, not clamped, when out of bounds: a start after the read's
- * [finishedAt], or beyond the skew ceiling, is not a day the picker could have produced (it refuses
- * both), so there is no nearby true value to clamp to. A non-positive value is the unset sentinel.
- */
-internal fun resolveStartedAt(
-    startedAt: Long?,
-    finishedAt: Long,
-    nowMs: Long,
-): Long? = startedAt?.takeIf { it > 0 && it <= finishedAt && it <= nowMs + SKEW_TOLERANCE_MS }
-
-/**
- * One user's in-progress position in a book, for its readership.
- *
- * @property userId Whose position this is.
- * @property positionMs Where they are, book-relative ms.
- * @property lastPlayedAt Epoch-ms they last played the book.
- */
-data class InProgressPosition(
-    val userId: String,
-    val positionMs: Long,
-    val lastPlayedAt: Long,
-)
 
 /** What [PlaybackPositionRepository.recordPositionDetailed] decided while holding its save lock. */
 private sealed interface SaveOutcome {

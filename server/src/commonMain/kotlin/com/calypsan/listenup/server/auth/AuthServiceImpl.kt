@@ -2,11 +2,8 @@ package com.calypsan.listenup.server.auth
 
 import com.calypsan.listenup.api.AuthServiceAuthed
 import com.calypsan.listenup.api.AuthServicePublic
-import com.calypsan.listenup.api.dto.activity.ActivityType
 import com.calypsan.listenup.api.dto.auth.AccessToken
 import com.calypsan.listenup.api.dto.auth.AuthSession
-import com.calypsan.listenup.api.dto.auth.DEVICE_FIELD_MAX
-import com.calypsan.listenup.api.dto.auth.DeviceInfo
 import com.calypsan.listenup.api.dto.auth.LoginRequest
 import com.calypsan.listenup.api.dto.auth.PasswordResetStatusEvent
 import com.calypsan.listenup.api.dto.auth.PasswordResetTicket
@@ -16,20 +13,19 @@ import com.calypsan.listenup.api.dto.auth.RegisterResult
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.api.dto.auth.RegistrationStatusEvent
 import com.calypsan.listenup.api.dto.auth.SessionId
-import com.calypsan.listenup.api.dto.auth.SocketTicket
 import com.calypsan.listenup.api.dto.auth.SessionSummary
+import com.calypsan.listenup.api.dto.auth.SocketTicket
 import com.calypsan.listenup.api.dto.auth.User
-import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.streaming.RpcEvent
-import com.calypsan.listenup.server.db.UserRoleColumn
-import com.calypsan.listenup.server.db.UserStatusColumn
 import com.calypsan.listenup.server.api.DefaultAllBooksGrantIssuer
 import com.calypsan.listenup.server.api.MAX_PUSH_TOKEN_LENGTH
+import com.calypsan.listenup.server.db.UserRoleColumn
+import com.calypsan.listenup.server.db.UserStatusColumn
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
-import com.calypsan.listenup.server.db.sqldelight.Sessions
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
+import com.calypsan.listenup.server.push.isValidPushToken
 import com.calypsan.listenup.server.services.ActivityRecorder
 import com.calypsan.listenup.server.services.AdminUserRosterMaintainer
 import com.calypsan.listenup.server.services.PasswordResetService
@@ -38,11 +34,6 @@ import com.calypsan.listenup.server.services.RootPasswordResetService
 import com.calypsan.listenup.server.services.SessionRevoker
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import com.calypsan.listenup.server.sync.ShelfRepository
-import com.calypsan.listenup.api.notifications.NotificationEvent
-import com.calypsan.listenup.server.logging.loggerFor
-import com.calypsan.listenup.server.notifications.NotificationAudience
-import com.calypsan.listenup.server.push.isValidPushToken
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.emitAll
@@ -52,9 +43,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onSubscription
 import kotlin.time.Clock
-import kotlin.uuid.Uuid
-
-private val logger = loggerFor<AuthServiceImpl>()
 
 /**
  * The contract implementation. Pure domain logic — Ktor types are deliberately
@@ -166,6 +154,17 @@ class AuthServiceImpl(
         ),
 ) : AuthServicePublic,
     AuthServiceAuthed {
+    private val registrationSideEffects =
+        AuthRegistrationSideEffects(
+            sessionIssuer = sessionIssuer,
+            shelfRepository = shelfRepository,
+            publicProfileMaintainer = publicProfileMaintainer,
+            activityRecorder = activityRecorder,
+            defaultGrantIssuer = defaultGrantIssuer,
+            adminUserRosterMaintainer = adminUserRosterMaintainer,
+            notifications = notifications,
+        )
+
     @OpenToAllMembers(
         reason = "public pre-auth surface; every method is rate-bucketed (PublicAuthMethodsAreBucketedRule)",
     )
@@ -199,7 +198,7 @@ class AuthServiceImpl(
             UserStatusColumn.ACTIVE -> Unit
         }
 
-        markLastLogin(user.id, request.timezone)
+        markLastLogin(db = db, clock = clock, userId = user.id, timezone = request.timezone)
         // Best-effort self-heal: if this MEMBER's ALL_BOOKS grant was never issued (or was
         // somehow lost), re-assert it on login. The issuer is idempotent — it checks for a
         // live grant first and skips the upsert when one already exists — so this is a cheap
@@ -277,73 +276,20 @@ class AuthServiceImpl(
                 if (db.usersQueries.existsByEmailNormalized(normalized).executeAsOne()) {
                     false
                 } else {
-                    insert(user)
+                    insertAuthUser(db, user)
                     true
                 }
             }
         return if (inserted) {
-            completeRegistration(request, user, status)
+            registrationSideEffects.completeRegistration(
+                request = request,
+                user = user,
+                status = status,
+                requestUserAgent = requestUserAgent,
+            )
         } else {
             AppResult.Failure(AuthError.EmailAlreadyExists())
         }
-    }
-
-    /** Issues the session (or queues the applicant) and runs the side-effects of a freshly inserted sign-up. */
-    private suspend fun completeRegistration(
-        request: RegisterRequest,
-        user: AuthUser,
-        status: UserStatusColumn,
-    ): AppResult<RegisterResult> {
-        val outcome =
-            if (status == UserStatusColumn.PENDING_APPROVAL) {
-                RegisterResult.PendingApproval(userId = UserId(user.id))
-            } else {
-                RegisterResult.Authenticated(
-                    sessionIssuer.issue(
-                        user = user,
-                        label = request.sessionLabel,
-                        deviceInfo = request.deviceInfo,
-                        userAgent = requestUserAgent,
-                    ),
-                )
-            }
-        createStarterShelfBestEffort(user.id)
-        // Both ACTIVE and PENDING_APPROVAL users belong in the admin roster — the admin
-        // pending-approvals list reads PENDING_APPROVAL rows straight out of it — so this
-        // refresh runs unconditionally, unlike the ACTIVE-only side-effects below.
-        adminUserRosterMaintainer?.refreshBestEffort(user.id)
-        if (status == UserStatusColumn.PENDING_APPROVAL) {
-            notifyAdminsOfPendingRegistration(user.id)
-        }
-        // Only ACTIVE users get side-effects immediately; PENDING_APPROVAL users
-        // get theirs when the admin approves them (via AdminUserServiceImpl).
-        if (status == UserStatusColumn.ACTIVE) {
-            defaultGrantIssuer?.grantDefaultAllBooks(user.id, UserRoleColumn.MEMBER)
-            publicProfileMaintainer?.refreshBestEffort(user.id)
-            activityRecorder?.record(user.id, ActivityType.USER_JOINED)
-        }
-        return AppResult.Success(outcome)
-    }
-
-    /**
-     * Notifies every admin so a pending registration is noticed rather than waited on (#1068).
-     *
-     * This closes the registration loop. [RegistrationDecision][com.calypsan.listenup.api.notifications.NotificationEvent.RegistrationDecision]
-     * already reaches the registrant once a decision exists — but nothing woke the person who has
-     * to make it, so an admin whose app was closed learned of a request only by happening to open
-     * the Admin screen. The request was never lost (it lands in the synced admin roster either
-     * way), it could simply sit unseen for days.
-     *
-     * Best-effort, and deliberately after the row is committed: a notification is a wake-up
-     * accelerant, not the record. The emitter owns audience fan-out, per-user preference checks,
-     * inbox-row minting, and push delivery — and its contract already forbids throwing (short of
-     * cancellation), so a relay outage can never fail someone's registration.
-     */
-    private suspend fun notifyAdminsOfPendingRegistration(pendingUserId: String) {
-        notifications?.emit(
-            NotificationEvent.RegistrationApproval(userId = pendingUserId),
-            to = NotificationAudience.Admins,
-        )
     }
 
     @OpenToAllMembers(
@@ -387,22 +333,15 @@ class AuthServiceImpl(
                 if (db.usersQueries.hasAnyUser().executeAsOne()) {
                     false
                 } else {
-                    insert(user)
+                    insertAuthUser(db, user)
                     true
                 }
             }
         if (!inserted) return AppResult.Failure(AuthError.SetupAlreadyComplete())
-        createStarterShelfBestEffort(user.id)
-        adminUserRosterMaintainer?.refreshBestEffort(user.id)
-        publicProfileMaintainer?.refreshBestEffort(user.id)
-        activityRecorder?.record(user.id, ActivityType.USER_JOINED)
-        return AppResult.Success(
-            sessionIssuer.issue(
-                user = user,
-                label = request.sessionLabel,
-                deviceInfo = request.deviceInfo,
-                userAgent = requestUserAgent,
-            ),
+        return registrationSideEffects.completeRootSetup(
+            request = request,
+            user = user,
+            requestUserAgent = requestUserAgent,
         )
     }
 
@@ -720,23 +659,6 @@ class AuthServiceImpl(
         }
     }
 
-    /**
-     * Best-effort starter-shelf creation — called immediately after a new user row is
-     * committed. Failure is logged and swallowed so a shelf-infra hiccup never
-     * rolls back or fails registration. [CancellationException] is re-raised so
-     * structured-concurrency cancellation is never eaten.
-     */
-    private suspend fun createStarterShelfBestEffort(userId: String) {
-        shelfRepository ?: return
-        try {
-            shelfRepository.createStarterShelf(userId)
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            logger.warn(e) { "starter shelf creation failed for user $userId — registration still succeeds" }
-        }
-    }
-
     override suspend fun currentUser(): AppResult<User> {
         val p = principalProvider.current() ?: return AppResult.Failure(AuthError.SessionExpired())
         val user =
@@ -748,109 +670,7 @@ class AuthServiceImpl(
 
     override suspend fun listSessions(): AppResult<List<SessionSummary>> {
         val p = principalProvider.current() ?: return AppResult.Failure(AuthError.SessionExpired())
-        val list =
-            sessions.listActiveFor(p.userId).map { s ->
-                SessionSummary(
-                    id = SessionId(s.id),
-                    label = s.label,
-                    deviceInfo = deviceInfoOf(s),
-                    userAgent = s.user_agent,
-                    createdAt = s.created_at,
-                    lastUsedAt = s.last_used_at,
-                    current = s.id == p.sessionId.value,
-                )
-            }
+        val list = sessions.listActiveFor(p.userId).map { it.toSessionSummary(currentSessionId = p.sessionId) }
         return AppResult.Success(list)
-    }
-
-    private suspend fun markLastLogin(
-        userId: String,
-        timezone: String,
-    ) {
-        val now = clock.now().toEpochMilliseconds()
-        suspendTransaction(db) {
-            db.usersQueries.updateLastLoginAndTimezone(last_login_at = now, timezone = timezone, id = userId)
-        }
-    }
-
-    private fun deviceInfoOf(s: Sessions): DeviceInfo? {
-        // The read path must not assume stored rows honour the current DeviceInfo
-        // invariants: legacy sessions (pre-validation) may hold blank
-        // or over-long fields. Sanitize before constructing so DeviceInfo.init's
-        // length `require` — the correct *inbound* guard — never throws on outbound data.
-        fun field(value: String?): String? = value?.takeIf { it.isNotBlank() }?.take(DEVICE_FIELD_MAX)
-        val info =
-            DeviceInfo(
-                deviceType = field(s.device_type),
-                platform = field(s.platform),
-                platformVersion = field(s.platform_version),
-                clientName = field(s.client_name),
-                clientVersion = field(s.client_version),
-                deviceName = field(s.device_name),
-                deviceModel = field(s.device_model),
-            )
-        return info.takeIf { it != DeviceInfo() }
-    }
-
-    /**
-     * Build the in-memory [AuthUser] for a brand-new account with its default shape: a
-     * freshly-minted id, last_login_at NULL,
-     * can_edit true, approval / invite / tagline fields NULL, avatar_type "auto",
-     * timezone "UTC". The value is both inserted ([insert]) and handed to [SessionIssuer], so the
-     * issued session reflects the persisted row without a re-read.
-     */
-    private fun newAuthUser(
-        email: String,
-        emailNormalized: String,
-        passwordHash: String,
-        role: UserRoleColumn,
-        displayName: String,
-        status: UserStatusColumn,
-        now: Long,
-    ): AuthUser =
-        AuthUser(
-            // UUIDv4. UUIDv7 (lexicographically sortable, time-ordered) would be the
-            // long-term shape — UUIDv4 is fine while ids are TEXT primary keys with no
-            // timestamp-driven scan path.
-            id = Uuid.random().toString(),
-            email = email,
-            emailNormalized = emailNormalized,
-            passwordHash = passwordHash,
-            role = role,
-            displayName = displayName,
-            status = status,
-            createdAt = now,
-            canEdit = true,
-            approvedBy = null,
-            approvedAt = null,
-            deletedAt = null,
-        )
-
-    /**
-     * Persist [user] into the `users` table. created_at / updated_at are set to the user's
-     * createdAt (a fresh insert), and the boolean permission flags map to 0/1. Must run inside a
-     * [suspendTransaction].
-     */
-    private fun insert(user: AuthUser) {
-        db.usersQueries.insert(
-            id = user.id,
-            email = user.email,
-            email_normalized = user.emailNormalized,
-            password_hash = user.passwordHash,
-            role = user.role.name,
-            display_name = user.displayName,
-            status = user.status.name,
-            created_at = user.createdAt,
-            updated_at = user.createdAt,
-            last_login_at = null,
-            can_edit = if (user.canEdit) 1L else 0L,
-            approved_by = user.approvedBy,
-            approved_at = user.approvedAt,
-            deleted_at = user.deletedAt,
-            invited_by = null,
-            tagline = null,
-            avatar_type = "auto",
-            timezone = "UTC",
-        )
     }
 }

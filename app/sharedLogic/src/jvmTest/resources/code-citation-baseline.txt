@@ -87,7 +87,6 @@ app/sharedLogic/src/commonMain/kotlin/com/calypsan/listenup/client/domain/usecas
 app/sharedLogic/src/commonMain/kotlin/com/calypsan/listenup/client/presentation/bookedit/BookEditModels.kt 1
 app/sharedLogic/src/commonMain/kotlin/com/calypsan/listenup/client/presentation/chaptereditor/timeline/TimelineLane.kt 1
 app/sharedLogic/src/commonMain/kotlin/com/calypsan/listenup/client/presentation/connection/ConnectionHealthViewModel.kt 1
-app/sharedLogic/src/commonMain/kotlin/com/calypsan/listenup/client/presentation/contributoredit/ContributorEditViewModel.kt 1
 app/sharedLogic/src/commonMain/kotlin/com/calypsan/listenup/client/presentation/imageframe/FrameEditorState.kt 1
 app/sharedLogic/src/commonMain/kotlin/com/calypsan/listenup/client/presentation/shelf/MyShelvesViewModel.kt 1
 app/sharedLogic/src/iosMain/kotlin/com/calypsan/listenup/client/di/Koin.ios.kt 2
