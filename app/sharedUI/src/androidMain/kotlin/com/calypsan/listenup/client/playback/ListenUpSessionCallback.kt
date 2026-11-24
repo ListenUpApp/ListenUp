@@ -2,44 +2,31 @@ package com.calypsan.listenup.client.playback
 
 import android.content.Context
 import android.os.Bundle
-import android.provider.MediaStore
 import androidx.concurrent.futures.CallbackToFutureAdapter
 import androidx.media3.common.MediaItem
-import androidx.media3.common.MediaMetadata
-import androidx.media3.common.Player
-import androidx.media3.session.CommandButton
 import androidx.media3.session.LibraryResult
 import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaLibraryService.MediaLibrarySession
 import androidx.media3.session.MediaSession
 import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionResult
-import com.calypsan.listenup.client.composeapp.R
 import com.calypsan.listenup.client.automotive.AutoBrowseErrors
-import com.calypsan.listenup.client.automotive.BrowseTree
 import com.calypsan.listenup.client.automotive.BrowseTreeProvider
 import com.calypsan.listenup.client.automotive.CoverUri
 import com.calypsan.listenup.client.automotive.CustomActions
 import com.calypsan.listenup.client.automotive.browseNeedsSignIn
 import com.calypsan.listenup.client.automotive.isLastPage
 import com.calypsan.listenup.client.automotive.paginate
-import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.api.result.getOrNull
-import com.calypsan.listenup.api.result.valueOrNull
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.HomeRepository
 import com.calypsan.listenup.client.domain.repository.LoadedBookRepository
 import com.calypsan.listenup.client.localization.SystemStrings
 import com.calypsan.listenup.client.localization.SystemStringsHolder
-import com.calypsan.listenup.client.voice.MediaFocus
-import com.calypsan.listenup.client.voice.PlaybackIntent
-import com.calypsan.listenup.client.voice.VoiceHints
 import com.calypsan.listenup.client.voice.VoiceIntentResolver
 import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import io.github.oshai.kotlinlogging.KotlinLogging
-import java.util.Locale
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -59,17 +46,36 @@ private const val MAX_SEARCH_CACHE_SIZE = 5
 internal class ListenUpSessionCallback(
     private val context: Context,
     private val playbackManager: PlaybackManager,
-    private val browseTreeProvider: BrowseTreeProvider,
-    private val voiceIntentResolver: VoiceIntentResolver,
-    private val homeRepository: HomeRepository,
+    browseTreeProvider: BrowseTreeProvider,
+    voiceIntentResolver: VoiceIntentResolver,
+    homeRepository: HomeRepository,
     private val authSession: AuthSession,
-    private val loadedBookRepository: LoadedBookRepository,
+    loadedBookRepository: LoadedBookRepository,
     private val serviceScope: CoroutineScope,
-    private val transport: PlaybackTransport,
+    transport: PlaybackTransport,
     private val uriPermissionGranter: UriPermissionGranter,
     private val strings: SystemStringsHolder,
     private val skipIntervals: SkipIntervalsHolder,
 ) : MediaLibrarySession.Callback {
+    private val browseTree = browseTreeProvider
+
+    private val mediaResolver =
+        SessionMediaResolver(
+            playbackManager = playbackManager,
+            browseTreeProvider = browseTreeProvider,
+            voiceIntentResolver = voiceIntentResolver,
+            homeRepository = homeRepository,
+            loadedBookRepository = loadedBookRepository,
+            transport = transport,
+        )
+
+    private val customCommandHandler =
+        SessionCustomCommandHandler(
+            playbackManager = playbackManager,
+            transport = transport,
+            skipIntervals = skipIntervals,
+        )
+
     /** Catalog snapshot for this call. Read per use, so a locale change lands on the next one. */
     private val copy: SystemStrings get() = strings.current
 
@@ -155,7 +161,7 @@ internal class ListenUpSessionCallback(
         // signed-out error carrying the sign-in action, which is the surface Auto can actually
         // render as a prompt. Both halves are pinned in ListenUpSessionCallbackTest.
         logger.debug { "onGetLibraryRoot" }
-        val root = browseTreeProvider.getRoot()
+        val root = browseTree.getRoot()
         return Futures.immediateFuture(LibraryResult.ofItem(root, params))
     }
 
@@ -178,7 +184,7 @@ internal class ListenUpSessionCallback(
         return CallbackToFutureAdapter.getFuture { completer ->
             serviceScope.launch {
                 try {
-                    val children = browseTreeProvider.getChildren(parentId)
+                    val children = browseTree.getChildren(parentId)
                     val pageItems = paginate(children, page, pageSize)
                     completer.set(LibraryResult.ofItemList(ImmutableList.copyOf(pageItems), params))
                 } catch (e: CancellationException) {
@@ -213,7 +219,7 @@ internal class ListenUpSessionCallback(
         return CallbackToFutureAdapter.getFuture { completer ->
             serviceScope.launch {
                 try {
-                    val item = browseTreeProvider.getItem(mediaId)
+                    val item = browseTree.getItem(mediaId)
                     if (item != null) {
                         completer.set(LibraryResult.ofItem(item, null))
                     } else {
@@ -283,60 +289,7 @@ internal class ListenUpSessionCallback(
         // Perform search asynchronously
         serviceScope.launch {
             try {
-                // Extract hints from params extras if available
-                val extras = params?.extras
-                val hints =
-                    VoiceHints(
-                        title = extras?.getString(MediaStore.EXTRA_MEDIA_TITLE),
-                        artist = extras?.getString(MediaStore.EXTRA_MEDIA_ARTIST),
-                        album = extras?.getString(MediaStore.EXTRA_MEDIA_ALBUM),
-                        focus = extras?.getString(MediaStore.EXTRA_MEDIA_FOCUS)?.toMediaFocus(),
-                    )
-
-                logger.debug { "Search hints: ${hints.logLine()}" }
-
-                val intent = voiceIntentResolver.resolve(query, hints)
-                logger.info { "Search resolved to: $intent" }
-
-                val items: List<MediaItem> =
-                    when (intent) {
-                        is PlaybackIntent.PlayBook -> {
-                            // Single match - return as playable item
-                            listOfNotNull(browseTreeProvider.getBookItem(intent.bookId))
-                        }
-
-                        is PlaybackIntent.Resume -> {
-                            // Resume - get the last played book
-                            val lastBook =
-                                homeRepository
-                                    .getContinueListening(1)
-                                    .getOrNull()
-                                    ?.firstOrNull()
-                            if (lastBook != null) {
-                                listOfNotNull(browseTreeProvider.getBookItem(lastBook.bookId))
-                            } else {
-                                emptyList()
-                            }
-                        }
-
-                        is PlaybackIntent.PlaySeriesFrom -> {
-                            // Series navigation - return the target book
-                            listOfNotNull(browseTreeProvider.getBookItem(intent.startBookId))
-                        }
-
-                        is PlaybackIntent.Ambiguous -> {
-                            // Multiple matches - return all candidates
-                            intent.candidates.mapNotNull { match ->
-                                browseTreeProvider.getBookItem(match.bookId)
-                            }
-                        }
-
-                        is PlaybackIntent.NotFound -> {
-                            logger.warn { "No search results for: $query" }
-                            emptyList()
-                        }
-                    }
-
+                val items = mediaResolver.search(query, params?.extras)
                 logger.info { "Search found ${items.size} items for query: $query" }
 
                 // Cache results for onGetSearchResult
@@ -401,115 +354,11 @@ internal class ListenUpSessionCallback(
     // ========== Playback Preparation ==========
 
     /**
-     * Resolves controller-requested [MediaItem]s (voice-search queries and/or book mediaIds)
-     * to the actual playable [MediaItem]s Media3 needs, applying the restored playback speed
-     * as each book resolves. Shared by [onAddMediaItems] (the Auto "add to queue" callback)
-     * and [onSetMediaItems] (the Auto tap-to-play / voice-search callback, which additionally
-     * needs the resolved book's [PlaybackManager.PrepareResult] to compute a resume start
-     * position — see [onSetMediaItems]'s KDoc) so the two callbacks never drift on how a
-     * mediaId or voice query becomes a playable item.
-     *
-     * @return the resolved items, plus the last [PlaybackManager.PrepareResult] produced
-     *   while resolving [mediaItems] (null if none of them resolved to a book). "Last" rather
-     *   than "the" result because [onSetMediaItems] only relies on it when [mediaItems]
-     *   contained exactly one entry — the tap-to-play/voice-search shape.
-     */
-    private suspend fun resolveMediaItems(
-        mediaItems: List<MediaItem>,
-    ): Pair<List<MediaItem>, PlaybackManager.PrepareResult?> {
-        val resolvedItems = mutableListOf<MediaItem>()
-        var lastPrepareResult: PlaybackManager.PrepareResult? = null
-
-        for (item in mediaItems) {
-            // Check for voice search query (Media3 pattern)
-            val searchQuery = item.requestMetadata.searchQuery
-            if (searchQuery != null) {
-                logger.info { "Voice search detected: query='$searchQuery'" }
-                val (voiceItems, voicePrepareResult) = handleVoiceSearch(item)
-                resolvedItems.addAll(voiceItems)
-                if (voicePrepareResult != null) lastPrepareResult = voicePrepareResult
-                continue
-            }
-
-            val bookId = BrowseTree.extractBookId(item.mediaId)
-            if (bookId != null) {
-                // Prepare playback for this book
-                val prepareResult = prepareForSilentStart(BookId(bookId), "Browse selection")
-                if (prepareResult != null) {
-                    // Build MediaItems from timeline
-                    val bookItems =
-                        prepareResult.timeline.files.map { file ->
-                            MediaItem
-                                .Builder()
-                                .setMediaId(file.audioFileId)
-                                .setUri(file.playbackUri)
-                                .setMediaMetadata(
-                                    MediaMetadata
-                                        .Builder()
-                                        .setTitle(prepareResult.bookTitle)
-                                        .setArtist(prepareResult.bookAuthor)
-                                        .setAlbumTitle(prepareResult.seriesName)
-                                        .setMediaType(MediaMetadata.MEDIA_TYPE_AUDIO_BOOK)
-                                        .build(),
-                                ).build()
-                        }
-                    // Apply the restored playback speed to ExoPlayer
-                    transport.applyResumeSpeed(prepareResult.resumeSpeed)
-                    resolvedItems.addAll(bookItems)
-                    lastPrepareResult = prepareResult
-                }
-            } else {
-                // Not a book ID, pass through as-is
-                resolvedItems.add(item)
-            }
-        }
-
-        return resolvedItems to lastPrepareResult
-    }
-
-    /**
-     * Prepare [bookId] for a start that has no on-screen surface to report to (Android Auto browse,
-     * voice, media-button resumption): the [PlaybackManager.PrepareResult], or null with the choke
-     * point's typed refusal or failure logged — a held book included.
-     *
-     * Another book still playing is paused first, as the in-app switch does before it prepares
-     * (`ManagedPlayerEngine.beginLoad`). Preparing hands the manager the new book's timeline while
-     * the old one still sounds, and its pause would otherwise arrive after the switch: filed under
-     * the new book at the new book's place, with the old book's listening span closed there too and
-     * everything since its last periodic save lost. Paused here, on the main thread, the local
-     * player reports it at once, while everything still names the outgoing book; a cast receiver
-     * that reports late is caught by the recorder, which closes the outgoing span at its own last
-     * known position whatever book the pause names.
-     */
-    private suspend fun prepareForSilentStart(
-        bookId: BookId,
-        startedBy: String,
-    ): PlaybackManager.PrepareResult? {
-        silenceOutgoingBook(incoming = bookId)
-        return playbackManager.prepareForPlayback(bookId, PlaybackStart.Resume).valueOrNull {
-            logger.warn { "$startedBy not started for ${bookId.value}: ${it.code}" }
-        }
-    }
-
-    private fun silenceOutgoingBook(incoming: BookId) {
-        val outgoing = playbackManager.currentBookId.value ?: return
-        if (outgoing == incoming) return
-        val player = transport.activeTransportPlayer() ?: return
-        if (player.playWhenReady) player.pause()
-    }
-
-    /**
      * Called when Android Auto adds media items to the queue.
      *
      * Resolves book IDs from media items and prepares full playback timeline via
-     * [resolveMediaItems]. Also handles voice search via requestMetadata.searchQuery (Media3
-     * pattern).
-     *
-     * Voice search flow:
-     * 1. User says "Hey Google, play [book name] on ListenUp"
-     * 2. Android Auto/Google Assistant sends MediaItem with searchQuery in requestMetadata
-     * 3. We resolve the query through VoiceIntentResolver
-     * 4. Return resolved media items for playback
+     * [SessionMediaResolver.resolveMediaItems]. Also handles voice search via
+     * `requestMetadata.searchQuery` (Media3 pattern).
      */
     override fun onAddMediaItems(
         mediaSession: MediaSession,
@@ -521,7 +370,7 @@ internal class ListenUpSessionCallback(
         return CallbackToFutureAdapter.getFuture { completer ->
             serviceScope.launch {
                 try {
-                    val (resolvedItems, _) = resolveMediaItems(mediaItems)
+                    val (resolvedItems, _) = mediaResolver.resolveMediaItems(mediaItems)
                     completer.set(resolvedItems)
                 } catch (e: CancellationException) {
                     throw e
@@ -561,7 +410,7 @@ internal class ListenUpSessionCallback(
         return CallbackToFutureAdapter.getFuture { completer ->
             serviceScope.launch {
                 try {
-                    val (resolvedItems, prepareResult) = resolveMediaItems(mediaItems)
+                    val (resolvedItems, prepareResult) = mediaResolver.resolveMediaItems(mediaItems)
 
                     // The queue is this book's now. currentBookId is what every progress
                     // write is keyed on, and only the VM used to set it — so a book started
@@ -596,96 +445,6 @@ internal class ListenUpSessionCallback(
     }
 
     /**
-     * Handle voice search from Android Auto / Google Assistant.
-     *
-     * Extracts search query and extras from MediaItem's requestMetadata,
-     * resolves through VoiceIntentResolver, and returns playable media items alongside the
-     * resolved book's [PlaybackManager.PrepareResult] (null when nothing resolved) — see
-     * [resolveMediaItems]'s KDoc for why the caller needs it too.
-     */
-    private suspend fun handleVoiceSearch(item: MediaItem): Pair<List<MediaItem>, PlaybackManager.PrepareResult?> {
-        val searchQuery = item.requestMetadata.searchQuery ?: return emptyList<MediaItem>() to null
-        val extras = item.requestMetadata.extras
-
-        // Extract structured hints from extras (if available)
-        val hints =
-            VoiceHints(
-                title = extras?.getString(MediaStore.EXTRA_MEDIA_TITLE),
-                artist = extras?.getString(MediaStore.EXTRA_MEDIA_ARTIST),
-                album = extras?.getString(MediaStore.EXTRA_MEDIA_ALBUM),
-                focus = extras?.getString(MediaStore.EXTRA_MEDIA_FOCUS)?.toMediaFocus(),
-            )
-
-        logger.debug { "Voice hints: ${hints.logLine()}" }
-
-        val intent = voiceIntentResolver.resolve(searchQuery, hints)
-        logger.debug { "Resolved voice intent: $intent" }
-
-        // Convert intent to book ID
-        val bookId =
-            when (intent) {
-                is PlaybackIntent.PlayBook -> {
-                    intent.bookId
-                }
-
-                is PlaybackIntent.Resume -> {
-                    homeRepository
-                        .getContinueListening(1)
-                        .getOrNull()
-                        ?.firstOrNull()
-                        ?.bookId
-                }
-
-                is PlaybackIntent.PlaySeriesFrom -> {
-                    intent.startBookId
-                }
-
-                is PlaybackIntent.Ambiguous -> {
-                    // Auto-play best guess if available
-                    intent.bestGuess?.bookId
-                }
-
-                is PlaybackIntent.NotFound -> {
-                    logger.warn { "No match found for voice query: ${intent.originalQuery}" }
-                    null
-                }
-            }
-
-        if (bookId == null) {
-            logger.warn { "Could not resolve book ID from voice intent: $intent" }
-            return emptyList<MediaItem>() to null
-        }
-
-        logger.info { "Playing book from voice search: $bookId" }
-
-        // Prepare playback for the book
-        val prepareResult = prepareForSilentStart(BookId(bookId), "Voice playback")
-        if (prepareResult == null) {
-            logger.error { "Failed to prepare book for voice playback: $bookId" }
-            return emptyList<MediaItem>() to null
-        }
-
-        // Build MediaItems from timeline
-        val items =
-            prepareResult.timeline.files.map { file ->
-                MediaItem
-                    .Builder()
-                    .setMediaId(file.audioFileId)
-                    .setUri(file.playbackUri)
-                    .setMediaMetadata(
-                        MediaMetadata
-                            .Builder()
-                            .setTitle(prepareResult.bookTitle)
-                            .setArtist(prepareResult.bookAuthor)
-                            .setAlbumTitle(prepareResult.seriesName)
-                            .setMediaType(MediaMetadata.MEDIA_TYPE_AUDIO_BOOK)
-                            .build(),
-                    ).build()
-            }
-        return items to prepareResult
-    }
-
-    /**
      * Handle playback resumption from system UI.
      *
      * Called when user taps "Resume ListenUp" from Android Auto, Wear OS, or system
@@ -710,60 +469,10 @@ internal class ListenUpSessionCallback(
         return CallbackToFutureAdapter.getFuture { completer ->
             serviceScope.launch {
                 try {
-                    // The system resumes the LOADED book (spec §4.4): with nothing loaded, refuse, so a book the
-                    // reader closed is not resurrected by the resumption card after a reboot (spec R3).
-                    val bookId = loadedBookRepository.loadedBookId()
-                    if (bookId == null) {
-                        logger.info { "Nothing is loaded; refusing playback resumption" }
-                        completer.setException(IllegalStateException("Nothing is loaded"))
-                        return@launch
+                    when (val outcome = mediaResolver.resolveResumption()) {
+                        is ResumptionOutcome.Ready -> completer.set(outcome.items)
+                        is ResumptionOutcome.Refused -> completer.setException(IllegalStateException(outcome.message))
                     }
-
-                    logger.info { "Resuming book: ${bookId.value}" }
-
-                    // Prepare playback for the book
-                    val prepareResult = prepareForSilentStart(bookId, "Resumption")
-
-                    if (prepareResult == null) {
-                        logger.error { "Failed to prepare book for resumption" }
-                        completer.setException(IllegalStateException("Failed to prepare book"))
-                        return@launch
-                    }
-
-                    // Same reason as onSetMediaItems: resumption is a play path no screen sees, so nothing
-                    // else sets the book progress is keyed on; it is also what PlayerSession adopts.
-                    playbackManager.activateBook(bookId)
-
-                    // Build MediaItems from timeline
-                    val resolvedMediaItems =
-                        prepareResult.timeline.files.map { file ->
-                            MediaItem
-                                .Builder()
-                                .setMediaId(file.audioFileId)
-                                .setUri(file.playbackUri)
-                                .setMediaMetadata(
-                                    MediaMetadata
-                                        .Builder()
-                                        .setTitle(prepareResult.bookTitle)
-                                        .setArtist(prepareResult.bookAuthor)
-                                        .setAlbumTitle(prepareResult.seriesName)
-                                        .setMediaType(MediaMetadata.MEDIA_TYPE_AUDIO_BOOK)
-                                        .build(),
-                                ).build()
-                        }
-
-                    // Apply the restored playback speed to ExoPlayer
-                    transport.applyResumeSpeed(prepareResult.resumeSpeed)
-                    // Resolve start position
-                    val startPosition = prepareResult.timeline.resolve(prepareResult.resumePositionMs)
-
-                    completer.set(
-                        MediaSession.MediaItemsWithStartPosition(
-                            resolvedMediaItems,
-                            startPosition.mediaItemIndex,
-                            startPosition.positionInFileMs,
-                        ),
-                    )
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
@@ -782,232 +491,5 @@ internal class ListenUpSessionCallback(
         controller: MediaSession.ControllerInfo,
         customCommand: SessionCommand,
         args: Bundle,
-    ): ListenableFuture<SessionResult> {
-        // Route transport controls to the TRANSPORT player — the cast player while casting,
-        // the raw local ExoPlayer otherwise — so skip/chapter/speed reach the receiver, not
-        // the paused local player, and so the seek math below (which resolves book-relative
-        // positions via `timeline`) never runs against ChapterWindowPlayer's chapter-relative
-        // coordinates. Queue order is identical on both (the index-shift guard in
-        // handoffToCast ensures a 1:1 map), so the timeline's book-relative → index/offset
-        // math holds unchanged.
-        val p =
-            transport.activeTransportPlayer() ?: return Futures.immediateFuture(
-                SessionResult(SessionResult.RESULT_ERROR_UNKNOWN),
-            )
-        val chapters = playbackManager.chapters.value
-        val timeline = playbackManager.currentTimeline.value
-
-        when (customCommand.customAction) {
-            AudiobookNotificationProvider.COMMAND_SKIP_BACK -> {
-                // Book-relative position, less the interval in seconds of listening (× speed, spec §3.3), then seek.
-                val backwardMs = skipDistanceMs(skipIntervals.backwardSec, p.playbackParameters.speed)
-                val currentBookPosition = transport.bookRelativePositionMs()
-                val newPosition = (currentBookPosition - backwardMs).coerceAtLeast(0)
-
-                // Resolve new position to mediaItemIndex and filePosition
-                if (timeline != null) {
-                    val resolved = timeline.resolve(newPosition)
-                    playbackManager.seekAndPublish(p, resolved.mediaItemIndex, resolved.positionInFileMs)
-                } else {
-                    // Fallback to simple seek within current file
-                    val newFilePosition = (p.currentPosition - backwardMs).coerceAtLeast(0)
-                    playbackManager.seekAndPublish(p, newFilePosition)
-                }
-                logger.debug { "Skip back ${backwardMs}ms: $currentBookPosition -> $newPosition" }
-            }
-
-            AudiobookNotificationProvider.COMMAND_SKIP_FORWARD -> {
-                val forwardMs = skipDistanceMs(skipIntervals.forwardSec, p.playbackParameters.speed)
-                val currentBookPosition = transport.bookRelativePositionMs()
-                val maxPosition = timeline?.totalDurationMs ?: p.duration
-                val newPosition = (currentBookPosition + forwardMs).coerceAtMost(maxPosition)
-
-                if (timeline != null) {
-                    val resolved = timeline.resolve(newPosition)
-                    playbackManager.seekAndPublish(p, resolved.mediaItemIndex, resolved.positionInFileMs)
-                } else {
-                    val newFilePosition = (p.currentPosition + forwardMs).coerceAtMost(p.duration)
-                    playbackManager.seekAndPublish(p, newFilePosition)
-                }
-                logger.debug { "Skip forward ${forwardMs}ms: $currentBookPosition -> $newPosition" }
-            }
-
-            AudiobookNotificationProvider.COMMAND_PREV_CHAPTER -> {
-                // The shared ChapterNavigation rule (spec §3.3), as ChapterWindowPlayer.handleSeek's
-                // COMMAND_SEEK_TO_PREVIOUS branch and every other surface use it.
-                val target = ChapterNavigation.previousStartMs(transport.bookRelativePositionMs(), chapters)
-                if (timeline != null && target != null) {
-                    val resolved = timeline.resolve(target)
-                    playbackManager.seekAndPublish(p, resolved.mediaItemIndex, resolved.positionInFileMs)
-                    logger.debug { "Previous chapter target: ${target}ms" }
-                } else {
-                    // Honest-over-silent: no chapter data means nothing happened. Telling the head
-                    // unit RESULT_SUCCESS here would be a lie — it actively tells the car the
-                    // command worked when the player never moved.
-                    logger.debug { "Previous chapter requested with no chapter data available — skipping" }
-                    return Futures.immediateFuture(SessionResult(SessionResult.RESULT_INFO_SKIPPED))
-                }
-            }
-
-            AudiobookNotificationProvider.COMMAND_NEXT_CHAPTER -> {
-                // The shared ChapterNavigation rule, as ChapterWindowPlayer.handleSeek's COMMAND_SEEK_TO_NEXT
-                // branch uses it. At the last chapter there is no next: nothing moves, and the head unit is
-                // told so rather than told it worked.
-                val target = ChapterNavigation.nextStartMs(transport.bookRelativePositionMs(), chapters)
-                if (timeline != null && target != null) {
-                    val resolved = timeline.resolve(target)
-                    playbackManager.seekAndPublish(p, resolved.mediaItemIndex, resolved.positionInFileMs)
-                    logger.debug { "Next chapter target: ${target}ms" }
-                } else {
-                    logger.debug { "Next chapter requested at the last chapter or with no chapter data — skipping" }
-                    return Futures.immediateFuture(SessionResult(SessionResult.RESULT_INFO_SKIPPED))
-                }
-            }
-
-            CustomActions.CYCLE_SPEED -> {
-                val currentSpeed = p.playbackParameters.speed
-                val newSpeed = PlaybackPresets.nextSpeedInCycle(currentSpeed)
-                p.setPlaybackSpeed(newSpeed)
-                playbackManager.onSpeedChanged(newSpeed)
-                logger.info {
-                    "Speed cycled: $currentSpeed -> $newSpeed"
-                }
-            }
-
-            CustomActions.SEEK_TO_BOOK_POSITION -> {
-                // The in-app seek transport (see AndroidPlaybackController.seekTo's KDoc):
-                // book-relative because the session player is ChapterWindowPlayer, and a
-                // controller-side seek would be reinterpreted chapter-relatively and clamped
-                // to the current chapter window.
-                val target = args.getLong(CustomActions.EXTRA_BOOK_POSITION_MS, -1L)
-                if (target < 0) {
-                    return Futures.immediateFuture(SessionResult(SessionResult.RESULT_ERROR_BAD_VALUE))
-                }
-                if (timeline != null) {
-                    val resolved = timeline.resolve(target.coerceIn(0L, timeline.totalDurationMs))
-                    playbackManager.seekAndPublish(p, resolved.mediaItemIndex, resolved.positionInFileMs)
-                } else {
-                    playbackManager.seekAndPublish(p, target)
-                }
-                logger.debug { "Seek to book position: ${target}ms" }
-            }
-        }
-
-        return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
-    }
-}
-
-/**
- * The custom buttons the session offers [trust]'s controller beside previous, play/pause and next (spec §5.7, §3.3).
- *
- * Back N and forward N carry the user's configured intervals in both glyph and label: a car is the surface where a
- * button that says one number and moves another is least correctable (#1300). They sit in the secondary slots, beside
- * previous and next, never in them, so at the last chapter next's slot stays empty instead of forward sliding into it.
- * Each falls back to overflow, which is what the platform session (Android Auto, Bluetooth and the Android 13+ system
- * card) reads. That card shows two custom buttons beside the reserved previous and next, so the order decides what it
- * keeps: back N and forward N. Speed comes third, kept by Android Auto (limited to three custom actions by its
- * guidelines), which has room for it and is the car's only way to change speed.
- */
-internal fun mediaButtonsFor(
-    trust: ControllerTrust,
-    backwardSec: Int,
-    forwardSec: Int,
-    words: SystemStrings,
-): List<CommandButton> =
-    when (trust) {
-        ControllerTrust.OWN_APP,
-        ControllerTrust.AUTO_OR_AUTOMOTIVE,
-        ControllerTrust.MEDIA_NOTIFICATION,
-        -> {
-            listOf(
-                CommandButton
-                    .Builder(SkipCommandIcons.backward(backwardSec))
-                    .setDisplayName(words.carBack.format(Locale.getDefault(), backwardSec))
-                    .setSessionCommand(SessionCommand(AudiobookNotificationProvider.COMMAND_SKIP_BACK, Bundle.EMPTY))
-                    .setSlots(CommandButton.SLOT_BACK_SECONDARY, CommandButton.SLOT_OVERFLOW)
-                    .build(),
-                CommandButton
-                    .Builder(SkipCommandIcons.forward(forwardSec))
-                    .setDisplayName(words.carForward.format(Locale.getDefault(), forwardSec))
-                    .setSessionCommand(SessionCommand(AudiobookNotificationProvider.COMMAND_SKIP_FORWARD, Bundle.EMPTY))
-                    .setSlots(CommandButton.SLOT_FORWARD_SECONDARY, CommandButton.SLOT_OVERFLOW)
-                    .build(),
-                CommandButton
-                    .Builder(CommandButton.ICON_UNDEFINED)
-                    .setDisplayName(words.playerSpeed)
-                    .setCustomIconResId(R.drawable.ic_speed)
-                    .setSessionCommand(CustomActions.cycleSpeedCommand())
-                    .setSlots(CommandButton.SLOT_OVERFLOW)
-                    .build(),
-            )
-        }
-
-        ControllerTrust.TRUSTED_SYSTEM,
-        ControllerTrust.UNKNOWN,
-        -> {
-            emptyList()
-        }
-    }
-
-/**
- * What each connected controller should be offered now: its fresh [mediaButtonsFor], for those whose trust gets
- * custom buttons. Connect-time buttons freeze the skip interval and the language, so the service re-sends these
- * whenever either changes.
- */
-internal fun mediaButtonUpdates(
-    controllers: List<Pair<MediaSession.ControllerInfo, ControllerTrust>>,
-    backwardSec: Int,
-    forwardSec: Int,
-    words: SystemStrings,
-): List<Pair<MediaSession.ControllerInfo, List<CommandButton>>> =
-    controllers
-        .filter { (_, trust) -> trust.getsCustomButtons() }
-        .map { (controller, trust) ->
-            controller to
-                mediaButtonsFor(trust = trust, backwardSec = backwardSec, forwardSec = forwardSec, words = words)
-        }
-
-/** Convert Android's EXTRA_MEDIA_FOCUS string to our MediaFocus enum. */
-private fun String.toMediaFocus(): MediaFocus? =
-    when (this) {
-        MediaStore.Audio.Artists.ENTRY_CONTENT_TYPE -> MediaFocus.ARTIST
-        MediaStore.Audio.Albums.ENTRY_CONTENT_TYPE -> MediaFocus.ALBUM
-        MediaStore.Audio.Media.ENTRY_CONTENT_TYPE -> MediaFocus.TITLE
-        else -> MediaFocus.UNSPECIFIED
-    }
-
-/** The hints a voice search arrived with, for the debug log; an absent hint reads "none", not "null". */
-private fun VoiceHints.logLine(): String =
-    "title=${title ?: "none"}, artist=${artist ?: "none"}, focus=${focus ?: "none"}"
-
-/**
- * Seeks the transport player and publishes where it landed.
- *
- * Publishing is not optional bookkeeping. The in-app position is fed by a poll that runs
- * only while audio is playing, so a notification skip taken while paused moved the player
- * and left [PlaybackManager] holding the old position — and the next in-app skip, computed
- * from that stale value, silently undid the one the listener just made.
- *
- * The landing coordinates are the ones just resolved rather than read back from the player,
- * so the published position cannot drift from the seek that produced it.
- */
-private fun PlaybackManager.seekAndPublish(
-    player: Player,
-    mediaItemIndex: Int,
-    positionInFileMs: Long,
-) {
-    player.seekTo(mediaItemIndex, positionInFileMs)
-    updatePositionFromMediaItem(mediaItemIndex, positionInFileMs)
-}
-
-/**
- * The file-relative fallback taken when no [PlaybackTimeline] is loaded: the seek stays
- * within the current media item, so that item's index is the one to publish against.
- */
-private fun PlaybackManager.seekAndPublish(
-    player: Player,
-    positionInFileMs: Long,
-) {
-    player.seekTo(positionInFileMs)
-    updatePositionFromMediaItem(player.currentMediaItemIndex, positionInFileMs)
+    ): ListenableFuture<SessionResult> = Futures.immediateFuture(customCommandHandler.handle(customCommand, args))
 }

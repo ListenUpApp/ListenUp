@@ -4,59 +4,36 @@ import android.app.PendingIntent
 import android.content.Intent
 import android.content.res.Configuration
 import android.os.Bundle
-import android.widget.Toast
 import androidx.annotation.OptIn
-import androidx.media3.common.AudioAttributes
-import androidx.media3.common.C
-import androidx.media3.common.MediaItem
-import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
-import androidx.media3.common.Timeline
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.datasource.DataSource
-import androidx.media3.datasource.DefaultDataSource
-import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
-import androidx.media3.extractor.DefaultExtractorsFactory
-import androidx.media3.extractor.mp4.Mp4Extractor
 import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaSession
 import androidx.media3.session.SessionCommand
-import com.calypsan.listenup.api.error.PlaybackError
 import com.calypsan.listenup.client.automotive.BrowseTree
 import com.calypsan.listenup.client.automotive.BrowseTreeProvider
 import com.calypsan.listenup.client.automotive.browseSignInEdges
-import com.calypsan.listenup.client.playback.cast.CastMediaItemFactory
-import com.calypsan.listenup.client.playback.cast.CastPreparer
-import com.calypsan.listenup.client.playback.cast.CastSessionController
-import com.calypsan.listenup.client.playback.cast.CastSourceItem
-import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.core.error.ErrorBus
+import com.calypsan.listenup.client.di.activatePlaybackController
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.HomeRepository
 import com.calypsan.listenup.client.domain.repository.LoadedBookRepository
 import com.calypsan.listenup.client.localization.SystemStrings
 import com.calypsan.listenup.client.localization.SystemStringsHolder
+import com.calypsan.listenup.client.playback.cast.CastPreparer
+import com.calypsan.listenup.client.playback.cast.CastSessionController
 import com.calypsan.listenup.client.voice.VoiceIntentResolver
+import com.calypsan.listenup.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
-import com.calypsan.listenup.client.di.activatePlaybackController
 import org.koin.android.ext.android.getKoin
 import org.koin.android.ext.android.inject
-import kotlin.time.Duration.Companion.hours
-import kotlin.time.Duration.Companion.minutes
 
 private val logger = KotlinLogging.logger {}
 
@@ -64,21 +41,18 @@ private val logger = KotlinLogging.logger {}
  * Background playback service using Media3.
  *
  * Responsibilities:
- * - Manages ExoPlayer instance
+ * - Manages ExoPlayer instance (built via [buildAudiobookExoPlayer])
  * - Exposes MediaSession for system integration (notification, lock screen, Bluetooth)
- * - Handles audio focus
- * - Survives Activity destruction for background playback
- *
- * Lifecycle:
- * - Tiered idle timeouts (30min pause, 5min sleep timer, 2hr book finish)
- * - Explicit stop via notification
- * - Survives app swipe-away while timer is active
+ * - Handles audio focus and survives Activity destruction for background playback
+ * - Delegates progress/span bookkeeping and tiered idle timeouts to [PlaybackBookkeeper]
+ * - Coordinates Local ↔ Cast swaps via [CastHandoffCoordinator]
  */
 @OptIn(UnstableApi::class)
 class PlaybackService :
     MediaLibraryService(),
-    PlaybackTransport {
-    private var mediaLibrarySession: MediaLibraryService.MediaLibrarySession? = null
+    PlaybackTransport,
+    PlaybackBookkeeperHost {
+    private var mediaLibrarySession: MediaLibrarySession? = null
     private var player: ExoPlayer? = null
     private var chapterWindowPlayer: ChapterWindowPlayer? = null
     private var notificationProvider: AudiobookNotificationProvider? = null
@@ -103,9 +77,9 @@ class PlaybackService :
     private val transport = ActiveTransport(refusalTracker)
 
     // True while the session player is the cast player. Main-thread only (moved in the
-    // cast handoffs, read by the idle-timer guard). The PlayerListener is attached only
+    // cast handoffs, read by the idle-timer guard). The LocalPlayerListener is attached only
     // to the local ExoPlayer, so cast play/pause never reaches it — this flag is how the
-    // idle timer learns to stand down while casting (see startIdleTimer).
+    // idle timer learns to stand down while casting.
     private val casting: Boolean get() = transport.casting
 
     /**
@@ -115,32 +89,14 @@ class PlaybackService :
      */
     private val gainProcessor = GainAudioProcessor()
 
-    /**
-     * The measurement last handed to [ProgressTracker], so an unmoved reading is not re-saved.
-     * Cleared on every book change alongside [GainAudioProcessor.beginBook].
-     */
-    private var lastSavedMeasuredGainDb: Float? = null
-
-    /**
-     * The book [gainProcessor]'s meter is currently measuring — set at the same instant the meter
-     * is reset, so it is the one thing that knows what a reading actually describes.
-     */
-    private var meterBookId: BookId? = null
-
-    /** Attached to the cast player for the length of a cast session; see [handoffToCast]. */
-    private val castPlaybackListener by lazy { CastPlaybackListener() }
-
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
-    private var idleJob: Job? = null
-    private var positionUpdateJob: Job? = null
-    private var uiPositionJob: Job? = null
 
     // Inject dependencies
     private val playbackManager: PlaybackManager by inject()
     private val playbackStateWriter: PlaybackStateWriter by inject()
     private val reporter: PlaybackProgressReporter by inject()
     private val progressTracker: ProgressTracker by inject()
-    private val listeningEventRecorder: com.calypsan.listenup.client.playback.ListeningEventRecorder by inject()
+    private val listeningEventRecorder: ListeningEventRecorder by inject()
     private val loadedBookRepository: LoadedBookRepository by inject()
     private val errorHandler: PlaybackErrorHandler by inject()
     private val errorBus: ErrorBus by inject()
@@ -158,46 +114,48 @@ class PlaybackService :
     /** Offers a way back in when the platform refuses a background start. */
     private val refusalNotifier by lazy { PlaybackRefusalNotifier(this, systemStrings) }
 
-    /**
-     * The book every position this service saves is filed under: PlaybackManager's, but only while the
-     * transport holds that book's media ([positionOwner]). Null in the moment after a switch when the player
-     * still holds the previous book, so its place is never saved as the new one's.
-     */
-    private val currentBookId: BookId?
-        get() =
-            positionOwner(
-                activeBookId = playbackManager.currentBookId.value,
-                timeline = playbackManager.currentTimeline.value,
-                transportMediaId = activeTransportPlayer()?.currentMediaItem?.mediaId,
-            )
-
-    /**
-     * Get the current book-relative position.
-     *
-     * ExoPlayer tracks position within the current file, but we need position
-     * relative to the entire book for progress tracking. The PlaybackTimeline
-     * handles this translation.
-     *
-     * Reads the active transport player — the local ExoPlayer normally, the cast
-     * player while casting — so position recording follows wherever audio is playing.
-     *
-     * @return Book-relative position in milliseconds, or 0 if unavailable
-     */
-    private fun getBookRelativePosition(): Long {
-        val player = activeTransportPlayer() ?: return 0L
-        val timeline = playbackManager.currentTimeline.value ?: return player.currentPosition
-        return timeline.toBookPosition(player.currentMediaItemIndex, player.currentPosition)
+    private val bookkeeper: PlaybackBookkeeper by lazy {
+        PlaybackBookkeeper(
+            host = this,
+            serviceScope = serviceScope,
+            transport = transport,
+            gainProcessor = gainProcessor,
+            playbackManager = playbackManager,
+            playbackStateWriter = playbackStateWriter,
+            progressTracker = progressTracker,
+            listeningEventRecorder = listeningEventRecorder,
+            sleepTimerManager = sleepTimerManager,
+            refusalNotifier = refusalNotifier,
+        )
     }
 
     /**
-     * The whole book's duration in milliseconds: the timeline's total, else the player's own
-     * duration when it knows it (`C.TIME_UNSET` is negative), else 0 — which the tracker reads as
-     * "unknown" and never treats as finished.
+     * Play/pause bookkeeping for the Cast transport, and nothing else.
+     *
+     * Deliberately not the full [LocalPlayerListener]: that one's error handling acts on the *local*
+     * ExoPlayer captured in its `onPlayerError`, so attaching it to the cast player would
+     * recover the wrong player on a receiver-side failure.
      */
-    private fun getBookDurationMs(): Long =
-        playbackManager.currentTimeline.value?.totalDurationMs
-            ?: activeTransportPlayer()?.run { duration.takeIf { it > 0 } }
-            ?: 0L
+    private val castPlaybackListener: Player.Listener by lazy {
+        object : Player.Listener {
+            override fun onIsPlayingChanged(isPlaying: Boolean) =
+                bookkeeper.handleIsPlayingChanged(TransportSource.CAST, isPlaying)
+        }
+    }
+
+    private val castHandoff: CastHandoffCoordinator by lazy {
+        CastHandoffCoordinator(
+            context = this,
+            playbackManager = playbackManager,
+            castPreparer = castPreparer,
+            transport = transport,
+            systemStrings = systemStrings,
+            castPlaybackListener = castPlaybackListener,
+            onEndListen = bookkeeper::endListen,
+            onCancelIdleTimer = bookkeeper::cancelIdleTimer,
+            onSaveCurrentPosition = bookkeeper::saveCurrentPosition,
+        )
+    }
 
     /**
      * The player actually producing audio right now — the cast player while [casting],
@@ -214,22 +172,21 @@ class PlaybackService :
      */
     override fun activeTransportPlayer(): Player? = if (casting) castSessionController?.castPlayer else player
 
-    /** [PlaybackTransport] view of [getBookRelativePosition], which the rest of the service uses directly. */
-    override fun bookRelativePositionMs(): Long = getBookRelativePosition()
+    override fun localPlayer(): ExoPlayer? = player
+
+    /** [PlaybackTransport] view of [PlaybackBookkeeper.bookRelativePositionMs]. */
+    override fun bookRelativePositionMs(): Long = bookkeeper.bookRelativePositionMs()
+
+    /** Tells every controller the local player was released, so the app stops treating the engine as holding the book. */
+    override fun announceIdleRelease() {
+        mediaLibrarySession?.broadcastCustomCommand(SessionCommand(COMMAND_IDLE_RELEASED, Bundle.EMPTY), Bundle.EMPTY)
+    }
+
+    override fun stopService() {
+        stopSelf()
+    }
 
     companion object {
-        // Idle timeout tiers
-        private val IDLE_TIMEOUT_SHORT = 30.minutes // After natural pause
-        private val IDLE_TIMEOUT_LONG = 2.hours // After book completion
-        private val IDLE_TIMEOUT_SLEEP = 5.minutes // After sleep timer fires
-
-        // Position update interval
-        private const val POSITION_UPDATE_INTERVAL = 30_000L // 30 seconds
-
-        // UI-rate position poll interval — matches MediaControllerHolder's former poll cadence
-        // (see startPositionUpdates' KDoc for why this now lives here instead).
-        private const val POSITION_UI_UPDATE_INTERVAL = 250L
-
         /** One minute: how often the system card's time left can change. */
         private const val MS_PER_MINUTE = 60_000L
     }
@@ -244,7 +201,7 @@ class PlaybackService :
         initializeMediaSession()
         initializeCast()
         initializeNotificationProvider()
-        observeGain()
+        bookkeeper.observeGain()
         observeSignInForBrowseRefresh()
 
         // Register callback for chapter changes to update notification
@@ -258,7 +215,7 @@ class PlaybackService :
         refreshCardTimeLeft()
 
         // Auto-rewind-on-resume actuator (#1220): PlaybackManagerImpl.setPlaying feeds every
-        // Playing/Paused transition (from the Player.Listener below, via MediaControllerHolder)
+        // Playing/Paused transition (from LocalPlayerListener below, via MediaControllerHolder)
         // into the reporter, which owns the pause-window/ladder decision and calls back here
         // with a relative rewind once one applies. The seek itself lives in AutoRewindSeeker,
         // which holds only the PlaybackTransport seam — see its KDoc for why aiming this at the
@@ -277,81 +234,26 @@ class PlaybackService :
     }
 
     private fun initializePlayer() {
-        // Create OkHttp client with auth interceptor. Timeouts — and why they are all
-        // finite — live in StallRecovery.kt.
-        val okHttpClient =
-            buildStreamingHttpClient(
-                authInterceptor = tokenProvider.createInterceptor(),
-                tokenAuthenticator = tokenProvider.createAuthenticator(),
+        val listener =
+            LocalPlayerListener(
+                localPlayer = { player },
+                serviceScope = serviceScope,
+                bookkeeper = bookkeeper,
+                refusalTracker = refusalTracker,
+                refusalNotifier = refusalNotifier,
+                errorBus = errorBus,
+                errorHandler = errorHandler,
+                progressTracker = progressTracker,
+                playbackManager = playbackManager,
+                listeningEventRecorder = listeningEventRecorder,
             )
-
-        // Create DataSource factory: OkHttp for HTTP(S) streaming, DefaultDataSource
-        // wrapper to also handle file:// URIs for downloaded audiobooks
-        val httpDataSourceFactory: DataSource.Factory = OkHttpDataSource.Factory(okHttpClient)
-        val dataSourceFactory: DataSource.Factory = DefaultDataSource.Factory(this, httpDataSourceFactory)
-
-        // Every cover we display comes from our own library (MediaItem.artworkUri, set in
-        // AndroidPlaybackController and BrowseTreeProvider) — nothing reads MediaMetadata.artworkData.
-        // Media3 1.11's FLAG_DISABLE_ARTWORK_METADATA stops the MP4 extractor decoding the embedded
-        // cover art it would otherwise hold for the whole session. Audiobook m4b files routinely
-        // carry megabyte-scale artwork, and a multi-file book pays that per file.
-        val extractorsFactory =
-            DefaultExtractorsFactory()
-                .setMp4ExtractorFlags(Mp4Extractor.FLAG_DISABLE_ARTWORK_METADATA)
-
-        // Create media source factory
-        val mediaSourceFactory =
-            DefaultMediaSourceFactory(this, extractorsFactory)
-                .setDataSourceFactory(dataSourceFactory)
-
-        // Platform-default AAC decoding. We deliberately do NOT set the DRC target reference
-        // level: Android's default is -16 LKFS, matching every other audio app on the device.
-        // A previous custom RenderersFactory set -24 LKFS, which attenuated all AAC playback
-        // by 8 dB. Dynamic-range control on AAC-LC comes from KEY_AAC_DRC_HEAVY_COMPRESSION,
-        // which already defaults to heavy — we get it without configuring anything.
-        //
-        // GainRenderersFactory is the stock factory with one addition: the volume-boost gain
-        // stage in the audio sink's processor chain. Everything else about the sink, including
-        // the decode path above, is unchanged.
-        val renderersFactory =
-            GainRenderersFactory(this, gainProcessor)
-                .setEnableDecoderFallback(true)
-
-        // Build ExoPlayer with audiobook-optimized settings
         player =
-            ExoPlayer
-                .Builder(this)
-                .setRenderersFactory(renderersFactory)
-                .setMediaSourceFactory(mediaSourceFactory)
-                .setAudioAttributes(
-                    AudioAttributes
-                        .Builder()
-                        .setUsage(C.USAGE_MEDIA)
-                        .setContentType(C.AUDIO_CONTENT_TYPE_SPEECH) // Audiobooks!
-                        .build(),
-                    // handleAudioFocus =
-                    true,
-                ).setHandleAudioBecomingNoisy(true) // Pause when headphones unplugged
-                .setWakeMode(C.WAKE_MODE_LOCAL) // Keep CPU awake during playback
-                // No setSeek{Back,Forward}IncrementMs here on purpose: those are builder-only,
-                // so honouring a Settings change through them would mean rebuilding the player
-                // mid-sentence. SkipIntervalPlayer (installed in initializeMediaSession) reads
-                // the live value per press instead — see its KDoc.
-                // Backstop for a stall the socket-read timeout can't see — see StallRecovery.kt.
-                // Media3's own default is ten minutes, which strands the listener.
-                .setStuckBufferingDetectionTimeoutMs(STUCK_BUFFERING_TIMEOUT_MS)
-                .build()
-                .apply {
-                    addListener(PlayerListener())
-
-                    // No audio offload. Offload hands compressed frames straight to the DSP, which
-                    // saves battery but bypasses the AudioProcessor chain entirely — so both the
-                    // volume-boost gain stage and the R128 loudness measurement need the standard
-                    // decode path to exist at all. Re-enabling offload must be gated on the
-                    // effective gain being exactly 0 dB, and even then costs the measurement.
-                }
-
-        logger.info { "ExoPlayer initialized with the volume-boost gain stage" }
+            buildAudiobookExoPlayer(
+                context = this,
+                tokenProvider = tokenProvider,
+                gainProcessor = gainProcessor,
+                listener = listener,
+            )
     }
 
     private fun initializeMediaSession() {
@@ -386,12 +288,11 @@ class PlaybackService :
 
         // System surfaces (Auto, notification, lock screen, Bluetooth) get the chapter-scoped
         // presentation wrapper, never the raw local player — see ChapterWindowPlayer's class KDoc.
-        // In-app UI still reads PlaybackManager directly for its state (now fed by this service's
-        // raw-player poll — see startPositionUpdates), and in-app seeks ride the
-        // SEEK_TO_BOOK_POSITION custom command (see onCustomCommand) rather than a plain
-        // controller seek, which the wrapper would reinterpret chapter-relatively. Plain
-        // play/pause/speed controller calls are coordinate-agnostic and still go through the
-        // session unmodified.
+        // In-app UI still reads PlaybackManager directly for its state (now fed by PlaybackBookkeeper's
+        // raw-player poll), and in-app seeks ride the SEEK_TO_BOOK_POSITION custom command (see
+        // SessionCustomCommandHandler) rather than a plain controller seek, which the wrapper would
+        // reinterpret chapter-relatively. Plain play/pause/speed controller calls are
+        // coordinate-agnostic and still go through the session unmodified.
         val wrapper =
             ChapterWindowPlayer(
                 player = skipAware,
@@ -453,7 +354,7 @@ class PlaybackService :
     }
 
     /**
-     * Re-presents the session once a minute while playing, so the system card's "8m left" counts down (spec §5.7).
+     * Re-presents the session once a minute while playing, so the system card's remaining time counts down.
      * No player event fires as a minute passes; a per-tick invalidate would rebuild every controller's state a few
      * times a second for a number that changes once a minute.
      */
@@ -482,33 +383,6 @@ class PlaybackService :
         val provider = notificationProvider ?: return
         setMediaNotificationProvider(provider)
         logger.info { "Notification provider initialized" }
-    }
-
-    /**
-     * Wire the gain stage to the two signals that drive it: the gain to apply, and the book
-     * boundary that scopes a loudness measurement.
-     *
-     * Both ride [PlaybackManager] rather than the media-item plumbing because `currentBookId` is
-     * already this service's notion of which book is loaded — the same source the pause funnel
-     * saves against.
-     *
-     * The reset is asynchronous, though, so it lands some time after the flow has already flipped
-     * to the new book. [meterBookId] is stamped inside that resumption, which is what lets
-     * [saveRefinedMeasurement] tell a reading of the new book from a leftover reading of the old.
-     */
-    private fun observeGain() {
-        serviceScope.launch {
-            playbackManager.effectiveGainDb.collect { gainProcessor.setGainDb(it) }
-        }
-        serviceScope.launch {
-            // A StateFlow conflates and drops duplicates, so this fires once per real book change.
-            // Loudness integrates over one book, never across two.
-            playbackManager.currentBookId.collect { bookId ->
-                gainProcessor.beginBook()
-                meterBookId = bookId
-                lastSavedMeasuredGainDb = null
-            }
-        }
     }
 
     /**
@@ -598,125 +472,30 @@ class PlaybackService :
         castSessionController =
             CastSessionController.createOrNull(
                 context = this,
-                onConnected = { serviceScope.launch { handoffToCast() } },
-                onDisconnected = { serviceScope.launch { handoffToLocal() } },
+                onConnected = {
+                    serviceScope.launch {
+                        val controller = castSessionController ?: return@launch
+                        val session = mediaLibrarySession ?: return@launch
+                        val local = player ?: return@launch
+                        castHandoff.handoffToCast(controller, session, local)
+                    }
+                },
+                onDisconnected = {
+                    serviceScope.launch {
+                        val controller = castSessionController ?: return@launch
+                        val session = mediaLibrarySession ?: return@launch
+                        val local = player ?: return@launch
+                        val wrapper = chapterWindowPlayer ?: return@launch
+                        castHandoff.handoffToLocal(
+                            controller = controller,
+                            session = session,
+                            local = local,
+                            wrapper = wrapper,
+                        )
+                    }
+                },
             )
         if (castSessionController != null) logger.info { "Cast initialized" }
-    }
-
-    /** Local → Cast: re-fetch network URLs, build the cast queue at the current position, swap the session player. */
-    private suspend fun handoffToCast() {
-        val controller = castSessionController ?: return
-        val session = mediaLibrarySession ?: return
-        val local = player ?: return
-        val bookId = playbackManager.currentBookId.value ?: return
-
-        val prepared = castPreparer.prepareForCast(bookId)
-        if (prepared == null) {
-            logger.warn { "Cast prepare failed — staying local" }
-            // Honest-over-silent: the user tapped cast and nothing audible happened.
-            Toast.makeText(this, systemStrings.current.playerCastStartFailed, Toast.LENGTH_LONG).show()
-            return
-        }
-        // Connect→disconnect race: the session can drop while prepareForCast suspends. Re-check
-        // before committing so we never swap onto a dead cast session with no path back.
-        if (!controller.isSessionAvailable) {
-            logger.warn { "Cast session gone during prepare — staying local" }
-            // Honest-over-silent, matching the siblings above/below: the user tapped cast and
-            // audio just keeps playing locally with no explanation otherwise.
-            Toast.makeText(this, systemStrings.current.playerCastSessionLost, Toast.LENGTH_LONG).show()
-            return
-        }
-        // Snapshot the currently-loaded items for queue order + on-TV metadata.
-        val sourceItems =
-            (0 until local.mediaItemCount).map { i ->
-                val mi = local.getMediaItemAt(i)
-                CastSourceItem(
-                    fileId = mi.mediaId,
-                    title = mi.mediaMetadata.title?.toString(),
-                    artist = mi.mediaMetadata.artist?.toString(),
-                    albumTitle = mi.mediaMetadata.albumTitle?.toString(),
-                )
-            }
-        val factory = CastMediaItemFactory()
-        val built = factory.build(sourceItems, prepared.files, prepared.coverUrlAbsolute)
-        // Index-shift safety: only cast a complete, in-order queue. A dropped file would
-        // shift indices and resume on the wrong file — fall back to local instead.
-        if (built.tracks.size != sourceItems.size) {
-            logger.warn {
-                "Cannot cast this book (uncastable=${built.droppedUncastable}, " +
-                    "unmatched=${built.droppedUnmatched}) — staying local"
-            }
-            // Honest-over-silent: tell the user why casting didn't start. Staying local is the
-            // never-stranded fallback. (A typed AppError + snackbar is a tracked follow-up; a
-            // Toast is the v1 honest-over-silent signal.)
-            Toast.makeText(this, systemStrings.current.playerCastUnsupportedFormat, Toast.LENGTH_LONG).show()
-            return
-        }
-        val mediaItems = built.tracks.map { factory.toMediaItem(it) }
-        val wasPlaying = local.playWhenReady
-        val speed = local.playbackParameters.speed
-        val index = local.currentMediaItemIndex
-        val positionInItem = local.currentPosition
-
-        // Commit to the swap. Set `casting` BEFORE pausing local, because pausing fires the
-        // local PlayerListener's onIsPlayingChanged(false) → startIdleTimer, which must stand
-        // down while casting (the cast player has no listener to ever cancel it). While casting
-        // the local player is paused, so periodic progress saves + listening-event recording
-        // pause too; the position is still persisted on disconnect via the cast-aware
-        // getBookRelativePosition(). (Tracked follow-up: drive the position job off
-        // session.player so cast time counts toward stats.)
-        // The local listen ends here, read off the local player while it is still the transport;
-        // the cast player's own play opens the next span.
-        transport.handOff(TransportSource.CAST, ::endListen)
-        val cast = controller.castPlayer
-        // The cast player drives bookkeeping for as long as it is the transport. Without this
-        // listener a cast session begun from a paused state recorded nothing at all: the local
-        // player never entered isPlaying, so nothing ever started the position loops or opened
-        // a span. Attached before prepare() so its first is-playing event is not missed.
-        cast.addListener(castPlaybackListener)
-        cast.setMediaItems(mediaItems, index, positionInItem)
-        cast.playWhenReady = wasPlaying
-        cast.prepare()
-        cast.setPlaybackSpeed(speed) // routes via SpeedAwareCastPlayer → RemoteMediaClient.setPlaybackRate
-        session.player = cast
-        local.playWhenReady = false // release local audio focus; keep its items loaded for fast return
-        cancelIdleTimer() // belt-and-suspenders: the `casting` guard already blocks new timers
-        logger.info { "Swapped to Cast at index=$index pos=$positionInItem" }
-    }
-
-    /** Cast → Local: read cast position, seek the retained ExoPlayer there, swap back, persist progress. */
-    private fun handoffToLocal() {
-        val controller = castSessionController ?: return
-        val session = mediaLibrarySession ?: return
-        val local = player ?: return
-        val wrapper = chapterWindowPlayer ?: return
-        // If the session isn't currently on the cast player, nothing to do (we never swapped).
-        // (Was an identity check against `local` before ChapterWindowPlayer existed — the session
-        // player is never `local` anymore even when not casting, since it's now the wrapper.)
-        if (!casting) return
-        val cast = controller.castPlayer
-        val index = cast.currentMediaItemIndex
-        val positionInItem = cast.currentPosition
-        val wasPlaying = cast.playWhenReady
-        // SpeedAwareCastPlayer mirrors the live receiver rate, so a speed change made while casting
-        // is carried back to the local player — otherwise saveCurrentPosition() below persists a
-        // stale speed.
-        val speed = cast.playbackParameters.speed
-        // Known v1 limitation: the retained local player still holds the book that was loaded
-        // at hand-off. If the user changed books on the cast device mid-session, swapping back
-        // could seek the wrong book. (Tracked follow-up.)
-        cast.removeListener(castPlaybackListener)
-        local.seekTo(index, positionInItem)
-        local.playWhenReady = wasPlaying
-        local.setPlaybackSpeed(speed)
-        session.player = wrapper
-        // The cast listen ends here, read off the cast player while it is still the transport: its own
-        // stop can no longer arrive (its listener is gone), and the local player's play opens the next
-        // span. Normal idle logic resumes now that the local player drives the session.
-        transport.handOff(TransportSource.LOCAL, ::endListen)
-        logger.info { "Swapped back to local at index=$index pos=$positionInItem" }
-        saveCurrentPosition() // existing method — persists through the normal recorder
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession? = mediaLibrarySession
@@ -739,15 +518,23 @@ class PlaybackService :
         // later kills the process, onDestroy may not get a chance to run.
         // Must be synchronous: saveCurrentPosition() is fire-and-forget and races
         // process death; saveCurrentPositionBlocking() completes before returning.
-        saveCurrentPositionBlocking()
+        bookkeeper.saveCurrentPositionBlocking()
 
         // Don't stop immediately — the notification stays so the listener can resume.
         // The timer is armed here rather than left to the pause above: Media3 delivers that
         // pause's onIsPlayingChanged asynchronously, so nothing has armed it yet.
         when (taskRemovedActionFor(hasPlayer = player != null, casting = casting)) {
-            TaskRemovedAction.STOP_SERVICE -> stopSelf()
-            TaskRemovedAction.ARM_IDLE_TIMER -> startIdleTimer(IDLE_TIMEOUT_SHORT, "task_removed")
-            TaskRemovedAction.KEEP_ALIVE -> logger.debug { "Task removed while casting — leaving the session alone" }
+            TaskRemovedAction.STOP_SERVICE -> {
+                stopSelf()
+            }
+
+            TaskRemovedAction.ARM_IDLE_TIMER -> {
+                bookkeeper.startIdleTimer(PlaybackBookkeeper.IDLE_TIMEOUT_SHORT, "task_removed")
+            }
+
+            TaskRemovedAction.KEEP_ALIVE -> {
+                logger.debug { "Task removed while casting — leaving the session alone" }
+            }
         }
     }
 
@@ -758,11 +545,8 @@ class PlaybackService :
         // onIsPlayingChanged, so without this the position would be lost.
         // Must be synchronous: saveCurrentPosition() is fire-and-forget and races
         // serviceScope.cancel() below; saveCurrentPositionBlocking() completes before returning.
-        saveCurrentPositionBlocking()
-
-        idleJob?.cancel()
-        positionUpdateJob?.cancel()
-        uiPositionJob?.cancel()
+        bookkeeper.saveCurrentPositionBlocking()
+        bookkeeper.cancelJobs()
 
         // Clear chapter change callback to avoid memory leaks
         playbackManager.onChapterChanged = null
@@ -784,432 +568,11 @@ class PlaybackService :
         super.onDestroy()
     }
 
-    private fun saveCurrentPosition() {
-        val player = player ?: return
-        val bookId = currentBookId ?: return
-
-        progressTracker.onPlaybackPaused(
-            bookId = bookId,
-            positionMs = getBookRelativePosition(),
-            speed = player.playbackParameters.speed,
-            durationMs = getBookDurationMs(),
-        )
-    }
-
-    /**
-     * Persist a refined R128 measurement at a pause, if it has actually moved.
-     *
-     * Hung off the pause funnel so no pause path can forget it. Deliberately does NOT re-apply the
-     * gain: the measurement refines continuously while a book plays, and reacting to it live would
-     * be an audible level jump mid-sentence. A new value takes effect at the next load, or the next
-     * time the user moves the boost.
-     */
-    private fun saveRefinedMeasurement(
-        bookId: BookId,
-        positionMs: Long,
-    ) {
-        val measured = gainProcessor.measuredGainDb() ?: return
-        // [meterBookId], not currentBookId: the latter is the very source [bookId] was read from a
-        // moment ago on this same thread, so comparing them can never fire. What can go wrong is a
-        // pause landing after the flow has flipped to the next book but before the reset in
-        // [observeGain] has run — the meter is still integrating the outgoing book, and this would
-        // file its loudness under the incoming book's id.
-        val worthSaving =
-            shouldSaveMeasurement(
-                measured = measured,
-                lastSaved = lastSavedMeasuredGainDb,
-                meterBookId = meterBookId,
-                bookId = bookId,
-            )
-        if (!worthSaving) return
-        progressTracker.onMeasuredGain(bookId = bookId, positionMs = positionMs, gainDb = measured)
-        lastSavedMeasuredGainDb = measured
-    }
-
-    /**
-     * Durable position save for Android lifecycle teardown callbacks.
-     *
-     * [onDestroy] and [onTaskRemoved] are synchronous Android callbacks that cannot
-     * suspend. [saveCurrentPosition] uses [ProgressTracker.onPlaybackPaused], which
-     * is fire-and-forget (`scope.launch { }`): the launched coroutine races
-     * [serviceScope.cancel] in [onDestroy] and races OS process death in
-     * [onTaskRemoved], so the Room write may never run.
-     *
-     * This function uses [runBlocking] with [NonCancellable] to ensure the write
-     * completes before the callback returns. [runBlocking] is intentional and correct
-     * here — this is a platform-boundary use where suspension is impossible, not the
-     * anti-pattern banned in coroutine-path code.
-     */
-    private fun saveCurrentPositionBlocking() {
-        val bookId = currentBookId ?: return
-        val positionMs = getBookRelativePosition()
-        runBlocking(NonCancellable) {
-            progressTracker.savePositionNow(bookId, positionMs, getBookDurationMs())
-        }
-    }
-
-    private fun startIdleTimer(
-        timeout: kotlin.time.Duration,
-        reason: String,
-    ) {
-        // Never idle-out while casting: the cast player lives inside THIS service's session,
-        // and its play/pause events never reach the local PlayerListener that would cancel the
-        // timer — so a timer started here (e.g. by the pause that hand-off triggers on the local
-        // player) would tear the cast session down after the timeout. The flag check is the
-        // robust guard because onIsPlayingChanged is posted asynchronously and could fire after
-        // a bare cancel. Covers every startIdleTimer path (pause, idle, book-finished, error).
-        if (casting) return
-        idleJob?.cancel()
-        idleJob =
-            serviceScope.launch {
-                logger.debug { "Idle timer started: $timeout ($reason)" }
-                delay(timeout)
-                logger.info { "Idle timeout reached, stopping service ($reason)" }
-                // Not casting (guarded above): the local player is the transport. The app's controller keeps the
-                // service bound, so stopSelf() alone would leave the decoder and notification up.
-                player?.let { local ->
-                    releaseIdlePlayer(local, ::saveCurrentPosition, ::announceIdleRelease)
-                } ?: saveCurrentPosition()
-                stopSelf()
-            }
-    }
-
-    /** Tells every controller the local player was released, so the app stops treating the engine as holding the book. */
-    private fun announceIdleRelease() {
-        mediaLibrarySession?.broadcastCustomCommand(SessionCommand(COMMAND_IDLE_RELEASED, Bundle.EMPTY), Bundle.EMPTY)
-    }
-
-    private fun cancelIdleTimer() {
-        idleJob?.cancel()
-        idleJob = null
-    }
-
-    private fun startPositionUpdates() {
-        positionUpdateJob?.cancel()
-        positionUpdateJob =
-            serviceScope.launch {
-                while (isActive) {
-                    delay(POSITION_UPDATE_INTERVAL)
-                    // Gate + read off the TRANSPORT player — the cast player while casting, the
-                    // local ExoPlayer otherwise. Never the session player: once ChapterWindowPlayer
-                    // presents the session, its positions are chapter-relative and would corrupt
-                    // this data. The local player is paused during a cast (its audio focus is
-                    // released), so gating on player.isPlaying froze all periodic persistence for
-                    // the whole cast session: position stopped propagating to other devices and a
-                    // battery-death mid-cast lost the session + dropped the span.
-                    // getBookRelativePosition() already reads the transport player, so only the
-                    // gate had to follow it here.
-                    val transportPlayer = activeTransportPlayer() ?: break
-                    // Not this book's media yet (a switch still landing): skip the tick, keep the loop.
-                    val bookId = currentBookId ?: continue
-
-                    if (transportPlayer.isPlaying) {
-                        val positionMs = getBookRelativePosition()
-                        val speed = transportPlayer.playbackParameters.speed
-                        progressTracker.onPositionUpdate(bookId = bookId, positionMs = positionMs, speed = speed)
-                        // Audio is playing and the book is known: the recorder opens the span here if the play
-                        // that should have opened it went by before the book was known.
-                        listeningEventRecorder.onPeriodicTick(
-                            bookId = bookId.value,
-                            positionMs = positionMs,
-                            playbackSpeed = speed,
-                        )
-                    }
-                }
-            }
-
-        // Second, faster poll driving in-app UI position display. This used to be
-        // MediaControllerHolder's job — it polled the MediaController it held on a 250ms loop —
-        // but the session player is now ChapterWindowPlayer, the chapter-scoped presentation
-        // wrapper (see activeTransportPlayer's KDoc), so a MediaController's coordinates are
-        // chapter-relative and can no longer feed PlaybackStateWriter.updatePositionFromMediaItem
-        // (it interprets its arguments as file coordinates). The service reads the raw transport
-        // player instead, which was never re-presented. Running it here rather than in-app also
-        // means the notification's chapter rollover (driven by playbackManager.onChapterChanged)
-        // now advances even when no UI client is bound, since the service itself keeps polling.
-        uiPositionJob?.cancel()
-        uiPositionJob =
-            serviceScope.launch {
-                while (isActive) {
-                    delay(POSITION_UI_UPDATE_INTERVAL)
-                    val p = activeTransportPlayer() ?: break
-                    if (p.isPlaying) {
-                        playbackStateWriter.updatePositionFromMediaItem(p.currentMediaItemIndex, p.currentPosition)
-                    }
-                }
-            }
-    }
-
-    private fun stopPositionUpdates() {
-        positionUpdateJob?.cancel()
-        positionUpdateJob = null
-        uiPositionJob?.cancel()
-        uiPositionJob = null
-    }
-
     /**
      * Apply restored playback speed to ExoPlayer.
      * Extracted to keep resolveMediaItems and onPlaybackResumption within complexity limits.
      */
     override fun applyResumeSpeed(speed: Float) {
         player?.setPlaybackSpeed(speed)
-    }
-
-    /**
-     * Progress bookkeeping for an is-playing event from either transport.
-     *
-     * Shared by both listeners so a cast session is recorded exactly like a local one. Which
-     * events count is [playbackTransitionFor]'s decision — see its KDoc for why events from the
-     * inactive player must be dropped in both directions.
-     */
-    private fun handleIsPlayingChanged(
-        source: TransportSource,
-        isPlaying: Boolean,
-    ) {
-        // Records, through the refusal tracker, two facts in one: whether audio is sounding, and — since
-        // the book talking again is the end of any focus interruption — that the next refused start is
-        // genuinely a cold one.
-        val transition = transport.onIsPlayingChanged(source, isPlaying)
-        logger.info { "Is playing: $isPlaying (source=$source, casting=$casting) → $transition" }
-        if (transition == PlaybackTransition.IGNORE) return
-
-        val bookId = currentBookId
-        // Speed and position must come from whichever player is actually the transport — reading
-        // the local player during a cast session reports the speed of a player that has been
-        // sitting paused since hand-off.
-        val player = activeTransportPlayer()
-
-        if (transition == PlaybackTransition.START) {
-            // Audio is sounding, so any refusal notice is stale — clear it rather than leave
-            // the listener with a notification telling them to fix something already fixed.
-            refusalNotifier.clearRefusal()
-            cancelIdleTimer()
-            startPositionUpdates()
-
-            if (bookId == null) {
-                // A resume from outside the app after the process died can play before the book is known.
-                // The first position tick that knows it opens the listening span instead.
-                logger.info { "Playing before the book is known — the listening span opens on the first tick" }
-            }
-            if (bookId != null && player != null) {
-                val positionMs = getBookRelativePosition()
-                val speed = player.playbackParameters.speed
-                progressTracker.onPlaybackStarted(
-                    bookId = bookId,
-                    positionMs = positionMs,
-                    speed = speed,
-                    durationMs = getBookDurationMs(),
-                )
-                serviceScope.launch {
-                    listeningEventRecorder.onPlay(
-                        bookId = bookId.value,
-                        positionMs = positionMs,
-                        playbackSpeed = speed,
-                    )
-                }
-            }
-        } else {
-            endListen()
-
-            // Context-aware idle timer based on why playback stopped
-            val isSleepTimerPause = sleepTimerManager.state.value is SleepTimerState.FadingOut
-            if (isSleepTimerPause) {
-                startIdleTimer(IDLE_TIMEOUT_SLEEP, "sleep_timer")
-            } else {
-                startIdleTimer(IDLE_TIMEOUT_SHORT, "paused")
-            }
-        }
-    }
-
-    /**
-     * Closes the listen on the transport player: stops the position loops, saves where it stopped and
-     * finalizes the span. A pause does this, and so does a hand-off between the local and cast players.
-     */
-    private fun endListen() {
-        stopPositionUpdates()
-        val bookId = currentBookId ?: return
-        val player = activeTransportPlayer() ?: return
-        val positionMs = getBookRelativePosition()
-        progressTracker.onPlaybackPaused(
-            bookId = bookId,
-            positionMs = positionMs,
-            speed = player.playbackParameters.speed,
-            durationMs = getBookDurationMs(),
-        )
-        serviceScope.launch {
-            listeningEventRecorder.onPause(bookId = bookId.value, positionMs = positionMs)
-        }
-        saveRefinedMeasurement(bookId = bookId, positionMs = positionMs)
-    }
-
-    /**
-     * Play/pause bookkeeping for the Cast transport, and nothing else.
-     *
-     * Deliberately not the full [PlayerListener]: that one's error handling acts on the *local*
-     * ExoPlayer captured in its `onPlayerError`, so attaching it to the cast player would
-     * recover the wrong player on a receiver-side failure.
-     */
-    private inner class CastPlaybackListener : Player.Listener {
-        override fun onIsPlayingChanged(isPlaying: Boolean) = handleIsPlayingChanged(TransportSource.CAST, isPlaying)
-    }
-
-    /**
-     * Listens to player events for logging and progress tracking.
-     */
-    private inner class PlayerListener(
-        private val source: TransportSource = TransportSource.LOCAL,
-    ) : Player.Listener {
-        override fun onPlaybackStateChanged(playbackState: Int) {
-            val stateName =
-                when (playbackState) {
-                    Player.STATE_IDLE -> "IDLE"
-                    Player.STATE_BUFFERING -> "BUFFERING"
-                    Player.STATE_READY -> "READY"
-                    Player.STATE_ENDED -> "ENDED"
-                    else -> "UNKNOWN"
-                }
-            logger.debug { "Playback state: $stateName" }
-
-            when (playbackState) {
-                Player.STATE_ENDED -> {
-                    // Book finished - longer grace period. The near-end guard lives in the tracker:
-                    // pass where the listener actually is, so an ENDED reported on release or stop
-                    // cannot mark a half-read book finished.
-                    currentBookId?.let { bookId ->
-                        progressTracker.onBookFinished(
-                            bookId,
-                            positionMs = getBookRelativePosition(),
-                            durationMs = getBookDurationMs(),
-                        )
-                    }
-                    startIdleTimer(IDLE_TIMEOUT_LONG, "book_finished")
-                }
-
-                Player.STATE_IDLE -> {
-                    // Player cleared
-                    startIdleTimer(IDLE_TIMEOUT_SHORT, "idle")
-                }
-            }
-        }
-
-        /**
-         * Reports a play request the platform refused outright, as opposed to one interrupted
-         * partway. See [isPlaybackRefused] for why the two need telling apart, and
-         * [PlaybackRefusalTracker] for the state that separates them across a whole sequence.
-         */
-        override fun onPlayWhenReadyChanged(
-            playWhenReady: Boolean,
-            reason: Int,
-        ) {
-            if (!refusalTracker.onPlayWhenReadyChanged(playWhenReady, reason)) return
-
-            logger.warn {
-                "Playback refused: the platform denied audio focus for a play we just requested. " +
-                    "Check `adb shell dumpsys audio` for the AudioHardening entry."
-            }
-            val refusal =
-                PlaybackError.BlockedInBackground(
-                    debugInfo = "playWhenReady=false reason=AUDIO_FOCUS_LOSS before playback started",
-                )
-            // The bus reaches the UI when the app is open; the notification is the path that
-            // reaches a listener staring at a lock-screen button that did nothing. Both are
-            // wanted — a refusal is now known to happen with the app plainly on screen.
-            errorBus.emit(refusal)
-            refusalNotifier.notifyRefused(refusal)
-        }
-
-        override fun onIsPlayingChanged(isPlaying: Boolean) = handleIsPlayingChanged(source, isPlaying)
-
-        override fun onPlayerError(error: PlaybackException) {
-            logger.error(error) { "Playback error: ${error.message ?: "no message"}" }
-
-            // Surface stuck-player as a typed PlaybackError.Stalled so the global
-            // error bus and UI can offer a retry affordance.
-            if (error.errorCode == PlaybackException.ERROR_CODE_TIMEOUT) {
-                errorBus.emit(PlaybackError.Stalled(debugInfo = error.message))
-            }
-
-            // Captured synchronously: see playerErrorActionFor's KDoc for why reading the
-            // player inside the coroutine was a crash.
-            val activePlayer = this@PlaybackService.player
-            if (playerErrorActionFor(hasPlayer = activePlayer != null) ==
-                PlayerErrorAction.NOTHING_TO_RECOVER ||
-                activePlayer == null
-            ) {
-                logger.warn { "Playback error with no attached player — nothing to recover" }
-                return
-            }
-            val classified = errorHandler.classify(error)
-
-            serviceScope.launch {
-                val handled =
-                    errorHandler.handle(
-                        error = classified,
-                        player = activePlayer,
-                        currentBookId = currentBookId,
-                        // Book-relative (sum of prior file durations + file offset); never the
-                        // raw file-relative player.currentPosition read inside the handler.
-                        bookPositionMs = getBookRelativePosition(),
-                        bookDurationMs = getBookDurationMs(),
-                        onShowError = { appError -> playbackManager.reportError(appError) },
-                    )
-
-                if (!handled) {
-                    // Error couldn't be recovered
-                    startIdleTimer(IDLE_TIMEOUT_SHORT, "error")
-                }
-            }
-        }
-
-        override fun onMediaItemTransition(
-            mediaItem: MediaItem?,
-            reason: Int,
-        ) {
-            logger.debug { "Media item transition: ${mediaItem?.mediaId ?: "none"}, reason: $reason" }
-        }
-
-        /** A new playlist may stream or be downloaded; hold Wi-Fi awake only when it streams. */
-        override fun onTimelineChanged(
-            timeline: Timeline,
-            reason: Int,
-        ) {
-            if (source != TransportSource.LOCAL) return
-            val exoPlayer = this@PlaybackService.player ?: return
-            val uris =
-                (0 until exoPlayer.mediaItemCount).mapNotNull { exoPlayer.getMediaItemAt(it).localConfiguration?.uri }
-            exoPlayer.setWakeMode(wakeModeFor(uris))
-        }
-
-        /**
-         * A user seek splits the listening span: finalize the pre-seek span at the old book-relative
-         * position and open a fresh one at the new position (see [ListeningEventRecorder.onSeek]).
-         * Without this a seek would leave the open span to be extended across the jump on the next
-         * heartbeat, fabricating content coverage (e.g. a seek from 0:12:00 to 5:00:00 would count
-         * the whole ~5 h as listened) that corrupts the books-finished / coverage-derived stats.
-         *
-         * Only [Player.DISCONTINUITY_REASON_SEEK] discontinuities are user seeks; auto transitions
-         * and period boundaries are ignored. Positions are converted to book-relative via the active
-         * [PlaybackManager.currentTimeline]; the raw file-relative [Player.PositionInfo.positionMs]
-         * would misplace the split on a multi-file book.
-         */
-        override fun onPositionDiscontinuity(
-            oldPosition: Player.PositionInfo,
-            newPosition: Player.PositionInfo,
-            reason: Int,
-        ) {
-            if (reason != Player.DISCONTINUITY_REASON_SEEK) return
-            currentBookId ?: return
-            val timeline = playbackManager.currentTimeline.value
-            val beforeMs =
-                timeline?.toBookPosition(oldPosition.mediaItemIndex, oldPosition.positionMs)
-                    ?: oldPosition.positionMs
-            val afterMs =
-                timeline?.toBookPosition(newPosition.mediaItemIndex, newPosition.positionMs)
-                    ?: newPosition.positionMs
-            logger.debug { "Seek discontinuity: $beforeMs -> $afterMs (book-relative)" }
-            serviceScope.launch {
-                listeningEventRecorder.onSeek(positionBeforeSeek = beforeMs, positionAfterSeek = afterMs)
-            }
-        }
     }
 }
