@@ -99,10 +99,8 @@ app/sharedUI/src/androidMain/kotlin/com/calypsan/listenup/client/navigation/Rout
 app/sharedUI/src/androidMain/kotlin/com/calypsan/listenup/client/navigation/entries/AdminEntries.kt 1
 app/sharedUI/src/androidMain/kotlin/com/calypsan/listenup/client/navigation/entries/ShellEntry.kt 1
 app/sharedUI/src/androidMain/kotlin/com/calypsan/listenup/client/playback/ChapterWindowPlayer.kt 3
-app/sharedUI/src/androidMain/kotlin/com/calypsan/listenup/client/playback/ListenUpSessionCallback.kt 4
 app/sharedUI/src/androidMain/kotlin/com/calypsan/listenup/client/playback/MediaControllerHolder.kt 1
 app/sharedUI/src/androidMain/kotlin/com/calypsan/listenup/client/playback/PlaybackErrorHandler.kt 1
-app/sharedUI/src/androidMain/kotlin/com/calypsan/listenup/client/playback/PlaybackService.kt 1
 app/sharedUI/src/androidMain/kotlin/com/calypsan/listenup/client/playback/SkipIntervalPlayer.kt 1
 app/sharedUI/src/androidMain/kotlin/com/calypsan/listenup/client/playback/SleepTimerNotifier.kt 2
 app/sharedUI/src/androidMain/kotlin/com/calypsan/listenup/client/playback/SystemChapterWindow.kt 1
