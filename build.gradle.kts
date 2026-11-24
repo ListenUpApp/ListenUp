@@ -122,8 +122,6 @@ detekt {
         "$rootDir/app/sharedLogic/src/jvmTest/kotlin",
         "$rootDir/app/sharedUI/src/commonMain/kotlin",
         "$rootDir/app/sharedUI/src/androidMain/kotlin",
-        "$rootDir/app/sharedUI/src/desktopMain/kotlin",
-        "$rootDir/app/desktopApp/src/main/kotlin",
         "$rootDir/server/src/commonMain/kotlin",
         "$rootDir/server/src/jvmMain/kotlin",
         "$rootDir/server/src/linuxX64Main/kotlin",
@@ -150,7 +148,6 @@ detekt {
         "$rootDir/app/sharedLogic/src/androidHostTest/kotlin",
         "$rootDir/app/sharedLogic/src/appleTest/kotlin",
         "$rootDir/app/sharedUI/src/androidHostTest/kotlin",
-        "$rootDir/app/sharedUI/src/desktopTest/kotlin",
         "$rootDir/contract/src/commonTest/kotlin",
         "$rootDir/contract/src/jvmTest/kotlin",
         "$rootDir/app/baselineprofile/src/main/kotlin",
@@ -258,7 +255,6 @@ tasks.register("verifyLocal") {
         ":app:sharedUI:verifyLicenses",
         ":app:sharedUI:verifySwiftStringKeys",
         ":app:sharedLogic:compileCommonMainKotlinMetadata",
-        ":app:desktopApp:compileKotlin",
         // The web seam check — mirrors the "Compile shared modules for JS" step in ci.yml.
         // NB: no parentheses in this comment — VerifyLocalParityTest parses the dependsOn list
         // with a regex that stops at the first closing paren.
@@ -270,7 +266,6 @@ tasks.register("verifyLocal") {
         ":server:konsistTest",
         ":server:jvmTest",
         ":app:sharedUI:testAndroidHostTest",
-        ":app:sharedUI:desktopTest",
         ":tools:rpc-guard-ksp:test",
     )
     // build-logic is an included build (settings.gradle.kts: includeBuild("tools/build-logic")) — a plain

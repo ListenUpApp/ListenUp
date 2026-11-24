@@ -169,9 +169,8 @@ ListenUp/
 ├── contract/      # Client↔server contract: @Rpc service interfaces, @Serializable DTOs, error hierarchy
 ├── app/
 │   ├── sharedLogic/   # KMP shared core — domain models, repositories, sync engine, DI, ViewModels (no UI)
-│   ├── sharedUI/      # Compose Multiplatform UI (Android + Desktop), organized by feature
+│   ├── sharedUI/      # Compose Multiplatform UI (Android), organized by feature
 │   ├── androidApp/    # Android application entry point
-│   ├── desktopApp/    # Desktop (JVM) application entry point (in progress)
 │   ├── iosApp/        # iOS app — SwiftUI shell over the shared Kotlin core
 │   └── webApp/        # Web client — Compose HTML (Kotlin/JS) over the shared Kotlin core, served by the server
 ├── server/        # Self-hostable Ktor server — the hub every client (Android, iOS and web) connects to
@@ -185,7 +184,7 @@ ListenUp follows **MVVM** with offline-first data flow and a clean separation be
 - **`contract`** is the single source of truth for the client↔server boundary — shared by both sides so a field rename breaks at compile time, not in production.
 - **`app/sharedLogic`** holds all business logic, data access, the sync engine, and ViewModels (shared across Android, iOS and web). The local database is the single source of truth; the UI reads from it, never from the network directly.
 - **`app/sharedUI`** holds the Compose Multiplatform screens, organized by feature.
-- **`app/androidApp`** and **`app/desktopApp`** are thin entry points that wire up platform-specific services and launch the shared Compose experience; **`app/iosApp`** (SwiftUI) and **`app/webApp`** (Compose HTML) build their own UI over the same shared core.
+- **`app/androidApp`** is the thin Android entry point that wires up platform-specific services and launches the shared Compose experience; **`app/iosApp`** (SwiftUI) and **`app/webApp`** (Compose HTML) build their own UI over the same shared core.
 
 ## Tech Stack
 

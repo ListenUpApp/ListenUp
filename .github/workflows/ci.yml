@@ -19,10 +19,7 @@ concurrency:
 
 # CI is organized into three conceptual stages — Lint, Test, Build — each spanning the
 # lanes a stage needs, plus PR path filtering (`changes`) and parallel server sharding.
-# Mobile-focused: Linux lane (shared Kotlin + server + Android) and macOS lane (iOS).
-# Desktop has no dedicated build/test job, but test-jvm-client compiles :app:desktopApp
-# (JVM target) and test-jvm-sharedui runs :app:sharedUI:desktopTest so entry-point or
-# shared-composable drift fails fast.
+# Mobile + Web: Linux lane (shared Kotlin + server + Android + web) and macOS lane (iOS).
 jobs:
   # ── Path filter ──────────────────────────────────────────────────────────────
   changes:
@@ -90,7 +87,7 @@ jobs:
           }
 
           check_lane server '^server/'
-          check_lane sharedui '^(app/sharedUI/|app/sharedLogic/|app/androidApp/|app/desktopApp/)'
+          check_lane sharedui '^(app/sharedUI/|app/sharedLogic/|app/androidApp/)'
           check_lane web '^(app/webApp/|app/sharedLogic/)'
           check_lane web_server '^(app/webApp/|app/sharedLogic/|server/)'
           check_lane ios_swift '^(app/iosApp/|app/sharedLogic/|app/sharedUI/src/commonMain/composeResources/)'
@@ -350,11 +347,11 @@ jobs:
           cache-read-only: ${{ github.ref != 'refs/heads/main' }}
 
       # Combined pre-flight artifact checks + client/contract/build-logic JVM tests:
-      # - verifyStrings / verifyLicenses / verifySwiftStringKeys / desktopApp compile / JS klib compile
+      # - verifyStrings / verifyLicenses / verifySwiftStringKeys / JS klib compile
       # - :contract:jvmTest, :app:sharedLogic:jvmTest
       # - :tools:rpc-guard-ksp:test, :build-logic:convention:test, :build-logic:detekt-rules:test
       - name: Verify artifacts and run client + guard JVM tests
-        run: ./gradlew :app:sharedUI:verifyStrings :app:sharedUI:verifyLicenses :app:sharedUI:verifySwiftStringKeys :app:desktopApp:compileKotlin :contract:compileKotlinJs :app:sharedLogic:compileKotlinJs :app:sharedLogic:compileCommonMainKotlinMetadata :contract:jvmTest :app:sharedLogic:jvmTest :tools:rpc-guard-ksp:test :build-logic:convention:test :build-logic:detekt-rules:test
+        run: ./gradlew :app:sharedUI:verifyStrings :app:sharedUI:verifyLicenses :app:sharedUI:verifySwiftStringKeys :contract:compileKotlinJs :app:sharedLogic:compileKotlinJs :app:sharedLogic:compileCommonMainKotlinMetadata :contract:jvmTest :app:sharedLogic:jvmTest :tools:rpc-guard-ksp:test :build-logic:convention:test :build-logic:detekt-rules:test
 
       # Generated-and-committed artifacts must match what this build regenerates. Room's
       # schemaDirectory points at the tracked app/sharedLogic/schemas/, so every KSP run rewrites
@@ -421,8 +418,8 @@ jobs:
         with:
           cache-read-only: ${{ github.ref != 'refs/heads/main' }}
 
-      - name: Run sharedUI Android host and desktop tests
-        run: ./gradlew :app:sharedUI:testAndroidHostTest :app:sharedUI:desktopTest
+      - name: Run sharedUI Android host tests
+        run: ./gradlew :app:sharedUI:testAndroidHostTest
 
       - name: Upload test results
         uses: actions/upload-artifact@v7

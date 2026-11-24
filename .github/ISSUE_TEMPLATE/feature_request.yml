@@ -21,6 +21,5 @@ body:
       options:
         - label: Android
         - label: iOS
-        - label: Desktop
         - label: Server/API
         - label: All platforms

@@ -257,7 +257,7 @@ CI is organized into three stages — **Lint / Test / Build** — across a Linux
 |---|---|---|
 | `Lint` (Kotlin) | Linux | `./gradlew spotlessCheck detekt --no-daemon`, then `bash tools/scripts/check-docker-debian-release.test.sh` and `bash tools/scripts/check-docker-debian-release.sh` — the server image's debian builders and distroless runtime must share a Debian release. |
 | `Lint` (Swift) | Linux | `swiftlint lint` — run from `app/iosApp/` (`brew install swiftlint` — CI pins `ghcr.io/realm/swiftlint:0.65.1`; match that version locally if results differ). †iOS |
-| `Test (JVM)` | Linux | `./gradlew :app:sharedUI:verifyStrings :app:sharedUI:verifyLicenses :app:sharedUI:verifySwiftStringKeys :app:sharedLogic:compileCommonMainKotlinMetadata :app:desktopApp:compileKotlin :contract:compileKotlinJs :app:sharedLogic:compileKotlinJs :contract:jvmTest :app:sharedLogic:jvmTest :app:sharedLogic:testAndroidHostTest :server:konsistTest :server:jvmTest :app:sharedUI:testAndroidHostTest :app:sharedUI:desktopTest :tools:rpc-guard-ksp:test :build-logic:convention:test :build-logic:detekt-rules:test --no-daemon` — combined local equivalent of CI's parallel `test-jvm-client`, `test-jvm-sharedui`, `test-jvm-sharedlogic-android`, and 3-shard `test-jvm-server` jobs (localization + license drift gates, desktop compile canary, web seam check, and the full JVM test set, including server Konsist and the guards' own suites), then `git status --porcelain --untracked-files=all` must print nothing — the build regenerates tracked artifacts (Room schemas, strings, licences) in place, and CI fails if any differ from what is committed or if the build created a new file. |
+| `Test (JVM)` | Linux | `./gradlew :app:sharedUI:verifyStrings :app:sharedUI:verifyLicenses :app:sharedUI:verifySwiftStringKeys :app:sharedLogic:compileCommonMainKotlinMetadata :contract:compileKotlinJs :app:sharedLogic:compileKotlinJs :contract:jvmTest :app:sharedLogic:jvmTest :app:sharedLogic:testAndroidHostTest :server:konsistTest :server:jvmTest :app:sharedUI:testAndroidHostTest :tools:rpc-guard-ksp:test :build-logic:convention:test :build-logic:detekt-rules:test --no-daemon` — combined local equivalent of CI's parallel `test-jvm-client`, `test-jvm-sharedui`, `test-jvm-sharedlogic-android`, and 3-shard `test-jvm-server` jobs (localization + license drift gates, web seam check, and the full JVM test set, including server Konsist and the guards' own suites), then `git status --porcelain --untracked-files=all` must print nothing — the build regenerates tracked artifacts (Room schemas, strings, licences) in place, and CI fails if any differ from what is committed or if the build created a new file. |
 | `Test (web browser)` | Linux | `./gradlew :app:webApp:verifyWebLicences :app:webApp:webKotest :app:webApp:webBundle --no-daemon` — needs `pnpm install --frozen-lockfile` and `pnpm exec playwright install chromium` run in `app/webApp/web` first. `webBundle` builds and boot-checks the production bundle the server image ships. |
 | `Test (web browser, server-backed)` | Linux | `./gradlew :app:webApp:webAuthKotest --no-daemon` — the same JS toolchain setup as above, plus FFmpeg on `PATH` (the specs play a server-transcoded book). |
 | `Test (iOS)` | macOS | `xcodebuild test -scheme ListenUp -destination 'platform=iOS Simulator,name=iPhone 17,OS=latest'` — from `app/iosApp/`, then `./gradlew :app:sharedLogic:iosSimulatorArm64Test --no-daemon` from the repo root, then the three script gates (after the Xcode build has generated the package): `bash tools/scripts/export-surface-inventory.sh`, `bash tools/scripts/check-no-appresult-await.sh`, `bash tools/scripts/check-intent-tests-single-suite.sh`. CI runs the Swift (`test-ios-swift`) and Kotlin (`test-ios-kotlin`) halves in parallel; the first covers the SwiftUI shell (Swift Testing) and the second covers `:app:sharedLogic`'s `commonTest` specs plus `appleTest` (which compiles `appleMain`). †iOS |
@@ -286,7 +286,7 @@ Rules:
 
 ### Running a single test
 
-Ten lanes (`:contract:jvmTest`/`linuxX64Test`, `:app:sharedLogic:jvmTest`/`testAndroidHostTest`/`iosSimulatorArm64Test`, `:app:sharedUI:testAndroidHostTest`/`desktopTest`, `:server:konsistTest`/`jvmTest`, `:server:linuxX64Test`) carry a "discovered-test-count floor" — a `<lane>DiscoveryFloor` task that finalizes the lane and counts the tests in its JUnit XML (`com.calypsan.listenup.gradle.failBelowDiscoveredTestCount`, in `tools/build-logic`), failing the build if the lane ran suspiciously few, catching a source set silently dropping off the compilation. It reads the XML rather than listening to the lane because a lane with no test class at all is NO-SOURCE and runs nothing, so a listener never fires. The floor stands down automatically whenever `--tests` is passed, so a filtered run never gets blocked by it — but the filter mechanism itself differs by lane:
+Nine lanes (`:contract:jvmTest`/`linuxX64Test`, `:app:sharedLogic:jvmTest`/`testAndroidHostTest`/`iosSimulatorArm64Test`, `:app:sharedUI:testAndroidHostTest`, `:server:konsistTest`/`jvmTest`, `:server:linuxX64Test`) carry a "discovered-test-count floor" — a `<lane>DiscoveryFloor` task that finalizes the lane and counts the tests in its JUnit XML (`com.calypsan.listenup.gradle.failBelowDiscoveredTestCount`, in `tools/build-logic`), failing the build if the lane ran suspiciously few, catching a source set silently dropping off the compilation. It reads the XML rather than listening to the lane because a lane with no test class at all is NO-SOURCE and runs nothing, so a listener never fires. The floor stands down automatically whenever `--tests` is passed, so a filtered run never gets blocked by it — but the filter mechanism itself differs by lane:
 
 - **`:contract:jvmTest`, `:app:sharedUI:testAndroidHostTest`** — plain Gradle `--tests` with a glob works normally, e.g. `./gradlew :app:sharedUI:testAndroidHostTest --tests "*SkipGlyphs*"`.
 - **`:app:sharedLogic:jvmTest`/`testAndroidHostTest`** — glob patterns FAIL here, same as `:server:jvmTest` below. Use the exact fully-qualified class name: `./gradlew :app:sharedLogic:jvmTest --tests "com.calypsan.listenup.konsist.OneFramePerCallBlockRuleSelfTest"` (verified: 18s, exactly 9 tests). This changed when the `io.kotest` plugin was applied to the module for the Apple lane — which also **isolates the root cause the `:server:jvmTest` note below could not pin down**: the glob failure tracks the `io.kotest` Gradle plugin exactly, and every lane that has it needs an FQN.
@@ -331,15 +331,13 @@ app/                           # Everything that ships to a user
 │       ├── iosMain/            # iOS implementations
 │       ├── jsMain/             # Browser implementations
 │       └── jvmMain/            # JVM-shared implementations
-├── sharedUI/                   # Compose Multiplatform UI (Android + Desktop)
+├── sharedUI/                   # Compose Multiplatform UI (Android)
 │   └── src/
 │       ├── commonMain/.../
 │       │   ├── design/         # Theme, components
 │       │   └── features/       # Per-screen composables
-│       ├── androidMain/        # Android-specific UI
-│       └── desktopMain/        # Desktop-specific UI
+│       └── androidMain/        # Android-specific UI
 ├── androidApp/                 # Android entry point (thin wrapper)
-├── desktopApp/                 # Desktop entry point (thin wrapper)
 ├── iosApp/                     # Xcode project — SwiftUI shell over :app:sharedLogic
 ├── webApp/                     # Web client — Compose HTML (Kotlin/JS), served by the server at /
 │   ├── src/jsMain/             # Pages, design system, browser playback
@@ -360,7 +358,7 @@ tools/                         # Build machinery — never ships
 ```
 
 Module IDs follow the directories: `:app:sharedLogic`, `:app:sharedUI`,
-`:app:androidApp`, `:app:desktopApp`, `:app:webApp`, `:app:baselineprofile`, `:app:storeshots`, `:contract`,
+`:app:androidApp`, `:app:webApp`, `:app:baselineprofile`, `:app:storeshots`, `:contract`,
 `:server`, `:tools:rpc-guard-ksp`. `iosApp` is an Xcode project, not a Gradle module.
 
 Adding or moving a module is a deliberate act: `EXPECTED_MODULE_DIRS`

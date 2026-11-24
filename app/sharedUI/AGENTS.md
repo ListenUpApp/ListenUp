@@ -1,6 +1,6 @@
 # AGENTS.md — Compose UI (`sharedUI`)
 
-Design & platform rules for the Compose Multiplatform UI (`CLAUDE.md` is symlinked to this file; Android-primary, also Desktop).
+Design & platform rules for the Compose Multiplatform UI (`CLAUDE.md` is symlinked to this file; Android).
 These **complement** the root `AGENTS.md` — they do **not** restate architecture.
 
 > **Mental model:** all the Compose UI lives here. Build to our design system and reuse;
@@ -28,11 +28,9 @@ These **complement** the root `AGENTS.md` — they do **not** restate architectu
 5. **Modern Kotlin** — Kotlin 2.4 (catalog-pinned). Idiomatic coroutines/Flow per the root rubric.
 
 ## Multiplatform
-6. **`commonMain` is Android + Desktop.** The Expressive APIs are in multiplatform material3, and
-   `androidx.graphics:graphics-shapes` has a `-desktop` variant — so expressive work (incl. shape
-   morphing) stays `commonMain`. Only platform-specific bits (e.g. dynamic color) live in
-   `androidMain`/`desktopMain` actuals. (Desktop is a future deploy target, not the current priority;
-   keep `commonMain` Desktop-valid so we don't add to its drift.)
+6. **`commonMain` stays multiplatform-clean.** Keep UI primitives in `commonMain` using
+   multiplatform Material 3 and `androidx.graphics:graphics-shapes`, and isolate Android-only
+   APIs (dynamic color, Media3, WorkManager) in `androidMain`.
 
 ## Compose-UI conventions (moved from root — these are Compose-UI-specific)
 7. **Collect flows with `collectAsStateWithLifecycle()`**, not `collectAsState()`.

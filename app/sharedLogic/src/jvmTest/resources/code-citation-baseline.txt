@@ -1,4 +1,3 @@
-app/desktopApp/src/main/kotlin/com/calypsan/listenup/desktop/DesktopApp.kt 1
 app/iosApp/ListenUp/Core/CarPlayHomeWrapper.swift 1
 app/iosApp/ListenUp/Core/CarPlayNowPlaying.swift 1
 app/iosApp/ListenUp/Core/CarPlaySceneDelegate.swift 1

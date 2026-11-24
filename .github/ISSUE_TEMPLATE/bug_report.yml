@@ -33,7 +33,6 @@ body:
       options:
         - label: Android
         - label: iOS
-        - label: Desktop
         - label: Not sure / All platforms
   - type: input
     id: version

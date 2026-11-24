@@ -21,7 +21,6 @@ internal val EXPECTED_MODULE_DIRS: List<String> =
     listOf(
         "app/androidApp",
         "app/baselineprofile",
-        "app/desktopApp",
         "app/sharedLogic",
         "app/sharedUI",
         "app/storeshots",

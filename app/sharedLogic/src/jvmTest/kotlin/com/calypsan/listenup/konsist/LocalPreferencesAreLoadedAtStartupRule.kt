@@ -36,7 +36,6 @@ class LocalPreferencesAreLoadedAtStartupRule :
             mapOf(
                 "app/sharedUI/src/androidMain/kotlin/com/calypsan/listenup/client/MainActivity.kt" to "Android",
                 "app/webApp/src/jsMain/kotlin/com/calypsan/listenup/web/Main.kt" to "web",
-                "app/desktopApp/src/main/kotlin/com/calypsan/listenup/desktop/Main.kt" to "desktop",
                 "app/sharedLogic/src/iosMain/kotlin/com/calypsan/listenup/client/di/Koin.ios.kt" to "iOS",
             )
 
