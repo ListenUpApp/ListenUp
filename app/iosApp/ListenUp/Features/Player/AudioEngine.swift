@@ -26,7 +26,8 @@ actor AudioEngine: PlaybackEngine {
     /// `load()` fail FAST, not hang the 20 s readiness wait. No production caller; close book/sign-out use `unload()`.
     private var isReleased = false
 
-    let player = AVQueuePlayer()
+    /// Replaced only by `rebuildAfterMediaServicesReset()`: a media-services reset kills it.
+    private(set) var player = AVQueuePlayer()
 
     /// Ties the queue player to media-remote. While this session is active, the system derives
     /// the play/pause state and timeline CarPlay and the lock screen render from the player
@@ -323,6 +324,18 @@ actor AudioEngine: PlaybackEngine {
         player.pause()
         player.removeAllItems()
         queue = []
+    }
+
+    /// Everything `load` binds to the player goes with `unload`; the sleep-timer volume, set outside `load`, is
+    /// carried over, and the now-playing session is moved onto the new player.
+    func rebuildAfterMediaServicesReset() async {
+        guard !isReleased else { return }
+        await unload()
+        let dead = player
+        player = AVQueuePlayer()
+        player.volume = dead.volume
+        nowPlayingSession.removePlayer(dead)
+        nowPlayingSession.addPlayer(player)
     }
 
     /// Terminal — [unload] then close the inbox + event stream; the engine can never load again. No production caller.

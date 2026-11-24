@@ -33,6 +33,10 @@ protocol PlaybackEngine: Sendable {
     /// after an interruption — some interruptions deactivate the session, and
     /// resuming into a dead session plays silence.
     func activateSession() async
+    /// The system restarted its media services: every AVFoundation object this engine held is dead. Drop the
+    /// loaded book and replace the player, so the next `load` runs on a live one. The session is configured
+    /// again by that `load`.
+    func rebuildAfterMediaServicesReset() async
     func release() async
 }
 

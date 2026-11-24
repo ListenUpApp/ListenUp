@@ -85,7 +85,7 @@ extension PlayerCoordinator {
 
     /// A book the engine is about to drop mid-play: record the pause (if it was playing) and save the exact place,
     /// as `ManagedPlayerEngine.stop()` does, so a Retry resumes where the audio stopped.
-    private func recordPlaceBeforeDropping(_ bookId: String) {
+    func recordPlaceBeforeDropping(_ bookId: String) {
         if isPlaybackActive { reportPaused(bookId) }
         let positionMs = bookPositionMs
         let durationMs = bookDurationMs

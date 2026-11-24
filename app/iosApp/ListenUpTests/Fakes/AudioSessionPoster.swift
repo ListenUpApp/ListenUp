@@ -45,6 +45,9 @@ final class AudioSessionPoster {
         ])
     }
 
+    /// The system restarted its media services: every audio object the app held is dead.
+    func mediaServicesReset() { post(AVAudioSession.mediaServicesWereResetNotification, [:]) }
+
     /// Returns once `harness`'s coordinator has handled every notification posted so far.
     ///
     /// Two fences, one for each queue a post passes through. A route change that pauses nothing goes last into the
