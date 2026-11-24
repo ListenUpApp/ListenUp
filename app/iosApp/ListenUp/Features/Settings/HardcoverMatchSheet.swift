@@ -22,51 +22,42 @@ struct HardcoverMatchTarget: Identifiable, Equatable {
 /// pick, so it confirms (HIG, Action sheets).
 struct HardcoverMatchSheet: View {
     let bookId: String
-    @Environment(\.dependencies) private var deps
     @Environment(\.dismiss) private var dismiss
-    @State private var observer: HardcoverMatchObserver?
     /// The field's text, held here so typing never waits on the ViewModel's round trip.
     @State private var searchText = ""
     @State private var confirmingRemoval = false
 
     var body: some View {
-        NavigationStack {
-            Group {
-                if let observer {
-                    content(observer)
-                } else {
-                    LoadingStateView()
+        WithObserver(id: bookId) {
+            HardcoverMatchObserver(viewModel: $0.createHardcoverMatchViewModel(bookId: bookId))
+        } content: { observer in
+            NavigationStack {
+                content(observer)
+                    .background(Color.luSurface)
+                    .navigationTitle(String(localized: "hardcover.match_title"))
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button(String(localized: "common.cancel"), role: .cancel) { dismiss() }
+                        }
+                    }
+            }
+            .onChange(of: observer.shouldDismiss) { _, should in
+                if should { dismiss() }
+            }
+            .messageAlert(Binding(get: { observer.alert }, set: { observer.alert = $0 }))
+            .confirmationDialog(
+                String(localized: "hardcover.match_remove").titleStyled,
+                isPresented: $confirmingRemoval,
+                titleVisibility: .hidden
+            ) {
+                Button(String(localized: "hardcover.match_remove").titleStyled, role: .destructive) {
+                    observer.removeMatch()
                 }
+                Button(String(localized: "common.cancel"), role: .cancel) {}
+            } message: {
+                Text(String(localized: "hardcover.match_remove_detail"))
             }
-            .background(Color.luSurface)
-            .navigationTitle(String(localized: "hardcover.match_title"))
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(String(localized: "common.cancel"), role: .cancel) { dismiss() }
-                }
-            }
-        }
-        .onAppear {
-            if observer == nil {
-                observer = HardcoverMatchObserver(viewModel: deps.createHardcoverMatchViewModel(bookId: bookId))
-            }
-        }
-        .onChange(of: observer?.shouldDismiss ?? false) { _, should in
-            if should { dismiss() }
-        }
-        .messageAlert(Binding(get: { observer?.alert }, set: { observer?.alert = $0 }))
-        .confirmationDialog(
-            String(localized: "hardcover.match_remove").titleStyled,
-            isPresented: $confirmingRemoval,
-            titleVisibility: .hidden
-        ) {
-            Button(String(localized: "hardcover.match_remove").titleStyled, role: .destructive) {
-                observer?.removeMatch()
-            }
-            Button(String(localized: "common.cancel"), role: .cancel) {}
-        } message: {
-            Text(String(localized: "hardcover.match_remove_detail"))
         }
     }
 

@@ -481,6 +481,8 @@ private fun authenticatedNavEntries(
             onForgotPassword = {
                 backStack.add(ForgotPassword)
             },
+            // Re-signing-in to a lapsed session: claiming an invite would mean a different account.
+            onClaimInvite = null,
         )
     }
     // Reachable only from the re-auth Login above. A lapsed session whose password is lost

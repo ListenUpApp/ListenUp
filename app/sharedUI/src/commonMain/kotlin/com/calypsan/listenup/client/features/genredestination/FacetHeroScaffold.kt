@@ -202,3 +202,18 @@ internal fun FacetSectionHeader(
         modifier = modifier,
     )
 }
+
+/** Empty-state [message] shown in place of a facet destination page's book grid when it has no live books. */
+@Composable
+internal fun EmptyFacetMessage(message: String) {
+    Box(
+        modifier = Modifier.fillMaxWidth().padding(top = 48.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = message,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}

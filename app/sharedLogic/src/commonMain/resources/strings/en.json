@@ -449,6 +449,7 @@
     "detail_edit_book": "Edit book",
     "detail_abridged": "Abridged",
     "detail_more_options": "More options",
+    "detail_share_unavailable": "Couldn't create a link to share. Try again in a moment.",
     "detail_close": "Close book",
     "detail_narrated_by": "Narrated by",
     "detail_narrated_by_prefix": "Narrated by ",
@@ -796,6 +797,7 @@
     "merge_no_matches": "No series match that search.",
     "no_cover": "No cover",
     "series_cover": "Series cover",
+    "keep_current_cover": "Keep the current cover",
     "series_name": "Series name",
     "start_listening": "Start listening",
     "listen_again": "Listen again",
@@ -2294,7 +2296,6 @@
     "books_count": "%1$d books"
   },
   "genre_destination": {
-    "more_options": "More options",
     "include_sub_genres": "Include sub-genres",
     "scope_on": "Counting %1$d books across %2$s + %3$d sub-genres",
     "scope_off": "Just %1$d tagged %2$s directly · %3$s",

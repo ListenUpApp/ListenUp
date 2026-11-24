@@ -9,53 +9,44 @@ import Shared
 /// capsule buttons, where a thumb reaches them. Disconnect confirms with an action sheet; Cancel
 /// while linking doesn't, since nothing is lost (the code simply stops working).
 struct HardcoverSettingsView: View {
-    @Environment(\.dependencies) private var deps
     @Environment(\.openURL) private var openURL
-    @State private var observer: HardcoverSettingsObserver?
     @State private var showingDisconnectConfirmation = false
     /// The book Find on Hardcover is open for, from the Needs a Match list.
     @State private var matchTarget: HardcoverMatchTarget?
 
     var body: some View {
-        Group {
-            if let observer {
-                content(observer: observer)
-            } else {
-                LoadingStateView()
-            }
+        WithObserver { deps in
+            // Captured here, when the observer is created, so it holds the action itself rather
+            // than reading the environment later from outside the view.
+            let openURL = openURL
+            return HardcoverSettingsObserver(
+                viewModel: deps.createHardcoverSettingsViewModel(),
+                openURL: { openURL($0) }
+            )
+        } content: { observer in
+            content(observer: observer)
+                .background(Color.luSurface)
+                .navigationTitle(String(localized: "hardcover.screen_title"))
+                .navigationBarTitleDisplayMode(.large)
+                .confirmationDialog(
+                    String(localized: "hardcover.disconnect_confirm_title"),
+                    isPresented: $showingDisconnectConfirmation,
+                    titleVisibility: .visible
+                ) {
+                    Button(String(localized: "hardcover.disconnect_confirm_action"), role: .destructive) {
+                        observer.disconnect()
+                    }
+                    Button(String(localized: "common.cancel"), role: .cancel) {}
+                } message: {
+                    Text(String(localized: "hardcover.disconnect_confirm_body"))
+                }
+                .messageAlert(alertBinding(observer))
+                .sheet(item: $matchTarget) { HardcoverMatchSheet(bookId: $0.bookId) }
         }
-        .background(Color.luSurface)
-        .navigationTitle(String(localized: "hardcover.screen_title"))
-        .navigationBarTitleDisplayMode(.large)
-        .onAppear {
-            if observer == nil {
-                // Captured here, inside a view update, so the observer holds the action itself rather
-                // than reading the environment later from outside the view.
-                let openURL = openURL
-                observer = HardcoverSettingsObserver(
-                    viewModel: deps.createHardcoverSettingsViewModel(),
-                    openURL: { openURL($0) }
-                )
-            }
-        }
-        .confirmationDialog(
-            String(localized: "hardcover.disconnect_confirm_title"),
-            isPresented: $showingDisconnectConfirmation,
-            titleVisibility: .visible
-        ) {
-            Button(String(localized: "hardcover.disconnect_confirm_action"), role: .destructive) {
-                observer?.disconnect()
-            }
-            Button(String(localized: "common.cancel"), role: .cancel) {}
-        } message: {
-            Text(String(localized: "hardcover.disconnect_confirm_body"))
-        }
-        .messageAlert(alertBinding)
-        .sheet(item: $matchTarget) { HardcoverMatchSheet(bookId: $0.bookId) }
     }
 
-    private var alertBinding: Binding<MessageAlert?> {
-        Binding(get: { observer?.alert }, set: { observer?.alert = $0 })
+    private func alertBinding(_ observer: HardcoverSettingsObserver) -> Binding<MessageAlert?> {
+        Binding(get: { observer.alert }, set: { observer.alert = $0 })
     }
 
     // MARK: - Phase routing

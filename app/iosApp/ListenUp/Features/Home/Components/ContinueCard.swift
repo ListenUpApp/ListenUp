@@ -96,15 +96,15 @@ private struct ArtProgressLine: View {
     let progress: Double
 
     var body: some View {
-        GeometryReader { geometry in
-            ZStack(alignment: .leading) {
-                Capsule().fill(.white.opacity(0.4))
-                Capsule().fill(.white).frame(width: geometry.size.width * min(max(progress, 0), 1))
+        Capsule()
+            .fill(.white.opacity(0.4))
+            .overlay {
+                ProgressFillShape(progress: progress)
+                    .fill(.white)
             }
-        }
-        .frame(height: 4)
-        .padding(.horizontal, Spacing.xs)
-        .padding(.bottom, Spacing.xs)
-        .accessibilityHidden(true)
+            .frame(height: 4)
+            .padding(.horizontal, Spacing.xs)
+            .padding(.bottom, Spacing.xs)
+            .accessibilityHidden(true)
     }
 }

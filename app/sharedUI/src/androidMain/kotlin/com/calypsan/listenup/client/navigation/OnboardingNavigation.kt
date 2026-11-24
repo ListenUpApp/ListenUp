@@ -228,8 +228,22 @@ internal fun AndroidLoginNavigation(
                             onForgotPassword = {
                                 backStack.add(ForgotPassword)
                             },
+                            onClaimInvite = {
+                                backStack.add(ClaimInvite)
+                            },
                             showRootResetEntry = rootResetArmed,
                         )
+                }
+                entry<ClaimInvite> {
+                    // The code is looked up against the server already connected. A successful
+                    // claim stores the session, and auth-state routing takes over — the same hand-off
+                    // as the deep-link path, minus consuming a link there is none of here.
+                    JoinScreen(
+                        onClaimed = {},
+                        onCancel = {
+                            backStack.popFrom(ClaimInvite)
+                        },
+                    )
                 }
                 entry<Register> {
                     com.calypsan.listenup.client.features.auth

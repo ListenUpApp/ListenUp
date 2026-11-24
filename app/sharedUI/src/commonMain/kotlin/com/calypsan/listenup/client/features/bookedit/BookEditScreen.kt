@@ -1,5 +1,9 @@
 package com.calypsan.listenup.client.features.bookedit
 
+import com.calypsan.listenup.client.design.components.LocalSnackbarHostState
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import listenup.composeapp.generated.resources.edit_frame_could_not_open
 import androidx.compose.runtime.getValue
 import com.calypsan.listenup.client.design.components.rememberForwardingTextFieldState
 import androidx.compose.foundation.layout.Arrangement
@@ -187,6 +191,9 @@ private fun BookEditContent(
         )
 
     // Image picker for cover uploads
+    val snackbarHostState = LocalSnackbarHostState.current
+    val scope = rememberCoroutineScope()
+    val couldNotOpenImage = stringResource(Res.string.edit_frame_could_not_open)
     val imagePicker =
         rememberImagePicker { result ->
             when (result) {
@@ -196,8 +203,9 @@ private fun BookEditContent(
 
                 is ImagePickerResult.Cancelled -> { /* User cancelled */ }
 
+                // A pick that cannot be read says so, as Contributor Edit's photo does, instead of doing nothing.
                 is ImagePickerResult.Error -> {
-                    // Error is handled via the ViewModel's error state
+                    scope.launch { snackbarHostState.showSnackbar(couldNotOpenImage) }
                 }
             }
         }

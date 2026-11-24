@@ -8,35 +8,23 @@ import Shared
 /// Deleting the currently-playing book is refused by the VM (B9); the screen surfaces a
 /// "stop playback first" alert rather than silently no-op.
 struct StorageView: View {
-    @Environment(\.dependencies) private var deps
-    @State private var observer: StorageObserver?
-
     var body: some View {
-        Group {
-            if let observer {
-                content(observer)
-            } else {
-                LoadingStateView()
-            }
-        }
-        .navigationTitle(String(localized: "common.storage"))
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            if let observer, !observer.books.isEmpty {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button(role: .destructive) {
-                        observer.confirmClearAll()
-                    } label: {
-                        Text(String(localized: "settings.clear_all"))
+        WithObserver { StorageObserver(viewModel: $0.createStorageViewModel()) } content: { observer in
+            content(observer)
+                .navigationTitle(String(localized: "common.storage"))
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    if !observer.books.isEmpty {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button(role: .destructive) {
+                                observer.confirmClearAll()
+                            } label: {
+                                Text(String(localized: "settings.clear_all"))
+                            }
+                            .disabled(observer.isDeleting)
+                        }
                     }
-                    .disabled(observer.isDeleting)
                 }
-            }
-        }
-        .onAppear {
-            if observer == nil {
-                observer = StorageObserver(viewModel: deps.createStorageViewModel())
-            }
         }
     }
 

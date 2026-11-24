@@ -5,7 +5,9 @@ import androidx.compose.runtime.getValue
 import com.calypsan.listenup.client.design.components.rememberForwardingTextFieldState
 import com.calypsan.listenup.client.design.components.ListenUpAlertDialog
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -20,7 +22,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -74,7 +76,10 @@ fun ContributorMergeDialog(
     onConfirm: (ContributorId) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    var selected by remember { mutableStateOf<ContributorId?>(null) }
+    // Saved as the id's string, so a rotation keeps the choice.
+    var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
+    // Only a target still on screen counts: one the search has filtered out cannot be merged into.
+    val selected = candidates.firstOrNull { it.id.value == selectedId }?.id
     // The dialog opens on a cleared query and owns the text while it is open.
     val queryState = rememberForwardingTextFieldState(query, onEdited = onQueryChange)
 
@@ -119,14 +124,14 @@ fun ContributorMergeDialog(
             }
             Spacer(modifier = Modifier.height(8.dp))
             LazyColumn(
-                modifier = Modifier.heightIn(max = LIST_MAX_HEIGHT_DP.dp),
+                modifier = Modifier.heightIn(max = LIST_MAX_HEIGHT_DP.dp).selectableGroup(),
                 verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 items(candidates, key = { it.id.value }) { candidate ->
                     CandidateRow(
                         name = candidate.displayName,
                         isSelected = selected == candidate.id,
-                        onClick = { selected = candidate.id },
+                        onClick = { selectedId = candidate.id.value },
                     )
                 }
             }
@@ -154,7 +159,7 @@ private fun CandidateRow(
             Modifier
                 .fillMaxWidth()
                 .background(highlight)
-                .clickable {
+                .selectable(selected = isSelected, role = Role.RadioButton) {
                     haptics.press()
                     onClick()
                 },

@@ -31,17 +31,13 @@ struct GenreBreakdownBars: View {
                 .lineLimit(1)
                 .frame(width: 96, alignment: .leading)
 
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    Capsule()
-                        .fill(Color.listenUpOrange.opacity(0.12))
-
-                    Capsule()
+            Capsule()
+                .fill(Color.listenUpOrange.opacity(0.12))
+                .overlay {
+                    ProgressFillShape(progress: fraction, minWidth: 4)
                         .fill(Color.listenUpOrange)
-                        .frame(width: max(geo.size.width * fraction, 4))
                 }
-            }
-            .frame(height: 10)
+                .frame(height: 10)
 
             Text(String(format: String(localized: "common.percent"), genre.percent))
                 .font(.footnote)

@@ -13,10 +13,8 @@ import UniformTypeIdentifiers
 /// way — so the screen simply waits. Progress is a determinate bar whenever the selection reported its
 /// sizes (HIG, Progress indicators: "When possible, use a determinate progress indicator").
 struct UploadBooksView: View {
-    @Environment(\.dependencies) private var deps
     @Environment(\.dismiss) private var dismiss
 
-    @State private var observer: UploadBooksObserver?
     /// Which picker the importer shows. Kept apart from `isPicking`, which the importer clears on
     /// dismissal — possibly before its completion runs — so the pick's kind survives to be read there.
     @State private var pickKind: UploadPickKind = .folder
@@ -24,21 +22,12 @@ struct UploadBooksView: View {
     @State private var confirmingStop = false
 
     var body: some View {
-        Group {
-            if let observer {
-                content(observer)
-            } else {
-                LoadingStateView()
-            }
-        }
-        .background(Color.luSurface)
-        .navigationTitle(String(localized: "admin.upload_books"))
-        .navigationBarTitleDisplayMode(.large)
-        .navigationBarBackButtonHidden(observer?.phase.isBusy ?? false)
-        .onAppear {
-            if observer == nil {
-                observer = UploadBooksObserver(viewModel: deps.createUploadBooksViewModel())
-            }
+        WithObserver { UploadBooksObserver(viewModel: $0.createUploadBooksViewModel()) } content: { observer in
+            content(observer)
+                .background(Color.luSurface)
+                .navigationTitle(String(localized: "admin.upload_books"))
+                .navigationBarTitleDisplayMode(.large)
+                .navigationBarBackButtonHidden(observer.phase.isBusy)
         }
     }
 

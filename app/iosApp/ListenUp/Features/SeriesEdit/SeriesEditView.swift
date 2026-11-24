@@ -9,149 +9,142 @@ struct SeriesEditView: View {
     /// has been soft-deleted by then, so the presenter must go somewhere other than back to it.
     var onMergedInto: ((String) -> Void)?
 
-    @Environment(\.dependencies) private var deps
     @Environment(\.dismiss) private var dismiss
-    @State private var observer: SeriesEditObserver?
     @State private var showMergeSheet = false
     /// The sub-series list's reorder mode (the system handles appear only while editing).
     @State private var editMode: EditMode = .inactive
 
     var body: some View {
-        Group {
-            if let observer {
-                switch observer.phase {
-                case .loading:
-                    LoadingStateView()
-                case .loadFailed(let message, let canRetry):
-                    EditLoadFailedView(
-                        message: message,
-                        canRetry: canRetry,
-                        onRetry: { observer.loadSeries(seriesId: seriesId) },
-                        onClose: { dismiss() }
-                    )
-                case .editing:
-                        EditSheetScaffold(
-                            title: String(localized: "series.edit_title"),
-                            hasChanges: observer.hasChanges,
-                            canSave: observer.hasChanges,
-                            isSaving: observer.isSaving,
-                            onCancel: { observer.onCancel(); dismiss() },
-                            onSave: { observer.onSave() }
-                        ) {
-                            Section {
-                                ImageEditHeader(
-                                    shape: .rounded,
-                                    size: 120,
-                                    isUploading: observer.isUploadingCover,
-                                    canRemove: observer.displayCoverPath != nil,
-                                    onPicked: { observer.onCoverSelected($0) },
-                                    onRemove: { observer.onCoverRemoved() }
-                                ) {
-                                    BookCoverImage(coverPath: observer.displayCoverPath)
-                                }
-                                .frame(maxWidth: .infinity)
-                                .listRowBackground(Color.clear)
-                            }
-
-                            Section {
-                                AppTextField(
-                                    placeholder: "",
-                                    text: Binding(get: { observer.name }, set: { observer.onNameChanged($0) }),
-                                    entry: .words,
-                                    label: String(localized: "series.edit_name")
-                                )
-                                AppTextField(
-                                    placeholder: String(localized: "series.edit_description_placeholder"),
-                                    text: Binding(
-                                        get: { observer.seriesDescription },
-                                        set: { observer.onDescriptionChanged($0) }
-                                    ),
-                                    entry: .sentences,
-                                    label: String(localized: "series.edit_description"),
-                                    axis: .vertical
-                                )
-                            }
-
-                            SeriesPlacementSection(observer: observer, editMode: $editMode)
-
-                            // Merging, and undoing a merge, are Curate library's.
-                            if observer.canCurateLibrary {
-                                Section {
-                                    mergeSection(observer)
-                                }
-
-                                Section(String(localized: "merge_history.section_title")) {
-                                    MergeHistoryListView(
-                                        model: observer.mergeHistory,
-                                        onUndo: { observer.onUndoMerge($0) },
-                                        onRetry: { observer.onRetryMergeHistory() }
-                                    )
-                                }
-                            }
-                        }
-                        .environment(\.editMode, $editMode)
-                        .sheet(
-                            isPresented: Binding(
-                                get: { observer.newParent != nil && !observer.parentPickerVisible },
-                                set: { if !$0 { observer.dismissNewParent() } }
-                            )
-                        ) {
-                            if let draft = observer.newParent {
-                                NewSeriesForm(
-                                    title: String(localized: "series.new_parent_title"),
-                                    draft: draft,
-                                    explanation: SeriesHierarchyText.newParentBody(name: draft.name, series: observer.name),
-                                    confirmTitle: String(localized: "series.create_and_move"),
-                                    useExistingTitle: String(localized: "series.move_into_existing"),
-                                    onNameChange: { observer.onNewParentNameChange($0) },
-                                    onConfirm: { observer.confirmNewParent() },
-                                    onUseExisting: { observer.moveIntoExisting($0) },
-                                    onCancel: { observer.dismissNewParent() }
-                                )
-                            }
-                        }
-                        .sheet(
-                            isPresented: Binding(
-                                get: { observer.addSubSeries.isVisible },
-                                set: { if !$0 { observer.sendAddSubSeries(.dismissed) } }
-                            )
-                        ) {
-                            AddSubSeriesSheet(model: observer.addSubSeries, send: observer.sendAddSubSeries)
-                        }
-                        .sheet(isPresented: $showMergeSheet, onDismiss: { observer.onMergeDialogDismissed() }) {
-                            SeriesMergeSheet(
-                                candidates: observer.mergeCandidates,
-                                query: observer.mergeQuery,
-                                bookCount: observer.bookCount,
-                                onQueryChange: { observer.onMergeQueryChange($0) },
-                                onSelect: { observer.onMergeInto($0) },
-                                onDismiss: { showMergeSheet = false }
-                            )
-                        }
-                        .alert(
-                            String(localized: "common.error"),
-                            isPresented: Binding(get: { observer.error != nil }, set: { _ in observer.onDismissError() })
-                        ) {
-                            Button(String(localized: "common.ok"), role: .cancel) { observer.onDismissError() }
-                        } message: {
-                            Text(observer.error ?? "")
-                        }
-                        .onChange(of: observer.didFinish) { _, finished in
-                            guard finished else { return }
-                            // Report the merge BEFORE dismissing: once this sheet is gone the observer goes
-                            // with it, and the presenter would have no way to learn where the books went.
-                            if let merged = observer.mergedIntoSeriesId { onMergedInto?(merged) }
-                            dismiss()
-                        }
-                }
-            } else {
+        WithObserver(id: seriesId) { deps in
+            let observer = SeriesEditObserver(viewModel: deps.createSeriesEditViewModel())
+            observer.loadSeries(seriesId: seriesId)
+            return observer
+        } content: { observer in
+            switch observer.phase {
+            case .loading:
                 LoadingStateView()
+            case .loadFailed(let message, let canRetry):
+                EditLoadFailedView(
+                    message: message,
+                    canRetry: canRetry,
+                    onRetry: { observer.loadSeries(seriesId: seriesId) },
+                    onClose: { dismiss() }
+                )
+            case .editing:
+                EditSheetScaffold(
+                    title: String(localized: "series.edit_title"),
+                    hasChanges: observer.hasChanges,
+                    canSave: observer.hasChanges,
+                    isSaving: observer.isSaving,
+                    onCancel: { observer.onCancel(); dismiss() },
+                    onSave: { observer.onSave() }
+                ) {
+                    Section {
+                        ImageEditHeader(
+                            shape: .rounded,
+                            size: 120,
+                            isUploading: observer.isUploadingCover,
+                            canRemove: observer.displayCoverPath != nil,
+                            onPicked: { observer.onCoverSelected($0) },
+                            onRemove: { observer.onCoverRemoved() }
+                        ) {
+                            BookCoverImage(coverPath: observer.displayCoverPath)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .listRowBackground(Color.clear)
+                    }
+
+                    Section {
+                        AppTextField(
+                            placeholder: "",
+                            text: Binding(get: { observer.name }, set: { observer.onNameChanged($0) }),
+                            entry: .words,
+                            label: String(localized: "series.edit_name")
+                        )
+                        AppTextField(
+                            placeholder: String(localized: "series.edit_description_placeholder"),
+                            text: Binding(
+                                get: { observer.seriesDescription },
+                                set: { observer.onDescriptionChanged($0) }
+                            ),
+                            entry: .sentences,
+                            label: String(localized: "series.edit_description"),
+                            axis: .vertical
+                        )
+                    }
+
+                    SeriesPlacementSection(observer: observer, editMode: $editMode)
+
+                    // Merging, and undoing a merge, are Curate library's.
+                    if observer.canCurateLibrary {
+                        Section {
+                            mergeSection(observer)
+                        }
+
+                        Section(String(localized: "merge_history.section_title")) {
+                            MergeHistoryListView(
+                                model: observer.mergeHistory,
+                                onUndo: { observer.onUndoMerge($0) },
+                                onRetry: { observer.onRetryMergeHistory() }
+                            )
+                        }
+                    }
+                }
+                .environment(\.editMode, $editMode)
+                .sheet(
+                    isPresented: Binding(
+                        get: { observer.newParent != nil && !observer.parentPickerVisible },
+                        set: { if !$0 { observer.dismissNewParent() } }
+                    )
+                ) {
+                    if let draft = observer.newParent {
+                        NewSeriesForm(
+                            title: String(localized: "series.new_parent_title"),
+                            draft: draft,
+                            explanation: SeriesHierarchyText.newParentBody(name: draft.name, series: observer.name),
+                            confirmTitle: String(localized: "series.create_and_move"),
+                            useExistingTitle: String(localized: "series.move_into_existing"),
+                            onNameChange: { observer.onNewParentNameChange($0) },
+                            onConfirm: { observer.confirmNewParent() },
+                            onUseExisting: { observer.moveIntoExisting($0) },
+                            onCancel: { observer.dismissNewParent() }
+                        )
+                    }
+                }
+                .sheet(
+                    isPresented: Binding(
+                        get: { observer.addSubSeries.isVisible },
+                        set: { if !$0 { observer.sendAddSubSeries(.dismissed) } }
+                    )
+                ) {
+                    AddSubSeriesSheet(model: observer.addSubSeries, send: observer.sendAddSubSeries)
+                }
+                .sheet(isPresented: $showMergeSheet, onDismiss: { observer.onMergeDialogDismissed() }) {
+                    SeriesMergeSheet(
+                        candidates: observer.mergeCandidates,
+                        query: observer.mergeQuery,
+                        bookCount: observer.bookCount,
+                        onQueryChange: { observer.onMergeQueryChange($0) },
+                        onSelect: { observer.onMergeInto($0) },
+                        onDismiss: { showMergeSheet = false }
+                    )
+                }
+                .alert(
+                    String(localized: "common.error"),
+                    isPresented: Binding(get: { observer.error != nil }, set: { _ in observer.onDismissError() })
+                ) {
+                    Button(String(localized: "common.ok"), role: .cancel) { observer.onDismissError() }
+                } message: {
+                    Text(observer.error ?? "")
+                }
+                .onChange(of: observer.didFinish) { _, finished in
+                    guard finished else { return }
+                    // Report the merge BEFORE dismissing: once this sheet is gone the observer goes
+                    // with it, and the presenter would have no way to learn where the books went.
+                    if let merged = observer.mergedIntoSeriesId { onMergedInto?(merged) }
+                    dismiss()
+                }
             }
-        }
-        .task(id: seriesId) {
-            let obs = SeriesEditObserver(viewModel: deps.createSeriesEditViewModel())
-            observer = obs
-            obs.loadSeries(seriesId: seriesId)
         }
     }
 

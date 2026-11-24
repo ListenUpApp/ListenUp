@@ -7415,6 +7415,17 @@
         }
       }
     },
+    "book.detail_share_unavailable": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't create a link to share. Try again in a moment."
+          }
+        }
+      }
+    },
     "book.detail_social_finished_many": {
       "extractionState": "manual",
       "localizations": {
@@ -15287,17 +15298,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Include sub-genres"
-          }
-        }
-      }
-    },
-    "genre_destination.more_options": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "More options"
           }
         }
       }
@@ -28168,6 +28168,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "in %1$@"
+          }
+        }
+      }
+    },
+    "series.keep_current_cover": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep the current cover"
           }
         }
       }

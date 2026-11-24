@@ -100,8 +100,9 @@ import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_detail_document_viewer_coming_soon
 import listenup.composeapp.generated.resources.book_detail_insufficient_storage
+import listenup.composeapp.generated.resources.book_detail_share_unavailable
 import com.calypsan.listenup.client.design.LocalDeviceContext
-import com.calypsan.listenup.client.features.share.shareBookText
+import com.calypsan.listenup.client.features.share.shareBookLink
 
 /**
  * The book detail screen: a hero band (cover, title, byline, quick stats), the listen actions, then the
@@ -405,9 +406,14 @@ private fun BookDetailReadyContent(
                 onShareClick = {
                     scope.launch {
                         // The RPC-backed server identity, through the one builder every client shares.
-                        bookShareUrl(instanceRepository, book.id)?.let { url ->
-                            platformActions.shareText(shareBookText(book.title, url), url)
-                        }
+                        shareBookLink(
+                            url = bookShareUrl(instanceRepository, book.id),
+                            title = book.title,
+                            share = platformActions::shareText,
+                            onNoLink = {
+                                snackbarHostState.showSnackbar(getString(Res.string.book_detail_share_unavailable))
+                            },
+                        )
                     }
                 },
                 onDeleteBookClick = {

@@ -30,17 +30,14 @@ struct ProgressBar: View {
 
     var body: some View {
         VStack(spacing: 6) {
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    // Background track
-                    RoundedRectangle(cornerRadius: cornerRadius)
-                        .fill(backgroundColor)
+            ZStack(alignment: .leading) {
+                // Background track
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .fill(backgroundColor)
 
-                    // Progress fill
-                    RoundedRectangle(cornerRadius: cornerRadius)
-                        .fill(Color.listenUpOrange)
-                        .frame(width: geo.size.width * CGFloat(progress.clamped(to: 0...1)))
-                }
+                // Progress fill
+                ProgressFillShape(progress: Double(progress), cornerRadius: cornerRadius)
+                    .fill(Color.listenUpOrange)
             }
 
             if let label {
@@ -63,14 +60,6 @@ struct ProgressBar: View {
         case .standard: Color(.systemGray5)
         case .overlay: .black.opacity(0.5)
         }
-    }
-}
-
-// MARK: - Float Clamping Extension
-
-private extension Float {
-    func clamped(to range: ClosedRange<Float>) -> Float {
-        min(max(self, range.lowerBound), range.upperBound)
     }
 }
 

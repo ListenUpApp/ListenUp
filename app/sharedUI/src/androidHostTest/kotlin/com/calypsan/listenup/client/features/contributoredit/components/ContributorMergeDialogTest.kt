@@ -1,12 +1,25 @@
 package com.calypsan.listenup.client.features.contributoredit.components
 
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import com.calypsan.listenup.client.presentation.contributoredit.ContributorCandidate
 import com.calypsan.listenup.client.presentation.contributoredit.MAX_MERGE_CANDIDATES
 import com.calypsan.listenup.core.ContributorId
+import io.kotest.matchers.shouldBe
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -85,6 +98,57 @@ class ContributorMergeDialogTest {
         composeRule.onNodeWithText(TRUNCATED_HINT).assertDoesNotExist()
         composeRule.onNodeWithText(NO_MATCHES).assertDoesNotExist()
     }
+
+    @Test
+    fun `a chosen target the search has hidden cannot be merged into`() {
+        var shown by mutableStateOf(candidates(3))
+        val merged = mutableListOf<ContributorId>()
+        composeRule.setContent {
+            MaterialTheme {
+                ContributorMergeDialog(
+                    candidates = shown,
+                    truncated = false,
+                    query = "",
+                    onQueryChange = {},
+                    onConfirm = { merged += it },
+                    onDismiss = {},
+                )
+            }
+        }
+        composeRule.onNodeWithText("Contributor 0").performClick()
+        composeRule.onNodeWithText(CONFIRM).assertIsEnabled()
+
+        shown = candidates(3).drop(1)
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithText(CONFIRM).assertIsNotEnabled()
+        merged shouldBe emptyList()
+    }
+
+    @Test
+    fun `candidates are radio rows that announce which one is chosen`() {
+        composeRule.setContent {
+            MaterialTheme {
+                ContributorMergeDialog(
+                    candidates = candidates(2),
+                    truncated = false,
+                    query = "",
+                    onQueryChange = {},
+                    onConfirm = {},
+                    onDismiss = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("Contributor 1").performClick()
+
+        composeRule
+            .onNode(hasText("Contributor 1") and SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.RadioButton))
+            .assertIsSelected()
+        composeRule
+            .onNode(hasText("Contributor 0") and SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.RadioButton))
+            .assertIsNotSelected()
+    }
 }
 
 private fun candidates(count: Int): List<ContributorCandidate> =
@@ -98,3 +162,4 @@ private fun candidates(count: Int): List<ContributorCandidate> =
 
 private const val TRUNCATED_HINT = "Showing the first 30. Search to find anyone else."
 private const val NO_MATCHES = "No contributors match that search."
+private const val CONFIRM = "Add alias"
