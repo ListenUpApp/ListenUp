@@ -38,6 +38,7 @@ import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
 import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
+import com.calypsan.listenup.client.design.util.PlatformBackHandler
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.client.presentation.admin.RestoreBackupUiState
 import com.calypsan.listenup.client.presentation.admin.RestoreBackupViewModel
@@ -71,6 +72,7 @@ fun RestoreBackupScreen(
     // Restoring spinner finishing or the Completed "Done" button. Hide back
     // navigation in those states to avoid abandoning a destructive operation.
     val canNavigateBack = state is RestoreBackupUiState.Idle
+    RestoreBackupBackGuard(state = state, onComplete = onComplete)
 
     ListenUpScaffold(
         topBar = {
@@ -91,6 +93,21 @@ fun RestoreBackupScreen(
             onDone = onComplete,
             modifier = Modifier.padding(paddingValues),
         )
+    }
+}
+
+/**
+ * Closes the system Back gesture under the same condition that hides the top-bar arrow: popping the
+ * entry would clear the ViewModel whose scope runs the restore and its follow-up resync. Once the
+ * restore has completed, Back acts as the "Done" button.
+ */
+@Composable
+internal fun RestoreBackupBackGuard(
+    state: RestoreBackupUiState,
+    onComplete: () -> Unit,
+) {
+    PlatformBackHandler(enabled = state !is RestoreBackupUiState.Idle) {
+        if (state is RestoreBackupUiState.Completed) onComplete()
     }
 }
 

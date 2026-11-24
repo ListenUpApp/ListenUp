@@ -53,6 +53,8 @@ class ServerConnectViewModel(
      * 2. Network verification via [InstanceRepository.verifyServer]
      */
     fun submitUrl(rawUrl: String) {
+        // The keyboard's Done and the Connect button are two doors; only one attempt may run.
+        if (state.value is ServerConnectUiState.Verifying) return
         val url = rawUrl.trim()
 
         val validationError = validateUrl(url)

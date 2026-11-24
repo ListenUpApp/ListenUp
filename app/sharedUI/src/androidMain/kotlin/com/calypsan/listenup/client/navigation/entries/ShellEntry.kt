@@ -52,7 +52,11 @@ import com.calypsan.listenup.client.presentation.player.PlayerViewModel
 import com.calypsan.listenup.client.presentation.startup.LibraryReadiness
 import com.calypsan.listenup.core.BookId
 import org.koin.compose.viewmodel.koinViewModel
-import com.calypsan.listenup.client.features.share.shareBookText
+import com.calypsan.listenup.client.design.components.LocalSnackbarHostState
+import com.calypsan.listenup.client.features.share.shareBookLink
+import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.book_detail_share_unavailable
+import org.jetbrains.compose.resources.getString
 
 /** Shell (root) navigation entry — the main app scaffold with bottom nav. */
 internal fun EntryProviderScope<NavKey>.shellEntry(
@@ -233,18 +237,22 @@ private fun DiscoverTab(
 
 /**
  * Shares a book from the Library's menu: the link from the one share builder, Book Detail's sentence, the platform's
- * own sheet. A server that cannot name itself shares nothing rather than a link that resolves nowhere.
+ * own sheet. A server that cannot name itself shares no link that resolves nowhere — it says so instead.
  */
 @Composable
 private fun rememberBookSharer(): (bookId: String, title: String) -> Unit {
     val scope = rememberCoroutineScope()
     val instanceRepository: InstanceRepository = koinInject()
     val shareActions: BookDetailPlatformActions = koinInject()
+    val snackbarHostState = LocalSnackbarHostState.current
     return { bookId, title ->
         scope.launch {
-            bookShareUrl(instanceRepository, BookId(bookId))?.let { url ->
-                shareActions.shareText(shareBookText(title, url), url)
-            }
+            shareBookLink(
+                url = bookShareUrl(instanceRepository, BookId(bookId)),
+                title = title,
+                share = shareActions::shareText,
+                onNoLink = { snackbarHostState.showSnackbar(getString(Res.string.book_detail_share_unavailable)) },
+            )
         }
     }
 }

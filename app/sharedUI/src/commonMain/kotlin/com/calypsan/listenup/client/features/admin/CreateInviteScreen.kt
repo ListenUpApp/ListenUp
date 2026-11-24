@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.admin
 
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 import androidx.compose.foundation.text.input.TextFieldState
@@ -206,14 +207,14 @@ fun CreateInviteScreen(
 }
 
 @Composable
-private fun CreateInviteForm(
+internal fun CreateInviteForm(
     status: CreateInviteStatus,
     onSubmit: (String, String, Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val email = rememberTextFieldState()
-    var role by remember { mutableStateOf(ROLE_MEMBER) }
-    var expiresInDays by remember { mutableIntStateOf(7) }
+    var role by rememberSaveable { mutableStateOf(ROLE_MEMBER) }
+    var expiresInDays by rememberSaveable { mutableIntStateOf(7) }
 
     val isSubmitting = status is CreateInviteStatus.Submitting
     val validationField =

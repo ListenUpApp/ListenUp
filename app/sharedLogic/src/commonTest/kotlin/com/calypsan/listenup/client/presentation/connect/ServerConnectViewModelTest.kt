@@ -418,6 +418,23 @@ class ServerConnectViewModelTest :
             }
         }
 
+        test("a second submit while one is verifying does not verify again") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.instanceRepository.verifyServer("http://192.168.1.5:8080") } returns
+                    AppResult.Failure(TransportError.Timeout(debugInfo = "connect timed out"))
+                val viewModel = fixture.build(CoroutineScope(testDispatcher))
+
+                // The keyboard's Done and the Connect button can both fire before the first attempt
+                // has been dispatched; only one may reach the network.
+                viewModel.submitUrl("http://192.168.1.5:8080")
+                viewModel.submitUrl("http://192.168.1.5:8080")
+                advanceUntilIdle()
+
+                verifySuspend(VerifyMode.exactly(1)) { fixture.instanceRepository.verifyServer(any()) }
+            }
+        }
+
         test("submitUrl reports Verifying before the attempt is dispatched") {
             runTest {
                 val fixture = createFixture()

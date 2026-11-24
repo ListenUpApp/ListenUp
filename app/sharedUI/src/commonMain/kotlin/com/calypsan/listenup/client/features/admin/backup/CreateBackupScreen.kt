@@ -29,7 +29,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -63,20 +63,18 @@ fun CreateBackupScreen(
     onSuccess: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    var includeImages by remember { mutableStateOf(false) }
-    var hasStartedCreation by remember { mutableStateOf(false) }
+    var includeImages by rememberSaveable { mutableStateOf(false) }
 
-    // Screen is only reachable after the list has loaded; the only meaningful
-    // state here is Ready. isCreating and error live on Ready.
+    // isCreating and error live on Ready; before the list has loaded there is nothing to create
+    // against, so Create stays disabled.
     val ready = state as? AdminBackupUiState.Ready
     val isCreating = ready?.isCreating == true
     val error = ready?.error
 
-    // Navigate back on success
-    LaunchedEffect(isCreating, hasStartedCreation) {
-        if (hasStartedCreation && !isCreating && error == null) {
-            onSuccess()
-        }
+    // Leave only once the ViewModel says a backup was made — never inferred from state changes,
+    // which a rotation or a create that never started would fake.
+    LaunchedEffect(viewModel) {
+        viewModel.backupCreated.collect { onSuccess() }
     }
 
     ListenUpScaffold(
@@ -96,10 +94,8 @@ fun CreateBackupScreen(
                 includeImages = includeImages,
                 onIncludeImagesChange = { includeImages = it },
                 error = error,
-                onCreateClick = {
-                    hasStartedCreation = true
-                    viewModel.createBackup(includeImages = includeImages)
-                },
+                createEnabled = ready != null,
+                onCreateClick = { viewModel.createBackup(includeImages = includeImages) },
                 modifier = Modifier.padding(paddingValues),
             )
         }
@@ -118,6 +114,7 @@ internal fun CreateBackupForm(
     includeImages: Boolean,
     onIncludeImagesChange: (Boolean) -> Unit,
     error: AppError?,
+    createEnabled: Boolean,
     onCreateClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -152,7 +149,7 @@ internal fun CreateBackupForm(
             ) {
                 BackupSummaryCard(includeImages = includeImages)
                 error?.let { BackupErrorCard(error = it) }
-                CreateBackupButton(onClick = onCreateClick)
+                CreateBackupButton(enabled = createEnabled, onClick = onCreateClick)
             }
         }
     } else {
@@ -169,7 +166,7 @@ internal fun CreateBackupForm(
             BackupSummaryCard(includeImages = includeImages)
             error?.let { BackupErrorCard(error = it) }
             Spacer(modifier = Modifier.weight(1f))
-            CreateBackupButton(onClick = onCreateClick)
+            CreateBackupButton(enabled = createEnabled, onClick = onCreateClick)
         }
     }
 }
@@ -312,9 +309,13 @@ private fun BackupErrorCard(error: AppError) {
 }
 
 @Composable
-private fun CreateBackupButton(onClick: () -> Unit) {
+private fun CreateBackupButton(
+    enabled: Boolean,
+    onClick: () -> Unit,
+) {
     ListenUpButton(
         onClick = onClick,
+        enabled = enabled,
         text = stringResource(Res.string.admin_create_backup),
         modifier = Modifier.fillMaxWidth(),
     )

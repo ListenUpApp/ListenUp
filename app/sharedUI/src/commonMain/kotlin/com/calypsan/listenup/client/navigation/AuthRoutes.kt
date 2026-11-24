@@ -54,3 +54,10 @@ data object Register : AuthRoute
  */
 @Serializable
 data object ForgotPassword : AuthRoute
+
+/**
+ * Invite-claim screen reached from Login - the user types a code they were given, and it is looked
+ * up against the server already connected. The deep-link path opens the same screen with the code.
+ */
+@Serializable
+data object ClaimInvite : AuthRoute

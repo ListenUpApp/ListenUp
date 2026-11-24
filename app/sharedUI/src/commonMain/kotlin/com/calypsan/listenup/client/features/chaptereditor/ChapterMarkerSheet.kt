@@ -23,6 +23,7 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -82,7 +83,7 @@ internal fun ChapterMarkerSheet(
     onRemove: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    var isPicking by remember(edit) { mutableStateOf(false) }
+    var isPicking by rememberSaveable(edit) { mutableStateOf(false) }
 
     AdaptiveSheet(
         title = if (isPicking) stringResource(Res.string.chapter_editor_marker_move_title) else edit.sheetTitle(),
@@ -105,7 +106,7 @@ internal fun ChapterMarkerSheet(
 
 /** The sheet's body. It swaps to the picker in place, so Move never stacks a sheet on a sheet. */
 @Composable
-private fun ChapterMarkerSheetContent(
+internal fun ChapterMarkerSheetContent(
     edit: ChapterMarkerEdit,
     initialName: String,
     chapters: List<Chapter>,
@@ -116,8 +117,10 @@ private fun ChapterMarkerSheetContent(
     onRemove: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val name = remember(edit) { TextFieldState(initialName) }
-    var startsAt by remember(edit) { mutableStateOf(edit.chapterId) }
+    // Saveable, so a rotation keeps what was typed and chosen; keyed by the marker, so a different
+    // one opens fresh.
+    val name = rememberSaveable(edit, saver = TextFieldState.Saver) { TextFieldState(initialName) }
+    var startsAt by rememberSaveable(edit) { mutableStateOf(edit.chapterId) }
 
     if (isPicking) {
         MarkerStartPicker(

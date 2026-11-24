@@ -61,7 +61,7 @@ class CreateBackupWideLayoutTest {
     private fun setContent() {
         composeRule.setContent {
             MaterialTheme {
-                CreateBackupForm(includeImages = false, onIncludeImagesChange = {}, error = null, onCreateClick = {})
+                CreateBackupForm(includeImages = false, onIncludeImagesChange = {}, error = null, createEnabled = true, onCreateClick = {})
             }
         }
     }

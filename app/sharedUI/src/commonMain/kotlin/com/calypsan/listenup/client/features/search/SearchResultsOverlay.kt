@@ -42,12 +42,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.rememberSaveable
 import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.features.seriesdetail.components.seriesPlacementLine
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -125,6 +127,20 @@ private fun hitKey(
 ): String = "$prefix${hit.id}"
 
 /**
+ * Which single-type "See all" page is open, if any — saveable, so rotating on a See-all page stays on
+ * it. Saved by the type's name, so the enum never enters the saved state itself.
+ */
+@Composable
+internal fun rememberSeeAllType(): MutableState<SearchHitType?> =
+    rememberSaveable(stateSaver = SeeAllTypeSaver) { mutableStateOf(null) }
+
+private val SeeAllTypeSaver: Saver<SearchHitType?, String> =
+    Saver(
+        save = { type -> type?.name },
+        restore = { saved -> SearchHitType.entries.firstOrNull { it.name == saved } },
+    )
+
+/**
  * Full-screen overlay for search results.
  *
  * Displays federated results grouped by type (Books, People, Series, Tags) in the Material 3
@@ -145,7 +161,7 @@ fun SearchResultsOverlay(
 ) {
     // Which single-type "See all" page is open, if any. Owned here (not a nav-stack entry) so the
     // overlay can render it in place of the grouped list and back out one level before collapsing.
-    var seeAllType by remember { mutableStateOf<SearchHitType?>(null) }
+    var seeAllType by rememberSeeAllType()
 
     // Reset the See-all page whenever the overlay closes, so re-opening search starts on the grouped
     // list rather than a stale single-type page.
