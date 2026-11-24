@@ -1,6 +1,5 @@
 package com.calypsan.listenup.server.konsist
 
-import com.lemonappdev.konsist.api.Konsist
 import com.lemonappdev.konsist.api.container.KoScope
 import com.lemonappdev.konsist.api.declaration.KoFunctionDeclaration
 import io.kotest.assertions.withClue
@@ -28,7 +27,7 @@ import io.kotest.matchers.ints.shouldBeGreaterThanOrEqual
 class ReadRpcsNameTheirCallerRule :
     FunSpec({
         test("every read ServiceImpl override names its caller or is @OpenRead with a reason") {
-            val scope = Konsist.scopeFromProduction("server")
+            val scope = serverProductionScope()
             val reads = readOverrides(scope)
             // Vacuity guard: the scope reached server production and found its reads.
             reads.size shouldBeGreaterThanOrEqual 55

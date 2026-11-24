@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.presentation.bookdetail
 import app.cash.turbine.Event
 import app.cash.turbine.test
 import com.calypsan.listenup.api.error.BookError
+import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.TestData
@@ -116,6 +117,31 @@ class BookDetailViewModelOverlayTest :
                 advanceUntilIdle()
                 vm.ready().isMarkingComplete shouldBe false
                 vm.ready().isComplete shouldBe true
+            }
+        }
+
+        listOf<Pair<String, (BookDetailViewModel) -> Unit>>(
+            "Mark finished" to { it.markComplete() },
+            "Mark not started" to { it.discardProgress() },
+            "Restart" to { it.restartBook() },
+        ).forEach { (action, act) ->
+            test("a $action that fails is reported on the error bus") {
+                runTest {
+                    val f = BookDetailFixture()
+                    val offline = TransportError.NetworkUnavailable()
+                    everySuspend { f.playbackPositionRepository.markComplete(any(), any(), any()) } returns AppResult.Failure(offline)
+                    everySuspend { f.playbackPositionRepository.discardProgress(any()) } returns AppResult.Failure(offline)
+                    everySuspend { f.playbackPositionRepository.restartBook(any()) } returns AppResult.Failure(offline)
+                    val vm = watch(f.build())
+                    vm.loadBook("book-1")
+                    advanceUntilIdle()
+
+                    f.errorBus.errors.test {
+                        act(vm)
+                        advanceUntilIdle()
+                        awaitItem() shouldBe offline
+                    }
+                }
             }
         }
 

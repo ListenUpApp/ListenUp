@@ -53,6 +53,7 @@ import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSm
 import com.calypsan.listenup.client.design.components.ListenUpTextField
 import com.calypsan.listenup.client.design.components.ScallopBadge
 import com.calypsan.listenup.client.design.components.TonalIconTile
+import com.calypsan.listenup.client.design.components.LoadFailed
 import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.domain.model.Collection
 import com.calypsan.listenup.client.presentation.admin.AdminCollectionsUiState
@@ -160,6 +161,7 @@ fun AdminCollectionsScreen(
             onCollectionClick = onCollectionClick,
             onDeleteClick = { collectionToDelete = it },
             onNewCollectionClick = { showCreateDialog = true },
+            onRetry = viewModel::retry,
         )
     }
 
@@ -209,6 +211,7 @@ private fun CollectionsBody(
     onCollectionClick: (String) -> Unit,
     onDeleteClick: (Collection) -> Unit,
     onNewCollectionClick: () -> Unit,
+    onRetry: () -> Unit,
 ) {
     when (state) {
         is AdminCollectionsUiState.Loading -> {
@@ -216,16 +219,7 @@ private fun CollectionsBody(
         }
 
         is AdminCollectionsUiState.Error -> {
-            Box(
-                modifier = Modifier.fillMaxSize().padding(innerPadding),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = state.message,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.error,
-                )
-            }
+            LoadFailed(message = state.message, onRetry = onRetry, modifier = Modifier.padding(innerPadding))
         }
 
         is AdminCollectionsUiState.Ready -> {

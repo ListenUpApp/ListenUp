@@ -268,6 +268,7 @@ private fun OrganizeRoute(
                 onDismissPreview = session.onDismissPreview,
                 onDismissReport = session.onDismissReport,
                 onResume = session.onResume,
+                onRetry = session.onRetry,
             ),
         onOpenAdmin = { router.navigate(Routes.Admin.root) },
     )
@@ -322,6 +323,7 @@ private fun UserDetailRoute(
         state = session.state.collectAsState().value,
         permissions = session.permissions.collectAsState().value,
         actions = session.actions,
+        onRetry = session.onRetry,
         onOpenAdmin = { router.navigate(Routes.Admin.root) },
     )
 }

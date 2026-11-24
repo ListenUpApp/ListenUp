@@ -48,6 +48,8 @@ final class LibrarySettingsObserver {
     func openBrowserDirectory(_ path: String) { viewModel?.loadBrowserDirectory(path: path) }
     func browserNavigateUp() { viewModel?.browserNavigateUp() }
     func clearError() { viewModel?.clearError() }
+    /// Re-runs the load after it failed; the ViewModel ignores it in any other state.
+    func retry() { viewModel?.retry() }
 
     // MARK: - State mapping
 

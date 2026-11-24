@@ -125,6 +125,17 @@ struct UserProfileView: View {
             .padding(.vertical, Spacing.m)
             .frame(maxWidth: .infinity)
             .background(Color.luSurface2, in: RoundedRectangle(cornerRadius: Radius.l, style: .continuous))
+        } else if case .error(let message) = statsObserver?.phase {
+            VStack(spacing: Spacing.s) {
+                Text(message)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                Button(String(localized: "common.try_again")) { statsObserver?.refresh() }
+            }
+            .padding(Spacing.m)
+            .frame(maxWidth: .infinity, minHeight: 72)
+            .background(Color.luSurface2, in: RoundedRectangle(cornerRadius: Radius.l, style: .continuous))
         } else {
             ProgressView()
                 .frame(maxWidth: .infinity, minHeight: 72)

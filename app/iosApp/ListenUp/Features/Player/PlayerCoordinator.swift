@@ -115,6 +115,8 @@ final class PlayerCoordinator: RemoteCommandHandler {
         case interruption(InterruptionPolicy.Action)
         /// The output device went away (headphones unplugged, AirPods out): pause, for good.
         case routeLost
+        /// The system restarted its media services: the engine's player is dead and must be rebuilt.
+        case mediaServicesReset
         case remote(RemoteAction)
     }
     /// A book `engine.load` has resolved, waiting its turn to start behind the instructions received before it.
@@ -199,6 +201,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
                 case .loadResolved(let book): await self?.startLoaded(book)
                 case .interruption(let action): await self?.applyInterruption(action)
                 case .routeLost: await self?.applyRouteLoss()
+                case .mediaServicesReset: await self?.applyMediaServicesReset()
                 case .remote(let command): await self?.perform(command)
                 }
             }

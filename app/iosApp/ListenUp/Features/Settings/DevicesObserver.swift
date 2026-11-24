@@ -5,7 +5,7 @@ import Shared
 /// The render phase for the Devices screen, flattened from `DevicesUiState`.
 enum DevicesPhase {
     case loading
-    case ready(devices: [DeviceRowModel], signingOut: Set<String>)
+    case ready(devices: [DeviceRowModel], signingOut: Set<String>, signingOutOthers: Bool)
     case error(String)
 }
 
@@ -116,7 +116,7 @@ final class DevicesObserver {
             // The Kotlin Set<String> arrives as a bridged Kotlin set, not a Swift Set;
             // map through String(describing:) to produce a Swift-native Set<String>.
             let signingOut = Set(ready.signingOut.map { String(describing: $0) })
-            phase = .ready(devices: devices, signingOut: signingOut)
+            phase = .ready(devices: devices, signingOut: signingOut, signingOutOthers: ready.signingOutOthers)
         case .error(let errorStateType):
             let errorState = errorStateType.value
             phase = .error(errorState.error.message)

@@ -51,6 +51,7 @@ fun LibrarySettingsPage(
     onOpenBrowserPath: (String) -> Unit,
     onBrowserUp: () -> Unit,
     onClearError: () -> Unit,
+    onRetry: () -> Unit,
     onOpenAdmin: () -> Unit,
 ) {
     Div(attrs = { classes("lset") }) {
@@ -73,7 +74,9 @@ fun LibrarySettingsPage(
             }
 
             is LibrarySettingsUiState.Error -> {
-                EmptyState(title = "These settings can't be loaded", body = state.error.message)
+                EmptyState(title = "These settings can't be loaded", body = state.error.message) {
+                    Button(kind = ButtonKind.Primary, onClick = { onRetry() }) { Text("Try again") }
+                }
             }
 
             LibrarySettingsUiState.Loading -> {

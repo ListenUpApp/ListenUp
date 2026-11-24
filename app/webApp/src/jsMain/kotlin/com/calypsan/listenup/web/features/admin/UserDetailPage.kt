@@ -12,6 +12,9 @@ import com.calypsan.listenup.web.design.Panel
 import com.calypsan.listenup.web.design.UserAvatar
 import com.calypsan.listenup.web.nav.rememberUnsavedWorkGuard
 import org.jetbrains.compose.web.dom.Div
+import com.calypsan.listenup.web.design.Button
+import com.calypsan.listenup.web.design.ButtonKind
+import org.jetbrains.compose.web.dom.Text
 
 /**
  * One member: who they are, and — in the same page, because there is room — what they may do.
@@ -22,6 +25,7 @@ fun UserDetailPage(
     state: UserDetailUiState,
     permissions: UserPermissionsUiState,
     actions: PermissionsPanelActions,
+    onRetry: () -> Unit,
     onOpenAdmin: () -> Unit,
 ) {
     val guard = rememberUnsavedWorkGuard(dirty = (permissions as? UserPermissionsUiState.Ready)?.hasChanges == true)
@@ -37,7 +41,9 @@ fun UserDetailPage(
 
             is UserDetailUiState.Error -> {
                 PageHeader(title = userCrumb(state))
-                EmptyState(title = "This member can't be shown", body = state.error.message)
+                EmptyState(title = "This member can't be shown", body = state.error.message) {
+                    Button(kind = ButtonKind.Primary, onClick = { onRetry() }) { Text("Try again") }
+                }
             }
 
             is UserDetailUiState.Ready -> {

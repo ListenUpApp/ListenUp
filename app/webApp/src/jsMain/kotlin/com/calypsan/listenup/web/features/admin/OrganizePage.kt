@@ -50,7 +50,9 @@ fun OrganizePage(
             }
 
             is OrganizeSettingsUiState.Error -> {
-                EmptyState(title = "File organization can't be shown", body = state.error.message)
+                EmptyState(title = "File organization can't be shown", body = state.error.message) {
+                    Button(kind = ButtonKind.Primary, onClick = { actions.onRetry() }) { Text("Try again") }
+                }
             }
 
             is OrganizeSettingsUiState.Ready -> {
@@ -71,6 +73,7 @@ data class OrganizeActions(
     val onDismissPreview: () -> Unit,
     val onDismissReport: () -> Unit,
     val onResume: () -> Unit,
+    val onRetry: () -> Unit,
 )
 
 @Composable

@@ -19,7 +19,16 @@ struct EditProfileView: View {
 
     var body: some View {
         Group {
-            if let observer {
+            if let loadError = observer?.loadError {
+                // The profile could not be read: say so, rather than an empty form that cannot be saved.
+                ContentUnavailableView {
+                    Label(String(localized: "common.something_went_wrong"), systemImage: "person.slash")
+                } description: {
+                    Text(loadError)
+                } actions: {
+                    Button(String(localized: "common.close")) { dismiss() }
+                }
+            } else if let observer {
                 sheet(observer)
             } else {
                 LoadingStateView()

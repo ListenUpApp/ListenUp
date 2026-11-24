@@ -7,18 +7,13 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -58,10 +53,10 @@ import listenup.composeapp.generated.resources.browse_facet_no_books_tag
 import listenup.composeapp.generated.resources.browse_facet_total_label
 import listenup.composeapp.generated.resources.browse_facet_unavailable_mood
 import listenup.composeapp.generated.resources.browse_facet_unavailable_tag
-import listenup.composeapp.generated.resources.common_back
 import org.jetbrains.compose.resources.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import com.calypsan.listenup.client.design.components.FloatingBackButton
 
 /**
  * Facet-browse screen — every book carrying a tapped Tag or Mood chip, the flat-facet analogue of
@@ -243,27 +238,6 @@ private fun FacetHero(
                 )
             }
         }
-    }
-}
-
-/** Floating back button used on the NotFound state (which has no hero). */
-@Composable
-private fun FloatingBackButton(
-    onBackClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    IconButton(
-        onClick = onBackClick,
-        modifier =
-            modifier
-                .windowInsetsPadding(WindowInsets.statusBars)
-                .padding(8.dp),
-    ) {
-        Icon(
-            imageVector = ListenUpIcons.ArrowBack,
-            contentDescription = stringResource(Res.string.common_back),
-            tint = MaterialTheme.colorScheme.onSurface,
-        )
     }
 }
 

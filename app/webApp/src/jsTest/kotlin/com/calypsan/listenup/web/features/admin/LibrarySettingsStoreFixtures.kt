@@ -30,6 +30,7 @@ fun fixedLibrarySettings(
             onOpenBrowserPath = onOpenBrowserPath,
             onBrowserUp = onBrowserUp,
             onClearError = onClearError,
+            onRetry = {},
             close = {},
         )
     }

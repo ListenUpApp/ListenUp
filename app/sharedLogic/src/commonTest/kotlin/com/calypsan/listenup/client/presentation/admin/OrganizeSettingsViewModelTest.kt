@@ -1,20 +1,26 @@
 package com.calypsan.listenup.client.presentation.admin
 
 import app.cash.turbine.test
+import com.calypsan.listenup.api.dto.organize.OrganizePreset
 import com.calypsan.listenup.api.dto.organize.OrganizePreviewDto
 import com.calypsan.listenup.api.dto.organize.OrganizeSettingsDto
+import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.repository.OrganizeRepository
 import com.calypsan.listenup.core.error.ErrorBus
+import dev.mokkery.answering.calls
 import dev.mokkery.answering.returns
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
+import dev.mokkery.verify.VerifyMode
+import dev.mokkery.verifySuspend
 import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -95,6 +101,49 @@ class OrganizeSettingsViewModelTest :
                 withClue("a plan with work must still be confirmed before anything moves") {
                     (viewModel.state.value as OrganizeSettingsUiState.Ready).preview.shouldNotBeNull()
                 }
+            }
+        }
+
+        test("retry after a failed load reaches Ready") {
+            runTest {
+                var reachable = false
+                val repo =
+                    mock<OrganizeRepository> {
+                        everySuspend { getSettings() } calls {
+                            if (reachable) {
+                                AppResult.Success(
+                                    OrganizeSettingsDto(),
+                                )
+                            } else {
+                                AppResult.Failure(TransportError.NetworkUnavailable())
+                            }
+                        }
+                        everySuspend { resumeRun() } returns AppResult.Success(null)
+                    }
+                val viewModel = OrganizeSettingsViewModel(repo, ErrorBus())
+                advanceUntilIdle()
+                viewModel.state.value.shouldBeInstanceOf<OrganizeSettingsUiState.Error>()
+
+                reachable = true
+                viewModel.retry()
+                advanceUntilIdle()
+
+                viewModel.state.value.shouldBeInstanceOf<OrganizeSettingsUiState.Ready>()
+            }
+        }
+
+        test("retry once loaded keeps the edited rules and loads nothing") {
+            runTest {
+                val (viewModel, repo) = viewModelOver(emptyPreview())
+                advanceUntilIdle()
+                viewModel.setPreset(OrganizePreset.entries.last())
+                val edited = viewModel.state.value
+
+                viewModel.retry()
+                advanceUntilIdle()
+
+                viewModel.state.value shouldBe edited
+                verifySuspend(VerifyMode.exactly(1)) { repo.getSettings() }
             }
         }
     })

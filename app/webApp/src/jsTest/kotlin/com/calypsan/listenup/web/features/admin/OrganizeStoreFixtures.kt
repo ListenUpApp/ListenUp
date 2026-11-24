@@ -37,6 +37,7 @@ fun fixedOrganize(
             onDismissPreview = onDismissPreview,
             onDismissReport = onDismissReport,
             onResume = onResume,
+            onRetry = {},
             close = {},
         )
     }

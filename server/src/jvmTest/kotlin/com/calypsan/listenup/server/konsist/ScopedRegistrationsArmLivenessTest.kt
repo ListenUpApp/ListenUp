@@ -1,6 +1,5 @@
 package com.calypsan.listenup.server.konsist
 
-import com.lemonappdev.konsist.api.Konsist
 import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
@@ -20,7 +19,7 @@ import java.io.File
 class ScopedRegistrationsArmLivenessTest :
     FunSpec({
         test("every scoped registration passes the liveness probe to guard") {
-            val scope = Konsist.scopeFromProduction()
+            val scope = serverAndContractProductionScope()
             val jvmFile =
                 scope.files.first { file ->
                     file.path.endsWith(

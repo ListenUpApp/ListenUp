@@ -1,6 +1,5 @@
 package com.calypsan.listenup.server.konsist
 
-import com.lemonappdev.konsist.api.Konsist
 import com.lemonappdev.konsist.api.container.KoScope
 import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
@@ -33,7 +32,7 @@ import io.kotest.matchers.ints.shouldBeGreaterThanOrEqual
 class MutatingRpcsAreGatedRule :
     FunSpec({
         test("every mutating ServiceImpl override is gated or @OpenToAllMembers with a reason") {
-            val scope = Konsist.scopeFromProduction("server")
+            val scope = serverProductionScope()
             val services = scope.classes().filter { it.name.endsWith("ServiceImpl") }
             // Vacuity guards: the scope reached server production, and found its services.
             services.size shouldBeGreaterThanOrEqual 25

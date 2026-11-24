@@ -31,6 +31,7 @@ internal fun CollectionsRoute(
         onCreate = session.onCreate,
         onDelete = session.onDelete,
         onClearError = session.onClearError,
+        onRetry = session.onRetry,
         onOpenCollection = { id -> router.navigate(Routes.Admin.collection(id)) },
         onOpenAdmin = { router.navigate(Routes.Admin.root) },
         onCreateConfirmed = {
@@ -70,6 +71,7 @@ internal fun CollectionDetailRoute(
         onShare = session.onShare,
         onRevokeShare = session.onRevokeShare,
         onClearError = session.onClearError,
+        onRetry = session.onRetry,
         onOpenCollections = { router.navigate(Routes.Admin.collections) },
         onSaveConfirmed = {
             onToast("Collection renamed.")
@@ -105,6 +107,7 @@ internal fun CategoriesRoute(
         onMove = session.onMove,
         onMerge = session.onMerge,
         onClearError = session.onClearError,
+        onRetry = session.onRetry,
         onOpenAdmin = { router.navigate(parent) },
         mergeHistory = session.mergeHistory.collectAsState().value,
         mergeHistoryActions = session.mergeHistoryActions,
@@ -212,6 +215,7 @@ internal fun LibrarySettingsRoute(
         onOpenBrowserPath = session.onOpenBrowserPath,
         onBrowserUp = session.onBrowserUp,
         onClearError = session.onClearError,
+        onRetry = session.onRetry,
         onOpenAdmin = { router.navigate(Routes.Admin.root) },
     )
 }

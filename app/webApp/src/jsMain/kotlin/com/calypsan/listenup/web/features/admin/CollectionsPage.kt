@@ -42,6 +42,7 @@ fun CollectionsPage(
     onCreate: (String) -> Unit,
     onDelete: (String) -> Unit,
     onClearError: () -> Unit,
+    onRetry: () -> Unit,
     onOpenCollection: (String) -> Unit,
     onOpenAdmin: () -> Unit,
     /**
@@ -63,7 +64,9 @@ fun CollectionsPage(
             }
 
             is AdminCollectionsUiState.Error -> {
-                EmptyState(title = "Collections can't be shown", body = state.message)
+                EmptyState(title = "Collections can't be shown", body = state.message) {
+                    Button(kind = ButtonKind.Primary, onClick = { onRetry() }) { Text("Try again") }
+                }
             }
 
             is AdminCollectionsUiState.Ready -> {

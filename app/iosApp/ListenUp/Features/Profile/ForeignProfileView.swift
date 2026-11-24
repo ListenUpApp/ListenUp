@@ -51,12 +51,8 @@ struct ForeignProfileView: View {
                 }
             }
         case .error(let message):
-            ContentUnavailableView(
-                String(localized: "common.error"),
-                systemImage: "person.slash",
-                description: Text(message)
-            )
-            .frame(maxWidth: .infinity, minHeight: 320)
+            LoadFailedView(message: message) { observer?.refresh() }
+                .frame(maxWidth: .infinity, minHeight: 320)
         case .loading:
             ProgressView()
                 .frame(maxWidth: .infinity, minHeight: 320)

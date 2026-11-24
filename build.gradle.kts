@@ -267,6 +267,7 @@ tasks.register("verifyLocal") {
         ":contract:jvmTest",
         ":app:sharedLogic:jvmTest",
         ":app:sharedLogic:testAndroidHostTest",
+        ":server:konsistTest",
         ":server:jvmTest",
         ":app:sharedUI:testAndroidHostTest",
         ":app:sharedUI:desktopTest",

@@ -71,7 +71,17 @@ class AdminCollectionDetailViewModel internal constructor(
     // when an unrelated combine emission (rename, share change) arrives with an unchanged id-set.
     private var lastHydratedIds: List<String>? = null
 
+    // The live collection observation; a retry replaces it, since a not-found collection is still observed.
+    private var observationJob: Job? = null
+
     init {
+        observeCollection()
+    }
+
+    /** Re-runs the first load after it failed; a no-op in any other state, so nothing on screen is discarded. */
+    fun retry() {
+        if (state.value !is AdminCollectionDetailUiState.Error) return
+        state.value = AdminCollectionDetailUiState.Loading
         observeCollection()
     }
 
@@ -81,49 +91,51 @@ class AdminCollectionDetailViewModel internal constructor(
      * [collectionId] is present in Room, surface a terminal Error.
      */
     private fun observeCollection() {
-        viewModelScope.launch {
-            try {
-                combine(
-                    collectionRepository.observeCollections(),
-                    collectionRepository.observeCollectionBooks(collectionId),
-                    collectionRepository.observeShares(collectionId),
-                ) { collections, bookIds, shares ->
-                    Triple(collections.firstOrNull { it.id == collectionId }, bookIds, shares)
-                }.collect { (collection, bookIds, shares) ->
-                    if (collection == null) {
+        observationJob?.cancel()
+        observationJob =
+            viewModelScope.launch {
+                try {
+                    combine(
+                        collectionRepository.observeCollections(),
+                        collectionRepository.observeCollectionBooks(collectionId),
+                        collectionRepository.observeShares(collectionId),
+                    ) { collections, bookIds, shares ->
+                        Triple(collections.firstOrNull { it.id == collectionId }, bookIds, shares)
+                    }.collect { (collection, bookIds, shares) ->
+                        if (collection == null) {
+                            state.update { current ->
+                                if (current is AdminCollectionDetailUiState.Ready) {
+                                    current
+                                } else {
+                                    AdminCollectionDetailUiState.Error("Collection not found")
+                                }
+                            }
+                            return@collect
+                        }
+                        val shareItems = shares.map { it.toShareItem(resolveShareName(it.sharedWithUserId)) }
                         state.update { current ->
                             if (current is AdminCollectionDetailUiState.Ready) {
-                                current
+                                current.copy(
+                                    collection = collection,
+                                    shares = shareItems,
+                                )
                             } else {
-                                AdminCollectionDetailUiState.Error("Collection not found")
+                                AdminCollectionDetailUiState.Ready(
+                                    collection = collection,
+                                    editedName = collection.name,
+                                    shares = shareItems,
+                                )
                             }
                         }
-                        return@collect
+                        hydrate(bookIds)
                     }
-                    val shareItems = shares.map { it.toShareItem(resolveShareName(it.sharedWithUserId)) }
-                    state.update { current ->
-                        if (current is AdminCollectionDetailUiState.Ready) {
-                            current.copy(
-                                collection = collection,
-                                shares = shareItems,
-                            )
-                        } else {
-                            AdminCollectionDetailUiState.Ready(
-                                collection = collection,
-                                editedName = collection.name,
-                                shares = shareItems,
-                            )
-                        }
-                    }
-                    hydrate(bookIds)
+                } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    logger.error(e) { "Failed to observe collection: $collectionId" }
+                    state.value = AdminCollectionDetailUiState.Error(e.message ?: "Failed to load collection")
                 }
-            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                logger.error(e) { "Failed to observe collection: $collectionId" }
-                state.value = AdminCollectionDetailUiState.Error(e.message ?: "Failed to load collection")
             }
-        }
     }
 
     /**

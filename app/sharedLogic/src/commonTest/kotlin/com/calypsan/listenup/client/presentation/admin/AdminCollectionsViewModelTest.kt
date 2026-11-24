@@ -25,6 +25,11 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import com.calypsan.listenup.client.test.SimulatedFailure
+import kotlinx.coroutines.flow.flow
+import dev.mokkery.verify.VerifyMode
+import dev.mokkery.verify
+import dev.mokkery.answering.calls
 
 /**
  * Tests for [AdminCollectionsViewModel] (Collections-2a — Room reads + RPC writes).
@@ -155,6 +160,42 @@ class AdminCollectionsViewModelTest :
                 val ready = vm.state.value.shouldBeInstanceOf<AdminCollectionsUiState.Ready>()
                 ready.deletingCollectionId shouldBe null
                 ready.error shouldBe "not permitted"
+            }
+        }
+
+        test("retry after the collections could not be read reaches Ready") {
+            runTest(dispatcher) {
+                // Only the fixture's stubbed repositories are used, not its view model.
+                val (_, repo, libraryRepo) = fixture(MutableStateFlow(emptyList()))
+                val live = MutableStateFlow(listOf(collection("a", "Alpha")))
+                var broken = true
+                every { repo.observeCollections() } calls {
+                    if (broken) flow { throw SimulatedFailure("db broken") } else live
+                }
+                val failing = AdminCollectionsViewModel(repo, libraryRepo, ErrorBus())
+                advanceUntilIdle()
+                failing.state.value.shouldBeInstanceOf<AdminCollectionsUiState.Error>()
+
+                broken = false
+                failing.retry()
+                advanceUntilIdle()
+
+                failing.state.value
+                    .shouldBeInstanceOf<AdminCollectionsUiState.Ready>()
+                    .collections
+                    .map { it.id } shouldBe listOf("a")
+            }
+        }
+
+        test("retry once loaded reads nothing again") {
+            runTest(dispatcher) {
+                val (vm, repo, _) = fixture(MutableStateFlow(listOf(collection("a", "Alpha"))))
+                advanceUntilIdle()
+
+                vm.retry()
+                advanceUntilIdle()
+
+                verify(VerifyMode.exactly(1)) { repo.observeCollections() }
             }
         }
     })

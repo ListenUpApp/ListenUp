@@ -25,6 +25,7 @@ fun SeeAllPage(
     openableTypes: Set<SearchHitType>,
     onOpenHit: (SearchHit) -> Unit,
     onOpenSearch: () -> Unit,
+    onRetry: () -> Unit,
 ) {
     Div(attrs = { classes("sall") }) {
         Breadcrumb(trail = listOf("Search", seeAllTitle(state)), onNavigate = { onOpenSearch() })
@@ -52,7 +53,7 @@ fun SeeAllPage(
             }
 
             is SeeAllSearchUiState.Error -> {
-                Prompt(marker = "is-error", heading = "Search failed", body = state.message)
+                ErrorPrompt(message = state.message, onRetry = onRetry)
             }
 
             is SeeAllSearchUiState.Results -> {

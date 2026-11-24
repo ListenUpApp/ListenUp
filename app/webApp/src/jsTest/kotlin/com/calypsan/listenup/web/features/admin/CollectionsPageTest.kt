@@ -69,6 +69,7 @@ private fun page(
             onCreate = onCreate,
             onDelete = onDelete,
             onClearError = onClearError,
+            onRetry = {},
             onOpenCollection = onOpenCollection,
             onOpenAdmin = onOpenAdmin,
             onCreateConfirmed = onCreateConfirmed,

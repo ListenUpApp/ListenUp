@@ -45,6 +45,8 @@ final class AdminCategoriesObserver {
     func moveGenre(id: String, newParentId: String?) { viewModel.moveGenre(id: id, newParentId: newParentId) }
     func mergeGenres(source: String, target: String) { viewModel.mergeGenres(source: source, target: target) }
     func clearError() { viewModel.clearError() }
+    /// Re-runs the load after it failed; the ViewModel ignores it in any other state.
+    func retry() { viewModel.retry() }
     func openMergeHistory(id: String) { viewModel.openMergeHistory(genreId: id) }
     func closeMergeHistory() { viewModel.closeMergeHistory() }
     func undoGenreMerge(receiptId: String) { viewModel.undoGenreMerge(receiptId: MergeReceiptId(value: receiptId)) }

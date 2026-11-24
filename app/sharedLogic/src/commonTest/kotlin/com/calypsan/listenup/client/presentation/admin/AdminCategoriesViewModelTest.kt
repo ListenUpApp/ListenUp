@@ -20,6 +20,7 @@ import dev.mokkery.every
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
+import dev.mokkery.verify
 import dev.mokkery.verifySuspend
 import dev.mokkery.verify.VerifyMode
 import com.calypsan.listenup.api.dto.auth.Permission
@@ -392,6 +393,39 @@ class AdminCategoriesViewModelTest :
                 // Then
                 val ready = viewModel.state.value.shouldBeInstanceOf<AdminCategoriesUiState.Ready>()
                 ready.error shouldBe null
+            }
+        }
+
+        // ========== Retry ==========
+
+        test("retry after the genres could not be read reaches Ready") {
+            runTest {
+                val fixture = createFixture()
+                var reads = 0
+                every { fixture.genreRepository.observeAll() } calls {
+                    if (reads++ == 0) flow { throw SimulatedFailure("db broken") } else fixture.genresFlow
+                }
+                val viewModel = fixture.build()
+                advanceUntilIdle()
+                viewModel.state.value.shouldBeInstanceOf<AdminCategoriesUiState.Error>()
+
+                viewModel.retry()
+                advanceUntilIdle()
+
+                viewModel.state.value.shouldBeInstanceOf<AdminCategoriesUiState.Ready>()
+            }
+        }
+
+        test("retry once loaded reads nothing again") {
+            runTest {
+                val fixture = createFixture()
+                val viewModel = fixture.build()
+                advanceUntilIdle()
+
+                viewModel.retry()
+                advanceUntilIdle()
+
+                verify(VerifyMode.exactly(1)) { fixture.genreRepository.observeAll() }
             }
         }
     })

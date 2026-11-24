@@ -94,7 +94,7 @@ struct AdminCategoriesView: View {
         case .ready(let ready):
             readyBody(observer: observer, ready: ready)
         case .error(let message):
-            errorBody(message: message)
+            LoadFailedView(message: message) { observer.retry() }
         }
     }
 
@@ -190,19 +190,6 @@ struct AdminCategoriesView: View {
     }
 
     @ViewBuilder
-    private func errorBody(message: String) -> some View {
-        VStack(spacing: 16) {
-            Image(systemName: "exclamationmark.triangle")
-                .font(.largeTitle)
-                .foregroundStyle(.secondary)
-            Text(message)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-        }
-        .padding()
-    }
-
     private func emptyState(canEdit: Bool) -> some View {
         VStack(spacing: 12) {
             Image(systemName: "tag")

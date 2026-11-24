@@ -38,6 +38,7 @@ class PermissionsPanelActions(
     val onCancelAdminPromotion: () -> Unit = {},
     val onDiscard: () -> Unit = {},
     val onSave: () -> Unit = {},
+    val onRetry: () -> Unit = {},
 )
 
 /**
@@ -74,7 +75,9 @@ fun PermissionsPanel(
                             body = state.error.message,
                             look = EmptyLook.Inset,
                             announce = true,
-                        )
+                        ) {
+                            Button(kind = ButtonKind.Primary, onClick = { actions.onRetry() }) { Text("Try again") }
+                        }
                     }
                 }
                 return

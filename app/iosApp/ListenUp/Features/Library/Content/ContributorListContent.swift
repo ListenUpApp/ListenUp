@@ -20,6 +20,12 @@ struct ContributorListContent: View {
     /// The index's letters: each run's letter once, in list order; empty without a name sort.
     let indexLetters: [String]
     let roleKind: RoleChip.Kind
+    /// The whole library's load, so the tab shows loading, arriving or a failure as Books does — not "empty".
+    let isLoading: Bool
+    let isArriving: Bool
+    let errorMessage: String?
+    /// Re-syncs the library: pull to refresh, and Try Again after a failure.
+    let onRefresh: () -> Void
     /// The section switcher, shown as the first row in every state; `nil` in the iPad sidebar.
     var picker: LibrarySectionPicker?
 
@@ -34,10 +40,18 @@ struct ContributorListContent: View {
     private var isAuthors: Bool { roleKind == .author }
 
     var body: some View {
-        if sections.isEmpty {
-            emptyState
-        } else {
+        switch LibraryTabPhase.resolve(
+            isLoading: isLoading,
+            isArriving: isArriving,
+            errorMessage: errorMessage,
+            isEmpty: sections.isEmpty
+        ) {
+        case .content:
             listBody
+        case .empty:
+            emptyState
+        case let phase:
+            LibraryTabStatusView(phase: phase, picker: picker, onRefresh: onRefresh)
         }
     }
 
@@ -51,6 +65,7 @@ struct ContributorListContent: View {
                     grid(columns: columns)
                 }
             }
+            .libraryRefreshable(onRefresh)
             .onScrollPhaseChange { _, newPhase in
                 withAnimation(.easeOut(duration: 0.2)) { isScrolling = newPhase != .idle }
             }
@@ -150,6 +165,7 @@ struct ContributorListContent: View {
                 description: Text(String(localized: .libraryEmptyTabDescription(String(localized: isAuthors ? "library.authors" : "library.narrators"))))
             )
         }
+        .libraryRefreshable(onRefresh)
         .background(Color.luSurface)
     }
 }

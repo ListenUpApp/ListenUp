@@ -95,6 +95,8 @@ import listenup.composeapp.generated.resources.profile_stat_best
 import listenup.composeapp.generated.resources.profile_stat_streak
 import listenup.composeapp.generated.resources.profile_stat_listened
 import androidx.compose.ui.semantics.Role
+import com.calypsan.listenup.client.design.components.DetailUnavailable
+import com.calypsan.listenup.client.design.components.FloatingBackButton
 
 /**
  * Screen displaying a user's full profile — a color-blocked hero with the scallop avatar,
@@ -141,14 +143,11 @@ fun UserProfileScreen(
                 is UserProfileUiState.Loading,
                 -> {
                     ListenUpLoadingIndicator(modifier = Modifier.align(Alignment.Center))
+                    FloatingBackButton(onBackClick = onBack, modifier = Modifier.align(Alignment.TopStart))
                 }
 
                 is UserProfileUiState.Error -> {
-                    Text(
-                        text = current.message,
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.align(Alignment.Center),
-                    )
+                    DetailUnavailable(message = current.message, onBack = onBack, onRetry = viewModel::refresh)
                 }
 
                 is UserProfileUiState.Ready -> {

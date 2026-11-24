@@ -73,7 +73,7 @@ struct ForgotPasswordView: View {
             }
         case .awaitingApproval(let ticketId):
             awaitingContent(ticketId: ticketId)
-        case .enterCode(let attemptsRemaining, let error):
+        case .enterCode(let attemptsRemaining, let error, _):
             enterCodeContent(attemptsRemaining: attemptsRemaining, error: error)
         case .denied:
             terminalContent(subtitle: String(localized: "auth.forgot_password_denied"), success: false)
@@ -203,14 +203,14 @@ struct ForgotPasswordView: View {
                 ActionLabel(title: String(localized: "auth.check_status"))
             }
             .prominentAction()
-        case .enterCode:
+        case .enterCode(_, _, let isCompleting):
             Button {
                 observer.completeReset(code: code, newPassword: newPassword)
             } label: {
-                ActionLabel(title: String(localized: "common.continue"))
+                ActionLabel(title: String(localized: "common.continue"), isBusy: isCompleting)
             }
             .prominentAction()
-            .disabled(code.isEmpty || newPassword.isEmpty)
+            .disabled(code.isEmpty || newPassword.isEmpty || isCompleting)
         case .denied:
             VStack(spacing: 12) {
                 Button {

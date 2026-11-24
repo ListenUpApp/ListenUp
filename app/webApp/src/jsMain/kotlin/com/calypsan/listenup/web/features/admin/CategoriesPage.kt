@@ -61,6 +61,7 @@ fun CategoriesPage(
     onMove: (id: String, newParentId: String?) -> Unit,
     onMerge: (source: String, target: String) -> Unit,
     onClearError: () -> Unit,
+    onRetry: () -> Unit,
     onOpenAdmin: () -> Unit,
     mergeHistory: GenreMergeHistory?,
     mergeHistoryActions: MergeHistoryActions,
@@ -77,7 +78,9 @@ fun CategoriesPage(
             }
 
             is AdminCategoriesUiState.Error -> {
-                EmptyState(title = "Categories can't be shown", body = state.error.message)
+                EmptyState(title = "Categories can't be shown", body = state.error.message) {
+                    Button(kind = ButtonKind.Primary, onClick = { onRetry() }) { Text("Try again") }
+                }
             }
 
             is AdminCategoriesUiState.Ready -> {

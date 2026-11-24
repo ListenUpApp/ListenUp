@@ -6,10 +6,11 @@ on:
   pull_request:
     branches: [main, master]
 
-# Least-privilege GITHUB_TOKEN for every job — nothing in CI writes to GitHub.
-# Matches the job-level scoping convention in release.yml.
+# Least-privilege GITHUB_TOKEN for every job — only `packages: read` is added so container jobs
+# can pull the pre-baked GHCR CI image (`ghcr.io/listenupapp/listenup-ci`).
 permissions:
   contents: read
+  packages: read
 
 # Cancel in-progress runs for the same branch
 concurrency:
@@ -17,11 +18,84 @@ concurrency:
   cancel-in-progress: true
 
 # CI is organized into three conceptual stages — Lint, Test, Build — each spanning the
-# lanes a stage needs. Mobile-focused: Linux lane (shared Kotlin + server + Android) and
-# macOS lane (iOS). Desktop has no dedicated build/test job, but test-jvm compiles
-# :app:desktopApp (JVM target) so entry-point drift against shared composable signatures
-# fails fast — that surface isn't otherwise touched by the Android/iOS builds.
+# lanes a stage needs, plus PR path filtering (`changes`) and parallel server sharding.
+# Mobile-focused: Linux lane (shared Kotlin + server + Android) and macOS lane (iOS).
+# Desktop has no dedicated build/test job, but test-jvm-client compiles :app:desktopApp
+# (JVM target) and test-jvm-sharedui runs :app:sharedUI:desktopTest so entry-point or
+# shared-composable drift fails fast.
 jobs:
+  # ── Path filter ──────────────────────────────────────────────────────────────
+  changes:
+    name: Detect changed lanes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      server: ${{ steps.filter.outputs.server }}
+      sharedui: ${{ steps.filter.outputs.sharedui }}
+      web: ${{ steps.filter.outputs.web }}
+      web_server: ${{ steps.filter.outputs.web_server }}
+      ios_swift: ${{ steps.filter.outputs.ios_swift }}
+      sharedlogic: ${{ steps.filter.outputs.sharedlogic }}
+
+    steps:
+      - name: Checkout code (PR diff only)
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          filter: blob:none
+
+      - name: Compute affected CI lanes
+        id: filter
+        run: |
+          set_all() {
+            local val="$1"
+            for key in server sharedui web web_server ios_swift sharedlogic; do
+              echo "${key}=${val}" >> "$GITHUB_OUTPUT"
+            done
+          }
+
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "Non-PR event (${{ github.event_name }}): enabling all lanes."
+            set_all "true"
+            exit 0
+          fi
+
+          if ! CHANGED=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD") || [ -z "$CHANGED" ]; then
+            echo "Diff unavailable or empty: fail-safe enabling all lanes."
+            set_all "true"
+            exit 0
+          fi
+
+          COUNT=$(printf '%s\n' "$CHANGED" | wc -l | tr -d ' ')
+          echo "Changed files ($COUNT):"
+          printf '%s\n' "$CHANGED"
+
+          if printf '%s\n' "$CHANGED" | grep -qE '^(gradle/|tools/|build\.gradle\.kts$|settings\.gradle\.kts$|gradle\.properties$|\.github/workflows/ci\.yml$|\.github/actions/|contract/)'; then
+            echo "Global/build/contract change detected: enabling all lanes."
+            set_all "true"
+            exit 0
+          fi
+
+          check_lane() {
+            local key="$1"
+            local regex="$2"
+            if printf '%s\n' "$CHANGED" | grep -qE "$regex"; then
+              echo "${key}=true" >> "$GITHUB_OUTPUT"
+              echo "  ${key}=true"
+            else
+              echo "${key}=false" >> "$GITHUB_OUTPUT"
+              echo "  ${key}=false"
+            fi
+          }
+
+          check_lane server '^server/'
+          check_lane sharedui '^(app/sharedUI/|app/sharedLogic/|app/androidApp/|app/desktopApp/)'
+          check_lane web '^(app/webApp/|app/sharedLogic/)'
+          check_lane web_server '^(app/webApp/|app/sharedLogic/|server/)'
+          check_lane ios_swift '^(app/iosApp/|app/sharedLogic/|app/sharedUI/src/commonMain/composeResources/)'
+          check_lane sharedlogic '^app/sharedLogic/'
+
   # ── Lint ─────────────────────────────────────────────────────────────────────
   lint:
     name: Lint
@@ -121,9 +195,215 @@ jobs:
   # ── Test ─────────────────────────────────────────────────────────────────────
   test-web-browser:
     name: Test (web browser)
+    needs: [changes]
+    if: needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/listenupapp/listenup-ci:latest
+      options: --ipc=host
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    defaults:
+      run:
+        shell: bash
+    env:
+      LANG: C.UTF-8
+      LC_ALL: C.UTF-8
     # The browser lane, first half (`webKotest`): KGP compiles Kotlin to ES modules, then Vite +
     # Playwright own the browser. `test-web-browser-server` below runs the server-backed half.
+    # Container pre-bakes JDK 21, Node 24, pnpm, and Playwright Chromium + OS deps.
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+        with:
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+
+      - name: Cache pnpm store
+        if: github.ref == 'refs/heads/main'
+        uses: actions/cache@v6
+        with:
+          path: ${{ runner.temp }}/pnpm-store
+          key: ${{ runner.os }}-${{ runner.arch }}-pnpm-store-v1-${{ hashFiles('app/webApp/web/pnpm-lock.yaml') }}
+
+      - name: Restore pnpm store (read-only on PRs)
+        if: github.ref != 'refs/heads/main'
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ runner.temp }}/pnpm-store
+          key: ${{ runner.os }}-${{ runner.arch }}-pnpm-store-v1-${{ hashFiles('app/webApp/web/pnpm-lock.yaml') }}
+
+      - name: Install JS toolchain
+        working-directory: app/webApp/web
+        run: |
+          pnpm config set store-dir "$RUNNER_TEMP/pnpm-store"
+          pnpm install --frozen-lockfile
+
+      # The OSS licence manifest the web client serves is generated from two dependency graphs —
+      # this module's Kotlin/JS one and `web/`'s npm one — so this is the only job with everything
+      # needed to regenerate it.
+      - name: Verify the web licence manifest is in sync
+        run: ./gradlew :app:webApp:verifyWebLicences
+
+      - name: Ensure Playwright Chromium is present
+        working-directory: app/webApp/web
+        timeout-minutes: 12
+        run: |
+          if ! node -e "const fs=require('fs'), {chromium}=require('playwright'); process.exit(fs.existsSync(chromium.executablePath()) ? 0 : 1)"; then
+            pnpm exec playwright install chromium
+          fi
+
+      - name: Run Kotest specs in Chromium
+        run: ./gradlew :app:webApp:webKotest
+
+      # The bundle the server image ships. Until this step, it was built and boot-checked only in
+      # release.yml, so a minification or precompression regression first surfaced as a blocked release.
+      - name: Build and boot-check the production web bundle
+        run: ./gradlew :app:webApp:webBundle
+
+  test-web-browser-server:
+    name: Test (web browser, server-backed)
+    needs: [changes]
+    if: needs.changes.outputs.web_server == 'true'
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/listenupapp/listenup-ci:latest
+      options: --ipc=host
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    defaults:
+      run:
+        shell: bash
+    env:
+      LANG: C.UTF-8
+      LC_ALL: C.UTF-8
+    # This lane's proof is the point of the whole branch: a real Chromium playing a
+    # server-transcoded book it cannot natively decode, via hls.js, against a real Ktor
+    # server. Container pre-bakes JDK 21, Node 24, pnpm, FFmpeg, and Playwright Chromium + OS deps.
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+        with:
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+
+      - name: Restore pnpm store (read-only)
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ runner.temp }}/pnpm-store
+          key: ${{ runner.os }}-${{ runner.arch }}-pnpm-store-v1-${{ hashFiles('app/webApp/web/pnpm-lock.yaml') }}
+
+      - name: Install JS toolchain
+        working-directory: app/webApp/web
+        run: |
+          pnpm config set store-dir "$RUNNER_TEMP/pnpm-store"
+          pnpm install --frozen-lockfile
+
+      - name: Ensure Playwright Chromium is present
+        working-directory: app/webApp/web
+        timeout-minutes: 12
+        run: |
+          if ! node -e "const fs=require('fs'), {chromium}=require('playwright'); process.exit(fs.existsSync(chromium.executablePath()) ? 0 : 1)"; then
+            pnpm exec playwright install chromium
+          fi
+
+      # Deliberately fatal: missing FFmpeg would otherwise surface much later as hlsUrl == null.
+      - name: Verify FFmpeg is usable (anti-fake-green)
+        run: |
+          ffmpeg -version | sed -n '1p'
+          ffprobe -version | sed -n '1p'
+
+      - name: Run Kotest specs in Chromium against a real server
+        run: ./gradlew :app:webApp:webAuthKotest --no-daemon
+
+  test-jvm-client:
+    name: 'Test (JVM: client & guards)'
+    runs-on: ubuntu-latest
+    # Always runs on every PR because `:app:sharedLogic:jvmTest` owns repo-wide Konsist rules
+    # and `verifySwiftStringKeys` checks `app/iosApp`. Combined single Gradle invocation avoids
+    # paying a second JVM + configuration-cache boot between pre-flight checks and unit tests.
+    timeout-minutes: 40
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v6.3.0
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+        with:
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+
+      # Combined pre-flight artifact checks + client/contract/build-logic JVM tests:
+      # - verifyStrings / verifyLicenses / verifySwiftStringKeys / desktopApp compile / JS klib compile
+      # - :contract:jvmTest, :app:sharedLogic:jvmTest
+      # - :tools:rpc-guard-ksp:test, :build-logic:convention:test, :build-logic:detekt-rules:test
+      - name: Verify artifacts and run client + guard JVM tests
+        run: ./gradlew :app:sharedUI:verifyStrings :app:sharedUI:verifyLicenses :app:sharedUI:verifySwiftStringKeys :app:desktopApp:compileKotlin :contract:compileKotlinJs :app:sharedLogic:compileKotlinJs :app:sharedLogic:compileCommonMainKotlinMetadata :contract:jvmTest :app:sharedLogic:jvmTest :tools:rpc-guard-ksp:test :build-logic:convention:test :build-logic:detekt-rules:test
+
+      # Generated-and-committed artifacts must match what this build regenerates. Room's
+      # schemaDirectory points at the tracked app/sharedLogic/schemas/, so every KSP run rewrites
+      # the current version's JSON IN PLACE — an entity change whose regenerated schema was
+      # never committed lands green today, leaving the next migration against a stale schema.
+      - name: Verify no generated-artifact drift
+        run: |
+          if [ -n "$(git status --porcelain --untracked-files=all)" ]; then
+            git status --porcelain --untracked-files=all
+            git diff
+            echo "::error::The build modified or created files — commit the regenerated artifacts (listed above)."
+            exit 1
+          fi
+
+      # The E2E retry extension appends to app/sharedLogic/build/e2e-retries.log; surface it
+      # per-PR without failing the build (Probe spec retries by design).
+      - name: Report E2E auto-retries in job summary
+        if: always()
+        run: |
+          f="app/sharedLogic/build/e2e-retries.log"
+          if [ -f "$f" ]; then
+            entries=$(grep -v 'RetryExtensionProbeE2ETest' "$f" || true)
+            if [ -n "$entries" ]; then
+              echo '## E2E auto-retries (absorbed by the retry extension)' >> "$GITHUB_STEP_SUMMARY"
+              echo "**\`$f\`**" >> "$GITHUB_STEP_SUMMARY"
+              echo '```' >> "$GITHUB_STEP_SUMMARY"
+              echo "$entries" >> "$GITHUB_STEP_SUMMARY"
+              echo '```' >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+          fi
+          echo 'No E2E auto-retries recorded (probe retries excluded).'
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: client-jvm-test-results
+          path: |
+            app/sharedLogic/build/reports/tests/
+            app/sharedLogic/build/e2e-retries.log
+          retention-days: 7
+          if-no-files-found: ignore
+
+  test-jvm-sharedui:
+    name: 'Test (JVM: sharedUI)'
+    needs: [changes]
+    if: needs.changes.outputs.sharedui == 'true'
+    runs-on: ubuntu-latest
     timeout-minutes: 30
 
     steps:
@@ -141,91 +421,147 @@ jobs:
         with:
           cache-read-only: ${{ github.ref != 'refs/heads/main' }}
 
-      - name: Set up pnpm
-        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - name: Run sharedUI Android host and desktop tests
+        run: ./gradlew :app:sharedUI:testAndroidHostTest :app:sharedUI:desktopTest
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v7
+        if: always()
         with:
-          package_json_file: app/webApp/web/package.json
+          name: sharedui-jvm-test-results
+          path: app/sharedUI/build/reports/tests/
+          retention-days: 7
+          if-no-files-found: ignore
 
-      - name: Set up Node
-        uses: actions/setup-node@v7
-        with:
-          node-version: '24'
-          cache: pnpm
-          cache-dependency-path: app/webApp/web/pnpm-lock.yaml
-
-      - name: Install JS toolchain
-        working-directory: app/webApp/web
-        run: pnpm install --frozen-lockfile
-
-      # The OSS licence manifest the web client serves is generated from two dependency graphs —
-      # this module's Kotlin/JS one and `web/`'s npm one — so this is the only job with everything
-      # needed to regenerate it. Before the Playwright download rather than after: a stale manifest
-      # is a fast failure, and there is no reason to spend twelve minutes on a browser first.
-      - name: Verify the web licence manifest is in sync
-        run: ./gradlew :app:webApp:verifyWebLicences --no-daemon
-
-      # Playwright brings its own Chromium rather than reusing a system browser: a system
-      # browser's version drifts with the runner image, and a pinned download removes the
-      # variable entirely.
-      # `--with-deps` shells out to apt itself, so it inherits the same black-holed mirror that
-      # stalled this step for the job's full 30 minutes on 2026-08-19. The policy is all this job
-      # needs — there are no packages to install here, only apt's behaviour to make sane.
-      - name: Apply apt mirror and timeout policy
-        uses: ./.github/actions/apt-install
-
-      - name: Read Playwright version for browser cache key
-        id: playwright-version
-        working-directory: app/webApp/web
-        run: |
-          version="$(node -p "require('./node_modules/playwright/package.json').version")"
-          test -n "$version"
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-
-      - name: Cache Playwright Chromium
-        id: playwright-cache
-        if: github.ref == 'refs/heads/main'
-        uses: actions/cache@v6
-        with:
-          path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-${{ runner.arch }}-playwright-chromium-v1-${{ steps.playwright-version.outputs.version }}
-
-      - name: Restore Playwright Chromium (read-only on PRs)
-        id: playwright-cache-ro
-        if: github.ref != 'refs/heads/main'
-        uses: actions/cache/restore@v6
-        with:
-          path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-${{ runner.arch }}-playwright-chromium-v1-${{ steps.playwright-version.outputs.version }}
-
-      - name: Install Playwright Chromium
-        working-directory: app/webApp/web
-        timeout-minutes: 12
-        run: |
-          if [ "${{ steps.playwright-cache.outputs.cache-hit }}" = "true" ] || [ "${{ steps.playwright-cache-ro.outputs.cache-hit }}" = "true" ]; then
-            pnpm exec playwright install-deps chromium
-          else
-            pnpm exec playwright install --with-deps chromium
-          fi
-
-      - name: Run Kotest specs in Chromium
-        run: ./gradlew :app:webApp:webKotest --no-daemon
-
-      # The bundle the server image ships. Until this step, it was built and boot-checked only in
-      # release.yml, so a minification or precompression regression first surfaced as a blocked release.
-      - name: Build and boot-check the production web bundle
-        run: ./gradlew :app:webApp:webBundle --no-daemon
-
-  test-web-browser-server:
-    name: Test (web browser, server-backed)
+  test-jvm-sharedlogic-android:
+    name: 'Test (JVM: sharedLogic Android)'
+    needs: [changes]
+    if: needs.changes.outputs.sharedlogic == 'true'
     runs-on: ubuntu-latest
-    # This lane's proof is the point of the whole branch: a real Chromium playing a
-    # server-transcoded book it cannot natively decode, via hls.js, against a real Ktor
-    # server. It's a separate job from test-web-browser (not a second Gradle target in that
-    # job) because both specs run sync-kotlin.mjs, which collides on
-    # `mkdir app/webApp/web/kotlin` with EEXIST if they run concurrently in one invocation —
-    # separate jobs also means separate runners, so the collision cannot occur. 45m (vs. the
-    # other lane's 30m) because this one also builds :server, generates the seed library, and
-    # boots Ktor before Chromium ever opens a page.
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v6.3.0
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+        with:
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+
+      - name: Run sharedLogic Android host tests
+        run: ./gradlew :app:sharedLogic:testAndroidHostTest
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: sharedlogic-android-test-results
+          path: app/sharedLogic/build/reports/tests/testAndroidHostTest/
+          retention-days: 7
+          if-no-files-found: ignore
+
+  test-jvm-server:
+    name: 'Test (JVM: server ${{ matrix.shard }}/3)'
+    needs: [changes]
+    if: needs.changes.outputs.server == 'true'
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/listenupapp/listenup-ci:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    defaults:
+      run:
+        shell: bash
+    env:
+      LANG: C.UTF-8
+      LC_ALL: C.UTF-8
+      GRADLE_USER_HOME: /home/ubuntu/.gradle
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+        with:
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+
+      # Anti-fake-green: fail fast if FFmpeg or GStreamer + FDK is missing from the container image.
+      - name: Verify FFmpeg is usable (anti-fake-green)
+        run: |
+          ffmpeg -version | sed -n '1p'
+          ffprobe -version | sed -n '1p'
+
+      - name: Verify GStreamer FDK decoding (anti-fake-green)
+        run: |
+          gst-inspect-1.0 fdkaacdec | sed -n '1,3p'
+          gst-inspect-1.0 matroskademux | sed -n '1,3p'
+          ldd_out="$(ldd /opt/listenup/gst-plugins/libgstfdkaac.so)"
+          printf '%s\n' "$ldd_out" | grep -F "/opt/listenup/gst-plugins/fdk-aac/lib/libfdk-aac"
+
+      # Several server suites verify EACCES against chmod 0555/0000 directories; root ignores POSIX mode bits via CAP_DAC_OVERRIDE.
+      # Never chown $RUNNER_TEMP itself: the host runner (UID 1001) reads $RUNNER_TEMP/_github_workflow/event.json between steps.
+      - name: Prepare non-root user for POSIX permission tests
+        run: |
+          id ubuntu >/dev/null 2>&1 || useradd -m -s /bin/bash ubuntu
+          mkdir -p "$GRADLE_USER_HOME" "$RUNNER_TEMP/.gradle-actions/build-results"
+          chown -R ubuntu:ubuntu "$GITHUB_WORKSPACE" "$GRADLE_USER_HOME"
+          chmod -R a+rwX "$RUNNER_TEMP/.gradle-actions"
+
+      - name: Run server Konsist and shard 1/3 tests
+        if: matrix.shard == 1
+        run: runuser -u ubuntu -m -- env HOME=/home/ubuntu ./gradlew :server:konsistTest :server:jvmTest -PserverTestShard=1/3
+
+      - name: Run server shard tests
+        if: matrix.shard != 1
+        run: runuser -u ubuntu -m -- env HOME=/home/ubuntu ./gradlew :server:jvmTest -PserverTestShard=${{matrix.shard}}/3
+
+      - name: Report E2E auto-retries in job summary
+        if: always()
+        run: |
+          f="server/build/e2e-retries.log"
+          if [ -f "$f" ]; then
+            entries=$(grep -v 'RetryExtensionProbeE2ETest' "$f" || true)
+            if [ -n "$entries" ]; then
+              echo '## E2E auto-retries (absorbed by the retry extension)' >> "$GITHUB_STEP_SUMMARY"
+              echo "**\`$f\`**" >> "$GITHUB_STEP_SUMMARY"
+              echo '```' >> "$GITHUB_STEP_SUMMARY"
+              echo "$entries" >> "$GITHUB_STEP_SUMMARY"
+              echo '```' >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+          fi
+          echo 'No E2E auto-retries recorded (probe retries excluded).'
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: server-jvm-test-results-shard-${{ matrix.shard }}
+          path: |
+            server/build/reports/tests/
+            server/build/e2e-retries.log
+          retention-days: 7
+          if-no-files-found: ignore
+
+  coverage:
+    name: Coverage (Kover)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [test-jvm-client, test-jvm-sharedui, test-jvm-sharedlogic-android, test-jvm-server]
+    runs-on: ubuntu-latest
     timeout-minutes: 45
 
     steps:
@@ -241,140 +577,8 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
         with:
-          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+          cache-read-only: false
 
-      - name: Set up pnpm
-        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
-        with:
-          package_json_file: app/webApp/web/package.json
-
-      - name: Set up Node
-        uses: actions/setup-node@v7
-        with:
-          node-version: '24'
-          cache: pnpm
-          cache-dependency-path: app/webApp/web/pnpm-lock.yaml
-
-      - name: Install JS toolchain
-        working-directory: app/webApp/web
-        run: pnpm install --frozen-lockfile
-
-      # Playwright brings its own Chromium rather than reusing a system browser: a system
-      # browser's version drifts with the runner image, and a pinned download removes the
-      # variable entirely.
-      # `--with-deps` shells out to apt itself, so it inherits the same black-holed mirror that
-      # stalled this step for the job's full 30 minutes on 2026-08-19. The policy is all this job
-      # needs — there are no packages to install here, only apt's behaviour to make sane.
-      - name: Apply apt mirror and timeout policy
-        uses: ./.github/actions/apt-install
-
-      - name: Read Playwright version for browser cache key
-        id: playwright-version
-        working-directory: app/webApp/web
-        run: |
-          version="$(node -p "require('./node_modules/playwright/package.json').version")"
-          test -n "$version"
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-
-      - name: Cache Playwright Chromium
-        id: playwright-cache
-        if: github.ref == 'refs/heads/main'
-        uses: actions/cache@v6
-        with:
-          path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-${{ runner.arch }}-playwright-chromium-v1-${{ steps.playwright-version.outputs.version }}
-
-      - name: Restore Playwright Chromium (read-only on PRs)
-        id: playwright-cache-ro
-        if: github.ref != 'refs/heads/main'
-        uses: actions/cache/restore@v6
-        with:
-          path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-${{ runner.arch }}-playwright-chromium-v1-${{ steps.playwright-version.outputs.version }}
-
-      - name: Install Playwright Chromium
-        working-directory: app/webApp/web
-        timeout-minutes: 12
-        run: |
-          if [ "${{ steps.playwright-cache.outputs.cache-hit }}" = "true" ] || [ "${{ steps.playwright-cache-ro.outputs.cache-hit }}" = "true" ]; then
-            pnpm exec playwright install-deps chromium
-          else
-            pnpm exec playwright install --with-deps chromium
-          fi
-
-      # This lane needs ffmpeg twice over: :server:generateSeedLibrary shells out to it to
-      # build the fixture library, and the transcoder under test spawns it per session. A job
-      # that proceeded without ffmpeg would fail much later as a confusing hlsUrl == null,
-      # rather than here where the cause is obvious. Mirrors the probe/install/verify shape
-      # from test-jvm's FFmpeg steps.
-      - name: Probe for a preinstalled FFmpeg
-        id: ffmpeg-probe
-        run: |
-          if command -v ffmpeg >/dev/null 2>&1 && command -v ffprobe >/dev/null 2>&1; then
-            echo "present=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "present=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Install FFmpeg (seed library + transcoder)
-        if: steps.ffmpeg-probe.outputs.present != 'true'
-        timeout-minutes: 18
-        uses: ./.github/actions/apt-install
-        with:
-          packages: ffmpeg
-
-      # Deliberately fatal, and deliberately OUTSIDE the conditional install above. test-jvm's
-      # identical step guards a DIFFERENT failure: there the drift gate skips when ffmpeg is absent,
-      # so a missing binary silently no-ops a real test. Here it does not go quiet — it goes
-      # confusing. `:server:generateSeedLibrary` `require`s ffmpeg and dies, and if it somehow got
-      # past that, the transcoder probes Unavailable and the proof spec fails on `hlsUrl == null`
-      # three layers from the cause. This step is what makes the missing binary say so itself.
-      - name: Verify FFmpeg is usable (anti-fake-green)
-        run: |
-          ffmpeg -version | head -1
-          ffprobe -version | head -1
-
-      - name: Run Kotest specs in Chromium against a real server
-        run: ./gradlew :app:webApp:webAuthKotest --no-daemon
-
-  test-jvm:
-    name: Test (JVM)
-    runs-on: ubuntu-latest
-    # 60m is a safety net for a genuine deadlock. The real cause of the
-    # old ~25m stalls / OOM-fails was the Kotlin compiler daemon hitting its -Xmx ceiling on the
-    # grown :server source (fixed by raising kotlin.daemon.jvmargs to 6G in gradle.properties), not
-    # a timeout or parallelism issue — this runner is the public 4-core/16G tier with RAM to spare.
-    timeout-minutes: 60
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v7
-
-      - name: Set up JDK 21
-        uses: actions/setup-java@v6.3.0
-        with:
-          distribution: 'temurin'
-          java-version: '21'
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
-        with:
-          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
-
-      # Combined pre-flight checks in a single Gradle invocation (avoiding 5 separate JVM/CC boots):
-      # - verifyStrings: regenerates localization from en.json and compares Android + iOS artifacts.
-      # - verifyLicenses: ensures committed aboutlibraries.json matches the dependency graph.
-      # - verifySwiftStringKeys: fails on raw-key typos in Swift views (iOS renders missing keys verbatim).
-      # - :app:desktopApp:compileKotlin: cheap JVM compile catching shared composable signature drift.
-      # - compileKotlinJs (:contract + :app:sharedLogic): verifies JS klib codegen beyond commonMain metadata.
-      - name: Verify artifacts and compile desktop + JS targets
-        run: ./gradlew :app:sharedUI:verifyStrings :app:sharedUI:verifyLicenses :app:sharedUI:verifySwiftStringKeys :app:desktopApp:compileKotlin :contract:compileKotlinJs :app:sharedLogic:compileKotlinJs --no-daemon
-
-      # The transcoder's drift gate (TranscodeIntegrationTest) measures segments a real encoder
-      # actually wrote — a mis-declared segment length silently corrupts every position a listener
-      # saves, and no fake can catch it. The spec SKIPS when ffmpeg is absent so a developer without
-      # one is not blocked, which makes the version check below the anti-fake-green: if the install
-      # ever stops landing, the job fails here instead of the gate quietly opting out.
       - name: Probe for a preinstalled FFmpeg
         id: ffmpeg-probe
         run: |
@@ -384,27 +588,12 @@ jobs:
           fi
           echo "packages=$pkgs" >> "$GITHUB_OUTPUT"
 
-      - name: Install FFmpeg and GStreamer runtime (transcode gates)
+      - name: Install FFmpeg and GStreamer runtime
         timeout-minutes: 18
         uses: ./.github/actions/apt-install
         with:
           packages: ${{ steps.ffmpeg-probe.outputs.packages }}
 
-      # Deliberately fatal, and deliberately OUTSIDE the conditional install above. The drift gate
-      # SKIPS when ffmpeg is absent so a developer without one is not blocked — which means a
-      # missing binary would turn the one test that measures real encoder output into a silent
-      # no-op. This is the step that refuses to let that pass quietly.
-      - name: Verify FFmpeg is usable (anti-fake-green)
-        run: |
-          ffmpeg -version | head -1
-          ffprobe -version | head -1
-
-      # xHE-AAC decodes through Fraunhofer FDK (GStreamer's fdkaacdec), never FFmpeg, so the
-      # transcoder's xHE gate needs that decoder too. Ubuntu ships none, so the one plugin is built
-      # here exactly as server/Dockerfile.native builds it — against the image's own FDK library version,
-      # built from Debian's source, because the runner's packaged libfdk-aac refuses USAC configs the
-      # image's decodes (see the script). Cached across runs by GStreamer version + build script hash;
-      # like FFmpeg above, the verify step below keeps a silent skip from passing green.
       - name: Read GStreamer version for FDK plugin cache key
         id: gst-version
         run: |
@@ -412,123 +601,21 @@ jobs:
           test -n "$version"
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
-      - name: Cache GStreamer fdkaacdec plugin
-        id: gst-cache
-        if: github.ref == 'refs/heads/main'
-        uses: actions/cache@v6
-        with:
-          path: ${{ runner.temp }}/gst-plugins
-          key: ${{ runner.os }}-${{ runner.arch }}-gst-fdkaac-v1-${{ steps.gst-version.outputs.version }}-${{ hashFiles('tools/scripts/build-gst-fdkaac.sh') }}
-
-      - name: Restore GStreamer fdkaacdec plugin (read-only on PRs)
+      - name: Restore GStreamer fdkaacdec plugin
         id: gst-cache-ro
-        if: github.ref != 'refs/heads/main'
         uses: actions/cache/restore@v6
         with:
           path: ${{ runner.temp }}/gst-plugins
           key: ${{ runner.os }}-${{ runner.arch }}-gst-fdkaac-v1-${{ steps.gst-version.outputs.version }}-${{ hashFiles('tools/scripts/build-gst-fdkaac.sh') }}
 
-      - name: Install GStreamer and FDK build dependencies (cache miss)
-        if: steps.gst-cache.outputs.cache-hit != 'true' && steps.gst-cache-ro.outputs.cache-hit != 'true'
-        timeout-minutes: 18
-        uses: ./.github/actions/apt-install
-        with:
-          packages: >-
-            libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
-            meson ninja-build autoconf automake libtool
+      - name: Export GStreamer plugin path
+        if: steps.gst-cache-ro.outputs.cache-hit == 'true'
+        run: echo "GST_PLUGIN_PATH=$RUNNER_TEMP/gst-plugins" >> "$GITHUB_ENV"
 
-      - name: Build GStreamer fdkaacdec (cache miss)
-        if: steps.gst-cache.outputs.cache-hit != 'true' && steps.gst-cache-ro.outputs.cache-hit != 'true'
-        run: bash tools/scripts/build-gst-fdkaac.sh "$RUNNER_TEMP/gst-plugins"
-
-      - name: Export GStreamer plugin path and verify FDK decoding (anti-fake-green)
-        run: |
-          echo "GST_PLUGIN_PATH=$RUNNER_TEMP/gst-plugins" >> "$GITHUB_ENV"
-          export GST_PLUGIN_PATH="$RUNNER_TEMP/gst-plugins"
-          gst-inspect-1.0 fdkaacdec | head -3
-          gst-inspect-1.0 matroskademux | head -3
-          # The plugin must run on the FDK built beside it, not on whatever the runner packages.
-          ldd "$RUNNER_TEMP/gst-plugins/libgstfdkaac.so" | grep "$RUNNER_TEMP/gst-plugins/fdk-aac/lib/libfdk-aac"
-
-      # Kotest across the contract DTOs, the shared client core (every client consumes
-      # :app:sharedLogic), and the server. :app:sharedUI host tests are Robolectric (JVM, no
-      # emulator) — included here so Compose-UI test rot can't land unnoticed.
-      # compileCommonMainKotlinMetadata type-checks :app:sharedLogic commonMain against the COMMON
-      # (all-targets-intersection) stdlib, so JVM-only stdlib in shared code (e.g. toSortedSet(),
-      # java.*) fails here on Linux instead of late on the macOS iOS lane.
-      # :build-logic:convention:test runs the build-logic convention tests, including
-      # ReturnValueGuardCanaryTest — the compiler-flag canary that fails if a Kotlin bump
-      # silently disarms the AppResult must-use guard.
-      # :app:sharedUI:desktopTest is the OTHER sharedUI test source set. It ran nowhere gating
-      # until now: no CI step invoked it and none compiled it either, so its eight spec files
-      # (the desktop playback controller, the alphabet scrollbar, both haptics suites, typography,
-      # colour maths, volume-boost presets) could have been broken for months in silence.
-      # :tools:rpc-guard-ksp:test and :build-logic:detekt-rules:test gate the guards themselves.
-      # Both suites previously ran nowhere gating (rpc-guard-ksp only under the
-      # continue-on-error Kover step; detekt-rules under nothing at all), so the
-      # RPC exception-guard processor and the custom detekt rules could rot green —
-      # the rules are the only thing enforcing CLAUDE.md security rule 6 (no stacktrace
-      # crosses the wire) and the en.json localization contract.
-      - name: Run JVM tests
-        run: ./gradlew :app:sharedLogic:compileCommonMainKotlinMetadata :contract:jvmTest :app:sharedLogic:jvmTest :app:sharedLogic:testAndroidHostTest :server:jvmTest :app:sharedUI:testAndroidHostTest :app:sharedUI:desktopTest :tools:rpc-guard-ksp:test :build-logic:convention:test :build-logic:detekt-rules:test --no-daemon
-
-      # Generated-and-committed artifacts must match what this build regenerates. Room's
-      # schemaDirectory points at the tracked app/sharedLogic/schemas/, so every KSP run rewrites
-      # the current version's JSON IN PLACE — an entity change whose regenerated schema was
-      # never committed lands green today (CI regenerates it fresh, and the migration tests
-      # run against the regenerated copy, not the committed one), leaving the NEXT migration
-      # to be authored against a stale schema. strings/licenses have verify* gates; schemas
-      # had none. This is the generic backstop: any tracked file the build rewrites, and any new
-      # untracked file it writes (a schema JSON for a freshly bumped DB version), fails here —
-      # `git diff` alone ignores untracked files.
-      - name: Verify no generated-artifact drift
-        run: |
-          if [ -n "$(git status --porcelain --untracked-files=all)" ]; then
-            git status --porcelain --untracked-files=all
-            git diff
-            echo "::error::The build modified or created files — commit the regenerated artifacts (listed above)."
-            exit 1
-          fi
-
-      # The E2E retry extensions (app/sharedLogic + server ProjectConfig) absorb transient
-      # failures, so a flaking spec can trend worse while runs stay green. Each retry is
-      # appended to <module>/build/e2e-retries.log; surface it in the job summary so
-      # retries are visible per-PR without failing the build. The RetryExtensionProbe
-      # specs retry BY DESIGN every run — filtered out so the summary is signal-only.
-      - name: Report E2E auto-retries in job summary
-        if: always()
-        run: |
-          found=0
-          for f in app/sharedLogic/build/e2e-retries.log server/build/e2e-retries.log; do
-            [ -f "$f" ] || continue
-            entries=$(grep -v 'RetryExtensionProbeE2ETest' "$f" || true)
-            [ -n "$entries" ] || continue
-            if [ "$found" -eq 0 ]; then
-              echo '## E2E auto-retries (absorbed by the retry extension)' >> "$GITHUB_STEP_SUMMARY"
-              found=1
-            fi
-            echo "**\`$f\`**" >> "$GITHUB_STEP_SUMMARY"
-            echo '```' >> "$GITHUB_STEP_SUMMARY"
-            echo "$entries" >> "$GITHUB_STEP_SUMMARY"
-            echo '```' >> "$GITHUB_STEP_SUMMARY"
-          done
-          if [ "$found" -eq 0 ]; then
-            echo 'No E2E auto-retries recorded (probe retries excluded).'
-          fi
-
-      # Coverage signal (non-gating): every module Kover can measure — the JVM-pure ones
-      # (:server, :tools:rpc-guard-ksp) plus the androidKmpLibrary ones (:contract,
-      # :app:sharedLogic, :app:sharedUI), which were long assumed unsupported upstream and
-      # verified working on 2026-08-04. Client code being unmeasured is how four launch
-      # bugs reached main on 2026-08-04 with no coverage signal at all.
-      # The XML artifacts enable diff-coverage tooling; there is deliberately NO
-      # threshold/verify gate here — this measures, it does not block.
+      # Coverage signal (non-gating, main-only): every module Kover can measure.
       - name: Generate coverage reports (Kover, non-gating)
         continue-on-error: true
-        run: >-
-          ./gradlew :server:koverXmlReport :tools:rpc-guard-ksp:koverXmlReport
-          :contract:koverXmlReport :app:sharedLogic:koverXmlReport :app:sharedUI:koverXmlReport
-          --no-daemon
+        run: ./gradlew :server:koverXmlReport :tools:rpc-guard-ksp:koverXmlReport :contract:koverXmlReport :app:sharedLogic:koverXmlReport :app:sharedUI:koverXmlReport
 
       - name: Upload coverage reports
         uses: actions/upload-artifact@v7
@@ -544,26 +631,16 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
-      - name: Upload test results
-        uses: actions/upload-artifact@v7
-        if: always()
-        with:
-          name: jvm-test-results
-          path: |
-            app/sharedLogic/build/reports/tests/
-            server/build/reports/tests/
-            app/sharedLogic/build/e2e-retries.log
-            server/build/e2e-retries.log
-          retention-days: 7
-
-  test-ios:
-    name: Test (iOS)
+  test-ios-swift:
+    name: 'Test (iOS: Swift)'
+    needs: [changes]
+    if: needs.changes.outputs.ios_swift == 'true'
     runs-on: xcode-27
-    # Fail-fast-visible. Nearly all the time is the Kotlin/Native + Swift-Export framework
-    # compile and the simulator, not the tests. A run with warm caches takes about 35m; a
-    # run whose caches miss (a Kotlin bump invalidates every native artifact, and a PR cannot
-    # write the Gradle cache) took 47m with every step green. 60m covers that cold run while
-    # still turning a wedged build into a clean, visible failure instead of a silent hang.
+    # Nearly all the time is the Kotlin/Native + Swift-Export framework compile that xcodebuild runs
+    # before any test, and it stays in this job: the sharedLogic Kotlin lane's split took only its
+    # few minutes of tests out. A warm run takes about 35m; a run whose caches miss (a Kotlin bump
+    # invalidates every native artifact, and a PR cannot write the Gradle cache) took 47m with every
+    # step green. 60m covers that cold run while still turning a wedged build into a visible failure.
     timeout-minutes: 60
 
     steps:
@@ -616,6 +693,20 @@ jobs:
             ${{ runner.os }}-${{ runner.arch }}-konan-v1-
             ${{ runner.os }}-konan-
 
+      - name: Cache SwiftPM packages
+        if: github.ref == 'refs/heads/main'
+        uses: actions/cache@v6
+        with:
+          path: ${{ runner.temp }}/spm-packages
+          key: ${{ runner.os }}-${{ runner.arch }}-spm-v1-${{ hashFiles('app/iosApp/ListenUp.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}
+
+      - name: Restore SwiftPM packages (read-only on PRs)
+        if: github.ref != 'refs/heads/main'
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ runner.temp }}/spm-packages
+          key: ${{ runner.os }}-${{ runner.arch }}-spm-v1-${{ hashFiles('app/iosApp/ListenUp.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}
+
       - name: Resolve a simulator destination
         id: sim
         run: |
@@ -629,18 +720,18 @@ jobs:
           name=pref[0] if pref else sorted(cands, key=lambda s:[int(t) for t in re.findall(r"\d+",s)] or [0])[-1]
           print(name)')
           echo "device=$DEVICE" >> "$GITHUB_OUTPUT"
+          xcrun simctl boot "$DEVICE" 2>/dev/null || true
 
       - name: Run iOS tests
         working-directory: app/iosApp
         run: |
           set -o pipefail
           # Per-test timeouts: a hung test (never-completing await / black-hole Flow) fails fast with
-          # its own name after 120s instead of freezing the whole run until the 45-min job timeout —
-          # which surfaced as an opaque "operation was canceled" with no culprit. Individual tests may
-          # opt into longer via executionTimeAllowance, capped at the 300s maximum.
+          # its own name after 120s instead of freezing the whole run.
           xcodebuild test \
             -scheme ListenUp \
             -destination "platform=iOS Simulator,name=${{ steps.sim.outputs.device }},OS=latest" \
+            -clonedSourcePackagesDirPath "$RUNNER_TEMP/spm-packages" \
             -resultBundlePath "$RUNNER_TEMP/ios-test.xcresult" \
             -test-timeouts-enabled YES \
             -default-test-execution-time-allowance 120 \
@@ -654,23 +745,7 @@ jobs:
           path: ${{ runner.temp }}/ios-test.xcresult
           retention-days: 7
 
-      # The Kotlin half of the iOS client. The xcodebuild step above covers the SwiftUI shell
-      # (Swift Testing); this covers `:app:sharedLogic` — its shared commonTest specs plus the
-      # `appleTest` specs for `appleMain`, the source set where iOS-only defects live and which no
-      # lane exercised at all before. `if: always()` so a Swift failure above doesn't hide a Kotlin
-      # one here. The lane carries a discovered-test-count floor: a native lane missing its Kotest
-      # entry point reports green over zero specs, which looks exactly like a healthy run.
-      - name: Run shared Kotlin tests on the iOS simulator
-        if: always()
-        run: ./gradlew :app:sharedLogic:iosSimulatorArm64Test --no-daemon
-
-      # Gates the iOS Swift Export surface — the flat-typealias layer the patcher
-      # appends onto the generated `Shared.swift` (the caller-facing `import Shared`
-      # surface), NOT the ObjC `Shared.h`. The xcodebuild step above already
-      # generated + patched the SPM package, so the script auto-discovers
-      # `app/sharedLogic/build/SPMPackage/**/Shared.swift` and diffs it against the
-      # committed baseline (tools/scripts/export-surface-baseline.txt), failing on a banned
-      # name or an unreviewed addition. See CLAUDE.md "Export Surface".
+      # Gates the iOS Swift Export surface generated + patched during xcodebuild above.
       - name: Export-surface inventory (gate)
         if: always()
         run: bash tools/scripts/export-surface-inventory.sh
@@ -680,29 +755,81 @@ jobs:
         run: bash tools/scripts/check-no-appresult-await.sh
 
       # The App Intents dependency slot is process-wide, so every test that installs one has to
-      # live in a single serialized suite or they race across suites — a rare, expensive-to-attribute
-      # flake. This keeps them in one file. See the script's header.
+      # live in a single serialized suite or they race across suites.
       - name: App Intents tests stay in one suite (gate)
         if: always()
         run: bash tools/scripts/check-intent-tests-single-suite.sh
 
-  # ── Build ────────────────────────────────────────────────────────────────────
-  build-server-native:
-    name: Build & Test (server linuxX64)
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    # Gate behind lint + JVM tests so a broken compile can't land on a passing test run.
-    needs: [lint, test-jvm]
+  test-ios-kotlin:
+    name: 'Test (iOS: sharedLogic Kotlin)'
+    needs: [changes]
+    if: needs.changes.outputs.sharedlogic == 'true'
+    runs-on: xcode-27
+    timeout-minutes: 35
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
+
+      - name: Select Xcode 27.1
+        uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1
+        with:
+          xcode-version: '27.1'
 
       - name: Set up JDK 21
         uses: actions/setup-java@v6.3.0
         with:
           distribution: 'temurin'
           java-version: '21'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+        with:
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+
+      - name: Read Kotlin version for Konan cache key
+        id: kotlin-version
+        run: |
+          version="$(sed -n 's/^kotlin = "\(.*\)"$/\1/p' gradle/libs.versions.toml)"
+          test -n "$version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      # Restore-only here because test-ios-swift saves ~/.konan on main (avoids concurrent cache races).
+      - name: Restore Konan (Kotlin/Native, read-only)
+        uses: actions/cache/restore@v6
+        with:
+          path: ~/.konan
+          key: ${{ runner.os }}-${{ runner.arch }}-konan-v1-${{ steps.kotlin-version.outputs.version }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-konan-v1-
+            ${{ runner.os }}-konan-
+
+      - name: Run shared Kotlin tests on the iOS simulator
+        run: ./gradlew :app:sharedLogic:iosSimulatorArm64Test
+
+  # ── Build ────────────────────────────────────────────────────────────────────
+  build-server-native:
+    name: Build & Test (server linuxX64)
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/listenupapp/listenup-ci:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    defaults:
+      run:
+        shell: bash
+    env:
+      LANG: C.UTF-8
+      LC_ALL: C.UTF-8
+    timeout-minutes: 30
+    # Gate behind lint only so native compile + test run in parallel with test-jvm-server.
+    needs: [changes, lint]
+    if: needs.changes.outputs.server == 'true'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
@@ -739,36 +866,29 @@ jobs:
             ${{ runner.os }}-${{ runner.arch }}-konan-v1-
             ${{ runner.os }}-konan-
 
-      # The cap is 18m rather than 6m because a cap BELOW one attempt's worst case is not a guard,
-      # it is a guillotine: at 6m the 2026-08-19 mirror hang killed the step mid-attempt-1 and the
-      # retries this loop exists for never ran at all. The ceiling must clear all three attempts and
-      # the dpkg recovery between them: 3 × (60s + 210s) + 2 × 60s + 30s of backoff = 16m.
-      - name: Install native link dependencies (libargon2 + libsqlite3 + libcurl)
-        timeout-minutes: 18
-        uses: ./.github/actions/apt-install
-        with:
-          packages: libargon2-dev libsqlite3-dev libcurl4-openssl-dev
+      - name: Verify native link dependencies (anti-fake-green)
+        run: pkg-config --modversion libargon2 sqlite3 libcurl
 
       # Compile both linuxX64 and linuxArm64 (Raspberry Pi / Graviton rot canary — compile-only
       # because linking requires aarch64 libs; fetches the aarch64 sysroot when Konan misses).
       - name: Compile :server linuxX64 and linuxArm64 (rot canary)
         timeout-minutes: 20
-        run: ./gradlew :server:compileKotlinLinuxX64 :server:compileKotlinLinuxArm64 --no-daemon
+        run: ./gradlew :server:compileKotlinLinuxX64 :server:compileKotlinLinuxArm64
 
       # Step-scoped so a wedged test.kexe is attributed to the TEST, not to "the job timed out"
       # — the job ceiling can't tell you which phase hung. Covers both :server and :contract
-      # native specs in a single Gradle invocation.
+      # native specs in a single Gradle invocation reusing the warm daemon above.
       - name: Run :server and :contract linuxX64 tests
         timeout-minutes: 15
-        run: ./gradlew :server:linuxX64Test :contract:linuxX64Test --no-daemon
+        run: ./gradlew :server:linuxX64Test :contract:linuxX64Test
 
   build-android:
     name: Build (Android)
     runs-on: ubuntu-latest
     timeout-minutes: 30
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    # Don't build the APK unless Kotlin lint + JVM tests pass.
-    needs: [lint, test-jvm]
+    # Don't build the APK unless Kotlin lint + client/sharedUI/sharedLogic JVM tests pass.
+    needs: [lint, test-jvm-client, test-jvm-sharedui, test-jvm-sharedlogic-android]
 
     steps:
       - name: Checkout code
@@ -813,9 +933,9 @@ jobs:
     # while killing a wedge instead of letting it run to the runner ceiling.
     timeout-minutes: 45
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    # The expensive build (~16m) — gate it behind lint + JVM tests + iOS tests so we
+    # The expensive build (~16m) — gate it behind lint + client/iOS tests so we
     # never spend it on code that already failed an earlier stage.
-    needs: [lint, test-jvm, test-ios]
+    needs: [lint, test-jvm-client, test-ios-swift, test-ios-kotlin]
 
     steps:
       - name: Checkout code
@@ -853,6 +973,12 @@ jobs:
             ${{ runner.os }}-${{ runner.arch }}-konan-v1-
             ${{ runner.os }}-konan-
 
+      - name: Restore SwiftPM packages
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ runner.temp }}/spm-packages
+          key: ${{ runner.os }}-${{ runner.arch }}-spm-v1-${{ hashFiles('app/iosApp/ListenUp.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}
+
       - name: Build (Release, unsigned)
         working-directory: app/iosApp
         run: |
@@ -861,4 +987,5 @@ jobs:
             -scheme ListenUp \
             -configuration Release \
             -destination 'generic/platform=iOS' \
+            -clonedSourcePackagesDirPath "$RUNNER_TEMP/spm-packages" \
             CODE_SIGNING_ALLOWED=NO

@@ -7,7 +7,6 @@ import androidx.window.core.layout.WindowSizeClass
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -34,6 +33,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
+import com.calypsan.listenup.client.design.components.LoadFailed
 import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
@@ -90,15 +90,18 @@ fun UserDetailScreen(
             state = state,
             innerPadding = innerPadding,
             onPermissionsClick = onPermissionsClick,
+            onRetry = viewModel::retry,
         )
     }
 }
 
+/** What the screen shows under its top bar, for each [UserDetailUiState]. */
 @Composable
-private fun UserDetailBody(
+internal fun UserDetailBody(
     state: UserDetailUiState,
     innerPadding: PaddingValues,
     onPermissionsClick: () -> Unit,
+    onRetry: () -> Unit,
 ) {
     when (state) {
         is UserDetailUiState.Loading -> {
@@ -106,19 +109,11 @@ private fun UserDetailBody(
         }
 
         is UserDetailUiState.Error -> {
-            Box(
-                modifier =
-                    Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = state.error.localized(),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.error,
-                )
-            }
+            LoadFailed(
+                message = state.error.localized(),
+                onRetry = onRetry,
+                modifier = Modifier.padding(innerPadding),
+            )
         }
 
         is UserDetailUiState.Ready -> {

@@ -34,12 +34,15 @@ import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import com.calypsan.listenup.client.test.SimulatedFailure
+import dev.mokkery.answering.calls
 
 /**
  * Tests for [AdminCollectionDetailViewModel] (Collections-2a).
@@ -333,6 +336,54 @@ class AdminCollectionDetailViewModelTest :
                 val ready = vm.state.value.shouldBeInstanceOf<AdminCollectionDetailUiState.Ready>()
                 ready.isSharing shouldBe false
                 ready.showAddMemberSheet shouldBe false
+            }
+        }
+
+        test("retry after the collection could not be read reaches Ready") {
+            runTest(dispatcher) {
+                val f = Fixture()
+                // Stubs the repository's book and share flows; only the repositories are used.
+                f.build()
+                var broken = true
+                every { f.repo.observeCollections() } calls {
+                    if (broken) flow { throw SimulatedFailure("db broken") } else f.collectionsFlow
+                }
+                val failing =
+                    AdminCollectionDetailViewModel(
+                        "c1",
+                        f.repo,
+                        f.adminRepo,
+                        f.userRepo,
+                        f.userProfileRepo,
+                        f.bookDao,
+                        f.searchRepo,
+                        f.imageStorage,
+                        ErrorBus(),
+                    )
+                advanceUntilIdle()
+                failing.state.value.shouldBeInstanceOf<AdminCollectionDetailUiState.Error>()
+
+                broken = false
+                failing.retry()
+                advanceUntilIdle()
+
+                failing.state.value.shouldBeInstanceOf<AdminCollectionDetailUiState.Ready>()
+            }
+        }
+
+        test("retry once loaded keeps the name being edited") {
+            runTest(dispatcher) {
+                val f = Fixture()
+                val vm = f.build()
+                advanceUntilIdle()
+                vm.updateName("A new name")
+
+                vm.retry()
+                advanceUntilIdle()
+
+                vm.state.value
+                    .shouldBeInstanceOf<AdminCollectionDetailUiState.Ready>()
+                    .editedName shouldBe "A new name"
             }
         }
     })

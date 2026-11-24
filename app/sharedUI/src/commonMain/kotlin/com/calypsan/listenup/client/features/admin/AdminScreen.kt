@@ -650,6 +650,9 @@ private fun PasswordResetsGroup(
                 PasswordResetRow(
                     request = request,
                     isDeciding = state.decidingPasswordResetId == request.id,
+                    // One decision at a time: an approval's code is returned once, and a second
+                    // approval would replace it before the admin has seen it.
+                    isLocked = state.decidingPasswordResetId != null,
                     onApproveClick = { onApproveClick(request) },
                     onDenyClick = { onDenyClick(request) },
                 )

@@ -35,6 +35,7 @@ fun fixedUserDetail(
             state = MutableStateFlow(state),
             permissions = MutableStateFlow(permissions),
             actions = actions,
+            onRetry = {},
             close = {},
         )
     }

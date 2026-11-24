@@ -38,6 +38,11 @@ final class SearchObserver {
         viewModel.clearQuery()
     }
 
+    /// Runs the same search again after it failed.
+    func retry() {
+        viewModel.retry()
+    }
+
     /// Move the VM's filter to exactly this scope — one call, no intermediate state.
     ///
     /// Passing a `SearchHitType` *into* Kotlin is the direction Swift Export bridges safely,

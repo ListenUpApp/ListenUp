@@ -333,7 +333,7 @@ private fun EnterCodeContent(
 
     fun submit() {
         focusManager.clearFocus()
-        if (code.text.isNotBlank() && newPassword.text.isNotBlank()) {
+        if (code.text.isNotBlank() && newPassword.text.isNotBlank() && !state.isCompleting) {
             onSubmit(code.text.toString(), newPassword.text.toString())
         }
     }
@@ -374,7 +374,8 @@ private fun EnterCodeContent(
         ListenUpButton(
             text = stringResource(Res.string.common_continue),
             onClick = { submit() },
-            enabled = code.text.isNotBlank() && newPassword.text.isNotBlank(),
+            enabled = code.text.isNotBlank() && newPassword.text.isNotBlank() && !state.isCompleting,
+            isLoading = state.isCompleting,
         )
     }
 }

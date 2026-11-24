@@ -50,11 +50,9 @@ struct ShelfDetailView: View {
         case .loading:
             LoadingStateView()
         case .error(let message):
-            ContentUnavailableView(
-                String(localized: "shelf.unavailable_title"),
-                systemImage: "exclamationmark.triangle",
-                description: Text(message)
-            )
+            LoadFailedView(message: message, title: String(localized: "shelf.unavailable_title")) {
+                observer.loadShelf(shelfId)
+            }
         case .ready:
             if observer.books.isEmpty {
                 ContentUnavailableView(

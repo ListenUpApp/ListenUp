@@ -9,7 +9,8 @@ import Shared
 ///   the available width via `GridItem(.adaptive(minimum:))`, not a fixed 3-up)
 /// - Under a name sort, a lettered header per shared letter run, pinned while its series
 ///   scroll past, as the Authors and Narrators lists have, plus the section index
-/// - Empty state when no series
+/// - Loading, arriving and failed states as Books shows them; empty only once the library has loaded
+/// - Pull to refresh re-syncs the library
 struct SeriesContent: View {
     /// The series, sliced by the shared letter runs: one lettered section per run on a name sort, one
     /// unlettered section on any other. Sliced once per content revision by `LibraryObserver`.
@@ -19,6 +20,12 @@ struct SeriesContent: View {
     /// under E), bridged once per content revision by `LibraryObserver` rather than on every render
     /// of this body (2026-09-29 iOS audit, performance). Empty on any other sort: no index.
     let letters: [LetterRun]
+    /// The whole library's load, so the tab shows loading, arriving or a failure as Books does — not "empty".
+    let isLoading: Bool
+    let isArriving: Bool
+    let errorMessage: String?
+    /// Re-syncs the library: pull to refresh, and Try Again after a failure.
+    let onRefresh: () -> Void
     /// The section switcher, shown as the first row in every state; `nil` in the iPad sidebar.
     var picker: LibrarySectionPicker?
 
@@ -46,10 +53,18 @@ struct SeriesContent: View {
     private var isLettered: Bool { Self.isLettered(sections) }
 
     var body: some View {
-        if sections.isEmpty {
-            emptyState
-        } else {
+        switch LibraryTabPhase.resolve(
+            isLoading: isLoading,
+            isArriving: isArriving,
+            errorMessage: errorMessage,
+            isEmpty: sections.isEmpty
+        ) {
+        case .content:
             seriesListView
+        case .empty:
+            emptyState
+        case let phase:
+            LibraryTabStatusView(phase: phase, picker: picker, onRefresh: onRefresh)
         }
     }
 
@@ -71,6 +86,7 @@ struct SeriesContent: View {
                 .padding(.top, Spacing.xxs)
             }
             .scrollContentBackground(.hidden)
+            .libraryRefreshable(onRefresh)
             .onScrollPhaseChange { _, newPhase in
                 withAnimation(.easeOut(duration: 0.2)) {
                     isScrolling = newPhase != .idle
@@ -168,5 +184,6 @@ struct SeriesContent: View {
                 description: Text(String(localized: .libraryEmptyTabDescription("Series")))
             )
         }
+        .libraryRefreshable(onRefresh)
     }
 }

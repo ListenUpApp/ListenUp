@@ -119,6 +119,7 @@ private fun page(
             onShare = onShare,
             onRevokeShare = onRevokeShare,
             onClearError = onClearError,
+            onRetry = {},
             onOpenCollections = onOpenCollections,
             onSaveConfirmed = onSaveConfirmed,
         )

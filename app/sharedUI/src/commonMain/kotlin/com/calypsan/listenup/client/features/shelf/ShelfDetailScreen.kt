@@ -99,6 +99,7 @@ import listenup.composeapp.generated.resources.shelf_stat_total
 import listenup.composeapp.generated.resources.shelf_stat_book
 import listenup.composeapp.generated.resources.shelf_stat_books
 import androidx.compose.ui.semantics.heading
+import com.calypsan.listenup.client.design.components.LoadFailed
 
 /**
  * Screen displaying a shelf's details and its books.
@@ -179,11 +180,7 @@ fun ShelfDetailScreen(
                 }
 
                 is ShelfDetailUiState.Error -> {
-                    Text(
-                        text = current.message,
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.align(Alignment.Center),
-                    )
+                    LoadFailed(message = current.message, onRetry = { viewModel.loadShelf(shelfId) })
                 }
 
                 is ShelfDetailUiState.Ready -> {

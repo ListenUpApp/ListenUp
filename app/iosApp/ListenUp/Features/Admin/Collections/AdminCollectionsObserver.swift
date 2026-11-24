@@ -32,6 +32,8 @@ final class AdminCollectionsObserver {
     func createCollection(name: String) { viewModel.createCollection(name: name) }
     func deleteCollection(collectionId: String) { viewModel.deleteCollection(collectionId: collectionId) }
     func clearError() { viewModel.clearError() }
+    /// Re-runs the load after it failed; the ViewModel ignores it in any other state.
+    func retry() { viewModel.retry() }
     func clearCreateSuccess() { viewModel.clearCreateSuccess() }
 
     // MARK: - State mapping

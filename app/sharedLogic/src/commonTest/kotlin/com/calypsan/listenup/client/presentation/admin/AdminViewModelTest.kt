@@ -702,6 +702,96 @@ class AdminViewModelTest :
             }
         }
 
+        test("a second reset decision while one is in flight is ignored") {
+            runTest {
+                val loadInvitesUseCase: LoadInvitesUseCase = mock()
+                everySuspend { loadInvitesUseCase() } returns AppResult.Success(emptyList())
+                val gate = CompletableDeferred<AppResult<PasswordResetDecisionOutcome>>()
+                var decisions = 0
+                val decidePasswordResetUseCase: DecidePasswordResetUseCase = mock()
+                everySuspend { decidePasswordResetUseCase(any(), any()) } calls {
+                    decisions++
+                    gate.await()
+                }
+                val viewModel =
+                    AdminViewModel(
+                        getRegistrationPolicyUseCase = createMockGetRegistrationPolicyUseCase(),
+                        loadInvitesUseCase = loadInvitesUseCase,
+                        deleteUserUseCase = mock(),
+                        revokeInviteUseCase = mock(),
+                        approveUserUseCase = mock(),
+                        denyUserUseCase = mock(),
+                        setRegistrationPolicyUseCase = mock(),
+                        loadPasswordResetRequestsUseCase =
+                            createMockLoadPasswordResetRequestsUseCase(
+                                listOf(createResetRequest(id = "reset-1"), createResetRequest(id = "reset-2")),
+                            ),
+                        decidePasswordResetUseCase = decidePasswordResetUseCase,
+                        instanceRepository = FakeInstanceRepository(),
+                        adminRepository = createMockAdminRepository(),
+                    )
+                advanceUntilIdle()
+
+                viewModel.decidePasswordReset("reset-1", approved = true)
+                viewModel.decidePasswordReset("reset-2", approved = true)
+                advanceUntilIdle()
+                gate.complete(AppResult.Success(PasswordResetDecisionOutcome.Approved("ABCD-2345")))
+                advanceUntilIdle()
+
+                decisions shouldBe 1
+                viewModel.state.value
+                    .shouldBeInstanceOf<AdminUiState.Ready>()
+                    .resetCodeToConvey shouldBe "ABCD-2345"
+            }
+        }
+
+        test("an unseen reset code cannot be replaced by another approval until it is dismissed") {
+            runTest {
+                val loadInvitesUseCase: LoadInvitesUseCase = mock()
+                everySuspend { loadInvitesUseCase() } returns AppResult.Success(emptyList())
+                val decidePasswordResetUseCase: DecidePasswordResetUseCase = mock()
+                everySuspend { decidePasswordResetUseCase("reset-1", true) } returns
+                    AppResult.Success(PasswordResetDecisionOutcome.Approved("AAAA-1111"))
+                everySuspend { decidePasswordResetUseCase("reset-2", true) } returns
+                    AppResult.Success(PasswordResetDecisionOutcome.Approved("BBBB-2222"))
+                val viewModel =
+                    AdminViewModel(
+                        getRegistrationPolicyUseCase = createMockGetRegistrationPolicyUseCase(),
+                        loadInvitesUseCase = loadInvitesUseCase,
+                        deleteUserUseCase = mock(),
+                        revokeInviteUseCase = mock(),
+                        approveUserUseCase = mock(),
+                        denyUserUseCase = mock(),
+                        setRegistrationPolicyUseCase = mock(),
+                        loadPasswordResetRequestsUseCase =
+                            createMockLoadPasswordResetRequestsUseCase(
+                                listOf(createResetRequest(id = "reset-1"), createResetRequest(id = "reset-2")),
+                            ),
+                        decidePasswordResetUseCase = decidePasswordResetUseCase,
+                        instanceRepository = FakeInstanceRepository(),
+                        adminRepository = createMockAdminRepository(),
+                    )
+                advanceUntilIdle()
+
+                viewModel.decidePasswordReset("reset-1", approved = true)
+                advanceUntilIdle()
+                viewModel.decidePasswordReset("reset-2", approved = true)
+                advanceUntilIdle()
+
+                val unseen = viewModel.state.value.shouldBeInstanceOf<AdminUiState.Ready>()
+                unseen.resetCodeToConvey shouldBe "AAAA-1111"
+                unseen.pendingPasswordResets.map { it.id } shouldBe listOf("reset-2")
+
+                viewModel.dismissResetCode()
+                viewModel.decidePasswordReset("reset-2", approved = true)
+                advanceUntilIdle()
+
+                viewModel.state.value
+                    .shouldBeInstanceOf<AdminUiState.Ready>()
+                    .resetCodeToConvey shouldBe "BBBB-2222"
+            }
+        }
+
         test("denying a reset removes it from the pending list and surfaces no code") {
             runTest {
                 val loadInvitesUseCase: LoadInvitesUseCase = mock()

@@ -140,6 +140,9 @@ class SearchViewModel(
     private val queryFlow = MutableStateFlow("")
     private val typesFlow = MutableStateFlow<Set<SearchHitType>>(emptySet())
 
+    /** Bumped by [retry]: the pipeline is `distinctUntilChanged`, so the same query alone never runs twice. */
+    private val attempt = MutableStateFlow(0)
+
     private val navChannel = Channel<SearchNavAction>(Channel.BUFFERED)
     val navActions: Flow<SearchNavAction> = navChannel.receiveAsFlow()
 
@@ -162,7 +165,8 @@ class SearchViewModel(
         combine(
             queryFlow.debounce { q -> if (q.isBlank()) 0L else SEARCH_DEBOUNCE_MS },
             typesFlow,
-        ) { query, types -> query to types }
+            attempt,
+        ) { query, types, attempt -> Triple(query, types, attempt) }
             .distinctUntilChanged()
             .flatMapLatest { (query, types) ->
                 flow {
@@ -208,6 +212,11 @@ class SearchViewModel(
 
     fun onQueryChanged(query: String) {
         queryFlow.value = query
+    }
+
+    /** Runs the same search again after it failed; a no-op in any other state. */
+    fun retry() {
+        if (state.value is SearchUiState.Error) attempt.update { it + 1 }
     }
 
     fun clearQuery() {

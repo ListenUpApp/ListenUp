@@ -1,14 +1,4 @@
-// Version is sourced from the VERSION file at the repo root (single source of truth for marketing version).
-fun versionName(): String =
-    rootProject.layout.projectDirectory
-        .file("VERSION")
-        .asFile
-        .takeIf { it.exists() }
-        ?.readText()
-        ?.trim()
-        ?.removePrefix("v")
-        ?.ifEmpty { "0.0.1" }
-        ?: "0.0.1"
+import com.calypsan.listenup.gradle.ListenUpVersion
 
 fun gitVersionCode(): Int =
     try {
@@ -29,14 +19,11 @@ plugins {
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.androidx.baselineprofile)
     alias(libs.plugins.googleServices)
+    id("listenup.android.defaults")
 }
 
 android {
     namespace = "com.calypsan.listenup.client"
-    compileSdk =
-        libs.versions.android.compileSdk
-            .get()
-            .toInt()
 
     ndkVersion =
         libs.versions.android.ndk
@@ -44,16 +31,13 @@ android {
 
     defaultConfig {
         applicationId = "com.calypsan.listenup.client"
-        minSdk =
-            libs.versions.android.minSdk
-                .get()
-                .toInt()
-        targetSdk =
-            libs.versions.android.targetSdk
-                .get()
-                .toInt()
         versionCode = gitVersionCode()
-        versionName = versionName()
+        versionName =
+            ListenUpVersion.readVersionFile(
+                rootProject.layout.projectDirectory
+                    .file("VERSION")
+                    .asFile,
+            )
     }
 
     packaging {
@@ -91,11 +75,6 @@ android {
             // let Play symbolicate a native crash in them; Play reads them from the AAB itself.
             ndk { debugSymbolLevel = "SYMBOL_TABLE" }
         }
-    }
-
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
     }
 
     lint {

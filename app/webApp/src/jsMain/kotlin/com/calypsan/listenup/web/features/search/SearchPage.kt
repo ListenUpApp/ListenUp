@@ -457,7 +457,7 @@ internal fun NoResultsPrompt(query: String) {
 }
 
 @Composable
-private fun ErrorPrompt(
+internal fun ErrorPrompt(
     message: String,
     onRetry: () -> Unit,
 ) {

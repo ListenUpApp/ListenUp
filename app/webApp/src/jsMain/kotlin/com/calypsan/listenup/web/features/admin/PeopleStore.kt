@@ -43,6 +43,7 @@ class UserDetailSession(
     val state: StateFlow<UserDetailUiState>,
     val permissions: StateFlow<UserPermissionsUiState>,
     val actions: PermissionsPanelActions,
+    val onRetry: () -> Unit,
     override val close: () -> Unit,
 ) : RouteSession
 
@@ -79,7 +80,9 @@ fun graphUserDetail(koin: Koin): OpenUserDetail =
                     onCancelAdminPromotion = permissions::cancelAdminPromotion,
                     onDiscard = permissions::discard,
                     onSave = permissions::save,
+                    onRetry = permissions::retry,
                 ),
+            onRetry = detail::retry,
             close = store::clear,
         )
     }

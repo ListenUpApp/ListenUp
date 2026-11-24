@@ -193,15 +193,20 @@ private fun CodeStep(
     var code by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var confirm by remember { mutableStateOf("") }
-    var edited by remember(state) { mutableStateOf(false) }
+    var edited by remember(state.error, state.attemptsRemaining) { mutableStateOf(false) }
     var mismatch by remember { mutableStateOf(false) }
 
     val serverError = state.error.takeUnless { edited }
+
+    // Nothing to send without a code and a password; and a code being checked must not be sent
+    // again — a second send burns another of the ticket's limited attempts.
+    val canSubmit = code.isNotBlank() && password.isNotBlank() && !state.isCompleting
 
     Form(attrs = {
         classes(FIELDS_CLASS)
         this.onSubmit { event ->
             event.preventDefault()
+            if (!canSubmit) return@onSubmit
             // Checked here rather than by the ViewModel: `completeReset` takes one password, so
             // the confirm field has no other reader. Refusing locally also spares a live ticket
             // one of its finite attempts on a typo the user can see for themselves.
@@ -261,9 +266,9 @@ private fun CodeStep(
             }
         }
 
-        Button(kind = ButtonKind.Primary, size = ButtonSize.Lg, fill = true, submit = true) {
+        Button(kind = ButtonKind.Primary, size = ButtonSize.Lg, fill = true, submit = true, enabled = canSubmit) {
             Icon(WebIcon.Check, size = BUTTON_ICON_SIZE)
-            Text("Set new password")
+            Text(if (state.isCompleting) "Setting new password…" else "Set new password")
         }
 
         BackToSignIn(onBackToSignIn)
