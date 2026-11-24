@@ -27,6 +27,8 @@ enum StagedAvatar: Equatable {
 final class EditProfileObserver {
     private(set) var isLoading: Bool = true
     private(set) var user: User?
+    /// Why the profile could not be loaded; while set there is no form to edit or save.
+    private(set) var loadError: String?
     private(set) var firstName: String = ""
     private(set) var lastName: String = ""
     private(set) var tagline: String = ""
@@ -96,9 +98,11 @@ final class EditProfileObserver {
         switch state.sealedType() {
         case .loading:
             isLoading = true
+            loadError = nil
         case .ready(let rType):
             let r = rType.value
             isLoading = false
+            loadError = nil
             user = r.user
             firstName = r.firstName
             lastName = r.lastName
@@ -110,9 +114,10 @@ final class EditProfileObserver {
             isSaving = r.isSaving
             hasImageAvatar = r.hasImageAvatar
             stagedAvatar = Self.stagedAvatar(for: r.avatarChange, pickedImage: pickedImage)
-        case .error:
+        case .error(let errorType):
             isLoading = false
             user = nil
+            loadError = errorType.value.message
         }
     }
 

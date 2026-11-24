@@ -13,6 +13,7 @@ import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.device.DeviceGlyph
 import com.calypsan.listenup.client.domain.repository.AuthRepository
+import com.calypsan.listenup.core.error.ErrorBus
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -39,7 +40,7 @@ class DevicesViewModelMappingTest :
                     object : MappingFakeAuthRepository() {
                         override suspend fun listSessions(): AppResult<List<SessionSummary>> = AppResult.Success(listOf(summary))
                     }
-                val vm = DevicesViewModel(repo)
+                val vm = DevicesViewModel(repo, ErrorBus())
                 vm.uiState.test {
                     val ready =
                         awaitMappingUntil { it is DevicesUiState.Ready }
@@ -66,7 +67,7 @@ class DevicesViewModelMappingTest :
                     object : MappingFakeAuthRepository() {
                         override suspend fun listSessions(): AppResult<List<SessionSummary>> = AppResult.Success(listOf(summary))
                     }
-                val vm = DevicesViewModel(repo)
+                val vm = DevicesViewModel(repo, ErrorBus())
                 vm.uiState.test {
                     val ready =
                         awaitMappingUntil { it is DevicesUiState.Ready }

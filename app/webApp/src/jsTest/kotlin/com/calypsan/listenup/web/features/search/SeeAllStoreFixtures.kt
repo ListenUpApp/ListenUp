@@ -20,6 +20,7 @@ fun fixedSeeAll(
         SeeAllSession(
             state = MutableStateFlow(state),
             onOpenHit = onOpenHit,
+            onRetry = {},
             navActions = navActions,
             close = {},
         )

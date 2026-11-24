@@ -9,6 +9,7 @@ import com.calypsan.listenup.client.domain.model.UserPermissions
 import com.calypsan.listenup.client.domain.repository.AdminRepository
 import com.calypsan.listenup.client.test.fake.FakeInstanceRepository
 import com.calypsan.listenup.core.error.ErrorBus
+import dev.mokkery.answering.calls
 import dev.mokkery.answering.returns
 import dev.mokkery.every
 import dev.mokkery.everySuspend
@@ -108,6 +109,48 @@ class UserDetailViewModelTest :
                     awaitItem().shouldBeInstanceOf<UserDetailUiState.Loading>()
                     awaitItem().shouldBeInstanceOf<UserDetailUiState.Error>()
                 }
+            }
+        }
+
+        test("retry after a failed fetch reaches Ready") {
+            runTest {
+                var reachable = false
+                val adminRepository: AdminRepository =
+                    mock {
+                        every { observeUser("user-1") } returns flowOf(null)
+                        everySuspend { getUser("user-1") } calls {
+                            if (reachable) AppResult.Success(createUser()) else AppResult.Failure(TransportError.NetworkUnavailable())
+                        }
+                    }
+                val vm = viewModel(adminRepository)
+
+                vm.state.test {
+                    awaitItem().shouldBeInstanceOf<UserDetailUiState.Loading>()
+                    awaitItem().shouldBeInstanceOf<UserDetailUiState.Error>()
+
+                    reachable = true
+                    vm.retry()
+
+                    awaitItem().shouldBeInstanceOf<UserDetailUiState.Loading>()
+                    awaitItem().shouldBeInstanceOf<UserDetailUiState.Ready>()
+                }
+            }
+        }
+
+        test("retry once loaded fetches nothing") {
+            runTest {
+                val adminRepository: AdminRepository = mock { every { observeUser("user-1") } returns flowOf(createUser()) }
+                val vm = viewModel(adminRepository)
+
+                vm.state.test {
+                    awaitItem().shouldBeInstanceOf<UserDetailUiState.Loading>()
+                    awaitItem().shouldBeInstanceOf<UserDetailUiState.Ready>()
+
+                    vm.retry()
+
+                    expectNoEvents()
+                }
+                verifySuspend(VerifyMode.not) { adminRepository.getUser("user-1") }
             }
         }
 

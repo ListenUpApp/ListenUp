@@ -283,6 +283,9 @@ private val EXCUSED =
         // Reached via onResultClicked, which IS onResultSelected(hit.id, hit.type, hit.name).
         "SearchViewModel.onResultSelected",
         "SeeAllSearchViewModel.onResultSelected",
+        // The web search field is the address bar's `?q=`: clearing it sends "" through onQueryChanged,
+        // the same path every keystroke takes.
+        "SearchViewModel.clearQuery",
         // iOS-only: its scope picker is single-select (a Swift Export bridging choice). Android
         // and web both use toggleTypeFilter.
         "SearchViewModel.setTypeFilter",

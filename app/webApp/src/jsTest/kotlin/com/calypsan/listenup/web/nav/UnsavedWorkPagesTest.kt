@@ -172,6 +172,7 @@ class UnsavedWorkPagesTest :
                         onShare = {},
                         onRevokeShare = {},
                         onClearError = {},
+                        onRetry = {},
                         onOpenCollections = onLeave,
                         onSaveConfirmed = {},
                     )
@@ -189,6 +190,7 @@ class UnsavedWorkPagesTest :
                         state = readyUser(),
                         permissions = permissionsReady(changeCount = if (dirty) 1 else 0),
                         actions = PermissionsPanelActions(),
+                        onRetry = {},
                         onOpenAdmin = onLeave,
                     )
                 }

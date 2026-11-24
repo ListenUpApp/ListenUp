@@ -62,6 +62,7 @@ import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import com.calypsan.listenup.client.design.components.HeroNavRow
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
 import com.calypsan.listenup.client.design.components.ScallopBadge
+import com.calypsan.listenup.client.design.components.LoadFailed
 import com.calypsan.listenup.client.core.DurationFormatter
 import kotlin.time.Duration.Companion.milliseconds
 import com.calypsan.listenup.client.domain.model.InboxBookItem
@@ -167,6 +168,7 @@ fun AdminInboxScreen(
             onSelectAll = viewModel::selectAll,
             onClearSelection = viewModel::clearSelection,
             onRelease = { showReleaseConfirmation = true },
+            onRetry = viewModel::loadInboxBooks,
         )
     }
 
@@ -184,6 +186,9 @@ fun AdminInboxScreen(
     }
 }
 
+// The inbox body routes each row and selection gesture straight to its screen; a parameter object would only
+// add an indirection layer Compose tooling discourages (the same call as CategoriesScreenBody).
+@Suppress("LongParameterList")
 @Composable
 internal fun AdminInboxBody(
     state: AdminInboxUiState,
@@ -198,6 +203,7 @@ internal fun AdminInboxBody(
     onSelectAll: () -> Unit,
     onClearSelection: () -> Unit,
     onRelease: () -> Unit,
+    onRetry: () -> Unit,
 ) {
     when (state) {
         is AdminInboxUiState.Loading -> {
@@ -205,17 +211,7 @@ internal fun AdminInboxBody(
         }
 
         is AdminInboxUiState.Error -> {
-            Box(
-                modifier = Modifier.fillMaxSize().padding(innerPadding),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = state.message,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.error,
-                    textAlign = TextAlign.Center,
-                )
-            }
+            LoadFailed(message = state.message, onRetry = onRetry, modifier = Modifier.padding(innerPadding))
         }
 
         is AdminInboxUiState.Ready -> {

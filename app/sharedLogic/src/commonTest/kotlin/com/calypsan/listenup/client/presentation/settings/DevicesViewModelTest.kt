@@ -12,12 +12,18 @@ import com.calypsan.listenup.api.dto.auth.SessionSummary
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.repository.AuthRepository
+import com.calypsan.listenup.core.error.ErrorBus
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
 
 /**
  * Tests for [DevicesViewModel].
@@ -34,6 +40,13 @@ import kotlinx.coroutines.test.runTest
  */
 class DevicesViewModelTest :
     FunSpec({
+        // viewModelScope runs on Dispatchers.Main. On the Apple lane that is the real main queue, which
+        // nothing drains while runTest holds the main thread, so any work the ViewModel dispatches
+        // there (combine yields) would never run. A test dispatcher puts it on runTest's scheduler.
+        val testDispatcher = StandardTestDispatcher()
+
+        beforeTest { Dispatchers.setMain(testDispatcher) }
+        afterTest { Dispatchers.resetMain() }
 
         // ========== Pure resolution helpers ==========
 
@@ -67,7 +80,7 @@ class DevicesViewModelTest :
                     fakeRepo(
                         sessions = listOf(summary(id = "s1", deviceModel = "Pixel 10")),
                     )
-                val vm = DevicesViewModel(repo)
+                val vm = DevicesViewModel(repo, ErrorBus())
                 vm.uiState.test {
                     val ready = awaitUntil { it is DevicesUiState.Ready }.shouldBeInstanceOf<DevicesUiState.Ready>()
                     ready.devices.map { it.displayName } shouldContain "Pixel 10"
@@ -94,7 +107,7 @@ class DevicesViewModelTest :
 
                         override suspend fun revokeSession(sessionId: SessionId): AppResult<Unit> = AppResult.Success(Unit)
                     }
-                val vm = DevicesViewModel(repo)
+                val vm = DevicesViewModel(repo, ErrorBus())
                 vm.uiState.test {
                     val initial = awaitUntil { it is DevicesUiState.Ready }.shouldBeInstanceOf<DevicesUiState.Ready>()
                     initial.devices.map { it.displayName } shouldContain "iPad"
@@ -120,7 +133,7 @@ class DevicesViewModelTest :
                         summary(id = "s2", deviceModel = "Pixel 10"),
                         summary(id = "s3", deviceModel = "iPad"),
                     )
-                val vm = DevicesViewModel(repo)
+                val vm = DevicesViewModel(repo, ErrorBus())
                 vm.uiState.test {
                     awaitUntil { it is DevicesUiState.Ready && it.devices.size == 3 }
 
@@ -137,6 +150,97 @@ class DevicesViewModelTest :
             }
         }
 
+        // ========== Failures and in-flight markers ==========
+
+        test("a revoke that fails is reported on the error bus") {
+            runTest {
+                val refused = AuthError.SessionExpired()
+                val repo =
+                    object : FakeAuthRepository() {
+                        override suspend fun listSessions(): AppResult<List<SessionSummary>> =
+                            AppResult.Success(listOf(summary(id = "s2", deviceModel = "iPad")))
+
+                        override suspend fun revokeSession(sessionId: SessionId): AppResult<Unit> = AppResult.Failure(refused)
+                    }
+                val errorBus = ErrorBus()
+                val vm = DevicesViewModel(repo, errorBus)
+                errorBus.errors.test {
+                    vm.revokeDevice("s2")
+                    awaitItem() shouldBe refused
+                }
+            }
+        }
+
+        test("a device being signed out is marked on its row while the request runs") {
+            runTest {
+                val gate = CompletableDeferred<AppResult<Unit>>()
+                val repo =
+                    object : FakeAuthRepository() {
+                        override suspend fun listSessions(): AppResult<List<SessionSummary>> =
+                            AppResult.Success(listOf(summary(id = "s2", deviceModel = "iPad")))
+
+                        override suspend fun revokeSession(sessionId: SessionId): AppResult<Unit> = gate.await()
+                    }
+                val vm = DevicesViewModel(repo, ErrorBus())
+                vm.uiState.test {
+                    awaitUntil { it is DevicesUiState.Ready }
+
+                    vm.revokeDevice("s2")
+
+                    awaitUntil { it is DevicesUiState.Ready && "s2" in it.signingOut }
+                    gate.complete(AppResult.Failure(AuthError.SessionExpired()))
+                    awaitUntil { it is DevicesUiState.Ready && it.signingOut.isEmpty() }
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("signing out every other device shows it is working and cannot be sent twice") {
+            runTest {
+                val gate = CompletableDeferred<AppResult<Unit>>()
+                var calls = 0
+                val repo =
+                    object : FakeAuthRepository() {
+                        override suspend fun listSessions(): AppResult<List<SessionSummary>> =
+                            AppResult.Success(listOf(summary(id = "here", current = true), summary(id = "s2")))
+
+                        override suspend fun revokeOtherSessions(): AppResult<Unit> {
+                            calls++
+                            return gate.await()
+                        }
+                    }
+                val vm = DevicesViewModel(repo, ErrorBus())
+                vm.uiState.test {
+                    awaitUntil { it is DevicesUiState.Ready }
+
+                    vm.signOutOtherDevices()
+                    awaitUntil { it is DevicesUiState.Ready && it.signingOutOthers }
+                    vm.signOutOtherDevices()
+
+                    gate.complete(AppResult.Success(Unit))
+                    awaitUntil { it is DevicesUiState.Ready && !it.signingOutOthers }
+                    calls shouldBe 1
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("signing out every other device that fails is reported on the error bus") {
+            runTest {
+                val refused = AuthError.SessionExpired()
+                val repo =
+                    object : FakeAuthRepository() {
+                        override suspend fun revokeOtherSessions(): AppResult<Unit> = AppResult.Failure(refused)
+                    }
+                val errorBus = ErrorBus()
+                val vm = DevicesViewModel(repo, errorBus)
+                errorBus.errors.test {
+                    vm.signOutOtherDevices()
+                    awaitItem() shouldBe refused
+                }
+            }
+        }
+
         // ========== Error ==========
 
         test("load failure → Error") {
@@ -145,7 +249,7 @@ class DevicesViewModelTest :
                     object : FakeAuthRepository() {
                         override suspend fun listSessions(): AppResult<List<SessionSummary>> = AppResult.Failure(AuthError.SessionExpired())
                     }
-                val vm = DevicesViewModel(repo)
+                val vm = DevicesViewModel(repo, ErrorBus())
                 vm.uiState.test {
                     awaitUntil { it is DevicesUiState.Error }
                     cancelAndIgnoreRemainingEvents()

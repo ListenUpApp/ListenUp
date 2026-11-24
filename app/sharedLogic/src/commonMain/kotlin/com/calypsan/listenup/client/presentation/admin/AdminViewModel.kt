@@ -283,20 +283,20 @@ class AdminViewModel(
      * [AdminUiState.Ready.resetCodeToConvey] — this is the **only** place in the client
      * that ever sees it. The screen is responsible for showing it once and requiring an
      * explicit [dismissResetCode] before it disappears; nothing here re-fetches it.
+     *
+     * Because that code is returned once, a decision is ignored while another is in flight or while
+     * an approved code has not been dismissed — a second approval would otherwise replace it unseen.
      */
     fun decidePasswordReset(
         requestId: String,
         approved: Boolean,
     ) {
-        val recipientName =
-            (state.value as? AdminUiState.Ready)
-                ?.pendingPasswordResets
-                ?.firstOrNull { it.id == requestId }
-                ?.displayName
+        val ready = state.value as? AdminUiState.Ready ?: return
+        if (ready.decidingPasswordResetId != null || ready.resetCodeToConvey != null) return
+        val recipientName = ready.pendingPasswordResets.firstOrNull { it.id == requestId }?.displayName
+        updateReady { it.copy(decidingPasswordResetId = requestId) }
 
         viewModelScope.launch {
-            updateReady { it.copy(decidingPasswordResetId = requestId) }
-
             when (val result = decidePasswordResetUseCase(requestId, approved)) {
                 is AppResult.Success -> {
                     val approvedCode = (result.data as? PasswordResetDecisionOutcome.Approved)?.code

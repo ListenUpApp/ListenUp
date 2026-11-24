@@ -7,9 +7,11 @@ import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.SessionSummary
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.repository.AuthRepository
+import com.calypsan.listenup.core.error.ErrorBus
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -30,26 +32,25 @@ import com.calypsan.listenup.client.presentation.WhileSubscribedForUi
 @OptIn(ExperimentalCoroutinesApi::class)
 class DevicesViewModel(
     private val authRepository: AuthRepository,
+    private val errorBus: ErrorBus,
 ) : ViewModel() {
     private val refresh = MutableStateFlow(0)
     private val signingOut = MutableStateFlow<Set<String>>(emptySet())
+    private val signingOutOthers = MutableStateFlow(false)
 
     val uiState: StateFlow<DevicesUiState> =
-        refresh
-            .mapLatest { load() }
-            .stateIn(
-                scope = viewModelScope,
-                started = WhileSubscribedForUi,
-                initialValue = DevicesUiState.Loading,
-            )
+        combine(refresh.mapLatest { load() }, signingOut, signingOutOthers) { loaded, ids, others ->
+            if (loaded is DevicesUiState.Ready) loaded.copy(signingOut = ids, signingOutOthers = others) else loaded
+        }.stateIn(
+            scope = viewModelScope,
+            started = WhileSubscribedForUi,
+            initialValue = DevicesUiState.Loading,
+        )
 
     private suspend fun load(): DevicesUiState =
         when (val result = authRepository.listSessions()) {
             is AppResult.Success -> {
-                DevicesUiState.Ready(
-                    devices = result.data.map { it.toRow() },
-                    signingOut = signingOut.value,
-                )
+                DevicesUiState.Ready(devices = result.data.map { it.toRow() })
             }
 
             is AppResult.Failure -> {
@@ -64,26 +65,37 @@ class DevicesViewModel(
 
     /**
      * Revoke a single session. On success, re-fetches the session list so the
-     * row drops out of [DevicesUiState.Ready] from the authoritative server state.
+     * row drops out of [DevicesUiState.Ready] from the authoritative server state;
+     * a failure is reported on the [ErrorBus] and the row stays.
      */
     fun revokeDevice(sessionId: String) {
         viewModelScope.launch {
             signingOut.update { it + sessionId }
             val result = authRepository.revokeSession(SessionId(sessionId))
             signingOut.update { it - sessionId }
-            if (result is AppResult.Success) refresh.update { it + 1 }
+            settle(result)
         }
     }
 
     /**
      * Sign out every device except this one. The server spares the session the request is made
      * from, so this device stays signed in; on success the list is re-fetched and only this
-     * device's row remains.
+     * device's row remains. A second call while one is in flight is ignored; a failure is reported
+     * on the [ErrorBus].
      */
     fun signOutOtherDevices() {
+        if (!signingOutOthers.compareAndSet(expect = false, update = true)) return
         viewModelScope.launch {
             val result = authRepository.revokeOtherSessions()
-            if (result is AppResult.Success) refresh.update { it + 1 }
+            signingOutOthers.value = false
+            settle(result)
+        }
+    }
+
+    private fun settle(result: AppResult<Unit>) {
+        when (result) {
+            is AppResult.Success -> refresh.update { it + 1 }
+            is AppResult.Failure -> errorBus.emit(result.error)
         }
     }
 

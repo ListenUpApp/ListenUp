@@ -13,12 +13,16 @@ import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.FlowCollector
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.transformLatest
+import kotlinx.coroutines.flow.update
 import com.calypsan.listenup.client.presentation.WhileSubscribedForUi
 
 private val logger = KotlinLogging.logger {}
@@ -34,11 +38,22 @@ private val logger = KotlinLogging.logger {}
 class UserDetailViewModel(
     private val userId: String,
     private val adminRepository: AdminRepository,
-    instanceRepository: InstanceRepository,
+    private val instanceRepository: InstanceRepository,
     private val errorBus: ErrorBus,
 ) : ViewModel() {
+    private val attempt = MutableStateFlow(0)
+
     val state: StateFlow<UserDetailUiState> =
+        attempt.flatMapLatest { observeUser() }.stateIn(viewModelScope, WhileSubscribedForUi, UserDetailUiState.Loading)
+
+    /** Re-runs the first load after it failed; a no-op in any other state, so nothing on screen is discarded. */
+    fun retry() {
+        if (state.value is UserDetailUiState.Error) attempt.update { it + 1 }
+    }
+
+    private fun observeUser(): Flow<UserDetailUiState> =
         flow {
+            emit(UserDetailUiState.Loading)
             // A failed probe reads as an older server, whose labels name members by role.
             val advertised =
                 instanceRepository.getServerInfoOrNull()?.advertisedPermissions() ?: setOf(Permission.EDIT_METADATA)
@@ -47,7 +62,7 @@ class UserDetailViewModel(
                     emit(stateFor(mirrored ?: fetchUnsyncedUser() ?: return@transformLatest, advertised))
                 },
             )
-        }.stateIn(viewModelScope, WhileSubscribedForUi, UserDetailUiState.Loading)
+        }
 
     private fun stateFor(
         user: AdminUserInfo,

@@ -24,6 +24,8 @@ sealed interface ForgotPasswordUiState {
         val ticketId: String,
         val attemptsRemaining: Int? = null,
         val error: String? = null,
+        /** A code is being checked; the submit is unavailable until the answer lands. */
+        val isCompleting: Boolean = false,
     ) : ForgotPasswordUiState
 
     /** The admin declined. The request is dead; the requester must start over. */

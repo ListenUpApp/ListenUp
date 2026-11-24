@@ -7,6 +7,7 @@ import com.calypsan.listenup.client.domain.model.Library
 import com.calypsan.listenup.client.domain.model.LibraryFolderRef
 import com.calypsan.listenup.client.domain.repository.AdminRepository
 import com.calypsan.listenup.core.error.ErrorBus
+import dev.mokkery.answering.calls
 import dev.mokkery.answering.returns
 import dev.mokkery.everySuspend
 import dev.mokkery.mock
@@ -90,6 +91,43 @@ class LibrarySettingsViewModelTest :
                 advanceUntilIdle()
 
                 viewModel.state.value.shouldBeInstanceOf<LibrarySettingsUiState.Error>()
+            }
+        }
+
+        test("retry after a failed load reaches Ready") {
+            runTest(dispatcher) {
+                val adminRepository: AdminRepository = mock()
+                var reachable = false
+                everySuspend { adminRepository.getLibrary() } calls {
+                    if (reachable) AppResult.Success(createLibrary()) else networkFailure()
+                }
+                val viewModel = LibrarySettingsViewModel(adminRepository = adminRepository, errorBus = ErrorBus())
+                advanceUntilIdle()
+                viewModel.state.value.shouldBeInstanceOf<LibrarySettingsUiState.Error>()
+
+                reachable = true
+                viewModel.retry()
+                advanceUntilIdle()
+
+                viewModel.state.value.shouldBeInstanceOf<LibrarySettingsUiState.Ready>()
+            }
+        }
+
+        test("retry once loaded does nothing, so nothing on the screen is disturbed") {
+            runTest(dispatcher) {
+                val adminRepository: AdminRepository = mock()
+                var loads = 0
+                everySuspend { adminRepository.getLibrary() } calls {
+                    loads++
+                    AppResult.Success(createLibrary())
+                }
+                val viewModel = LibrarySettingsViewModel(adminRepository = adminRepository, errorBus = ErrorBus())
+                advanceUntilIdle()
+
+                viewModel.retry()
+                advanceUntilIdle()
+
+                loads shouldBe 1
             }
         }
 

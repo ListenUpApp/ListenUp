@@ -361,7 +361,7 @@ class BookDetailViewModel(
         val bookId = visit.bookId
         viewModelScope.launch {
             updateOverlay(visit) { it.copy(isMarkingComplete = true) }
-            when (playbackPositionRepository.markComplete(BookId(bookId), startedAt, finishedAt)) {
+            when (val result = playbackPositionRepository.markComplete(BookId(bookId), startedAt, finishedAt)) {
                 is AppResult.Success -> {
                     updateOverlay(
                         visit,
@@ -372,6 +372,7 @@ class BookDetailViewModel(
                 is AppResult.Failure -> {
                     updateOverlay(visit) { it.copy(isMarkingComplete = false) }
                     logger.error { "Failed to mark book $bookId as complete" }
+                    errorBus.emit(result.error)
                 }
             }
         }
@@ -385,7 +386,7 @@ class BookDetailViewModel(
         val bookId = visit.bookId
         viewModelScope.launch {
             updateOverlay(visit) { it.copy(isDiscardingProgress = true) }
-            when (playbackPositionRepository.discardProgress(BookId(bookId))) {
+            when (val result = playbackPositionRepository.discardProgress(BookId(bookId))) {
                 is AppResult.Success -> {
                     updateOverlay(
                         visit,
@@ -396,6 +397,7 @@ class BookDetailViewModel(
                 is AppResult.Failure -> {
                     updateOverlay(visit) { it.copy(isDiscardingProgress = false) }
                     logger.error { "Failed to discard progress for book $bookId" }
+                    errorBus.emit(result.error)
                 }
             }
         }
@@ -409,7 +411,7 @@ class BookDetailViewModel(
         val bookId = visit.bookId
         viewModelScope.launch {
             updateOverlay(visit) { it.copy(isRestarting = true) }
-            when (playbackPositionRepository.restartBook(BookId(bookId))) {
+            when (val result = playbackPositionRepository.restartBook(BookId(bookId))) {
                 is AppResult.Success -> {
                     updateOverlay(
                         visit,
@@ -420,6 +422,7 @@ class BookDetailViewModel(
                 is AppResult.Failure -> {
                     updateOverlay(visit) { it.copy(isRestarting = false) }
                     logger.error { "Failed to restart book $bookId" }
+                    errorBus.emit(result.error)
                 }
             }
         }

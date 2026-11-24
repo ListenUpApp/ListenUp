@@ -151,6 +151,17 @@ struct EditProfileObserverTests {
         )
     }
 
+    @Test func aProfileThatCannotBeLoadedSaysSoInsteadOfAnEmptyForm() {
+        let observer = makeObserver()
+        observer.apply(EditProfileUiStateError(message: "No user data available"))
+
+        #expect(observer.isLoading == false)
+        #expect(observer.loadError == "No user data available")
+
+        observer.apply(editedReady)
+        #expect(observer.loadError == nil)
+    }
+
     @Test func loadingKeepsTheObserverLoading() {
         let observer = makeObserver()
         observer.apply(EditProfileUiStateLoading.shared)

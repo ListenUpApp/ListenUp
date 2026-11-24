@@ -5,17 +5,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -27,7 +22,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.toCoverModel
-import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.features.library.BookCard
 import com.calypsan.listenup.client.presentation.genredestination.GenreDestinationUiState
@@ -35,9 +29,9 @@ import com.calypsan.listenup.client.presentation.genredestination.GenreDestinati
 import com.calypsan.listenup.core.GenreId
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.genre_no_books_in_genre
-import listenup.composeapp.generated.resources.common_back
 import listenup.composeapp.generated.resources.common_not_found
 import org.jetbrains.compose.resources.stringResource
+import com.calypsan.listenup.client.design.components.FloatingBackButton
 
 /**
  * Genre destination page — the standalone landing screen for a single genre, reached by tapping a
@@ -154,26 +148,5 @@ internal fun GenreDestinationContent(
                 )
             }
         }
-    }
-}
-
-/** Floating back button shown on the Loading / NotFound states (which have no hero of their own). */
-@Composable
-private fun FloatingBackButton(
-    onBackClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    IconButton(
-        onClick = onBackClick,
-        modifier =
-            modifier
-                .windowInsetsPadding(WindowInsets.statusBars)
-                .padding(8.dp),
-    ) {
-        Icon(
-            imageVector = ListenUpIcons.ArrowBackFilled,
-            contentDescription = stringResource(Res.string.common_back),
-            tint = MaterialTheme.colorScheme.onSurface,
-        )
     }
 }

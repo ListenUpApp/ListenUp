@@ -37,6 +37,9 @@ final class OrganizeSettingsObserver {
 
     // MARK: - Actions
 
+    /// Re-runs the load after it failed; the ViewModel ignores it in any other state.
+    func retry() { viewModel.retry() }
+
     func setPreset(_ preset: OrganizePreset) { notice = nil; viewModel.setPreset(preset: preset) }
     func setSeriesPrefix(_ prefix: OrganizeSeriesPrefix) { notice = nil; viewModel.setSeriesPrefix(prefix: prefix) }
     func setAuthorForm(_ form: OrganizeAuthorForm) { notice = nil; viewModel.setAuthorForm(form: form) }

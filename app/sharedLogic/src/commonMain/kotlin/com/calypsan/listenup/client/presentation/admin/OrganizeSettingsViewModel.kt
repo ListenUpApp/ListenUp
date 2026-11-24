@@ -53,6 +53,17 @@ class OrganizeSettingsViewModel(
     val events: Flow<OrganizeSettingsEvent> = eventChannel.receiveAsFlow()
 
     init {
+        loadSettings()
+    }
+
+    /** Re-runs the first load after it failed; a no-op in any other state, so nothing on screen is discarded. */
+    fun retry() {
+        if (state.value !is OrganizeSettingsUiState.Error) return
+        state.value = OrganizeSettingsUiState.Loading
+        loadSettings()
+    }
+
+    private fun loadSettings() {
         viewModelScope.launch {
             when (val result = repository.getSettings()) {
                 is AppResult.Success -> {

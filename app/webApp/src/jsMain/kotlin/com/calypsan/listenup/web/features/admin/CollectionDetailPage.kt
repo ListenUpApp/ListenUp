@@ -60,6 +60,7 @@ fun CollectionDetailPage(
     onShare: (String) -> Unit,
     onRevokeShare: (String) -> Unit,
     onClearError: () -> Unit,
+    onRetry: () -> Unit,
     onOpenCollections: () -> Unit,
     /**
      * A rename landed. The host says so and clears the ViewModel's flag — once per save, because
@@ -89,7 +90,9 @@ fun CollectionDetailPage(
             }
 
             is AdminCollectionDetailUiState.Error -> {
-                EmptyState(title = "This collection can't be shown", body = state.message)
+                EmptyState(title = "This collection can't be shown", body = state.message) {
+                    Button(kind = ButtonKind.Primary, onClick = { onRetry() }) { Text("Try again") }
+                }
             }
 
             is AdminCollectionDetailUiState.Ready -> {

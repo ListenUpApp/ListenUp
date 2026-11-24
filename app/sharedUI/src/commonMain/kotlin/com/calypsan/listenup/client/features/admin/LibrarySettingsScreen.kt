@@ -47,6 +47,7 @@ import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
 import com.calypsan.listenup.client.design.components.SectionGroup
 import com.calypsan.listenup.client.design.components.SettingRow
+import com.calypsan.listenup.client.design.components.LoadFailed
 import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.LibraryFolderRef
@@ -143,8 +144,9 @@ private fun LibrarySettingsBody(
         }
 
         is LibrarySettingsUiState.Error -> {
-            ErrorContent(
+            LoadFailed(
                 message = state.error.localized(),
+                onRetry = viewModel::retry,
                 modifier = Modifier.padding(innerPadding),
             )
         }
@@ -396,26 +398,5 @@ private fun FolderBrowserDialog(
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun ErrorContent(
-    message: String,
-    modifier: Modifier = Modifier,
-) {
-    Column(
-        modifier =
-            modifier
-                .fillMaxSize()
-                .padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
-        Text(
-            text = message,
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.error,
-        )
     }
 }

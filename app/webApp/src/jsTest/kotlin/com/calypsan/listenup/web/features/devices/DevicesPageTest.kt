@@ -11,6 +11,7 @@ import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
+import org.w3c.dom.HTMLButtonElement
 import org.w3c.dom.HTMLElement
 
 /** Two days back, so the relative time is stable to read. */
@@ -36,7 +37,8 @@ private fun device(
 private fun ready(
     vararg devices: DeviceRow,
     signingOut: Set<String> = emptySet(),
-) = DevicesUiState.Ready(devices = devices.toList(), signingOut = signingOut)
+    signingOutOthers: Boolean = false,
+) = DevicesUiState.Ready(devices = devices.toList(), signingOut = signingOut, signingOutOthers = signingOutOthers)
 
 /**
  * Devices, and mostly the one rule that matters: you cannot revoke yourself by accident.
@@ -172,7 +174,7 @@ class DevicesPageTest :
             var signedOut = 0
             val host =
                 mounts.mount {
-                    DevicesPage(ready(device("s1", "This Mac", isCurrent = true)), NOW_MS, {}, { signedOut++ }, {})
+                    DevicesPage(ready(device("s1", "This Mac", isCurrent = true), device("s2", "Pixel")), NOW_MS, {}, { signedOut++ }, {})
                 }
 
             val button = host.querySelector(".dev-danger button") as HTMLElement
@@ -190,7 +192,7 @@ class DevicesPageTest :
             var signedOut = 0
             val host =
                 mounts.mount {
-                    DevicesPage(ready(device("s1", "This Mac", isCurrent = true)), NOW_MS, {}, { signedOut++ }, {})
+                    DevicesPage(ready(device("s1", "This Mac", isCurrent = true), device("s2", "Pixel")), NOW_MS, {}, { signedOut++ }, {})
                 }
 
             (host.querySelector(".dev-danger button") as HTMLElement).click()
@@ -204,7 +206,7 @@ class DevicesPageTest :
             var signedOut = 0
             val host =
                 mounts.mount {
-                    DevicesPage(ready(device("s1", "This Mac", isCurrent = true)), NOW_MS, {}, { signedOut++ }, {})
+                    DevicesPage(ready(device("s1", "This Mac", isCurrent = true), device("s2", "Pixel")), NOW_MS, {}, { signedOut++ }, {})
                 }
 
             (host.querySelector(".dev-danger button") as HTMLElement).click()
@@ -213,6 +215,33 @@ class DevicesPageTest :
             awaitFrame()
 
             signedOut shouldBe 0
+            host.querySelector("dialog.dlg") shouldBe null
+        }
+
+        test("with no other device there is nothing to sign out of, so no button offers to") {
+            val host =
+                mounts.mount { DevicesPage(ready(device("s1", "This Mac", isCurrent = true)), NOW_MS, {}, {}, {}) }
+
+            host.querySelector(".dev-danger") shouldBe null
+        }
+
+        test("while the other devices are being signed out the button says so and cannot be pressed again") {
+            val host =
+                mounts.mount {
+                    DevicesPage(
+                        ready(device("s1", "This Mac", isCurrent = true), device("s2", "Pixel"), signingOutOthers = true),
+                        NOW_MS,
+                        {},
+                        {},
+                        {},
+                    )
+                }
+
+            val button = host.querySelector(".dev-danger button") as HTMLButtonElement
+            button.textContent.orEmpty() shouldContain "Signing out other devices"
+            button.disabled shouldBe true
+            button.click()
+            awaitFrame()
             host.querySelector("dialog.dlg") shouldBe null
         }
 

@@ -60,6 +60,13 @@ class AdminCategoriesViewModel(
         observeGenres()
     }
 
+    /** Re-runs the first load after it failed; a no-op in any other state, so nothing on screen is discarded. */
+    fun retry() {
+        if (state.value !is AdminCategoriesUiState.Error) return
+        state.value = AdminCategoriesUiState.Loading
+        observeGenres()
+    }
+
     /**
      * Observe genres from local database.
      * Live category updates return when this domain migrates to the renovated sync engine.

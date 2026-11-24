@@ -62,8 +62,13 @@ struct DevicesView: View {
             } actions: {
                 Button(String(localized: "common.retry")) { observer.retry() }
             }
-        case .ready(let devices, let signingOut):
-            readyBody(observer: observer, devices: devices, signingOut: signingOut)
+        case .ready(let devices, let signingOut, let signingOutOthers):
+            readyBody(
+                observer: observer,
+                devices: devices,
+                signingOut: signingOut,
+                signingOutOthers: signingOutOthers
+            )
         }
     }
 
@@ -73,7 +78,12 @@ struct DevicesView: View {
     /// Gestures ("Use shortcut gestures to supplement standard gestures, not replace them").
     /// On a wide iPad the list keeps a readable column (`readableListWidth`) rather than the old
     /// two-pane HStack, which went with the cards.
-    private func readyBody(observer: DevicesObserver, devices: [DeviceRowModel], signingOut: Set<String>) -> some View {
+    private func readyBody(
+        observer: DevicesObserver,
+        devices: [DeviceRowModel],
+        signingOut: Set<String>,
+        signingOutOthers: Bool
+    ) -> some View {
         let currentDevice = devices.first { $0.isCurrent }
         let otherDevices = devices.filter { !$0.isCurrent }
 
@@ -99,8 +109,16 @@ struct DevicesView: View {
                     Button(role: .destructive) {
                         showSignOutAllConfirmation = true
                     } label: {
-                        Label(String(localized: "devices.sign_out_all_others"), systemImage: "iphone.slash")
+                        if signingOutOthers {
+                            HStack {
+                                ProgressView()
+                                Text(String(localized: "devices.signing_out_others"))
+                            }
+                        } else {
+                            Label(String(localized: "devices.sign_out_all_others"), systemImage: "iphone.slash")
+                        }
                     }
+                    .disabled(signingOutOthers)
                 }
             } else if currentDevice != nil {
                 Section(String(localized: "devices.other_devices")) {

@@ -18,6 +18,7 @@ fun fixedCollections(
             onCreate = onCreate,
             onDelete = onDelete,
             onClearError = onClearError,
+            onRetry = {},
             onClearCreateSuccess = onClearCreateSuccess,
             close = {},
         )
@@ -56,6 +57,7 @@ fun fixedCollectionDetail(
             onShare = onShare,
             onRevokeShare = onRevokeShare,
             onClearError = onClearError,
+            onRetry = {},
             onClearSaveSuccess = onClearSaveSuccess,
             close = {},
         )

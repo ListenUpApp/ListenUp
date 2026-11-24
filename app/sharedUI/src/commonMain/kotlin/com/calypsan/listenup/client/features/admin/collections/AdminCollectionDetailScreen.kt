@@ -107,7 +107,6 @@ import listenup.composeapp.generated.resources.common_books_count
 import listenup.composeapp.generated.resources.common_loading_item
 import listenup.composeapp.generated.resources.common_members
 import listenup.composeapp.generated.resources.common_no_items
-import listenup.composeapp.generated.resources.common_not_found
 import listenup.composeapp.generated.resources.common_remove
 import listenup.composeapp.generated.resources.common_save_changes
 import listenup.composeapp.generated.resources.import_book_search_no_results
@@ -123,6 +122,7 @@ import com.calypsan.listenup.client.design.theme.HeroInk
 import com.calypsan.listenup.client.design.util.rememberUnsavedWorkGuard
 import androidx.compose.foundation.shape.CircleShape
 import com.calypsan.listenup.client.design.components.RestrictedBookMarker
+import com.calypsan.listenup.client.design.components.LoadFailed
 
 private const val HERO_BADGE_SIZE_DP = 64
 private const val HERO_BADGE_ICON_RATIO = 0.5f
@@ -198,6 +198,7 @@ fun AdminCollectionDetailScreen(
             onAddBooksClick = viewModel::openAddBooks,
             onAddMemberClick = viewModel::showAddMemberSheet,
             onRemoveMemberClick = { shareToRemove = it },
+            onRetry = viewModel::retry,
         )
     }
 
@@ -271,6 +272,7 @@ internal fun DetailBody(
     onAddBooksClick: () -> Unit,
     onAddMemberClick: () -> Unit,
     onRemoveMemberClick: (CollectionShareItem) -> Unit,
+    onRetry: () -> Unit,
 ) {
     when (state) {
         is AdminCollectionDetailUiState.Loading -> {
@@ -278,16 +280,7 @@ internal fun DetailBody(
         }
 
         is AdminCollectionDetailUiState.Error -> {
-            Box(
-                modifier = Modifier.fillMaxSize().padding(EMPTY_PANEL_PADDING_DP.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = stringResource(Res.string.common_not_found, "Collection"),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.error,
-                )
-            }
+            LoadFailed(message = state.message, onRetry = onRetry, modifier = Modifier.padding(innerPadding))
         }
 
         is AdminCollectionDetailUiState.Ready -> {

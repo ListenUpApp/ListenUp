@@ -43,6 +43,8 @@ final class AdminCollectionDetailObserver {
     func onBookQueryChange(_ query: String) { viewModel.onBookQueryChange(query: query) }
     func addBookFromSearch(bookId: String) { viewModel.addBookFromSearch(bookId: bookId) }
     func clearError() { viewModel.clearError() }
+    /// Re-runs the load after it failed; the ViewModel ignores it in any other state.
+    func retry() { viewModel.retry() }
     func clearSaveSuccess() { viewModel.clearSaveSuccess() }
 
     // MARK: - State mapping

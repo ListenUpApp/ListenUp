@@ -375,6 +375,7 @@ private fun InviteRow(
 internal fun PasswordResetRow(
     request: PasswordResetRequest,
     isDeciding: Boolean,
+    isLocked: Boolean,
     onApproveClick: () -> Unit,
     onDenyClick: () -> Unit,
 ) {
@@ -401,6 +402,7 @@ internal fun PasswordResetRow(
                         haptics.press()
                         onDenyClick()
                     },
+                    enabled = !isLocked,
                 ) {
                     Icon(
                         imageVector = ListenUpIcons.Close,
@@ -413,6 +415,7 @@ internal fun PasswordResetRow(
                         haptics.press()
                         onApproveClick()
                     },
+                    enabled = !isLocked,
                 ) {
                     Icon(
                         imageVector = ListenUpIcons.Check,

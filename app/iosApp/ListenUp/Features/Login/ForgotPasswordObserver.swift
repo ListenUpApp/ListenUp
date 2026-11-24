@@ -11,7 +11,7 @@ enum ForgotPasswordPhase: Equatable {
     case awaitingApproval(ticketId: String)
     /// Approved — collecting the out-of-band code plus the new password. `error` is the
     /// wrong-code feedback the ViewModel retained; `attemptsRemaining` its budget, when known.
-    case enterCode(attemptsRemaining: Int?, error: String?)
+    case enterCode(attemptsRemaining: Int?, error: String?, isCompleting: Bool)
     case denied
     case complete
     case error(message: String)
@@ -69,7 +69,8 @@ final class ForgotPasswordObserver {
             let enterCode = enterCodeType.value
             phase = .enterCode(
                 attemptsRemaining: enterCode.attemptsRemaining.map { Int($0) },
-                error: enterCode.error
+                error: enterCode.error,
+                isCompleting: enterCode.isCompleting
             )
         case .denied:
             phase = .denied

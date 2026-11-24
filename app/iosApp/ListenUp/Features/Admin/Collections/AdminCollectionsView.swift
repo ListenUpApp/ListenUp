@@ -135,16 +135,7 @@ struct AdminCollectionsView: View {
 
     @ViewBuilder
     private func errorBody(message: String, observer: AdminCollectionsObserver) -> some View {
-        VStack(spacing: 16) {
-            Image(systemName: "exclamationmark.triangle")
-                .font(.largeTitle)
-                .foregroundStyle(.secondary)
-            Text(message)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-        }
-        .padding()
+        LoadFailedView(message: message) { observer.retry() }
     }
 
     @ViewBuilder

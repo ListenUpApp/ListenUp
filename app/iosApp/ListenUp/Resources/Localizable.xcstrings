@@ -13410,6 +13410,17 @@
         }
       }
     },
+    "devices.signing_out_others": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Signing out other devices…"
+          }
+        }
+      }
+    },
     "devices.this_device": {
       "extractionState": "manual",
       "localizations": {

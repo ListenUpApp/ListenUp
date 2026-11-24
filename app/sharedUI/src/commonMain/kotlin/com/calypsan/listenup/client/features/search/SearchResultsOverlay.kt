@@ -108,6 +108,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import listenup.composeapp.generated.resources.search_see_all_group_a11y
+import com.calypsan.listenup.client.design.components.LoadFailed
 
 // Stable lazy-list item keys, shared across the compact list, the wide rail, and the See-all page
 // so a single hit keeps the same identity wherever it renders.
@@ -157,6 +158,7 @@ fun SearchResultsOverlay(
     onResultClick: (SearchHit) -> Unit,
     onTypeFilterToggle: (SearchHitType) -> Unit,
     onClearTypeFilters: () -> Unit,
+    onRetry: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     // Which single-type "See all" page is open, if any. Owned here (not a nav-stack entry) so the
@@ -222,10 +224,7 @@ fun SearchResultsOverlay(
                         }
 
                         is SearchUiState.Error -> {
-                            ErrorState(
-                                message = state.message,
-                                modifier = Modifier.weight(1f),
-                            )
+                            LoadFailed(message = state.message, onRetry = onRetry, modifier = Modifier.weight(1f))
                         }
 
                         is SearchUiState.Results -> {
@@ -767,7 +766,7 @@ private fun SearchSeeAllPage(
                 }
 
                 is SeeAllSearchUiState.Error -> {
-                    ErrorState(message = current.message, modifier = Modifier.weight(1f))
+                    LoadFailed(message = current.message, onRetry = viewModel::retry, modifier = Modifier.weight(1f))
                 }
 
                 is SeeAllSearchUiState.Results -> {
@@ -1117,21 +1116,4 @@ private fun TooShortState(modifier: Modifier = Modifier) {
         modifier = modifier,
         icon = ListenUpIcons.SearchFilled,
     )
-}
-
-@Composable
-private fun ErrorState(
-    message: String,
-    modifier: Modifier = Modifier,
-) {
-    Box(
-        modifier = modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            text = message,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.error,
-        )
-    }
 }

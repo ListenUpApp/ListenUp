@@ -75,6 +75,7 @@ private fun SeeAllRoute(
         openableTypes = SEARCH_OPENABLE_TYPES,
         onOpenHit = session.onOpenHit,
         onOpenSearch = { router.navigate(Routes.searchFor(query)) },
+        onRetry = session.onRetry,
     )
 }
 

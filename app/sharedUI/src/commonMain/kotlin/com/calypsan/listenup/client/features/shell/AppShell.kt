@@ -368,6 +368,7 @@ fun AppShell(
                 onClearTypeFilters = {
                     searchViewModel.clearTypeFilters()
                 },
+                onRetry = searchViewModel::retry,
                 // The keyboard is up whenever this is: lift the results above it. The scaffold's
                 // padding already clears the bottom bar, so only the rest of the keyboard is added.
                 modifier =
@@ -440,6 +441,7 @@ private fun SearchResultsOverlayHost(
     onResultClick: (SearchHit) -> Unit,
     onTypeFilterToggle: (SearchHitType) -> Unit,
     onClearTypeFilters: () -> Unit,
+    onRetry: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     SearchResultsOverlay(
@@ -449,6 +451,7 @@ private fun SearchResultsOverlayHost(
         onResultClick = onResultClick,
         onTypeFilterToggle = onTypeFilterToggle,
         onClearTypeFilters = onClearTypeFilters,
+        onRetry = onRetry,
         modifier = modifier,
     )
 }

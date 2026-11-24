@@ -40,6 +40,7 @@ import com.calypsan.listenup.client.design.components.SaveAction
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import com.calypsan.listenup.client.design.components.SectionGroup
 import com.calypsan.listenup.client.design.components.SectionSegment
+import com.calypsan.listenup.client.design.components.LoadFailed
 import com.calypsan.listenup.client.design.icons.ListenUpIcons
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.presentation.admin.OrganizeRunProgress
@@ -141,10 +142,10 @@ fun OrganizeSettingsScreen(
             }
 
             is OrganizeSettingsUiState.Error -> {
-                Text(
-                    text = current.error.localized(),
-                    style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.padding(innerPadding).padding(Spacing.xl),
+                LoadFailed(
+                    message = current.error.localized(),
+                    onRetry = viewModel::retry,
+                    modifier = Modifier.padding(innerPadding),
                 )
             }
 

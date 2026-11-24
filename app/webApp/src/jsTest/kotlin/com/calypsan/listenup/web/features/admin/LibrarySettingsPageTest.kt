@@ -99,6 +99,7 @@ class LibrarySettingsPageTest :
                     onOpenBrowserPath,
                     onBrowserUp,
                     onClearError,
+                    {},
                     onOpenAdmin,
                 )
             }

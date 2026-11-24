@@ -49,6 +49,8 @@ private class FakePasswordResetRepository(
         private set
     var abandonCallCount = 0
         private set
+    var completeResetCallCount = 0
+        private set
 
     /** Every address the ViewModel asked for, in order — so a re-ask can be told from a first ask. */
     val requestedEmails = mutableListOf<String>()
@@ -76,6 +78,7 @@ private class FakePasswordResetRepository(
         code: String,
         newPassword: String,
     ): AppResult<Unit> {
+        completeResetCallCount++
         if (completeResetDelayMs > 0) delay(completeResetDelayMs)
         return completeResetResult
     }
@@ -370,6 +373,40 @@ class ForgotPasswordViewModelTest :
                     advanceUntilIdle()
 
                     val enterCode = vm.state.value.shouldBeInstanceOf<ForgotPasswordUiState.EnterCode>()
+                    enterCode.attemptsRemaining shouldBe 2
+                } finally {
+                    vm.close()
+                }
+            }
+        }
+
+        test("Set new password cannot be sent twice, and says it is working until the answer lands") {
+            runTest {
+                Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+                val repo =
+                    FakePasswordResetRepository(
+                        resumable = "t-1",
+                        streamFactory = {
+                            flowOf(PasswordResetStatusEvent(status = PasswordResetStatus.APPROVED, expiresAt = 1L))
+                        },
+                        completeResetResult = AppResult.Failure(AuthError.ResetCodeIncorrect(attemptsRemaining = 2)),
+                        completeResetDelayMs = 1_000L,
+                    )
+                val vm = viewModel(repo)
+                try {
+                    advanceUntilIdle()
+
+                    vm.completeReset("WRNG-CODE", "correct horse battery")
+                    vm.completeReset("WRNG-CODE", "correct horse battery")
+                    runCurrent()
+                    vm.state.value
+                        .shouldBeInstanceOf<ForgotPasswordUiState.EnterCode>()
+                        .isCompleting shouldBe true
+
+                    advanceUntilIdle()
+                    repo.completeResetCallCount shouldBe 1
+                    val enterCode = vm.state.value.shouldBeInstanceOf<ForgotPasswordUiState.EnterCode>()
+                    enterCode.isCompleting shouldBe false
                     enterCode.attemptsRemaining shouldBe 2
                 } finally {
                     vm.close()

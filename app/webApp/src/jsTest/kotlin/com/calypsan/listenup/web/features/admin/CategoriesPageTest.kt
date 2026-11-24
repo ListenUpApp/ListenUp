@@ -95,6 +95,7 @@ private fun page(
             onMove = onMove,
             onMerge = onMerge,
             onClearError = onClearError,
+            onRetry = {},
             onOpenAdmin = onOpenAdmin,
             mergeHistory = mergeHistory,
             mergeHistoryActions = mergeHistoryActions,
