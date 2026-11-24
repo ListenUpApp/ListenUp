@@ -29,8 +29,7 @@ extension PlayerCoordinator {
     /// metadata is replaced synchronously, so a switch never leaks the old book's audio or chapters.
     private func load(bookId: String, prepared: PreparedPlayback) {
         pauseCause = nil
-        loadTask?.cancel()
-        loadGeneration &+= 1
+        supersedeLoad()
         let generation = loadGeneration
         // Gate engine events for the whole switch→load window (see `isEngineLoading`).
         isEngineLoading = true
@@ -230,6 +229,13 @@ extension PlayerCoordinator {
         facts.unloaded(generation: factGeneration)
     }
 
+    /// Abandon any in-flight load: `Task.cancel()` alone does not interrupt its awaits, so bump the epoch and it
+    /// bails at its next `isSuperseded` check instead of resurrecting playback.
+    func supersedeLoad() {
+        loadTask?.cancel()
+        loadGeneration &+= 1
+    }
+
     /// The `.stop` instruction's body. The shared player already knows (it issued the stop), so this
     /// reports nothing back: an `unloaded` fact here could land after the next book's load and drop it.
     private func stopEngine() async {
@@ -238,10 +244,7 @@ extension PlayerCoordinator {
         let place = isEngineLoading
             ? nil : engineBook.map { (bookId: $0.bookId, positionMs: bookPositionMs, durationMs: $0.durationMs) }
         if let place, isPlaybackActive { reportPaused(place.bookId) }
-        // Supersede any in-flight load: `Task.cancel()` alone does not interrupt its awaits, so bump
-        // the epoch and it bails at its next `isSuperseded` check instead of resurrecting playback.
-        loadTask?.cancel()
-        loadGeneration &+= 1
+        supersedeLoad()
         isEngineLoading = false
         engineBook = nil
         // Return to idle so the didSet releases the download-yield signal.

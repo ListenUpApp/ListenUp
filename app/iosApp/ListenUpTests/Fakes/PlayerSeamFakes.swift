@@ -121,6 +121,15 @@ actor FakePlaybackEngine: PlaybackEngine {
     /// engine reusable — mirrors `AudioEngine.unload()`.
     func unload() async { didUnload = true; teardownOrder.append("unload"); gate.fire("unload") }
 
+    /// How many times the engine was told the system's media services restarted and its player is dead.
+    private(set) var rebuildCount = 0
+    func rebuildAfterMediaServicesReset() async {
+        rebuildCount += 1; commandLog.append("rebuild"); gate.fire("rebuild-\(rebuildCount)")
+    }
+
+    /// Suspend until the engine has been rebuilt for the `count`-th time. Keyed, like `waitForPlayCount`.
+    func waitForRebuildCount(_ count: Int) async { await gate.wait(forKey: "rebuild-\(count)") }
+
     /// Suspend until `unload()` has executed.
     func waitUntilUnloaded() async { await gate.wait(forKey: "unload") }
 
@@ -242,6 +251,11 @@ final class FakeProgressReporting: PlaybackProgressReporting {
     /// needs `isPlaying == true` should `await awaitObservation { coordinator.isPlaying }` after this.
     func waitForStarted(bookId: String) async {
         await gate.wait { [weak self] in self?.startedCalls.contains { $0.0 == bookId } ?? false }
+    }
+
+    /// Suspend until an immediate save for `bookId` has been recorded.
+    func waitForSaveNow(bookId: String) async {
+        await gate.wait { [weak self] in self?.savedNow.contains { $0.0 == bookId } ?? false }
     }
 
     /// Suspend until a position update for `bookId` at `positionMs` has been recorded.

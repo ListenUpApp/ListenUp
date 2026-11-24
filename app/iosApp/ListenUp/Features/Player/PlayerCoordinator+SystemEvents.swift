@@ -18,6 +18,15 @@ enum AudioSessionEvent: Sendable {
     /// Every route change may move the AirPlay device the status slot names; `lostOutput` says the device the book
     /// was playing on went away.
     case routeChanged(lostOutput: Bool)
+    /// The system restarted its media services: every audio object the app held is dead.
+    case mediaServicesReset
+
+    /// Every notification name `init?(_:)` reads.
+    static let observedNames = [
+        AVAudioSession.interruptionNotification,
+        AVAudioSession.routeChangeNotification,
+        AVAudioSession.mediaServicesWereResetNotification
+    ]
 
     init?(_ note: Notification) {
         switch note.name {
@@ -31,6 +40,8 @@ enum AudioSessionEvent: Sendable {
             let reason = (note.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt)
                 .flatMap(AVAudioSession.RouteChangeReason.init(rawValue:))
             self = .routeChanged(lostOutput: reason.map(RouteChangePolicy.shouldPause(reason:)) ?? false)
+        case AVAudioSession.mediaServicesWereResetNotification:
+            self = .mediaServicesReset
         default:
             return nil
         }
@@ -47,7 +58,7 @@ extension PlayerCoordinator {
         let center = notificationCenter
         let (events, sink) = AsyncStream<AudioSessionEvent>.makeStream(bufferingPolicy: .unbounded)
         // `queue: nil` runs each block on the posting thread as the post happens, so the yields keep the posts' order.
-        let observers = [AVAudioSession.interruptionNotification, AVAudioSession.routeChangeNotification].map { name in
+        let observers = AudioSessionEvent.observedNames.map { name in
             center.addObserver(forName: name, object: nil, queue: nil) { note in
                 if let event = AudioSessionEvent(note) { sink.yield(event) }
             }
@@ -67,6 +78,8 @@ extension PlayerCoordinator {
             let outputs = AVAudioSession.sharedInstance().currentRoute.outputs
             facts.route(outputs.first { $0.portType == .airPlay }?.portName)
             if lostOutput { steps.yield(.routeLost) }
+        case .mediaServicesReset:
+            steps.yield(.mediaServicesReset)
         }
     }
 
