@@ -137,7 +137,7 @@ internal fun HardcoverKeptOffContent(
                 verticalArrangement = Arrangement.spacedBy(2.dp),
                 horizontalArrangement = Arrangement.spacedBy(Spacing.md),
             ) {
-                item(span = { GridItemSpan(maxLineSpan) }) {
+                item(key = "intro", span = { GridItemSpan(maxLineSpan) }, contentType = "intro") {
                     Text(
                         text = stringResource(Res.string.hardcover_kept_off_intro),
                         style = MaterialTheme.typography.bodyMedium,
@@ -145,7 +145,11 @@ internal fun HardcoverKeptOffContent(
                         modifier = Modifier.padding(start = Spacing.xs, end = Spacing.xs, bottom = Spacing.md),
                     )
                 }
-                items(state.books, key = { it.bookId }) { book ->
+                items(
+                    items = state.books,
+                    key = { it.bookId },
+                    contentType = { "book" },
+                ) { book ->
                     KeptOffBookRow(
                         book = book,
                         onSyncAgain = { onSyncAgain(book.bookId) },

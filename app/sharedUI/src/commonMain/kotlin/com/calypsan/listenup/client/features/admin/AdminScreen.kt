@@ -342,7 +342,7 @@ internal fun AdminContent(
             verticalArrangement = Arrangement.spacedBy(Spacing.sectionGap),
             contentPadding = PaddingValues(top = 24.dp),
         ) {
-            item(key = AdminItem.SERVER_SETTINGS) {
+            item(key = AdminItem.SERVER_SETTINGS, contentType = AdminItem.SERVER_SETTINGS) {
                 ServerSettingsSection(
                     state = state,
                     serverName = serverName,
@@ -358,19 +358,19 @@ internal fun AdminContent(
                 )
             }
 
-            item(key = AdminItem.RATING_SOURCES) {
+            item(key = AdminItem.RATING_SOURCES, contentType = AdminItem.RATING_SOURCES) {
                 RatingSourcesGroup(
                     sources = ratingSources,
                     onSourceEnabledChange = onRatingSourceEnabledChange,
                 )
             }
 
-            item(key = AdminItem.STORE_REGION) {
+            item(key = AdminItem.STORE_REGION, contentType = AdminItem.STORE_REGION) {
                 StoreRegionGroup(region = metadataRegion, onRegionChange = onMetadataRegionChange)
             }
 
             hardcoverSource?.let { source ->
-                item(key = AdminItem.HARDCOVER) {
+                item(key = AdminItem.HARDCOVER, contentType = AdminItem.HARDCOVER) {
                     HardcoverSourceGroup(status = source, tokenSave = hardcoverTokenSave, actions = hardcoverActions)
                 }
             }
@@ -388,7 +388,7 @@ internal fun AdminContent(
                 onInviteClick = onInviteClick,
             )
 
-            item {
+            item(key = AdminItem.MANAGEMENT, contentType = AdminItem.MANAGEMENT) {
                 ManagementSection(
                     onInviteClick = onInviteClick,
                     onCollectionsClick = onCollectionsClick,
@@ -457,7 +457,7 @@ private fun AdminTwoPaneContent(
             verticalArrangement = Arrangement.spacedBy(Spacing.sectionGap),
             contentPadding = PaddingValues(top = 24.dp),
         ) {
-            item(key = AdminItem.SERVER_SETTINGS) {
+            item(key = AdminItem.SERVER_SETTINGS, contentType = AdminItem.SERVER_SETTINGS) {
                 ServerSettingsSection(
                     state = state,
                     serverName = serverName,
@@ -473,19 +473,19 @@ private fun AdminTwoPaneContent(
                 )
             }
 
-            item(key = AdminItem.RATING_SOURCES) {
+            item(key = AdminItem.RATING_SOURCES, contentType = AdminItem.RATING_SOURCES) {
                 RatingSourcesGroup(
                     sources = ratingSources,
                     onSourceEnabledChange = onRatingSourceEnabledChange,
                 )
             }
 
-            item(key = AdminItem.STORE_REGION) {
+            item(key = AdminItem.STORE_REGION, contentType = AdminItem.STORE_REGION) {
                 StoreRegionGroup(region = metadataRegion, onRegionChange = onMetadataRegionChange)
             }
 
             hardcoverSource?.let { source ->
-                item(key = AdminItem.HARDCOVER) {
+                item(key = AdminItem.HARDCOVER, contentType = AdminItem.HARDCOVER) {
                     HardcoverSourceGroup(status = source, tokenSave = hardcoverTokenSave, actions = hardcoverActions)
                 }
             }
@@ -509,7 +509,7 @@ private fun AdminTwoPaneContent(
             verticalArrangement = Arrangement.spacedBy(Spacing.sectionGap),
             contentPadding = PaddingValues(top = 24.dp),
         ) {
-            item {
+            item(key = AdminItem.MANAGEMENT, contentType = AdminItem.MANAGEMENT) {
                 ManagementSection(
                     onInviteClick = onInviteClick,
                     onCollectionsClick = onCollectionsClick,
@@ -540,6 +540,7 @@ private object AdminItem {
     const val PENDING_REGISTRATIONS = "pending-registrations"
     const val PENDING_INVITES = "pending-invites"
     const val PASSWORD_RESETS = "password-resets"
+    const val MANAGEMENT = "management"
 }
 
 /** The settings groups always above Users: server settings, rating sources and the store region. */
@@ -579,7 +580,7 @@ private fun LazyListScope.usersSection(
     onDenyPasswordResetClick: (PasswordResetRequest) -> Unit,
     onInviteClick: () -> Unit,
 ) {
-    item(key = AdminItem.USERS) {
+    item(key = AdminItem.USERS, contentType = AdminItem.USERS) {
         UsersGroup(
             state = state,
             onUserClick = onUserClick,
@@ -589,7 +590,7 @@ private fun LazyListScope.usersSection(
     }
 
     if (state.registrationPolicy == RegistrationPolicy.APPROVAL_QUEUE) {
-        item(key = AdminItem.PENDING_REGISTRATIONS) {
+        item(key = AdminItem.PENDING_REGISTRATIONS, contentType = AdminItem.PENDING_REGISTRATIONS) {
             PendingRegistrationsGroup(
                 state = state,
                 onApproveUserClick = onApproveUserClick,
@@ -599,7 +600,7 @@ private fun LazyListScope.usersSection(
     }
 
     if (state.pendingInvites.isNotEmpty()) {
-        item(key = AdminItem.PENDING_INVITES) {
+        item(key = AdminItem.PENDING_INVITES, contentType = AdminItem.PENDING_INVITES) {
             PendingInvitesGroup(
                 state = state,
                 onCopyInviteClick = onCopyInviteClick,
@@ -612,7 +613,7 @@ private fun LazyListScope.usersSection(
     // relocates this into a rewritten people-management surface. Always visible (not gated
     // on emptiness like PendingInvitesGroup) so an admin knows where to look even when the
     // queue is empty.
-    item(key = AdminItem.PASSWORD_RESETS) {
+    item(key = AdminItem.PASSWORD_RESETS, contentType = AdminItem.PASSWORD_RESETS) {
         PasswordResetsGroup(
             state = state,
             onApproveClick = onApprovePasswordResetClick,

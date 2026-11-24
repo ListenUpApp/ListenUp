@@ -170,28 +170,28 @@ internal fun UserDetailContent(
                     .padding(horizontal = Spacing.screenMargin),
         ) {
             // User info section
-            item {
+            item(key = "info-heading", contentType = "section-heading") {
                 SectionHeading(
                     text = stringResource(Res.string.common_entity_information, "User"),
                     modifier = Modifier.padding(top = 8.dp),
                 )
             }
 
-            item {
+            item(key = "info-card", contentType = "user-info") {
                 UserInfoCard(user = state.user)
             }
 
             // Permissions section
-            item {
+            item(key = "permissions-heading", contentType = "section-heading") {
                 Spacer(modifier = Modifier.height(Spacing.xl))
                 SectionHeading(stringResource(Res.string.common_permissions))
             }
 
-            item {
+            item(key = "access-row", contentType = "access-row") {
                 AccessRow(state = state, onClick = onPermissionsClick)
             }
 
-            item {
+            item(key = "bottom-spacer", contentType = "spacer") {
                 Spacer(modifier = Modifier.height(16.dp))
             }
         }

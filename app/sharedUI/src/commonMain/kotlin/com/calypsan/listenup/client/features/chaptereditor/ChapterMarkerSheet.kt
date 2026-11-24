@@ -234,7 +234,11 @@ private fun MarkerStartPicker(
 
     Column(modifier.fillMaxWidth().padding(top = Spacing.sm)) {
         LazyColumn(modifier = Modifier.weight(1f, fill = false)) {
-            items(targets, key = { it.id }) { chapter ->
+            items(
+                items = targets,
+                key = { it.id },
+                contentType = { "chapter" },
+            ) { chapter ->
                 Row(
                     Modifier
                         .fillMaxWidth()

@@ -199,7 +199,7 @@ private fun DevicesPhoneLayout(
         contentPadding = PaddingValues(bottom = 32.dp),
     ) {
         // Hero — primaryContainer block with rounded bottom corners
-        item {
+        item(key = "hero", contentType = "hero") {
             DevicesHero(
                 totalCount = state.devices.size,
                 currentDevice = currentDevice,
@@ -209,7 +209,7 @@ private fun DevicesPhoneLayout(
         }
 
         // Other Devices section
-        item {
+        item(key = ITEM_OTHER_DEVICES, contentType = ITEM_OTHER_DEVICES) {
             Spacer(modifier = Modifier.height(22.dp))
             Column(modifier = Modifier.padding(horizontal = Spacing.lg)) {
                 DevicesOtherSection(
@@ -287,7 +287,7 @@ private fun DevicesWideLayout(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(0.dp),
             ) {
-                item {
+                item(key = ITEM_OTHER_DEVICES, contentType = ITEM_OTHER_DEVICES) {
                     DevicesOtherSection(
                         otherDevices = otherDevices,
                         signingOut = state.signingOut,
@@ -301,6 +301,8 @@ private fun DevicesWideLayout(
         }
     }
 }
+
+private const val ITEM_OTHER_DEVICES = "other-devices"
 
 // ─────────────────────────── Hero blocks ─────────────────────────────
 

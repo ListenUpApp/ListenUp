@@ -56,7 +56,11 @@ internal fun LazyGridScope.scanIssueItems(
 ) {
     if (issues.isEmpty()) return
 
-    item(span = { GridItemSpan(maxLineSpan) }) {
+    item(
+        key = "scan-issues-header",
+        span = { GridItemSpan(maxLineSpan) },
+        contentType = "header",
+    ) {
         Column(modifier = Modifier.padding(bottom = 8.dp)) {
             Text(
                 text = stringResource(Res.string.admin_inbox_needs_attention),
@@ -74,7 +78,11 @@ internal fun LazyGridScope.scanIssueItems(
     }
 
     issues.forEach { issue ->
-        item(key = "scan-issue-${issue.id}", span = { GridItemSpan(maxLineSpan) }) {
+        item(
+            key = "scan-issue-${issue.id}",
+            span = { GridItemSpan(maxLineSpan) },
+            contentType = "scan-issue",
+        ) {
             ScanIssueCard(issue = issue, onDismiss = { onDismiss(issue.id) })
         }
     }

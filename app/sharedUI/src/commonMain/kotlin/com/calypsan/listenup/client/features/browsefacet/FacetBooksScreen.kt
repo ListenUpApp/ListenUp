@@ -142,7 +142,7 @@ private fun FacetBooksContent(
         horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        item(span = { GridItemSpan(maxLineSpan) }) {
+        item(key = "hero", span = { GridItemSpan(maxLineSpan) }, contentType = "hero") {
             FacetHero(
                 kind = state.kind,
                 facetName = state.facetName,
@@ -152,12 +152,12 @@ private fun FacetBooksContent(
             )
         }
 
-        item(span = { GridItemSpan(maxLineSpan) }) {
+        item(key = "header", span = { GridItemSpan(maxLineSpan) }, contentType = "header") {
             FacetSectionHeader(bookCount = state.bookCount, modifier = Modifier.padding(bottom = 12.dp))
         }
 
         if (state.books.isEmpty()) {
-            item(span = { GridItemSpan(maxLineSpan) }) {
+            item(key = "empty", span = { GridItemSpan(maxLineSpan) }, contentType = "empty") {
                 EmptyFacetMessage(
                     message =
                         when (state.kind) {
@@ -170,6 +170,7 @@ private fun FacetBooksContent(
             items(
                 items = state.books,
                 key = { it.id.value },
+                contentType = { "book" },
             ) { book ->
                 BookCard(
                     cover = book.toCoverModel(),

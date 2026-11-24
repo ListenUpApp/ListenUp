@@ -285,7 +285,7 @@ private fun MoveGenreDialog(
         onDismiss = onDismiss,
     ) {
         LazyColumn(modifier = Modifier.fillMaxWidth()) {
-            item(key = "__top_level__") {
+            item(key = "__top_level__", contentType = "top-level") {
                 Row(
                     modifier =
                         Modifier
@@ -302,7 +302,7 @@ private fun MoveGenreDialog(
                 }
             }
             if (candidates.isEmpty()) {
-                item(key = "__no_candidates__") {
+                item(key = "__no_candidates__", contentType = "empty") {
                     Text(
                         text = stringResource(Res.string.admin_no_move_target_top_level_only),
                         style = MaterialTheme.typography.bodySmall,
@@ -311,7 +311,11 @@ private fun MoveGenreDialog(
                     )
                 }
             }
-            items(candidates, key = { it.id }) { candidate ->
+            items(
+                items = candidates,
+                key = { it.id },
+                contentType = { "candidate" },
+            ) { candidate ->
                 Row(
                     modifier =
                         Modifier

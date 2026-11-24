@@ -114,7 +114,11 @@ internal fun MyShelvesContent(
                             verticalArrangement = Arrangement.spacedBy(Spacing.lg),
                             modifier = Modifier.fillMaxSize(),
                         ) {
-                            items(state.shelves, key = { it.idString }) { shelf ->
+                            items(
+                                items = state.shelves,
+                                key = { it.idString },
+                                contentType = { "shelf" },
+                            ) { shelf ->
                                 ShelfTile(
                                     shelf = shelf,
                                     onOpen = { onOpenShelf(shelf.idString) },

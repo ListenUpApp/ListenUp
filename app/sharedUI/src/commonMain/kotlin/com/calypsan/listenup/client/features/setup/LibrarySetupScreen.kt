@@ -510,7 +510,11 @@ private fun FolderList(
                         verticalArrangement = Arrangement.spacedBy(2.dp),
                         contentPadding = PaddingValues(bottom = listBottomPadding),
                     ) {
-                        items(items = frame.directories, key = { it.path }) { entry ->
+                        items(
+                            items = frame.directories,
+                            key = { it.path },
+                            contentType = { "directory" },
+                        ) { entry ->
                             FolderRow(
                                 entry = entry,
                                 selected = entry.path in selectedPaths,

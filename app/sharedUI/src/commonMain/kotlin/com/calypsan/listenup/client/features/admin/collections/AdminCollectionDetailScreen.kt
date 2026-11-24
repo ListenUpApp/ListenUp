@@ -329,10 +329,10 @@ private fun NarrowDetailContent(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = innerPadding.calculateBottomPadding()),
     ) {
-        item {
+        item(key = "hero", contentType = "hero") {
             DetailHero(state = state, onBackClick = onBackClick)
         }
-        item {
+        item(key = "content", contentType = "content") {
             Column(modifier = Modifier.padding(horizontal = Spacing.lg, vertical = SECTION_SPACING_DP.dp)) {
                 NameSection(state = state, onNameChange = onNameChange, onSaveClick = onSaveClick)
                 Spacer(modifier = Modifier.height(SECTION_SPACING_DP.dp))
@@ -596,7 +596,11 @@ private fun BooksSection(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    items(items = state.books, key = { it.id }) { book ->
+                    items(
+                        items = state.books,
+                        key = { it.id },
+                        contentType = { "book" },
+                    ) { book ->
                         BookCoverTile(
                             book = book,
                             isRemoving = state.removingBookId == book.id,
@@ -928,7 +932,11 @@ private fun AddBooksToCollectionSheet(
             )
         }
         LazyColumn(modifier = Modifier.weight(1f, fill = false)) {
-            items(items = results, key = { it.id }) { hit ->
+            items(
+                items = results,
+                key = { it.id },
+                contentType = { "search-hit" },
+            ) { hit ->
                 ListItem(
                     headlineContent = { Text(hit.name) },
                     supportingContent = hit.author?.let { author -> { Text(author) } },

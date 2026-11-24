@@ -82,7 +82,7 @@ internal fun LazyGridScope.seriesBookList(
     gutter: Dp,
     sticky: StickyHeadings,
 ) {
-    item(key = "books-header", span = { GridItemSpan(maxLineSpan) }) {
+    item(key = "books-header", span = { GridItemSpan(maxLineSpan) }, contentType = "books-header") {
         BooksHeader(
             isGrouped = state.isGrouped,
             count = state.books.size,
@@ -102,7 +102,7 @@ internal fun LazyGridScope.seriesBookList(
         return
     }
     state.bookSections.forEach { section ->
-        stickyHeader(key = HEADING_KEY_PREFIX + section.key) { index ->
+        stickyHeader(key = HEADING_KEY_PREFIX + section.key, contentType = "section-heading") { index ->
             StickyHeadingSurface(sticky = sticky, index = index) {
                 SeriesSectionHeading(
                     section = section,
@@ -113,7 +113,11 @@ internal fun LazyGridScope.seriesBookList(
             }
         }
         if (section.isCollapsed) {
-            item(key = "show-all:${section.key}", span = { GridItemSpan(maxLineSpan) }) {
+            item(
+                key = "show-all:${section.key}",
+                span = { GridItemSpan(maxLineSpan) },
+                contentType = "show-all",
+            ) {
                 ShowAllButton(
                     count = section.bookCount,
                     onClick = { actions.onToggleSection(section.seriesId) },
@@ -207,7 +211,11 @@ private fun LazyGridScope.bookItems(
     actions: SeriesBookListActions,
     gutter: Dp,
 ) {
-    itemsIndexed(books, key = { _, book -> "$keyPrefix/${book.id.value}" }) { index, book ->
+    itemsIndexed(
+        items = books,
+        key = { _, book -> "$keyPrefix/${book.id.value}" },
+        contentType = { _, _ -> layout },
+    ) { index, book ->
         // A grouped book's number is its place in the group's own series, not in the page's.
         val sequence =
             if (sectionSeriesId == null) {

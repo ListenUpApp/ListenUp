@@ -240,7 +240,11 @@ fun ScanCoversMarquee(
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         userScrollEnabled = false,
     ) {
-        items(items = books, key = { "${it.title}\u0000${it.author}" }) { book ->
+        items(
+            items = books,
+            key = { "${it.title}\u0000${it.author}" },
+            contentType = { "book" },
+        ) { book ->
             BookCoverFallback(
                 title = book.title,
                 author = book.author,

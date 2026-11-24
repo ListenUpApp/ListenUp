@@ -139,7 +139,11 @@ internal fun NotificationList(
             horizontalArrangement = Arrangement.spacedBy(Spacing.itemGap),
             verticalArrangement = Arrangement.spacedBy(Spacing.itemGap),
         ) {
-            items(notifications, key = { it.id }) { notification ->
+            items(
+                items = notifications,
+                key = { it.id },
+                contentType = { "notification" },
+            ) { notification ->
                 NotificationRow(
                     notification = notification,
                     onClick = { onNotificationClick(notification) },
@@ -152,7 +156,11 @@ internal fun NotificationList(
             contentPadding = PaddingValues(horizontal = Spacing.screenMargin, vertical = Spacing.sm),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            items(notifications, key = { it.id }) { notification ->
+            items(
+                items = notifications,
+                key = { it.id },
+                contentType = { "notification" },
+            ) { notification ->
                 NotificationRow(
                     notification = notification,
                     onClick = { onNotificationClick(notification) },

@@ -120,23 +120,28 @@ internal fun FindPane(
                 ),
             verticalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {
-            item(key = "search") {
+            item(key = "search", contentType = "search") {
                 MatchSearchField(
                     query = query,
                     label = stringResource(Res.string.match_search_label),
                     onSearch = actions::search,
                 )
             }
-            region?.let { item(key = "store") { StoreButton(region = it, onChoose = actions::chooseStore) } }
+            region?.let {
+                item(key = "store", contentType = "store") { StoreButton(region = it, onChoose = actions::chooseStore) }
+            }
             val copy = state.yourCopy
             if (copy != null) {
                 item(
                     key = "your-copy",
+                    contentType = "your-copy",
                 ) { YourCopyStrip(bookId = bookId, copy = copy, steps = results?.let { stepsLine(it.steps) }) }
             }
-            if (state is FindUiState.Searching) item(key = "searching") { SearchingIndicator() }
+            if (state is FindUiState.Searching) {
+                item(key = "searching", contentType = "searching") { SearchingIndicator() }
+            }
             if (state is FindUiState.Failed) {
-                item(key = "failure") {
+                item(key = "failure", contentType = "failure") {
                     FindFailureContent(
                         failure = state.failure,
                         onRetry = actions::retry,

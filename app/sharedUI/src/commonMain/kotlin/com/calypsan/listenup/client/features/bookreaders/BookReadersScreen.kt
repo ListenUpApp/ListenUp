@@ -123,6 +123,7 @@ private fun BookReadersBody(
                 items(
                     items = rows,
                     key = { row -> row.listKey },
+                    contentType = { "reader" },
                 ) { row ->
                     ReaderRow(
                         reader = row,

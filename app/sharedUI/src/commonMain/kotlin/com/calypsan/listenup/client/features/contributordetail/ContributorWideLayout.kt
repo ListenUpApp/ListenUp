@@ -86,7 +86,7 @@ internal fun WideContributorPortfolio(
         modifier = Modifier.fillMaxSize(),
     ) {
         // Full-span header: avatar beside name, metadata, and bio
-        item(span = { GridItemSpan(maxLineSpan) }) {
+        item(key = "hero", span = { GridItemSpan(maxLineSpan) }, contentType = "hero") {
             WideHeroHeader(
                 state = state,
                 contributorId = contributorId,
@@ -107,6 +107,7 @@ internal fun WideContributorPortfolio(
             item(
                 key = "header_${section.role}",
                 span = { GridItemSpan(maxLineSpan) },
+                contentType = "role-header",
             ) {
                 WorkSectionHeader(
                     section = section,
@@ -119,6 +120,7 @@ internal fun WideContributorPortfolio(
             items(
                 items = section.previewBooks,
                 key = { "${section.role}_${it.id.value}" },
+                contentType = { "book" },
             ) { book ->
                 BookCard(
                     cover = book.toCoverModel(),

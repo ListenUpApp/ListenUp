@@ -188,7 +188,7 @@ internal fun NarrowSeriesDetailContent(
         verticalArrangement = Arrangement.spacedBy(10.dp),
         modifier = Modifier.fillMaxSize(),
     ) {
-        item(span = { GridItemSpan(maxLineSpan) }) {
+        item(key = "hero", span = { GridItemSpan(maxLineSpan) }, contentType = "hero") {
             SeriesColorHero(
                 state = state,
                 onBackClick = onBackClick,
@@ -198,7 +198,7 @@ internal fun NarrowSeriesDetailContent(
                 onSeriesClick = hierarchy.onSeriesClick,
             )
         }
-        item(span = { GridItemSpan(maxLineSpan) }) {
+        item(key = "continue", span = { GridItemSpan(maxLineSpan) }, contentType = "continue") {
             ContinueButton(
                 state = state,
                 onBookClick = onBookClick,
@@ -223,7 +223,7 @@ private fun LazyGridScope.subSeriesItem(
     modifier: Modifier,
 ) {
     if (state.childSeries.isEmpty() && !state.canEditMetadata) return
-    item(key = "sub-series", span = { GridItemSpan(maxLineSpan) }) {
+    item(key = "sub-series", span = { GridItemSpan(maxLineSpan) }, contentType = "sub-series") {
         SubSeriesSection(
             childSeries = state.childSeries,
             canAddSubSeries = state.canEditMetadata,

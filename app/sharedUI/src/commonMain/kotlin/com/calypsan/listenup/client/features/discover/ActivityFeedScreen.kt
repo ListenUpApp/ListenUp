@@ -158,7 +158,11 @@ internal fun ActivityFeedContent(
                             horizontalArrangement = Arrangement.spacedBy(Spacing.lg),
                             modifier = Modifier.fillMaxSize().testTag("activity-feed"),
                         ) {
-                            items(state.entries, key = { it.id }) { entry ->
+                            items(
+                                items = state.entries,
+                                key = { it.id },
+                                contentType = { "activity-entry" },
+                            ) { entry ->
                                 Column(Modifier.fillMaxWidth()) {
                                     ActivityRow(
                                         entry = entry,
@@ -185,6 +189,6 @@ private fun ScrollableState(content: @Composable () -> Unit) {
         contentPadding = PaddingValues(horizontal = Spacing.screenMargin),
         modifier = Modifier.fillMaxSize(),
     ) {
-        item { content() }
+        item(key = "state", contentType = "state") { content() }
     }
 }

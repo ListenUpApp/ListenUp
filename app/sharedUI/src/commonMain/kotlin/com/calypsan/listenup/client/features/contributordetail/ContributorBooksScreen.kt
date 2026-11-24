@@ -173,7 +173,7 @@ private fun HybridLayout(
             contentPadding = PaddingValues(bottom = 32.dp),
         ) {
             // Condensed header
-            item {
+            item(key = ITEM_HEADER, contentType = ITEM_HEADER) {
                 CondensedHeader(
                     roleDisplayName = state.roleDisplayName,
                     contributorName = state.contributorName,
@@ -188,6 +188,7 @@ private fun HybridLayout(
             items(
                 items = state.seriesGroups,
                 key = { it.seriesName },
+                contentType = { "series-carousel" },
             ) { seriesGroup ->
                 SeriesCarouselSection(
                     seriesGroup = seriesGroup,
@@ -234,7 +235,7 @@ private fun GridOnlyLayout(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         // Full-width header
-        item(span = { GridItemSpan(maxLineSpan) }) {
+        item(key = ITEM_HEADER, span = { GridItemSpan(maxLineSpan) }, contentType = ITEM_HEADER) {
             CondensedHeader(
                 roleDisplayName = state.roleDisplayName,
                 contributorName = state.contributorName,
@@ -249,6 +250,7 @@ private fun GridOnlyLayout(
         items(
             items = state.standaloneBooks,
             key = { it.id.value },
+            contentType = { "book" },
         ) { book ->
             BookCard(
                 cover = book.toCoverModel(),
@@ -413,6 +415,9 @@ private fun SeriesCarouselSection(
 // STANDALONE BOOKS GRID
 // =============================================================================
 
+/** Shared key and contentType for the contributor books screen's condensed header. */
+private const val ITEM_HEADER = "header"
+
 /** Side margin of the standalone grid, matching the grid-only layout's content padding. */
 private val STANDALONE_GRID_MARGIN = 24.dp
 
@@ -442,7 +447,7 @@ private fun LazyListScope.standaloneBooks(
     bookProgress: Map<BookId, BookProgress.InProgress>,
     onBookClick: (String) -> Unit,
 ) {
-    item(key = "standalone-header") {
+    item(key = "standalone-header", contentType = "standalone-header") {
         StandaloneBooksHeader(
             bookCount = books.size,
             modifier = Modifier.padding(start = STANDALONE_GRID_MARGIN, end = STANDALONE_GRID_MARGIN, top = 16.dp),
@@ -451,6 +456,7 @@ private fun LazyListScope.standaloneBooks(
     items(
         items = books.chunked(columns),
         key = { row -> "standalone-row-" + row.first().id.value },
+        contentType = { "standalone-row" },
     ) { rowBooks ->
         Row(
             horizontalArrangement = Arrangement.spacedBy(STANDALONE_GRID_GUTTER),
@@ -475,7 +481,7 @@ private fun LazyListScope.standaloneBooks(
             }
         }
     }
-    item(key = "standalone-footer") { Spacer(modifier = Modifier.height(16.dp)) }
+    item(key = "standalone-footer", contentType = "standalone-footer") { Spacer(modifier = Modifier.height(16.dp)) }
 }
 
 @Composable

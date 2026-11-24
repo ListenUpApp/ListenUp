@@ -27,6 +27,7 @@ import com.calypsan.listenup.client.design.theme.Spacing
  * @param itemWidth uniform item width — MUST match the rendered card's width so a self-sizing card
  *   is neither clipped (itemWidth too small) nor left-gapped (too large).
  * @param key stable item key (recommended for content rows so scroll/animation state survives reorder).
+ * @param contentType item content type for composition reuse across the carousel.
  * @param itemContent renders one item (e.g. a BookCard / ShelfCard).
  */
 @Composable
@@ -37,6 +38,7 @@ fun <T> BrowseCarousel(
     itemSpacing: Dp = 16.dp,
     contentPadding: PaddingValues = PaddingValues(horizontal = Spacing.screenMargin),
     key: ((item: T) -> Any)? = null,
+    contentType: (item: T) -> Any? = { "carousel-item" },
     itemContent: @Composable (T) -> Unit,
 ) {
     val listState = rememberLazyListState()
@@ -47,7 +49,7 @@ fun <T> BrowseCarousel(
         horizontalArrangement = Arrangement.spacedBy(itemSpacing),
         flingBehavior = rememberSnapFlingBehavior(listState),
     ) {
-        items(items = items, key = key) { item ->
+        items(items = items, key = key, contentType = contentType) { item ->
             Box(modifier = Modifier.width(itemWidth)) {
                 itemContent(item)
             }

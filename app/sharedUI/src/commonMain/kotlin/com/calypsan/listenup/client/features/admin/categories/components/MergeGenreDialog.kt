@@ -108,7 +108,11 @@ private fun CandidateList(
         Text(stringResource(Res.string.admin_no_merge_target_available))
     } else {
         LazyColumn(modifier = Modifier.fillMaxWidth()) {
-            items(candidates, key = { it.id }) { candidate ->
+            items(
+                items = candidates,
+                key = { it.id },
+                contentType = { "candidate" },
+            ) { candidate ->
                 Row(
                     modifier =
                         Modifier

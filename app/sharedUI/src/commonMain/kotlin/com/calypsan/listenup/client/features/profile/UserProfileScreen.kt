@@ -195,7 +195,7 @@ internal fun ProfileContent(
         contentPadding = PaddingValues(bottom = 28.dp),
     ) {
         // Color-blocked hero
-        item {
+        item(key = "hero", contentType = "hero") {
             ProfileColorHero(
                 state = state,
                 onBack = onBack,
@@ -204,7 +204,7 @@ internal fun ProfileContent(
         }
 
         // Stats
-        item {
+        item(key = ITEM_STATS, contentType = ITEM_STATS) {
             Spacer(modifier = Modifier.height(20.dp))
             StatsRow(
                 totalListenTime = DurationFormatter.hoursMinutes(state.totalListenTimeMs.milliseconds),
@@ -216,7 +216,7 @@ internal fun ProfileContent(
 
         // Recently listened
         if (state.recentBooks.isNotEmpty()) {
-            item {
+            item(key = "recent", contentType = "recent") {
                 Spacer(modifier = Modifier.height(28.dp))
                 RecentlyListenedHeader(isOwnProfile = state.isOwnProfile)
                 Spacer(modifier = Modifier.height(14.dp))
@@ -226,7 +226,7 @@ internal fun ProfileContent(
 
         // Shelves
         if (state.publicShelves.isNotEmpty() || state.isOwnProfile) {
-            item {
+            item(key = "shelves", contentType = "shelves") {
                 Spacer(modifier = Modifier.height(28.dp))
                 ShelvesSectionHeader(count = state.publicShelves.size)
                 Spacer(modifier = Modifier.height(14.dp))
@@ -330,7 +330,7 @@ private fun WideProfileGrid(
         horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        item(key = "stats", span = { GridItemSpan(maxLineSpan) }) {
+        item(key = ITEM_STATS, span = { GridItemSpan(maxLineSpan) }, contentType = ITEM_STATS) {
             StatsRow(
                 totalListenTime = DurationFormatter.hoursMinutes(state.totalListenTimeMs.milliseconds),
                 booksFinished = state.booksFinished,
@@ -341,20 +341,24 @@ private fun WideProfileGrid(
         }
 
         if (state.recentBooks.isNotEmpty()) {
-            item(key = "recent-header", span = { GridItemSpan(maxLineSpan) }) {
+            item(key = "recent-header", span = { GridItemSpan(maxLineSpan) }, contentType = "section-header") {
                 RecentlyListenedHeader(
                     isOwnProfile = state.isOwnProfile,
                     horizontalPadding = 0.dp,
                     modifier = Modifier.padding(top = 12.dp),
                 )
             }
-            items(state.recentBooks, key = { "recent-${it.bookId}" }) { book ->
+            items(
+                items = state.recentBooks,
+                key = { "recent-${it.bookId}" },
+                contentType = { "recent-book" },
+            ) { book ->
                 RecentBookCard(book = book, onClick = { onBookClick(book.bookId) })
             }
         }
 
         if (state.publicShelves.isNotEmpty() || state.isOwnProfile) {
-            item(key = "shelves-header", span = { GridItemSpan(maxLineSpan) }) {
+            item(key = "shelves-header", span = { GridItemSpan(maxLineSpan) }, contentType = "section-header") {
                 ShelvesSectionHeader(
                     count = state.publicShelves.size,
                     horizontalPadding = 0.dp,
@@ -363,14 +367,19 @@ private fun WideProfileGrid(
             }
             // A shelf tile carries a name and a count, so it takes two cover columns where there are two.
             itemsIndexed(
-                state.publicShelves,
+                items = state.publicShelves,
                 key = { _, shelf -> "shelf-${shelf.id}" },
                 span = { _, _ -> GridItemSpan(minOf(2, maxLineSpan)) },
+                contentType = { _, _ -> "shelf-tile" },
             ) { index, shelf ->
                 ShelfTile(shelf = shelf, colorIndex = index, onClick = { onShelfClick(shelf.id) })
             }
             if (state.isOwnProfile) {
-                item(key = "shelf-add", span = { GridItemSpan(minOf(2, maxLineSpan)) }) {
+                item(
+                    key = "shelf-add",
+                    span = { GridItemSpan(minOf(2, maxLineSpan)) },
+                    contentType = "add-shelf",
+                ) {
                     AddShelfTile(onClick = onCreateShelfClick)
                 }
             }
@@ -910,6 +919,9 @@ private fun RecentBookCard(
         )
     }
 }
+
+/** Shared key and contentType for the user profile stats row. */
+private const val ITEM_STATS = "stats"
 
 /** A recent cover's width in the phone carousel, and the narrowest a wide grid's column gets. */
 private val RecentCoverWidth = 140.dp

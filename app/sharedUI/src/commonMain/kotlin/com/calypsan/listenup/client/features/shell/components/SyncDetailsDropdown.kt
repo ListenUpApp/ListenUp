@@ -294,7 +294,11 @@ private fun FailedOperationsSection(
         modifier = Modifier.height((failedOperations.size.coerceAtMost(4) * 64).dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        items(failedOperations, key = { it.id }) { operation ->
+        items(
+            items = failedOperations,
+            key = { it.id },
+            contentType = { "failed-operation" },
+        ) { operation ->
             FailedOperationItem(
                 operation = operation,
                 onRetry = { onRetryOperation(operation.id) },

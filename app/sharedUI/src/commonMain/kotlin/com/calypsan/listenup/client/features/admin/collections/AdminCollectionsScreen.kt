@@ -299,7 +299,11 @@ private fun CollectionsReadyContent(
                 verticalArrangement = Arrangement.spacedBy(gap),
                 modifier = Modifier.fillMaxSize(),
             ) {
-                items(items = state.collections, key = { it.id }) { collection ->
+                items(
+                    items = state.collections,
+                    key = { it.id },
+                    contentType = { "collection" },
+                ) { collection ->
                     CollectionCard(
                         collection = collection,
                         isDeleting = state.deletingCollectionId == collection.id,
@@ -308,7 +312,11 @@ private fun CollectionsReadyContent(
                         onDeleteClick = { onDeleteClick(collection) },
                     )
                 }
-                item(span = { GridItemSpan(1) }) {
+                item(
+                    key = "create-tile",
+                    span = { GridItemSpan(1) },
+                    contentType = "create-tile",
+                ) {
                     NewCollectionCard(
                         isWide = isWide,
                         onClick = onNewCollectionClick,

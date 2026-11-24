@@ -113,7 +113,7 @@ internal fun CategoriesContent(
                     .fillMaxSize()
                     .padding(horizontal = horizontalPadding),
         ) {
-            item {
+            item(key = "summary", contentType = "summary") {
                 Text(
                     text =
                         stringResource(
@@ -127,7 +127,7 @@ internal fun CategoriesContent(
                 )
             }
 
-            item {
+            item(key = "tree-card", contentType = "tree-card") {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = MaterialTheme.shapes.large,
@@ -164,7 +164,7 @@ internal fun CategoriesContent(
                 }
             }
 
-            item {
+            item(key = "fab-spacer", contentType = "spacer") {
                 Spacer(modifier = Modifier.height(80.dp)) // FAB clearance
             }
         }
