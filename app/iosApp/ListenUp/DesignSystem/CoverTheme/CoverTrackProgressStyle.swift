@@ -8,14 +8,11 @@ struct CoverTrackProgressStyle: ProgressViewStyle {
     let fill: Color
 
     func makeBody(configuration: Configuration) -> some View {
-        let fraction = min(max(configuration.fractionCompleted ?? 0, 0), 1)
         Capsule()
             .fill(track)
-            .frame(height: 5)
-            .overlay(alignment: .leading) {
-                GeometryReader { proxy in
-                    Capsule().fill(fill).frame(width: proxy.size.width * fraction)
-                }
+            .overlay {
+                ProgressFillShape(progress: configuration.fractionCompleted ?? 0)
+                    .fill(fill)
             }
             .frame(height: 5)
     }

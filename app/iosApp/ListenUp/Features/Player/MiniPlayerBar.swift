@@ -222,21 +222,18 @@ struct MiniPlayerAccessoryContent: View {
     /// Chapter progress as a 2pt hairline inside the capsule, clear of its rounded ends. Decorative: the line says
     /// the time left.
     private var progressLine: some View {
-        GeometryReader { geometry in
-            Capsule()
-                .fill(Color.primary.opacity(0.08))
-                .overlay(alignment: .leading) {
-                    Capsule()
-                        .fill(Color.listenUpOrange)
-                        .frame(width: geometry.size.width * CGFloat(model.chapterFraction))
-                }
-        }
-        .frame(height: 2)
-        // It starts at the text column, so it never crosses the cover.
-        .padding(.leading, leadingInset + coverSide + coverGap)
-        .padding(.trailing, Spacing.xl)
-        .padding(.bottom, 1)
-        .accessibilityHidden(true)
+        Capsule()
+            .fill(Color.primary.opacity(0.08))
+            .overlay {
+                ProgressFillShape(progress: Double(model.chapterFraction))
+                    .fill(Color.listenUpOrange)
+            }
+            .frame(height: 2)
+            // It starts at the text column, so it never crosses the cover.
+            .padding(.leading, leadingInset + coverSide + coverGap)
+            .padding(.trailing, Spacing.xl)
+            .padding(.bottom, 1)
+            .accessibilityHidden(true)
     }
 }
 
