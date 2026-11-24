@@ -3,31 +3,14 @@ plugins {
     // Note: org.jetbrains.kotlin.android is NOT applied here — AGP 9.0+ has
     // built-in Kotlin support and rejects the external plugin (see kotl.in/gradle/agp-built-in-kotlin).
     alias(libs.plugins.androidx.baselineprofile)
+    id("listenup.android.defaults")
 }
 
 android {
     namespace = "com.calypsan.listenup.baselineprofile"
-    compileSdk =
-        libs.versions.android.compileSdk
-            .get()
-            .toInt()
 
     defaultConfig {
-        minSdk =
-            libs.versions.android.minSdk
-                .get()
-                .toInt()
-        targetSdk =
-            libs.versions.android.targetSdk
-                .get()
-                .toInt()
-
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-    }
-
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
     }
 
     // Point at the app module that will consume the generated profile.
