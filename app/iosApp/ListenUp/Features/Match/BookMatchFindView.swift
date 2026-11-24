@@ -10,27 +10,18 @@ struct BookMatchPhoneView: View {
     let bookId: String
     let onApplied: () -> Void
 
-    @Environment(\.dependencies) private var deps
-    @State private var observer: BookMatchObserver?
-
     var body: some View {
-        Group {
-            if let observer {
-                MatchFindScreen(observer: observer, bookId: bookId)
-            } else {
-                LoadingStateView().background(Color.luSurface)
-            }
-        }
-        .navigationTitle(String(localized: "match.title"))
-        .navigationBarTitleDisplayMode(.inline)
-        .task(id: bookId) {
-            guard observer == nil else { return }
+        WithObserver(id: bookId) { deps in
             let created = BookMatchObserver(viewModel: deps.createBookMatchViewModel(bookId: bookId))
             created.useTwoPane(false)
-            observer = created
-        }
-        .onChange(of: observer?.appliedToken ?? 0) { _, token in
-            if token > 0 { onApplied() }
+            return created
+        } content: { observer in
+            MatchFindScreen(observer: observer, bookId: bookId)
+                .navigationTitle(String(localized: "match.title"))
+                .navigationBarTitleDisplayMode(.inline)
+                .onChange(of: observer.appliedToken) { _, token in
+                    if token > 0 { onApplied() }
+                }
         }
     }
 }

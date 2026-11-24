@@ -12,55 +12,44 @@ import Shared
 /// Responsive: every step is a grouped `List` in a `.readableListWidth()` column that stays honest
 /// on iPhone and grows gracefully on iPad and wide split views (rule 12).
 struct ImportWizardView: View {
-    @Environment(\.dependencies) private var deps
     @Environment(\.dismiss) private var dismiss
 
     /// Called once the import completes successfully, so the hub can refresh its roster.
     var onCompleted: () -> Void = {}
 
-    @State private var observer: ImportFlowObserver?
     @State private var showingFileImporter = false
     @State private var pickError: String?
     @State private var assigningUser: ImportUserRowModel?
 
     var body: some View {
-        NavigationStack {
-            Group {
-                if let observer {
-                    content(observer: observer)
-                } else {
-                    LoadingStateView()
-                }
+        WithObserver { ImportFlowObserver(viewModel: $0.createImportFlowViewModel()) } content: { observer in
+            NavigationStack {
+                content(observer: observer)
+                    .background(Color.luSurface)
+                    .navigationTitle(navigationTitle(for: observer))
+                    // Inline, not large: this is a sheet with a leading Cancel button, and a large
+                    // title's vertical span collides with that button on narrow widths. Inline is also
+                    // the HIG-standard chrome for a modal sheet.
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar { toolbar(observer) }
+                    .fileImporter(
+                        isPresented: $showingFileImporter,
+                        allowedContentTypes: ImportFileSourceBridge.allowedContentTypes
+                    ) { result in
+                        handlePickResult(result, observer: observer)
+                    }
+                    .alert(
+                        String(localized: "common.something_went_wrong"),
+                        isPresented: pickErrorPresented,
+                        presenting: pickError
+                    ) { _ in
+                        Button(String(localized: "common.ok")) { pickError = nil }
+                    } message: { message in
+                        Text(message)
+                    }
             }
-            .background(Color.luSurface)
-            .navigationTitle(navigationTitle)
-            // Inline, not large: this is a sheet with a leading Cancel button, and a large
-            // title's vertical span collides with that button on narrow widths. Inline is also
-            // the HIG-standard chrome for a modal sheet.
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar { toolbar }
-            .fileImporter(
-                isPresented: $showingFileImporter,
-                allowedContentTypes: ImportFileSourceBridge.allowedContentTypes
-            ) { result in
-                handlePickResult(result)
-            }
-            .alert(
-                String(localized: "common.something_went_wrong"),
-                isPresented: pickErrorPresented,
-                presenting: pickError
-            ) { _ in
-                Button(String(localized: "common.ok")) { pickError = nil }
-            } message: { message in
-                Text(message)
-            }
+            .interactiveDismissDisabled(isInProgress(observer))
         }
-        .onAppear {
-            if observer == nil {
-                observer = ImportFlowObserver(viewModel: deps.createImportFlowViewModel())
-            }
-        }
-        .interactiveDismissDisabled(isInProgress)
     }
 
     // MARK: - Phase routing
@@ -145,17 +134,16 @@ struct ImportWizardView: View {
     // MARK: - Toolbar
 
     @ToolbarContentBuilder
-    private var toolbar: some ToolbarContent {
+    private func toolbar(_ observer: ImportFlowObserver) -> some ToolbarContent {
         ToolbarItem(placement: .cancellationAction) {
-            if !isTerminal {
+            if !isTerminal(observer) {
                 Button(String(localized: "common.cancel")) { dismiss() }
             }
         }
     }
 
-    private var navigationTitle: String {
-        guard let phase = observer?.phase else { return String(localized: "import.flow_title") }
-        switch phase {
+    private func navigationTitle(for observer: ImportFlowObserver) -> String {
+        switch observer.phase {
         case .review: return String(localized: "import.review_users_section")
         default: return String(localized: "import.flow_title")
         }
@@ -163,7 +151,7 @@ struct ImportWizardView: View {
 
     // MARK: - File pick handling
 
-    private func handlePickResult(_ result: Result<URL, Error>) {
+    private func handlePickResult(_ result: Result<URL, Error>, observer: ImportFlowObserver) {
         switch result {
         case .success(let url):
             Task {
@@ -176,7 +164,7 @@ struct ImportWizardView: View {
                         data: data,
                         filename: url.lastPathComponent
                     )
-                    observer?.start(fileSource: fileSource)
+                    observer.start(fileSource: fileSource)
                 } catch {
                     pickError = error.message
                 }
@@ -189,11 +177,11 @@ struct ImportWizardView: View {
 
     // MARK: - Derived flags
 
-    private var isTerminal: Bool { observer?.phase.isTerminal ?? false }
+    private func isTerminal(_ observer: ImportFlowObserver) -> Bool { observer.phase.isTerminal }
 
     /// In a server-side phase the sheet shouldn't be swipe-dismissed out from under the user.
-    private var isInProgress: Bool {
-        switch observer?.phase {
+    private func isInProgress(_ observer: ImportFlowObserver) -> Bool {
+        switch observer.phase {
         case .uploading, .analyzing, .applying: return true
         default: return false
         }

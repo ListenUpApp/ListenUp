@@ -10,38 +10,30 @@ struct PersonMatchPadView: View {
     let onClose: () -> Void
     let onMergedInto: (String) -> Void
 
-    @Environment(\.dependencies) private var deps
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-    @State private var observer: PersonMatchObserver?
     @State private var draft: String?
     @State private var editingByHand = false
 
     var body: some View {
-        Group {
-            if let observer {
-                split(observer)
-            } else {
-                LoadingStateView().background(Color.luSurface)
-            }
-        }
-        .task(id: contributorId) {
-            guard observer == nil else { return }
+        WithObserver(id: contributorId) { deps in
             let created = PersonMatchObserver(viewModel: deps.createPersonMatchViewModel(contributorId: contributorId))
             created.useTwoPane(horizontalSizeClass == .regular)
-            observer = created
-        }
-        .onChange(of: horizontalSizeClass) { _, sizeClass in
-            observer?.useTwoPane(sizeClass == .regular)
-        }
-        .onChange(of: observer?.appliedToken ?? 0) { _, token in
-            if token > 0 { onClose() }
-        }
-        .sheet(isPresented: $editingByHand) {
-            ContributorEditView(contributorId: contributorId) { survivor in
-                editingByHand = false
-                onClose()
-                onMergedInto(survivor)
-            }
+            return created
+        } content: { observer in
+            split(observer)
+                .onChange(of: horizontalSizeClass) { _, sizeClass in
+                    observer.useTwoPane(sizeClass == .regular)
+                }
+                .onChange(of: observer.appliedToken) { _, token in
+                    if token > 0 { onClose() }
+                }
+                .sheet(isPresented: $editingByHand) {
+                    ContributorEditView(contributorId: contributorId) { survivor in
+                        editingByHand = false
+                        onClose()
+                        onMergedInto(survivor)
+                    }
+                }
         }
     }
 

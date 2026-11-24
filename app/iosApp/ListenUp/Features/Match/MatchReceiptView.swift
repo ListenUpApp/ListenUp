@@ -40,69 +40,67 @@ private struct MatchReceiptHost: ViewModifier {
     let subjectId: String
     let subject: MatchReceiptSubject
 
-    @Environment(\.dependencies) private var deps
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var observer: MatchReceiptObserver?
     @State private var showsChanges = false
     @AccessibilityFocusState private var isFocused: Bool
 
-    private var phase: MatchReceiptPhase { observer?.phase ?? .none }
-
     func body(content: Content) -> some View {
-        content
-            .safeAreaInset(edge: .bottom) {
-                if let observer, phase != .none {
-                    MatchReceiptCapsule(
-                        phase: phase,
-                        onUndo: { observer.undo() },
-                        onSeeWhatChanged: { showsChanges = true },
-                        onDismiss: { observer.dismiss() }
-                    )
-                    .accessibilityFocused($isFocused)
-                    .padding(.horizontal, Spacing.m)
-                    .padding(.bottom, Spacing.xs)
-                    .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
+        WithObserver(id: subjectId) { deps in
+            MatchReceiptObserver(
+                viewModel: deps.createMatchReceiptViewModel(subjectId: subjectId),
+                subject: subject
+            )
+        } content: { observer in
+            let phase = observer.phase
+            content
+                .safeAreaInset(edge: .bottom) {
+                    if phase != .none {
+                        MatchReceiptCapsule(
+                            phase: phase,
+                            onUndo: { observer.undo() },
+                            onSeeWhatChanged: { showsChanges = true },
+                            onDismiss: { observer.dismiss() }
+                        )
+                        .accessibilityFocused($isFocused)
+                        .padding(.horizontal, Spacing.m)
+                        .padding(.bottom, Spacing.xs)
+                        .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
+                    }
                 }
-            }
-            .animation(reduceMotion ? .easeInOut(duration: 0.2) : .spring(duration: 0.35), value: phase)
-            .sheet(isPresented: $showsChanges) {
-                if case .shown(let receipt) = phase {
-                    MatchWhatChangedSheet(receipt: receipt, onClose: { showsChanges = false })
+                .animation(reduceMotion ? .easeInOut(duration: 0.2) : .spring(duration: 0.35), value: phase)
+                .sheet(isPresented: $showsChanges) {
+                    if case .shown(let receipt) = phase {
+                        MatchWhatChangedSheet(receipt: receipt, onClose: { showsChanges = false })
+                    }
                 }
-            }
-            .task(id: subjectId) {
-                guard observer == nil else { return }
-                observer = MatchReceiptObserver(
-                    viewModel: deps.createMatchReceiptViewModel(subjectId: subjectId), subject: subject
-                )
-            }
-            // The contributor page forgets its name while Match details is pushed over it; keep the last one,
-            // so the receipt never reads "Changed photo for ".
-            .onChange(of: subject) { _, subject in
-                if case .person(let name) = subject, name.isEmpty { return }
-                observer?.subject = subject
-            }
-            .onChange(of: phase) { old, new in
-                guard let message = MatchReceiptAnnouncement.text(for: new),
-                      MatchReceiptAnnouncement.text(for: old) != message else { return }
-                VoiceOverAnnouncement.post(message)
-                isFocused = true
-            }
-            .task(id: dismissalKey) {
-                guard dismissalKey != nil,
-                      let delay = MatchReceiptTiming.autoDismissDelay(
-                          voiceOverRunning: UIAccessibility.isVoiceOverRunning
-                      )
-                else { return }
-                try? await Task.sleep(for: delay)
-                guard !Task.isCancelled, !showsChanges else { return }
-                if case .shown(let receipt) = phase, receipt.undoing { return }
-                observer?.dismiss()
-            }
+                // The contributor page forgets its name while Match details is pushed over it; keep the last one,
+                // so the receipt never reads "Changed photo for ".
+                .onChange(of: subject) { _, subject in
+                    if case .person(let name) = subject, name.isEmpty { return }
+                    observer.subject = subject
+                }
+                .onChange(of: phase) { old, new in
+                    guard let message = MatchReceiptAnnouncement.text(for: new),
+                          MatchReceiptAnnouncement.text(for: old) != message else { return }
+                    VoiceOverAnnouncement.post(message)
+                    isFocused = true
+                }
+                .task(id: dismissalKey(for: phase)) {
+                    guard dismissalKey(for: phase) != nil,
+                          let delay = MatchReceiptTiming.autoDismissDelay(
+                              voiceOverRunning: UIAccessibility.isVoiceOverRunning
+                          )
+                    else { return }
+                    try? await Task.sleep(for: delay)
+                    guard !Task.isCancelled, !showsChanges else { return }
+                    if case .shown(let receipt) = phase, receipt.undoing { return }
+                    observer.dismiss()
+                }
+        }
     }
 
     /// Restarts the timer whenever a different receipt or confirmation shows.
-    private var dismissalKey: String? {
+    private func dismissalKey(for phase: MatchReceiptPhase) -> String? {
         switch phase {
         case .none: nil
         case .shown(let receipt): "shown-\(receipt.id)-\(receipt.undoing)"

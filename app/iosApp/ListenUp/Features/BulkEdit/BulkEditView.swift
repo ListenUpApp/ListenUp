@@ -16,21 +16,13 @@ struct BulkEditView: View {
     /// Called with the number of books that actually changed, once an apply succeeds.
     var onApplied: ((Int) -> Void)?
 
-    @Environment(\.dependencies) private var deps
     @Environment(\.dismiss) private var dismiss
-    @State private var observer: BulkEditObserver?
 
     var body: some View {
-        Group {
-            if let observer {
-                sheet(observer)
-            } else {
-                LoadingStateView()
-            }
-        }
-        .task(id: bookIds) {
-            guard observer == nil else { return }
-            observer = BulkEditObserver(viewModel: deps.createBulkEditViewModel(bookIds: bookIds))
+        WithObserver(id: bookIds) {
+            BulkEditObserver(viewModel: $0.createBulkEditViewModel(bookIds: bookIds))
+        } content: { observer in
+            sheet(observer)
         }
     }
 

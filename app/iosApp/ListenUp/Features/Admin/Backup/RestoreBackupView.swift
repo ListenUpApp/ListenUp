@@ -10,39 +10,29 @@ import SwiftUI
 /// migration + images note + Done). Back navigation is locked in every non-Idle state so a running
 /// restore is never abandoned (mirrors Android RestoreBackupScreen.kt:66-68).
 struct RestoreBackupView: View {
-    @Environment(\.dependencies) private var deps
     @Environment(\.dismiss) private var dismiss
 
     let backupId: String
 
-    @State private var observer: RestoreBackupObserver?
-
     var body: some View {
-        Group {
-            if let observer {
-                content(observer: observer)
-            } else {
-                LoadingStateView()
-            }
-        }
-        .background(Color.luSurface)
-        .navigationTitle(String(localized: "admin.restore_backup"))
-        .navigationBarTitleDisplayMode(.inline)
-        .navigationBarBackButtonHidden(!canNavigateBack)
-        .onAppear {
-            if observer == nil {
-                observer = RestoreBackupObserver(viewModel: deps.createRestoreBackupViewModel(backupId: backupId))
-            }
-        }
-        .confirmationDialog(
-            String(localized: "admin.restore_confirm_title"),
-            isPresented: confirmationPresented,
-            titleVisibility: .visible
-        ) {
-            Button(String(localized: "admin.restore"), role: .destructive) { observer?.confirmRestore() }
-            Button(String(localized: "common.cancel"), role: .cancel) { observer?.cancelRestore() }
-        } message: {
-            Text(String(localized: "admin.restore_confirm_message"))
+        WithObserver(id: backupId) {
+            RestoreBackupObserver(viewModel: $0.createRestoreBackupViewModel(backupId: backupId))
+        } content: { observer in
+            content(observer: observer)
+                .background(Color.luSurface)
+                .navigationTitle(String(localized: "admin.restore_backup"))
+                .navigationBarTitleDisplayMode(.inline)
+                .navigationBarBackButtonHidden(!canNavigateBack(observer))
+                .confirmationDialog(
+                    String(localized: "admin.restore_confirm_title"),
+                    isPresented: confirmationPresented(observer),
+                    titleVisibility: .visible
+                ) {
+                    Button(String(localized: "admin.restore"), role: .destructive) { observer.confirmRestore() }
+                    Button(String(localized: "common.cancel"), role: .cancel) { observer.cancelRestore() }
+                } message: {
+                    Text(String(localized: "admin.restore_confirm_message"))
+                }
         }
     }
 
@@ -176,22 +166,21 @@ struct RestoreBackupView: View {
 
     // MARK: - Derived state
 
-    private var canNavigateBack: Bool {
-        if case .idle = observer?.phase { return true }
-        // Before the observer is created the screen is still safely dismissible.
-        return observer == nil
+    private func canNavigateBack(_ observer: RestoreBackupObserver) -> Bool {
+        if case .idle = observer.phase { return true }
+        return false
     }
 
-    private var confirmationPresented: Binding<Bool> {
+    private func confirmationPresented(_ observer: RestoreBackupObserver) -> Binding<Bool> {
         Binding(
             get: {
-                if case .confirming = observer?.phase { return true }
+                if case .confirming = observer.phase { return true }
                 return false
             },
             set: { presenting in
                 // Any dismissal of the dialog must return the VM to Idle.
                 if !presenting {
-                    if case .confirming = observer?.phase { observer?.cancelRestore() }
+                    if case .confirming = observer.phase { observer.cancelRestore() }
                 }
             }
         )
