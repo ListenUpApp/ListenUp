@@ -1,51 +1,38 @@
-
 package com.calypsan.listenup.client.playback
 
 import com.calypsan.listenup.api.BookService
-import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.error.PlaybackError
-import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.valueOrNull
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.PlaybackPositionSyncPayload
-import com.calypsan.listenup.client.domain.model.PlaybackPosition
-import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.data.local.db.AudioFileDao
-import com.calypsan.listenup.client.data.local.db.AudioFileEntity
-import com.calypsan.listenup.client.data.local.db.toAudioFile
-import com.calypsan.listenup.client.data.local.db.BookContributorCrossRef
 import com.calypsan.listenup.client.data.local.db.BookDao
-import com.calypsan.listenup.client.data.local.db.BookWithContributors
 import com.calypsan.listenup.client.data.local.db.ChapterDao
-import com.calypsan.listenup.client.data.local.db.ContributorEntity
 import com.calypsan.listenup.client.data.local.db.heldRefusal
+import com.calypsan.listenup.client.data.local.db.toAudioFile
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.device.DeviceContext
-import com.calypsan.listenup.client.domain.model.AudioFile
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.model.ContributorRole
 import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
-import com.calypsan.listenup.client.domain.playback.TimelineFileInput
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.LocalPreferences
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
 import com.calypsan.listenup.client.domain.repository.PlaybackPrepareRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.download.DownloadService
+import com.calypsan.listenup.core.BookId
 import io.github.oshai.kotlinlogging.KotlinLogging
-import kotlin.time.Clock
-import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import kotlin.time.Clock
+import kotlin.time.Duration.Companion.seconds
 
 private val logger = KotlinLogging.logger {}
-
-/** One second in milliseconds. */
-private const val MS_PER_SECOND = 1000L
 
 /**
  * Latency budget for [PlaybackPreparer.fetchBookFromServer] — see its KDoc.
@@ -61,63 +48,6 @@ private const val MS_PER_SECOND = 1000L
  * and the listener sees "couldn't start playback" — the same outcome, arrived at far faster.
  */
 private val FETCH_BOOK_TIMEOUT = 5.seconds
-
-/** One minute in milliseconds. */
-private const val MS_PER_MINUTE = 60_000L
-
-/** One hour in milliseconds. */
-private const val MS_PER_HOUR = 3_600_000L
-
-/** 24 hours in milliseconds — ceiling above which a single-file duration is suspicious. */
-private const val MAX_PLAUSIBLE_FILE_DURATION_MS = 86_400_000L
-
-/**
- * Everything a player needs to begin playback of a book, as an immutable value.
- *
- * Unlike [PlaybackManager.PrepareResult] this also carries the resolved
- * [chapters] list, so callers that do not hold a [PlaybackManager] — the iOS
- * native player — get chapters without issuing a second query.
- */
-data class PreparedPlayback(
-    val timeline: PlaybackTimeline,
-    val chapters: List<Chapter>,
-    val bookTitle: String,
-    val bookAuthor: String,
-    val bookNarrator: String,
-    val seriesName: String?,
-    val coverPath: String?,
-    val resumePositionMs: Long,
-    val resumeSpeed: Float,
-    /** Boost to start playback with: the book's custom boost, else the global default. */
-    val resumeBoostDb: Float,
-    /** Client-measured R128 gain for this book (synced), null until measured. */
-    val measuredGainDb: Float?,
-    /** Server tag-read normalization gain (ReplayGain/iTunNORM), null when the file has no tag. */
-    val normalizationGainDb: Float?,
-    // Navigation targets for the player's overflow menu ("Go to Series / Author / Narrator"). New
-    // fields default so existing constructors (playback-prep + test fixtures) stay source-compatible.
-    val seriesId: String? = null,
-    val authors: List<PlaybackNavRef> = emptyList(),
-    val narrators: List<PlaybackNavRef> = emptyList(),
-    // Content hash of the current cover, so the player surfaces (mini player, now-playing, full
-    // screen) content-address the cover and refresh it after a re-scrape instead of serving the
-    // stale id-stable local file. Defaults for source-compat with existing constructors/fixtures.
-    val coverHash: String? = null,
-    /** Whether the server could convert every file this device can't play; a downloaded book never asks it. */
-    val serverConversion: ServerConversion = ServerConversion.COVERED,
-)
-
-/**
- * A navigable reference the native player's overflow menu turns into a "Go to …" action: the
- * series or an individual author/narrator behind the currently-playing book.
- *
- * [name] is the credited display name (so it matches what the player shows); [id] is the
- * series/contributor identifier the menu navigates to.
- */
-data class PlaybackNavRef(
-    val id: String,
-    val name: String,
-)
 
 /**
  * Stateless playback-preparation pipeline: turns a [BookId] into a
@@ -152,6 +82,12 @@ class PlaybackPreparer internal constructor(
     private val localPreferences: LocalPreferences,
     private val nowMillis: () -> Long = { Clock.System.now().toEpochMilliseconds() },
 ) {
+    private val timelineBuilder =
+        PlaybackTimelineBuilder(
+            downloadService = downloadService,
+            prepareRepository = prepareRepository,
+        )
+
     /**
      * Prepare playback for [bookId] — **the one choke point every playback start passes through**:
      * Android (Book Detail, Continue Listening, deep links, Android Auto, voice, resumption), web,
@@ -235,9 +171,17 @@ class PlaybackPreparer internal constructor(
         val seriesName = firstSeries?.name
         val seriesId = firstSeries?.run { id.value }
         val authorRefs =
-            contributorRefs(bookWithContributors.contributors, bookWithContributors.contributorRoles, ContributorRole.AUTHOR)
+            contributorRefs(
+                bookWithContributors.contributors,
+                bookWithContributors.contributorRoles,
+                ContributorRole.AUTHOR,
+            )
         val narratorRefs =
-            contributorRefs(bookWithContributors.contributors, bookWithContributors.contributorRoles, ContributorRole.NARRATOR)
+            contributorRefs(
+                bookWithContributors.contributors,
+                bookWithContributors.contributorRoles,
+                ContributorRole.NARRATOR,
+            )
 
         // Get cover path (if exists on disk)
         val coverPath =
@@ -248,30 +192,18 @@ class PlaybackPreparer internal constructor(
             }
 
         // 3. Load audio files from the junction. Fallback-fetch if empty locally.
-        var audioFileEntities = audioFileDao.getForBook(bookId.value)
-        if (audioFileEntities.isEmpty()) {
-            logger.info { "No audio files for book: ${bookId.value}, fetching from server..." }
-
-            val fetched = fetchBookFromServer(bookId)
-            if (!fetched) {
-                logger.error { "Failed to fetch book from server: ${bookId.value}" }
-                return couldNotStart(bookId, "book fetch from server failed")
+        val audioFileEntities =
+            when (val filesResult = loadAudioFiles(bookId)) {
+                is AppResult.Success -> filesResult.data
+                is AppResult.Failure -> return filesResult
             }
-            audioFileEntities = audioFileDao.getForBook(bookId.value)
-            if (audioFileEntities.isEmpty()) {
-                logger.error { "Audio files still empty after fallback fetch for ${bookId.value}" }
-                return couldNotStart(bookId, "audio files still empty after fallback fetch")
-            }
-        }
 
-        val audioFiles: List<AudioFileResponse> = audioFileEntities.map { it.toAudioFileResponse() }
-
-        logAudioFileDiagnostics(bookId, audioFiles)
+        logAudioFileDiagnostics(bookId, audioFileEntities)
 
         // 4. Build PlaybackTimeline — offline-first via signed RPC URLs
         val domainAudioFiles = audioFileEntities.map { it.toAudioFile() }
         val buildResult =
-            when (val built = buildTimeline(bookId, domainAudioFiles, serverUrl)) {
+            when (val built = timelineBuilder.build(bookId, domainAudioFiles, serverUrl)) {
                 is AppResult.Success -> built.data
                 is AppResult.Failure -> return built
             }
@@ -308,7 +240,12 @@ class PlaybackPreparer internal constructor(
         val resolved = resolveResumePosition(savedPosition, serverPosition)
 
         val resumePositionMs =
-            startPositionMs(start = start, resolved = resolved, chapters = chapters, totalDurationMs = timeline.totalDurationMs)
+            startPositionMs(
+                start = start,
+                resolved = resolved,
+                chapters = chapters,
+                totalDurationMs = timeline.totalDurationMs,
+            )
         // Starting a finished book over is a new listen-through: clear the flag now, or every later
         // open would take the re-read branch again and throw away how far the listener got.
         // The flag alone is right here: ProgressTracker.isInEndCredits sets it for a book left in its credits.
@@ -328,31 +265,12 @@ class PlaybackPreparer internal constructor(
                 playbackPreferences.getDefaultVolumeBoostDb()
             }
 
-        logger.debug {
-            "Resume position: ${resumePositionMs}ms, speed: ${resumeSpeed}x (hasCustomSpeed=${savedPosition?.hasCustomSpeed == true})"
-        }
-
-        if (resumePositionMs < 0) {
-            logger.warn { "⚠️ WARNING: Negative resume position: $resumePositionMs" }
-        }
-        if (resumePositionMs > timeline.totalDurationMs) {
-            logger.warn {
-                "⚠️ WARNING: Resume position $resumePositionMs exceeds book duration ${timeline.totalDurationMs}"
-            }
-        }
-
-        val resolvedPosition = timeline.resolve(resumePositionMs)
-        logger.debug {
-            "Resolved resume position: " +
-                "mediaItemIndex=${resolvedPosition.mediaItemIndex}, " +
-                "positionInFileMs=${resolvedPosition.positionInFileMs}"
-        }
-
-        if (resolvedPosition.mediaItemIndex >= timeline.files.size) {
-            logger.warn {
-                "⚠️ WARNING: Invalid mediaItemIndex ${resolvedPosition.mediaItemIndex} >= ${timeline.files.size}"
-            }
-        }
+        logResumeDiagnostics(
+            timeline = timeline,
+            resumePositionMs = resumePositionMs,
+            resumeSpeed = resumeSpeed,
+            hasCustomSpeed = savedPosition?.hasCustomSpeed == true,
+        )
 
         // 7. Trigger background download if not fully downloaded (best-effort caching)
         triggerBackgroundDownloadIfNeeded(bookId, timeline)
@@ -381,63 +299,8 @@ class PlaybackPreparer internal constructor(
     }
 
     /**
-     * Derive the comma-joined author display name from the book's contributor
-     * roles. Falls back to "Unknown Author" when no author is found.
-     */
-    private fun deriveAuthorName(bookWithContributors: BookWithContributors): String =
-        joinContributorNames(
-            bookWithContributors.contributors,
-            bookWithContributors.contributorRoles,
-            ContributorRole.AUTHOR,
-        ).ifEmpty { "Unknown Author" }
-
-    /**
-     * Derive the comma-joined narrator display name, or an empty string when the
-     * book has no narrator — the player hides the "Narrated by" line in that case.
-     */
-    private fun deriveNarratorName(bookWithContributors: BookWithContributors): String =
-        joinContributorNames(
-            bookWithContributors.contributors,
-            bookWithContributors.contributorRoles,
-            ContributorRole.NARRATOR,
-        )
-
-    /**
-     * Log per-file diagnostics for [audioFiles], flagging invalid (≤0) and
-     * suspiciously large (>24h) durations and reporting the total.
-     */
-    private fun logAudioFileDiagnostics(
-        bookId: BookId,
-        audioFiles: List<AudioFileResponse>,
-    ) {
-        logger.debug { "=== Audio Files for book ${bookId.value} ===" }
-        var totalDuration = 0L
-        audioFiles.forEachIndexed { index, file ->
-            logger.debug {
-                "  File[$index]: id=${file.id}, filename=${file.filename}, " +
-                    "duration=${file.duration}ms (${file.duration / MS_PER_SECOND}s), " +
-                    "size=${file.size}, format=${file.format}"
-            }
-            if (file.duration <= 0) {
-                logger.warn { "  ⚠️ WARNING: File[$index] has invalid duration: ${file.duration}" }
-            }
-            if (file.duration > MAX_PLAUSIBLE_FILE_DURATION_MS) {
-                logger.warn {
-                    "  ⚠️ WARNING: File[$index] has suspiciously large duration: " +
-                        "${file.duration}ms (${file.duration / MS_PER_HOUR}h)"
-                }
-            }
-            totalDuration += file.duration
-        }
-        logger.debug {
-            "=== Total calculated duration: ${totalDuration}ms " +
-                "(${totalDuration / MS_PER_SECOND}s / ${totalDuration / MS_PER_MINUTE}min) ==="
-        }
-    }
-
-    /**
      * Fetch the server-authoritative resume position for the fully-downloaded path (where
-     * [buildTimeline] skips `prepare()` and never sees it).
+     * [PlaybackTimelineBuilder.build] skips `prepare()` and never sees it).
      *
      * **This DOES block — it is awaited, on the path between tapping play and hearing audio.** An
      * earlier version of this KDoc claimed it was "non-blocking"; it never was, and that sentence
@@ -528,108 +391,54 @@ class PlaybackPreparer internal constructor(
         return (resolved.positionMs - rewindMs).coerceAtLeast(0L)
     }
 
-    /**
-     * Build the [PlaybackTimeline]: resolve each file's local path, fetch signed
-     * streaming URLs from the server only when not fully downloaded (offline-first),
-     * then assemble the timeline. Fails if the server prepare call fails and nothing is downloaded: with the typed
-     * cause kept, so a network failure reads as unreachable rather than as a book that can't play.
-     *
-     * The result also carries [TimelineBuildResult.serverResumePosition] — the
-     * server-authoritative resume point from the same prepare() call — so the caller
-     * can reconcile it against the local Room row instead of discarding it.
-     */
-    private suspend fun buildTimeline(
+    private suspend fun loadAudioFiles(
         bookId: BookId,
-        domainAudioFiles: List<AudioFile>,
-        serverUrl: String,
-    ): AppResult<TimelineBuildResult> {
-        // Batched instead of one Room query per file — a chaptered book can have 100-300 audio
-        // files, and preparing playback is a <500ms budget. Sparse: only downloaded-and-verified
-        // files are keys; `localPaths[file.id]` returns null for the rest either way.
-        val localPaths: Map<String, String> = downloadService.getLocalPaths(domainAudioFiles.map { it.id })
-
-        // Server-authoritative resume position, populated only when prepare() is called
-        // (streaming path). Null on the fully-downloaded path — resume then resolves from Room alone.
-        var serverResumePosition: PlaybackPositionSyncPayload? = null
-
-        val downloadedCount = localPaths.size
-        val missingCount = domainAudioFiles.size - downloadedCount
-
-        val preparedUrls: PreparedUrls =
-            if (missingCount == 0) {
-                PreparedUrls() // fully downloaded — never touch the server (offline-first)
-            } else {
-                // Some files are missing → we need signed streaming URLs for them. prepare() returns
-                // per-file URLs for the whole book; localPath still wins in playbackUri, so downloaded
-                // files play from disk and only the missing ones stream.
-                //
-                // Routed through the bounded, self-healing engine so a dead-socket transport throw
-                // becomes a typed, time-bounded AppResult.Failure instead of an unguarded exception
-                // crossing the Swift Export seam as an opaque KotlinError.
-                when (val result = prepareRepository.prepare(bookId)) {
-                    is AppResult.Success -> {
-                        serverResumePosition = result.data.resumePosition
-                        PreparedUrls(
-                            direct = result.data.audioFiles.associate { it.fileId to serverUrl + it.url },
-                            hls =
-                                result.data.audioFiles
-                                    .mapNotNull { file -> file.hlsUrl?.let { file.fileId to serverUrl + it } }
-                                    .toMap(),
-                            expireAtMs = result.data.urlsExpireAt,
-                            serverConversion =
-                                if (result.data.transcodeUnavailable) {
-                                    ServerConversion.UNAVAILABLE
-                                } else {
-                                    ServerConversion.COVERED
-                                },
-                        )
-                    }
-
-                    is AppResult.Failure -> {
-                        // prepare() failed — almost always offline. Never-stranded: if SOME files are
-                        // downloaded, build the timeline from the local files so the downloaded portion
-                        // plays offline instead of failing the whole book. The missing files get no URL
-                        // (honest gap — playbackUri "" — not a fake streaming URL that would fail anyway).
-                        if (downloadedCount == 0) {
-                            logger.error {
-                                "prepare() failed for ${bookId.value} and no files are downloaded: ${result.error.message}"
-                            }
-                            return AppResult.Failure(result.error.asPlaybackFailure())
-                        }
-                        logger.warn {
-                            "prepare() failed for ${bookId.value} (${result.error.code}); playing $downloadedCount " +
-                                "downloaded file(s) offline, $missingCount unavailable until reconnect."
-                        }
-                        PreparedUrls()
-                    }
-                }
+    ): AppResult<List<com.calypsan.listenup.client.data.local.db.AudioFileEntity>> {
+        var entities = audioFileDao.getForBook(bookId.value)
+        if (entities.isEmpty()) {
+            logger.info { "No audio files for book: ${bookId.value}, fetching from server..." }
+            val fetched = fetchBookFromServer(bookId)
+            if (!fetched) {
+                logger.error { "Failed to fetch book from server: ${bookId.value}" }
+                return couldNotStart(bookId, "book fetch from server failed")
             }
+            entities = audioFileDao.getForBook(bookId.value)
+            if (entities.isEmpty()) {
+                logger.error { "Audio files still empty after fallback fetch for ${bookId.value}" }
+                return couldNotStart(bookId, "audio files still empty after fallback fetch")
+            }
+        }
+        return AppResult.Success(entities)
+    }
 
-        val timeline =
-            PlaybackTimeline.build(
-                bookId = bookId,
-                files =
-                    domainAudioFiles.map { file ->
-                        TimelineFileInput(
-                            audioFileId = file.id,
-                            filename = file.filename,
-                            format = file.format,
-                            durationMs = file.duration,
-                            size = file.size,
-                            localPath = localPaths[file.id],
-                            streamingUrl = preparedUrls.direct[file.id].orEmpty(), // "" when downloaded — localPath wins in playbackUri
-                            hlsUrl = preparedUrls.hls[file.id],
-                        )
-                    },
-                urlsExpireAtMs = preparedUrls.expireAtMs,
-            )
-        return AppResult.Success(
-            TimelineBuildResult(
-                timeline = timeline,
-                serverResumePosition = serverResumePosition,
-                serverConversion = preparedUrls.serverConversion,
-            ),
-        )
+    private fun logResumeDiagnostics(
+        timeline: PlaybackTimeline,
+        resumePositionMs: Long,
+        resumeSpeed: Float,
+        hasCustomSpeed: Boolean,
+    ) {
+        logger.debug {
+            "Resume position: ${resumePositionMs}ms, speed: ${resumeSpeed}x (hasCustomSpeed=$hasCustomSpeed)"
+        }
+        if (resumePositionMs < 0) {
+            logger.warn { "⚠️ WARNING: Negative resume position: $resumePositionMs" }
+        }
+        if (resumePositionMs > timeline.totalDurationMs) {
+            logger.warn {
+                "⚠️ WARNING: Resume position $resumePositionMs exceeds book duration ${timeline.totalDurationMs}"
+            }
+        }
+        val resolvedPosition = timeline.resolve(resumePositionMs)
+        logger.debug {
+            "Resolved resume position: " +
+                "mediaItemIndex=${resolvedPosition.mediaItemIndex}, " +
+                "positionInFileMs=${resolvedPosition.positionInFileMs}"
+        }
+        if (resolvedPosition.mediaItemIndex >= timeline.files.size) {
+            logger.warn {
+                "⚠️ WARNING: Invalid mediaItemIndex ${resolvedPosition.mediaItemIndex} >= ${timeline.files.size}"
+            }
+        }
     }
 
     private fun couldNotStart(
@@ -724,6 +533,7 @@ class PlaybackPreparer internal constructor(
     private suspend fun logBackgroundDownloadFailure(bookId: BookId) {
         when (val result = downloadService.downloadBook(bookId)) {
             is AppResult.Success -> {}
+
             is AppResult.Failure -> {
                 logger.warn {
                     "Background download failed for ${bookId.value}: " +
@@ -749,146 +559,3 @@ class PlaybackPreparer internal constructor(
         return chapters
     }
 }
-
-/**
- * [PlaybackPreparer.buildTimeline]'s result: the assembled [PlaybackTimeline] plus the
- * server-authoritative resume position ([PreparedPlayback.resumePosition]) from the same
- * `prepare()` call. [serverResumePosition] is null on the fully-downloaded path, where
- * `prepare()` is skipped and the resume point resolves from the local Room row alone.
- */
-private data class TimelineBuildResult(
-    val timeline: PlaybackTimeline,
-    val serverResumePosition: PlaybackPositionSyncPayload?,
-    val serverConversion: ServerConversion,
-)
-
-/**
- * [PlaybackPreparer.buildTimeline]'s per-file URL maps from one `prepare()` call. Both default
- * empty — [direct] is empty on the fully-downloaded and prepare-failed branches, and [hls] is
- * empty whenever no file in the response needed a transcode.
- *
- * On the fully-downloaded branch every file's [TimelineFileInput.localPath] carries playback. On
- * the prepare-failed branch only the downloaded files do: a missing file ends up with neither a
- * local path nor a URL, which is the honest gap the never-stranded fallback deliberately leaves
- * rather than papering over with a URL that would fail anyway.
- */
-private data class PreparedUrls(
-    val direct: Map<String, String> = emptyMap(),
-    val hls: Map<String, String> = emptyMap(),
-    /** When [direct] and [hls] stop working, epoch ms; null when nothing was signed or the server did not say. */
-    val expireAtMs: Long? = null,
-    /** What the prepare said about converting this device's unplayable files; covered when it was never asked. */
-    val serverConversion: ServerConversion = ServerConversion.COVERED,
-)
-
-/**
- * The resume point resolved across the local Room row and the server-authoritative
- * position, carrying only what resume needs: [positionMs] and the [isFinished] flag
- * (finished → start at 0 for re-read).
- */
-internal data class ResolvedResumePosition(
-    val positionMs: Long,
-    val isFinished: Boolean,
-    /**
-     * When the WINNING side was last played. Carried out of the resolver rather than recomputed by
-     * callers: the resolver already picks by this key, so deriving it a second time at the call
-     * site would be a second copy of the conflict rule, free to drift from this one.
-     */
-    val lastPlayedAtMs: Long,
-)
-
-/**
- * Reconcile the [local] Room resume row against the [server]-authoritative position from
- * [com.calypsan.listenup.api.PlaybackService.prepare], newer wins by `lastPlayedAt` — the
- * same conflict key the playback-positions sync domain uses.
- *
- * Position is sacred. Device B can open a book before its catch-up drains, so its local
- * row may be stale relative to the position `prepare()` just returned from the server. If
- * the stale local row won here, starting playback would stamp it `lastPlayedAt = now`,
- * making it globally newest and permanently discarding device A's newer progress. Choosing
- * the fresher source at resume time closes that race.
- *
- * Returns null only when both sources are absent (never-played book → resume at 0
- * upstream). When only one is present it wins by default; ties favour the local row (its
- * value is at least as fresh and will re-push to the server on the next save).
- */
-internal fun resolveResumePosition(
-    local: PlaybackPosition?,
-    server: PlaybackPositionSyncPayload?,
-): ResolvedResumePosition? {
-    val fromLocal = local?.run { ResolvedResumePosition(positionMs, isFinished, effectiveLastPlayedAtMs) }
-    val fromServer = server?.run { ResolvedResumePosition(positionMs, finished, lastPlayedAt) }
-    return when {
-        fromLocal == null -> fromServer
-        fromServer == null -> fromLocal
-        fromServer.lastPlayedAtMs > fromLocal.lastPlayedAtMs -> fromServer
-        else -> fromLocal
-    }
-}
-
-// ========== Type Conversions ==========
-
-/** Convert an [AudioFileEntity] to the API-shaped [AudioFileResponse] for diagnostic logging. */
-private fun AudioFileEntity.toAudioFileResponse(): AudioFileResponse =
-    AudioFileResponse(
-        id = id,
-        filename = filename,
-        format = format,
-        codec = codec,
-        duration = duration,
-        size = size,
-    )
-
-/**
- * Comma-join the display names of the [contributors] credited with [role] on a
- * book, preferring each cross-ref's `creditedAs` (alias attribution) over the
- * contributor's canonical name. Returns an empty string when no contributor holds
- * the role. Pure — split out from [PlaybackPreparer] so it is unit-testable
- * without a database.
- */
-/**
- * The (id, name) refs for a book's contributors in the given [role] — the navigable form of
- * [joinContributorNames], distinct-by-id and preserving credit order, for the player's "Go to
- * Author / Narrator" menu.
- */
-internal fun contributorRefs(
-    contributors: List<ContributorEntity>,
-    contributorRoles: List<BookContributorCrossRef>,
-    role: ContributorRole,
-): List<PlaybackNavRef> {
-    val contributorsById = contributors.associateBy { it.id }
-    return contributorRoles
-        .filter { it.role == role.apiValue }
-        .mapNotNull { crossRef ->
-            contributorsById[crossRef.contributorId]?.let { entity ->
-                PlaybackNavRef(id = entity.id.value, name = crossRef.creditedAs ?: entity.name)
-            }
-        }.distinctBy { it.id }
-}
-
-internal fun joinContributorNames(
-    contributors: List<ContributorEntity>,
-    contributorRoles: List<BookContributorCrossRef>,
-    role: ContributorRole,
-): String {
-    val contributorsById = contributors.associateBy { it.id }
-    return contributorRoles
-        .filter { it.role == role.apiValue }
-        .mapNotNull { crossRef ->
-            contributorsById[crossRef.contributorId]?.let { entity ->
-                crossRef.creditedAs ?: entity.name
-            }
-        }.distinct()
-        .joinToString(", ")
-}
-
-/**
- * A streaming prepare that failed for lack of network is [PlaybackError.ServerUnreachable], so the player keeps
- * reconnecting and says so; any other failure is not the network's to cure and passes through unchanged.
- */
-private fun AppError.asPlaybackFailure(): AppError =
-    if (this is TransportError && isRetryable) {
-        PlaybackError.ServerUnreachable(debugInfo = "$code: ${debugInfo.orEmpty()}")
-    } else {
-        this
-    }
