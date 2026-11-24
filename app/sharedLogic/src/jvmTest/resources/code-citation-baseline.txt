@@ -22,7 +22,6 @@ app/iosApp/ListenUp/DesignSystem/PlayerWashTone.swift 1
 app/iosApp/ListenUp/Features/Admin/Inbox/AdminInboxView.swift 1
 app/iosApp/ListenUp/Features/Admin/Inbox/InboxMode.swift 1
 app/iosApp/ListenUp/Features/Admin/Inbox/ReleaseToEveryone.swift 1
-app/iosApp/ListenUp/Features/BookEdit/BookEditView.swift 1
 app/iosApp/ListenUp/Features/ChapterEditor/ChapterEditRow.swift 1
 app/iosApp/ListenUp/Features/ChapterEditor/ChapterEditorView.swift 1
 app/iosApp/ListenUp/Features/ChapterEditor/ChapterTimelineModel.swift 2
