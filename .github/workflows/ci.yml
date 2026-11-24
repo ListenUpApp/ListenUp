@@ -6,10 +6,11 @@ on:
   pull_request:
     branches: [main, master]
 
-# Least-privilege GITHUB_TOKEN for every job — nothing in CI writes to GitHub.
-# Matches the job-level scoping convention in release.yml.
+# Least-privilege GITHUB_TOKEN for every job — only `packages: read` is added so container jobs
+# can pull the pre-baked GHCR CI image (`ghcr.io/listenupapp/listenup-ci`).
 permissions:
   contents: read
+  packages: read
 
 # Cancel in-progress runs for the same branch
 concurrency:
@@ -197,89 +198,64 @@ jobs:
     needs: [changes]
     if: needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/listenupapp/listenup-ci:latest
+      options: --ipc=host
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    defaults:
+      run:
+        shell: bash
+    env:
+      LANG: C.UTF-8
+      LC_ALL: C.UTF-8
     # The browser lane, first half (`webKotest`): KGP compiles Kotlin to ES modules, then Vite +
     # Playwright own the browser. `test-web-browser-server` below runs the server-backed half.
+    # Container pre-bakes JDK 21, Node 24, pnpm, and Playwright Chromium + OS deps.
     timeout-minutes: 30
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
 
-      - name: Set up JDK 21
-        uses: actions/setup-java@v6.3.0
-        with:
-          distribution: 'temurin'
-          java-version: '21'
-
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
         with:
           cache-read-only: ${{ github.ref != 'refs/heads/main' }}
 
-      - name: Set up pnpm
-        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
-        with:
-          package_json_file: app/webApp/web/package.json
-
-      - name: Set up Node
-        uses: actions/setup-node@v7
-        with:
-          node-version: '24'
-          cache: pnpm
-          cache-dependency-path: app/webApp/web/pnpm-lock.yaml
-
-      - name: Install JS toolchain
-        working-directory: app/webApp/web
-        run: pnpm install --frozen-lockfile
-
-      # The OSS licence manifest the web client serves is generated from two dependency graphs —
-      # this module's Kotlin/JS one and `web/`'s npm one — so this is the only job with everything
-      # needed to regenerate it. Before the Playwright download rather than after: a stale manifest
-      # is a fast failure, and there is no reason to spend twelve minutes on a browser first.
-      - name: Verify the web licence manifest is in sync
-        run: ./gradlew :app:webApp:verifyWebLicences
-
-      # Playwright brings its own Chromium rather than reusing a system browser: a system
-      # browser's version drifts with the runner image, and a pinned download removes the
-      # variable entirely.
-      # `--with-deps` shells out to apt itself, so it inherits the same black-holed mirror that
-      # stalled this step for the job's full 30 minutes on 2026-08-19. The policy is all this job
-      # needs — there are no packages to install here, only apt's behaviour to make sane.
-      - name: Apply apt mirror and timeout policy
-        uses: ./.github/actions/apt-install
-
-      - name: Read Playwright version for browser cache key
-        id: playwright-version
-        working-directory: app/webApp/web
-        run: |
-          version="$(node -p "require('./node_modules/playwright/package.json').version")"
-          test -n "$version"
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-
-      - name: Cache Playwright Chromium
-        id: playwright-cache
+      - name: Cache pnpm store
         if: github.ref == 'refs/heads/main'
         uses: actions/cache@v6
         with:
-          path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-${{ runner.arch }}-playwright-chromium-v1-${{ steps.playwright-version.outputs.version }}
+          path: ${{ runner.temp }}/pnpm-store
+          key: ${{ runner.os }}-${{ runner.arch }}-pnpm-store-v1-${{ hashFiles('app/webApp/web/pnpm-lock.yaml') }}
 
-      - name: Restore Playwright Chromium (read-only on PRs)
-        id: playwright-cache-ro
+      - name: Restore pnpm store (read-only on PRs)
         if: github.ref != 'refs/heads/main'
         uses: actions/cache/restore@v6
         with:
-          path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-${{ runner.arch }}-playwright-chromium-v1-${{ steps.playwright-version.outputs.version }}
+          path: ${{ runner.temp }}/pnpm-store
+          key: ${{ runner.os }}-${{ runner.arch }}-pnpm-store-v1-${{ hashFiles('app/webApp/web/pnpm-lock.yaml') }}
 
-      - name: Install Playwright Chromium
+      - name: Install JS toolchain
+        working-directory: app/webApp/web
+        run: |
+          pnpm config set store-dir "$RUNNER_TEMP/pnpm-store"
+          pnpm install --frozen-lockfile
+
+      # The OSS licence manifest the web client serves is generated from two dependency graphs —
+      # this module's Kotlin/JS one and `web/`'s npm one — so this is the only job with everything
+      # needed to regenerate it.
+      - name: Verify the web licence manifest is in sync
+        run: ./gradlew :app:webApp:verifyWebLicences
+
+      - name: Ensure Playwright Chromium is present
         working-directory: app/webApp/web
         timeout-minutes: 12
         run: |
-          if [ "${{ steps.playwright-cache.outputs.cache-hit }}" = "true" ] || [ "${{ steps.playwright-cache-ro.outputs.cache-hit }}" = "true" ]; then
-            pnpm exec playwright install-deps chromium
-          else
-            pnpm exec playwright install --with-deps chromium
+          if ! node -e "const fs=require('fs'), {chromium}=require('playwright'); process.exit(fs.existsSync(chromium.executablePath()) ? 0 : 1)"; then
+            pnpm exec playwright install chromium
           fi
 
       - name: Run Kotest specs in Chromium
@@ -295,121 +271,57 @@ jobs:
     needs: [changes]
     if: needs.changes.outputs.web_server == 'true'
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/listenupapp/listenup-ci:latest
+      options: --ipc=host
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    defaults:
+      run:
+        shell: bash
+    env:
+      LANG: C.UTF-8
+      LC_ALL: C.UTF-8
     # This lane's proof is the point of the whole branch: a real Chromium playing a
     # server-transcoded book it cannot natively decode, via hls.js, against a real Ktor
-    # server. It's a separate job from test-web-browser (not a second Gradle target in that
-    # job) because both specs run sync-kotlin.mjs, which collides on
-    # `mkdir app/webApp/web/kotlin` with EEXIST if they run concurrently in one invocation —
-    # separate jobs also means separate runners, so the collision cannot occur. 45m (vs. the
-    # other lane's 30m) because this one also builds :server, generates the seed library, and
-    # boots Ktor before Chromium ever opens a page.
+    # server. Container pre-bakes JDK 21, Node 24, pnpm, FFmpeg, and Playwright Chromium + OS deps.
     timeout-minutes: 45
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
 
-      - name: Set up JDK 21
-        uses: actions/setup-java@v6.3.0
-        with:
-          distribution: 'temurin'
-          java-version: '21'
-
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
         with:
           cache-read-only: ${{ github.ref != 'refs/heads/main' }}
 
-      - name: Set up pnpm
-        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - name: Restore pnpm store (read-only)
+        uses: actions/cache/restore@v6
         with:
-          package_json_file: app/webApp/web/package.json
-
-      - name: Set up Node
-        uses: actions/setup-node@v7
-        with:
-          node-version: '24'
-          cache: pnpm
-          cache-dependency-path: app/webApp/web/pnpm-lock.yaml
+          path: ${{ runner.temp }}/pnpm-store
+          key: ${{ runner.os }}-${{ runner.arch }}-pnpm-store-v1-${{ hashFiles('app/webApp/web/pnpm-lock.yaml') }}
 
       - name: Install JS toolchain
         working-directory: app/webApp/web
-        run: pnpm install --frozen-lockfile
-
-      # Playwright brings its own Chromium rather than reusing a system browser: a system
-      # browser's version drifts with the runner image, and a pinned download removes the
-      # variable entirely.
-      # `--with-deps` shells out to apt itself, so it inherits the same black-holed mirror that
-      # stalled this step for the job's full 30 minutes on 2026-08-19. The policy is all this job
-      # needs — there are no packages to install here, only apt's behaviour to make sane.
-      - name: Apply apt mirror and timeout policy
-        uses: ./.github/actions/apt-install
-
-      - name: Read Playwright version for browser cache key
-        id: playwright-version
-        working-directory: app/webApp/web
         run: |
-          version="$(node -p "require('./node_modules/playwright/package.json').version")"
-          test -n "$version"
-          echo "version=$version" >> "$GITHUB_OUTPUT"
+          pnpm config set store-dir "$RUNNER_TEMP/pnpm-store"
+          pnpm install --frozen-lockfile
 
-      - name: Cache Playwright Chromium
-        id: playwright-cache
-        if: github.ref == 'refs/heads/main'
-        uses: actions/cache@v6
-        with:
-          path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-${{ runner.arch }}-playwright-chromium-v1-${{ steps.playwright-version.outputs.version }}
-
-      - name: Restore Playwright Chromium (read-only on PRs)
-        id: playwright-cache-ro
-        if: github.ref != 'refs/heads/main'
-        uses: actions/cache/restore@v6
-        with:
-          path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-${{ runner.arch }}-playwright-chromium-v1-${{ steps.playwright-version.outputs.version }}
-
-      - name: Install Playwright Chromium
+      - name: Ensure Playwright Chromium is present
         working-directory: app/webApp/web
         timeout-minutes: 12
         run: |
-          if [ "${{ steps.playwright-cache.outputs.cache-hit }}" = "true" ] || [ "${{ steps.playwright-cache-ro.outputs.cache-hit }}" = "true" ]; then
-            pnpm exec playwright install-deps chromium
-          else
-            pnpm exec playwright install --with-deps chromium
+          if ! node -e "const fs=require('fs'), {chromium}=require('playwright'); process.exit(fs.existsSync(chromium.executablePath()) ? 0 : 1)"; then
+            pnpm exec playwright install chromium
           fi
 
-      # This lane needs ffmpeg twice over: :server:generateSeedLibrary shells out to it to
-      # build the fixture library, and the transcoder under test spawns it per session. A job
-      # that proceeded without ffmpeg would fail much later as a confusing hlsUrl == null,
-      # rather than here where the cause is obvious. Mirrors the probe/install/verify shape
-      # from test-jvm-server's FFmpeg steps.
-      - name: Probe for a preinstalled FFmpeg
-        id: ffmpeg-probe
-        run: |
-          if command -v ffmpeg >/dev/null 2>&1 && command -v ffprobe >/dev/null 2>&1; then
-            echo "present=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "present=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Install FFmpeg (seed library + transcoder)
-        if: steps.ffmpeg-probe.outputs.present != 'true'
-        timeout-minutes: 18
-        uses: ./.github/actions/apt-install
-        with:
-          packages: ffmpeg
-
-      # Deliberately fatal, and deliberately OUTSIDE the conditional install above. test-jvm-server's
-      # identical step guards a DIFFERENT failure: there the drift gate skips when ffmpeg is absent,
-      # so a missing binary silently no-ops a real test. Here it does not go quiet — it goes
-      # confusing. `:server:generateSeedLibrary` `require`s ffmpeg and dies, and if it somehow got
-      # past that, the transcoder probes Unavailable and the proof spec fails on `hlsUrl == null`
-      # three layers from the cause. This step is what makes the missing binary say so itself.
+      # Deliberately fatal: missing FFmpeg would otherwise surface much later as hlsUrl == null.
       - name: Verify FFmpeg is usable (anti-fake-green)
         run: |
-          ffmpeg -version | head -1
-          ffprobe -version | head -1
+          ffmpeg -version | sed -n '1p'
+          ffprobe -version | sed -n '1p'
 
       - name: Run Kotest specs in Chromium against a real server
         run: ./gradlew :app:webApp:webAuthKotest --no-daemon
@@ -560,6 +472,18 @@ jobs:
     needs: [changes]
     if: needs.changes.outputs.server == 'true'
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/listenupapp/listenup-ci:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    defaults:
+      run:
+        shell: bash
+    env:
+      LANG: C.UTF-8
+      LC_ALL: C.UTF-8
+      GRADLE_USER_HOME: /home/ubuntu/.gradle
     timeout-minutes: 35
     strategy:
       fail-fast: false
@@ -570,98 +494,38 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v7
 
-      - name: Set up JDK 21
-        uses: actions/setup-java@v6.3.0
-        with:
-          distribution: 'temurin'
-          java-version: '21'
-
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
         with:
           cache-read-only: ${{ github.ref != 'refs/heads/main' }}
 
-      # The transcoder's drift gate (TranscodeIntegrationTest) measures segments a real encoder
-      # actually wrote — a mis-declared segment length silently corrupts every position a listener
-      # saves, and no fake can catch it. The spec SKIPS when ffmpeg is absent so a developer without
-      # one is not blocked, which makes the version check below the anti-fake-green: if the install
-      # ever stops landing, the job fails here instead of the gate quietly opting out.
-      - name: Probe for a preinstalled FFmpeg
-        id: ffmpeg-probe
-        run: |
-          pkgs="gstreamer1.0-tools gstreamer1.0-plugins-base gstreamer1.0-plugins-good"
-          if ! command -v ffmpeg >/dev/null 2>&1 || ! command -v ffprobe >/dev/null 2>&1; then
-            pkgs="ffmpeg $pkgs"
-          fi
-          echo "packages=$pkgs" >> "$GITHUB_OUTPUT"
-
-      - name: Install FFmpeg and GStreamer runtime (transcode gates)
-        timeout-minutes: 18
-        uses: ./.github/actions/apt-install
-        with:
-          packages: ${{ steps.ffmpeg-probe.outputs.packages }}
-
-      # Deliberately fatal, and deliberately OUTSIDE the conditional install above.
+      # Anti-fake-green: fail fast if FFmpeg or GStreamer + FDK is missing from the container image.
       - name: Verify FFmpeg is usable (anti-fake-green)
         run: |
-          ffmpeg -version | head -1
-          ffprobe -version | head -1
+          ffmpeg -version | sed -n '1p'
+          ffprobe -version | sed -n '1p'
 
-      # xHE-AAC decodes through Fraunhofer FDK (GStreamer's fdkaacdec), never FFmpeg, so the
-      # transcoder's xHE gate needs that decoder too. Only shard 1 saves on main to prevent
-      # parallel cache-save races on the shared key.
-      - name: Read GStreamer version for FDK plugin cache key
-        id: gst-version
+      - name: Verify GStreamer FDK decoding (anti-fake-green)
         run: |
-          version="$(gst-inspect-1.0 --version | sed -n 's/.*GStreamer \([0-9][0-9.]*\).*/\1/p' | head -n 1)"
-          test -n "$version"
-          echo "version=$version" >> "$GITHUB_OUTPUT"
+          gst-inspect-1.0 fdkaacdec | sed -n '1,3p'
+          gst-inspect-1.0 matroskademux | sed -n '1,3p'
+          ldd_out="$(ldd /opt/listenup/gst-plugins/libgstfdkaac.so)"
+          printf '%s\n' "$ldd_out" | grep -F "/opt/listenup/gst-plugins/fdk-aac/lib/libfdk-aac"
 
-      - name: Cache GStreamer fdkaacdec plugin
-        id: gst-cache
-        if: github.ref == 'refs/heads/main' && matrix.shard == 1
-        uses: actions/cache@v6
-        with:
-          path: ${{ runner.temp }}/gst-plugins
-          key: ${{ runner.os }}-${{ runner.arch }}-gst-fdkaac-v1-${{ steps.gst-version.outputs.version }}-${{ hashFiles('tools/scripts/build-gst-fdkaac.sh') }}
-
-      - name: Restore GStreamer fdkaacdec plugin (read-only)
-        id: gst-cache-ro
-        if: github.ref != 'refs/heads/main' || matrix.shard != 1
-        uses: actions/cache/restore@v6
-        with:
-          path: ${{ runner.temp }}/gst-plugins
-          key: ${{ runner.os }}-${{ runner.arch }}-gst-fdkaac-v1-${{ steps.gst-version.outputs.version }}-${{ hashFiles('tools/scripts/build-gst-fdkaac.sh') }}
-
-      - name: Install GStreamer and FDK build dependencies (cache miss)
-        if: steps.gst-cache.outputs.cache-hit != 'true' && steps.gst-cache-ro.outputs.cache-hit != 'true'
-        timeout-minutes: 18
-        uses: ./.github/actions/apt-install
-        with:
-          packages: >-
-            libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
-            meson ninja-build autoconf automake libtool
-
-      - name: Build GStreamer fdkaacdec (cache miss)
-        if: steps.gst-cache.outputs.cache-hit != 'true' && steps.gst-cache-ro.outputs.cache-hit != 'true'
-        run: bash tools/scripts/build-gst-fdkaac.sh "$RUNNER_TEMP/gst-plugins"
-
-      - name: Export GStreamer plugin path and verify FDK decoding (anti-fake-green)
+      # Several server suites verify EACCES against chmod 0555/0000 directories; root ignores POSIX mode bits via CAP_DAC_OVERRIDE.
+      - name: Prepare non-root user for POSIX permission tests
         run: |
-          echo "GST_PLUGIN_PATH=$RUNNER_TEMP/gst-plugins" >> "$GITHUB_ENV"
-          export GST_PLUGIN_PATH="$RUNNER_TEMP/gst-plugins"
-          gst-inspect-1.0 fdkaacdec | head -3
-          gst-inspect-1.0 matroskademux | head -3
-          # The plugin must run on the FDK built beside it, not on whatever the runner packages.
-          ldd "$RUNNER_TEMP/gst-plugins/libgstfdkaac.so" | grep "$RUNNER_TEMP/gst-plugins/fdk-aac/lib/libfdk-aac"
+          id ubuntu >/dev/null 2>&1 || useradd -m -s /bin/bash ubuntu
+          mkdir -p "$GRADLE_USER_HOME" "$RUNNER_TEMP/.gradle-actions"
+          chown -R ubuntu:ubuntu "$GITHUB_WORKSPACE" "$GRADLE_USER_HOME" "$RUNNER_TEMP"
 
       - name: Run server Konsist and shard 1/3 tests
         if: matrix.shard == 1
-        run: ./gradlew :server:konsistTest :server:jvmTest -PserverTestShard=1/3
+        run: runuser -u ubuntu -m -- env HOME=/home/ubuntu ./gradlew :server:konsistTest :server:jvmTest -PserverTestShard=1/3
 
       - name: Run server shard tests
         if: matrix.shard != 1
-        run: ./gradlew :server:jvmTest -PserverTestShard=${{matrix.shard}}/3
+        run: runuser -u ubuntu -m -- env HOME=/home/ubuntu ./gradlew :server:jvmTest -PserverTestShard=${{matrix.shard}}/3
 
       - name: Report E2E auto-retries in job summary
         if: always()
@@ -940,6 +804,17 @@ jobs:
   build-server-native:
     name: Build & Test (server linuxX64)
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/listenupapp/listenup-ci:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    defaults:
+      run:
+        shell: bash
+    env:
+      LANG: C.UTF-8
+      LC_ALL: C.UTF-8
     timeout-minutes: 30
     # Gate behind lint only so native compile + test run in parallel with test-jvm-server.
     needs: [changes, lint]
@@ -948,12 +823,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
-
-      - name: Set up JDK 21
-        uses: actions/setup-java@v6.3.0
-        with:
-          distribution: 'temurin'
-          java-version: '21'
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
@@ -990,15 +859,8 @@ jobs:
             ${{ runner.os }}-${{ runner.arch }}-konan-v1-
             ${{ runner.os }}-konan-
 
-      # The cap is 18m rather than 6m because a cap BELOW one attempt's worst case is not a guard,
-      # it is a guillotine: at 6m the 2026-08-19 mirror hang killed the step mid-attempt-1 and the
-      # retries this loop exists for never ran at all. The ceiling must clear all three attempts and
-      # the dpkg recovery between them: 3 × (60s + 210s) + 2 × 60s + 30s of backoff = 16m.
-      - name: Install native link dependencies (libargon2 + libsqlite3 + libcurl)
-        timeout-minutes: 18
-        uses: ./.github/actions/apt-install
-        with:
-          packages: libargon2-dev libsqlite3-dev libcurl4-openssl-dev
+      - name: Verify native link dependencies (anti-fake-green)
+        run: pkg-config --modversion libargon2 sqlite3 libcurl
 
       # Compile both linuxX64 and linuxArm64 (Raspberry Pi / Graviton rot canary — compile-only
       # because linking requires aarch64 libs; fetches the aarch64 sysroot when Konan misses).
