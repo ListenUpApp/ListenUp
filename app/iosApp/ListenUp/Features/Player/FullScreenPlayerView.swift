@@ -46,8 +46,6 @@ struct FullScreenPlayerView: View {
     @State private var defaultBoostDb: Float?
     /// The controls column's natural height, measured; the cover sizes itself to what is left.
     @State private var controlsHeight: CGFloat = 0
-    /// The tabletop lying half's controls, measured, so they scroll only when they cannot fit (accessibility sizes).
-    @State private var lyingHalfHeight: CGFloat = 0
     /// Show Chapters on a wide window moves VoiceOver to the chapter panel, which is already on screen.
     @AccessibilityFocusState private var chapterPanelFocused: Bool
 
@@ -57,11 +55,11 @@ struct FullScreenPlayerView: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.dependencies) private var deps
 
-    private var margin: CGFloat { PlayerLayoutMode.horizontalMargin }
+    var margin: CGFloat { PlayerLayoutMode.horizontalMargin }
     /// The header row: 44pt controls.
-    private static let headerHeight: CGFloat = 44
+    static let headerHeight: CGFloat = FullScreenPlayerHeader.height
     /// Between the player and the chapter panel, and the panel's distance from the window's edge (the board's 24).
-    private static let panelGap: CGFloat = Spacing.xl
+    static let panelGap: CGFloat = Spacing.xl
     /// The stacked column's widest, beside the panel: wider and the transport spreads apart.
     private static let regularColumnMaximumWidth: CGFloat = 620
 
@@ -162,9 +160,9 @@ struct FullScreenPlayerView: View {
         let belowHeader = CGSize(width: size.width, height: max(0, size.height - Self.headerHeight))
         switch mode {
         case .tabletop(let hinge):
-            tabletop(hinge: hinge, in: size)
+            tabletop(hinge: hinge, in: size) { showChapterList = true }
         case .book(let hinge):
-            book(hinge: hinge, in: size)
+            book(hinge: hinge, in: size, chapterPanelFocused: $chapterPanelFocused)
         case .stacked:
             VStack(spacing: 0) {
                 header(showsTitle: false)
@@ -261,7 +259,7 @@ struct FullScreenPlayerView: View {
     /// 530pt instead of 330 on an iPhone 17e — and the cover stayed stuck at ~155pt with empty
     /// bands around it (Pass 7 Simulator matrix).
     @ViewBuilder
-    private func stackedColumn(
+    func stackedColumn(
         width: CGFloat, height: CGFloat, showsChapters: Bool, showsSeries: Bool = false
     ) -> some View {
         let fittedSide = PlayerLayoutMode.stackedCoverSide(
@@ -286,7 +284,7 @@ struct FullScreenPlayerView: View {
     /// Titles, scrubber, transport, volume, and the secondary row at their natural height, which
     /// is measured so the cover can take exactly what is left. `showsSeries` puts the series link above the title, where
     /// More leaves Go to Series out (P10).
-    private func controlsColumn(showsChapters: Bool, showsVolume: Bool, showsSeries: Bool = false) -> some View {
+    func controlsColumn(showsChapters: Bool, showsVolume: Bool, showsSeries: Bool = false) -> some View {
         VStack(spacing: 0) {
             // The phone's centred three lines; iPad's wide player keeps its leading block with the series and bylines.
             NowPlayingTitleBlock(
@@ -325,12 +323,12 @@ struct FullScreenPlayerView: View {
     }
 
     /// A problem card is up: the scrubber has nothing to seek.
-    private var isShowingProblem: Bool {
+    var isShowingProblem: Bool {
         if case .problem = observer.card?.kind { return true }
         return false
     }
 
-    private func cover(side: CGFloat) -> some View {
+    func cover(side: CGFloat) -> some View {
         BookCoverImage(
             bookId: observer.currentBookId,
             coverPath: observer.coverPath,
@@ -344,230 +342,15 @@ struct FullScreenPlayerView: View {
 
     // MARK: - Header
 
-    /// Collapse · where the audio is · More. On iPad's wide player it is titled "Now Playing" (the `NP-iPad` board; HIG,
-    /// Layout: name the screen where there is room), the status centred in what is left, and More leaves Go to Series
-    /// out because the series is a link above the title.
-    private func header(showsTitle: Bool) -> some View {
-        HStack(spacing: 0) {
-            Button { dismiss() } label: {
-                headerGlyph("chevron.down")
-            }
-            .buttonStyle(.plain)
-            .frame(minWidth: TapTarget.minimum, minHeight: TapTarget.minimum)
-            .accessibilityLabel(String(localized: "player.collapse"))
-
-            if showsTitle {
-                Text(String(localized: "player.np_now_playing_ios"))
-                    .font(.headline)
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
-                    .padding(.leading, Spacing.xs)
-                    .accessibilityAddTraits(.isHeader)
-            }
-
-            Spacer(minLength: Spacing.xs)
-
-            // Only news: plain status text, not a chip (HIG). Downloaded, streaming
-            // and casting say nothing; AirPlay's caption names a device.
-            if let statusText = observer.statusText {
-                Text(statusText)
-                    .font(.footnote)
-                    .foregroundStyle(Color.luOnWashSecondary)
-                    .multilineTextAlignment(.center)
-                    .lineLimit(1)
-            }
-
-            Spacer(minLength: Spacing.xs)
-
-            moreMenu(includesSeries: !showsTitle)
-        }
-        .frame(minHeight: Self.headerHeight)
-        .padding(.horizontal, Spacing.m)
-    }
-
-    /// A 36pt glass disc — a floating control, where Liquid Glass belongs — in a 44pt hit area.
-    /// Like a navigation bar's buttons, the glyph keeps its size at large text settings and offers
-    /// the large content viewer instead (HIG, Accessibility).
-    private func headerGlyph(_ systemImage: String) -> some View {
-        Image(systemName: systemImage)
-            .font(.system(size: 17, weight: .semibold)) // decorative fixed size
-            .foregroundStyle(.primary)
-            .frame(width: 36, height: 36)
-            .glassControl(in: Circle())
-            .frame(width: 44, height: 44)
-            .contentShape(Rectangle())
-            .accessibilityShowsLargeContentViewer()
-    }
-
-    /// The shared More menu: the places, then Close Book in its own section, destructive (HIG, Menus). The phone's
-    /// title block names the narrators only, so More carries Go to Author (a submenu for several, HIG Menus); iPad's
-    /// wide player shows the authors and the series as links, so its More has neither. Never Go to Narrator: the
-    /// narrator line's names are the way there.
-    private func moreMenu(includesSeries: Bool) -> some View {
-        Menu {
-            let sections = includesSeries ? observer.menu : observer.menuWithoutSeries
-            ForEach(Array(sections.enumerated()), id: \.offset) { _, section in
-                Section {
-                    ForEach(section.rows, id: \.self) { row in
-                        if row == .chooseAuthor {
-                            Menu {
-                                ForEach(NowPlayingTitleBlock.menuRows(observer.authors)) { author in
-                                    Button { onViewContributor(author.id) } label: {
-                                        Text(author.name)
-                                        if let books = author.books { Text(books) }
-                                    }
-                                }
-                            } label: {
-                                Label(row.title, systemImage: row.systemImage)
-                            }
-                        } else {
-                            Button(role: section.isDestructive ? .destructive : nil) { perform(row) } label: {
-                                Label(row.title, systemImage: row.systemImage)
-                            }
-                        }
-                    }
-                }
-            }
-        } label: {
-            headerGlyph("ellipsis")
-        }
-        .frame(minWidth: TapTarget.minimum, minHeight: TapTarget.minimum)
-        .contentShape(Rectangle())
-        .accessibilityLabel(String(localized: "player.more_options"))
-    }
-
-    private func perform(_ row: PlayerMenuModel.Row) {
-        switch row {
-        case .goToBook: onViewDetails()
-        case .goToSeries(let seriesId): onViewSeries(seriesId)
-        case .goToAuthor(let authorId): onViewContributor(authorId)
-        case .chooseAuthor: break // a submenu, never a button
-        case .openPdf: observer.openCurrentBookPdf()
-        case .volumeBoost: showBoostPicker = true
-        case .closeBook: observer.closeBook()
-        }
-    }
-}
-
-// MARK: - Fold
-
-extension FullScreenPlayerView {
-    /// Half open on a table. The standing half carries what is read at a distance — the header, the cover and a
-    /// one-line title; the lying half what is touched — the scrubber, the transport (or the state card) and the
-    /// settings row. A gap as tall as the hinge, plus a clearance either side, keeps everything off the crease.
-    @ViewBuilder
-    private func tabletop(hinge: CGRect, in size: CGSize) -> some View {
-        let clearance = PlayerLayoutMode.foldClearance
-        let lyingHalf = max(0, size.height - hinge.maxY - clearance)
-        VStack(spacing: 0) {
-            VStack(spacing: 0) {
-                header(showsTitle: false)
-                GeometryReader { space in
-                    cover(side: max(0, min(space.size.width, space.size.height, PlayerLayoutMode.tabletopCoverMaximum)))
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                }
-                Spacer().frame(height: 16)
-                NowPlayingTitleBlock(observer: observer, onViewContributor: onViewContributor, form: .oneLine)
-                    .padding(.horizontal, margin)
-            }
-            .padding(.bottom, clearance)
-            .frame(height: max(0, hinge.minY))
-
-            Color.clear.frame(height: hinge.height)
-
-            Group {
-                if lyingHalfHeight <= lyingHalf {
-                    lyingHalfControls
-                } else {
-                    ScrollView { lyingHalfControls }
-                        .scrollBounceBehavior(.basedOnSize)
-                }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .padding(.top, clearance)
-        }
-    }
-
-    /// The tabletop's lying half: the controls a hand's width wide, centred.
-    private var lyingHalfControls: some View {
-        VStack(spacing: 20) {
-            ChapterScrubberSection(observer: observer)
-                .disabled(isShowingProblem)
-            if let card = observer.card {
-                PlayerStateCardView(
-                    card: card,
-                    onAction: { observer.onCardAction($0) },
-                    onRate: { observer.rate(halfStars: $0) }
-                )
-            } else {
-                PlayerTransportControls(observer: observer)
-            }
-            PlayerSecondaryControls(
-                observer: observer,
-                showsChaptersControl: true,
-                onShowChapters: { showChapterList = true }
-            )
-        }
-        .frame(maxWidth: PlayerLayoutMode.tabletopControlsMaximumWidth)
-        .padding(.horizontal, margin)
-        .fixedSize(horizontal: false, vertical: true)
-        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { lyingHalfHeight = $0 }
-        .frame(maxWidth: .infinity)
-    }
-
-    /// Half open like a book: the regular arrangement, split at the hinge rather than at a fixed pane width — the
-    /// player column on the near page, the chapter panel on the far one.
-    @ViewBuilder
-    private func book(hinge: CGRect, in size: CGSize) -> some View {
-        let clearance = PlayerLayoutMode.foldClearance
-        let columnWidth = max(0, hinge.minX - clearance)
-        let paneWidth = max(0, size.width - hinge.maxX - clearance)
-        let belowHeader = max(0, size.height - Self.headerHeight)
-        let hasChapterPanel = Self.bookPostureShowsChapterPanel(chapterCount: observer.chapterRows.count)
-        HStack(spacing: 0) {
-            VStack(spacing: 0) {
-                header(showsTitle: false)
-                if hasChapterPanel {
-                    stackedColumn(width: columnWidth, height: belowHeader, showsChapters: false)
-                } else {
-                    // No chapters, so no panel: the cover takes the near page.
-                    cover(side: max(0, min(columnWidth - 2 * margin, belowHeader - 2 * Spacing.m)))
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                }
-            }
-            .frame(width: columnWidth)
-
-            Color.clear.frame(width: max(0, size.width - columnWidth - paneWidth))
-
-            if hasChapterPanel {
-                NowPlayingChapterPanel(observer: observer)
-                    .frame(width: max(0, paneWidth - Self.panelGap))
-                    .padding(.vertical, Spacing.m)
-                    .padding(.trailing, Self.panelGap)
-                    .accessibilityFocused($chapterPanelFocused)
-            } else {
-                // The facing page carries the controls, as Android's half-open layout does.
-                ScrollView {
-                    controlsColumn(showsChapters: false, showsVolume: true, showsSeries: true)
-                        .padding(.horizontal, margin)
-                        .frame(maxWidth: .infinity)
-                        .frame(minHeight: size.height)
-                }
-                .scrollBounceBehavior(.basedOnSize)
-                .frame(width: paneWidth)
-            }
-        }
-    }
-
-    /// Whether a book half open like a book shows the chapter panel on the far page: only when there are chapters to
-    /// pick from. A chapterless book puts the cover on the near page and the controls on the far one instead.
-    static func bookPostureShowsChapterPanel(chapterCount: Int) -> Bool {
-        chapterCount > 0
-    }
-
-    /// Whether the resolved layout already shows the chapter panel: the wide window, and a phone half open like a book.
-    static func showsChapterPanel(_ mode: PlayerLayoutMode) -> Bool {
-        if case .book = mode { return true }
-        return mode == .regular
+    func header(showsTitle: Bool) -> some View {
+        FullScreenPlayerHeader(
+            observer: observer,
+            showsTitle: showsTitle,
+            onDismiss: { dismiss() },
+            onViewDetails: onViewDetails,
+            onViewSeries: onViewSeries,
+            onViewContributor: onViewContributor,
+            onShowBoostPicker: { showBoostPicker = true }
+        )
     }
 }
