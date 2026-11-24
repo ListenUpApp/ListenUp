@@ -14,31 +14,19 @@ struct GenrePageView: View {
     let genreId: String
     let genreName: String
 
-    @Environment(\.dependencies) private var deps
-    @State private var observer: GenrePageObserver?
-
     var body: some View {
-        Group {
-            if let observer {
-                content(observer)
-            } else {
-                LoadingStateView()
-            }
-        }
-        .background(Color.luSurface)
-        .navigationTitle(observer?.name ?? genreName)
-        .navigationBarTitleDisplayMode(.inline)
-        .task(id: genreId) {
+        WithObserver(id: genreId) { deps in
             let obs = GenrePageObserver(
                 viewModel: deps.createGenreDestinationViewModel(),
                 fallbackName: genreName
             )
-            observer = obs
             obs.load(genreId: genreId)
-        }
-        .onDisappear {
-            // Release the observer; its deinit cancels the FlowBridge subscriptions.
-            observer = nil
+            return obs
+        } content: { observer in
+            content(observer)
+                .background(Color.luSurface)
+                .navigationTitle(observer.name)
+                .navigationBarTitleDisplayMode(.inline)
         }
     }
 

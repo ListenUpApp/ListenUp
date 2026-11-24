@@ -12,32 +12,20 @@ struct ContributorBooksView: View {
     let contributorName: String
     let roleDisplayName: String
 
-    @Environment(\.dependencies) private var deps
-    @State private var observer: ContributorBooksObserver?
-
     var body: some View {
-        Group {
-            if let observer {
-                content(observer)
-            } else {
-                LoadingStateView()
-            }
-        }
-        .background(Color.luSurface)
-        .navigationTitle(observer?.contributorName ?? contributorName)
-        .navigationBarTitleDisplayMode(.inline)
-        .task(id: "\(contributorId)-\(role)") {
+        WithObserver(id: "\(contributorId)-\(role)") { deps in
             let obs = ContributorBooksObserver(
                 viewModel: deps.createContributorBooksViewModel(),
                 fallbackName: contributorName,
                 fallbackRole: roleDisplayName
             )
-            observer = obs
             obs.loadBooks(contributorId: contributorId, role: role)
-        }
-        .onDisappear {
-            // Release the observer; its deinit cancels the FlowBridge subscriptions.
-            observer = nil
+            return obs
+        } content: { observer in
+            content(observer)
+                .background(Color.luSurface)
+                .navigationTitle(observer.contributorName)
+                .navigationBarTitleDisplayMode(.inline)
         }
     }
 

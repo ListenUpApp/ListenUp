@@ -16,42 +16,38 @@ import SwiftUI
 struct ForeignProfileView: View {
     let userId: String
 
-    @Environment(\.dependencies) private var deps
-
-    @State private var observer: UserProfileObserver?
-
     var body: some View {
-        ScrollView {
-            content
-                .padding(.horizontal, Spacing.l)
-                .padding(.top, Spacing.xs)
-                .padding(.bottom, Spacing.xl)
-                .readableWidth()
-        }
-        .background(Color.luSurface)
-        .navigationTitle(observer?.displayName ?? "")
-        .navigationBarTitleDisplayMode(.inline)
-        .task {
-            let observer = observer ?? UserProfileObserver(viewModel: deps.createUserProfileViewModel())
-            self.observer = observer
-            observer.loadProfile(userId: userId)
+        WithObserver(id: userId) { deps in
+            let obs = UserProfileObserver(viewModel: deps.createUserProfileViewModel())
+            obs.loadProfile(userId: userId)
+            return obs
+        } content: { observer in
+            ScrollView {
+                content(observer)
+                    .padding(.horizontal, Spacing.l)
+                    .padding(.top, Spacing.xs)
+                    .padding(.bottom, Spacing.xl)
+                    .readableWidth()
+            }
+            .background(Color.luSurface)
+            .navigationTitle(observer.displayName)
+            .navigationBarTitleDisplayMode(.inline)
         }
     }
 
     // MARK: - Content
 
-    @ViewBuilder private var content: some View {
-        switch observer?.phase ?? .loading {
+    @ViewBuilder
+    private func content(_ observer: UserProfileObserver) -> some View {
+        switch observer.phase {
         case .ready:
             VStack(spacing: 22) {
-                header
-                statStrip
-                if let observer {
-                    RecentlyListenedStrip(books: observer.recentBooks, isOwnProfile: observer.isOwnProfile)
-                }
+                header(observer)
+                statStrip(observer)
+                RecentlyListenedStrip(books: observer.recentBooks, isOwnProfile: observer.isOwnProfile)
             }
         case .error(let message):
-            LoadFailedView(message: message) { observer?.refresh() }
+            LoadFailedView(message: message) { observer.refresh() }
                 .frame(maxWidth: .infinity, minHeight: 320)
         case .loading:
             ProgressView()
@@ -61,22 +57,22 @@ struct ForeignProfileView: View {
 
     // MARK: - Header
 
-    private var header: some View {
+    private func header(_ observer: UserProfileObserver) -> some View {
         VStack(spacing: 12) {
             // Image-ness is resolved by userId inside UserAvatarView (one cheap negative-cached
             // miss falls back to initials), so no avatar-type hint is threaded from the state.
             UserAvatarView(
                 userId: userId,
-                fallbackName: observer?.displayName ?? "",
+                fallbackName: observer.displayName,
                 size: 104
             )
 
             VStack(spacing: 3) {
-                Text(observer?.displayName ?? "")
+                Text(observer.displayName)
                     .font(.title.bold())
                     .multilineTextAlignment(.center)
 
-                if let tagline = observer?.tagline, !tagline.isEmpty {
+                if let tagline = observer.tagline, !tagline.isEmpty {
                     Text(tagline)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
@@ -89,21 +85,19 @@ struct ForeignProfileView: View {
 
     // MARK: - Stats
 
-    @ViewBuilder private var statStrip: some View {
-        if let stats = observer {
-            StatStrip(stats: [
-                .init(value: ProfileStatFormat.listened(totalMs: stats.totalListenTimeMs),
-                      label: String(localized: "profile.stat_listened")),
-                .init(value: "\(stats.booksFinished)",
-                      label: String(localized: "profile.stat_finished")),
-                .init(value: "\(stats.currentStreak)",
-                      label: String(localized: "profile.stat_day_streak")),
-                .init(value: "\(stats.longestStreak)",
-                      label: String(localized: "profile.stat_best"))
-            ])
-            .padding(.vertical, Spacing.m)
-            .frame(maxWidth: .infinity)
-            .background(Color.luSurface2, in: RoundedRectangle(cornerRadius: Radius.l, style: .continuous))
-        }
+    private func statStrip(_ observer: UserProfileObserver) -> some View {
+        StatStrip(stats: [
+            .init(value: ProfileStatFormat.listened(totalMs: observer.totalListenTimeMs),
+                  label: String(localized: "profile.stat_listened")),
+            .init(value: "\(observer.booksFinished)",
+                  label: String(localized: "profile.stat_finished")),
+            .init(value: "\(observer.currentStreak)",
+                  label: String(localized: "profile.stat_day_streak")),
+            .init(value: "\(observer.longestStreak)",
+                  label: String(localized: "profile.stat_best"))
+        ])
+        .padding(.vertical, Spacing.m)
+        .frame(maxWidth: .infinity)
+        .background(Color.luSurface2, in: RoundedRectangle(cornerRadius: Radius.l, style: .continuous))
     }
 }

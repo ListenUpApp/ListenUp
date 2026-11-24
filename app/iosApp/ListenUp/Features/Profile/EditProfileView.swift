@@ -9,17 +9,17 @@ import Shared
 /// come from the VM. The sheet dismisses on the first successful save and stays open
 /// (surfacing an alert) on failure.
 struct EditProfileView: View {
-    @Environment(\.dependencies) private var deps
     @Environment(\.dismiss) private var dismiss
 
-    @State private var observer: EditProfileObserver?
     /// The stored avatar's version and frame, for Adjust Photo on the saved photo.
     @State private var storedAvatar = AvatarProfileObserver()
     @FocusState private var focusedField: EditProfileFocusField?
 
     var body: some View {
-        Group {
-            if let loadError = observer?.loadError {
+        WithObserver {
+            EditProfileObserver(viewModel: $0.createEditProfileViewModel())
+        } content: { observer in
+            if let loadError = observer.loadError {
                 // The profile could not be read: say so, rather than an empty form that cannot be saved.
                 ContentUnavailableView {
                     Label(String(localized: "common.something_went_wrong"), systemImage: "person.slash")
@@ -28,15 +28,9 @@ struct EditProfileView: View {
                 } actions: {
                     Button(String(localized: "common.close")) { dismiss() }
                 }
-            } else if let observer {
-                sheet(observer)
             } else {
-                LoadingStateView()
+                sheet(observer)
             }
-        }
-        .task {
-            let obs = observer ?? EditProfileObserver(viewModel: deps.createEditProfileViewModel())
-            observer = obs
         }
     }
 

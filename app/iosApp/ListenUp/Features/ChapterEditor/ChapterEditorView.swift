@@ -17,10 +17,7 @@ import SwiftUI
 struct ChapterEditorView: View {
     let bookId: String
 
-    @Environment(\.dependencies) private var deps
     @Environment(\.dismiss) private var dismiss
-    @State private var observer: ChapterEditorObserver?
-    @State private var player: PlayerObserver?
     @State private var query: String = ""
     @State private var pendingDiscard = false
     @State private var renaming: EditableChapterRow?
@@ -33,102 +30,98 @@ struct ChapterEditorView: View {
     @State private var snaps = 0
 
     var body: some View {
-        NavigationStack {
-            Group {
-                if let observer {
-                    content(observer)
-                } else {
-                    LoadingStateView()
+        WithObserver(id: bookId) { deps in
+            (
+                ChapterEditorObserver(viewModel: deps.createChapterEditorViewModel(bookId: bookId)),
+                deps.playerObserver
+            )
+        } content: { observer, player in
+            NavigationStack {
+                content(observer, player: player)
+                    .navigationTitle(String(localized: "chapter_editor.title"))
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar { toolbar(observer) }
+            }
+            .interactiveDismissDisabled(dismissal(observer).blocksInteractiveDismiss)
+            // ⛔ The ViewModel's scope outlives this view otherwise, and an in-flight save orphans.
+            .onDisappear { observer.close() }
+            .onChange(of: observer.didFinish) { _, finished in
+                if finished { dismiss() }
+            }
+            .confirmationDialog(
+                String(localized: "chapter_editor.discard_title"),
+                isPresented: $pendingDiscard,
+                titleVisibility: .visible
+            ) {
+                Button(String(localized: "common.discard"), role: .destructive) {
+                    observer.resetToSource()
+                    dismiss()
+                }
+                Button(String(localized: "common.cancel"), role: .cancel) {}
+            } message: {
+                Text(String(localized: "chapter_editor.discard_body"))
+            }
+            .alert(String(localized: "chapter_editor.rename_title"), isPresented: renameBinding) {
+                TextField(String(localized: "chapter_editor.rename_label"), text: $renameText)
+                Button(String(localized: "common.cancel"), role: .cancel) { renaming = nil }
+                Button(String(localized: "common.save")) {
+                    if let row = renaming { observer.retitle(row.id, to: renameText) }
+                    renaming = nil
+                }
+                .disabled(renameText.trimmingCharacters(in: .whitespaces).isEmpty)
+            }
+            .alert(String(localized: "chapter_editor.edit_time_title"), isPresented: retimeBinding) {
+                TextField(String(localized: "chapter_editor.edit_time_label"), text: $timeText)
+                    .keyboardType(TextEntry.timecode.keyboardType)
+                    .textInputAutocapitalization(TextEntry.timecode.capitalization.textInput)
+                    .autocorrectionDisabled(!TextEntry.timecode.autocorrects)
+                Button(String(localized: "common.cancel"), role: .cancel) { retiming = nil }
+                Button(String(localized: "common.save")) {
+                    if let row = retiming, let ms = typedStartMs { observer.retime(row.id, toMs: ms) }
+                    retiming = nil
+                }
+                // ⛔ Refused rather than guessed at: a guessed boundary lands where nobody asked.
+                .disabled(typedStartMs == nil)
+            } message: {
+                if typedStartMs == nil {
+                    Text(String(localized: "chapter_editor.edit_time_invalid"))
                 }
             }
-            .navigationTitle(String(localized: "chapter_editor.title"))
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar { toolbar }
-        }
-        .interactiveDismissDisabled(dismissal.blocksInteractiveDismiss)
-        .task(id: bookId) {
-            guard observer == nil else { return }
-            player = deps.playerObserver
-            observer = ChapterEditorObserver(viewModel: deps.createChapterEditorViewModel(bookId: bookId))
-        }
-        // ⛔ The ViewModel's scope outlives this view otherwise, and an in-flight save orphans.
-        .onDisappear { observer?.close() }
-        .onChange(of: observer?.didFinish ?? false) { _, finished in
-            if finished { dismiss() }
-        }
-        .confirmationDialog(
-            String(localized: "chapter_editor.discard_title"),
-            isPresented: $pendingDiscard,
-            titleVisibility: .visible
-        ) {
-            Button(String(localized: "common.discard"), role: .destructive) {
-                observer?.resetToSource()
-                dismiss()
+            .confirmationDialog(
+                String(localized: "chapter_editor.delete_title"),
+                isPresented: deleteBinding,
+                titleVisibility: .visible
+            ) {
+                Button(String(localized: "common.delete"), role: .destructive) {
+                    if let row = deleting { observer.remove(row.id) }
+                    deleting = nil
+                }
+                Button(String(localized: "common.cancel"), role: .cancel) { deleting = nil }
+            } message: {
+                Text(String(localized: "chapter_editor.delete_body"))
             }
-            Button(String(localized: "common.cancel"), role: .cancel) {}
-        } message: {
-            Text(String(localized: "chapter_editor.discard_body"))
-        }
-        .alert(String(localized: "chapter_editor.rename_title"), isPresented: renameBinding) {
-            TextField(String(localized: "chapter_editor.rename_label"), text: $renameText)
-            Button(String(localized: "common.cancel"), role: .cancel) { renaming = nil }
-            Button(String(localized: "common.save")) {
-                if let row = renaming { observer?.retitle(row.id, to: renameText) }
-                renaming = nil
+            .sheet(item: $editingMarker) { edit in
+                ChapterMarkerSheet(
+                    edit: edit,
+                    chapters: observer.chapters,
+                    onSave: { name, startsAt in
+                        if edit.isNew {
+                            observer.startMarker(edit.chapterId, tier: edit.tier, title: name)
+                        } else {
+                            observer.saveMarker(edit.chapterId, tier: edit.tier, title: name, toChapterId: startsAt)
+                        }
+                    },
+                    onRemove: { observer.removeMarker(edit.chapterId, tier: edit.tier) }
+                )
+                .presentationDetents([.medium, .large])
             }
-            .disabled(renameText.trimmingCharacters(in: .whitespaces).isEmpty)
-        }
-        .alert(String(localized: "chapter_editor.edit_time_title"), isPresented: retimeBinding) {
-            TextField(String(localized: "chapter_editor.edit_time_label"), text: $timeText)
-                .keyboardType(TextEntry.timecode.keyboardType)
-                .textInputAutocapitalization(TextEntry.timecode.capitalization.textInput)
-                .autocorrectionDisabled(!TextEntry.timecode.autocorrects)
-            Button(String(localized: "common.cancel"), role: .cancel) { retiming = nil }
-            Button(String(localized: "common.save")) {
-                if let row = retiming, let ms = typedStartMs { observer?.retime(row.id, toMs: ms) }
-                retiming = nil
-            }
-            // ⛔ Refused rather than guessed at: a guessed boundary lands where nobody asked.
-            .disabled(typedStartMs == nil)
-        } message: {
-            if typedStartMs == nil {
-                Text(String(localized: "chapter_editor.edit_time_invalid"))
-            }
-        }
-        .confirmationDialog(
-            String(localized: "chapter_editor.delete_title"),
-            isPresented: deleteBinding,
-            titleVisibility: .visible
-        ) {
-            Button(String(localized: "common.delete"), role: .destructive) {
-                if let row = deleting { observer?.remove(row.id) }
-                deleting = nil
-            }
-            Button(String(localized: "common.cancel"), role: .cancel) { deleting = nil }
-        } message: {
-            Text(String(localized: "chapter_editor.delete_body"))
-        }
-        .sheet(item: $editingMarker) { edit in
-            ChapterMarkerSheet(
-                edit: edit,
-                chapters: observer?.chapters ?? [],
-                onSave: { name, startsAt in
-                    if edit.isNew {
-                        observer?.startMarker(edit.chapterId, tier: edit.tier, title: name)
-                    } else {
-                        observer?.saveMarker(edit.chapterId, tier: edit.tier, title: name, toChapterId: startsAt)
-                    }
-                },
-                onRemove: { observer?.removeMarker(edit.chapterId, tier: edit.tier) }
-            )
-            .presentationDetents([.medium, .large])
         }
     }
 
     // MARK: - Content
 
     @ViewBuilder
-    private func content(_ observer: ChapterEditorObserver) -> some View {
+    private func content(_ observer: ChapterEditorObserver, player: PlayerObserver) -> some View {
         switch observer.phase {
         case .loading:
             LoadingStateView()
@@ -141,12 +134,12 @@ struct ChapterEditorView: View {
             }
 
         case .editing:
-            editing(observer)
+            editing(observer, playheadMs: playheadMs(player))
         }
     }
 
     @ViewBuilder
-    private func editing(_ observer: ChapterEditorObserver) -> some View {
+    private func editing(_ observer: ChapterEditorObserver, playheadMs: Int64?) -> some View {
         VStack(spacing: 0) {
             if !observer.chapters.isEmpty {
                 ChapterTimelineView(
@@ -158,22 +151,22 @@ struct ChapterEditorView: View {
                 .padding(.horizontal, Spacing.m)
                 .padding(.top, Spacing.xs)
             }
-            chapterList(observer)
+            chapterList(observer, playheadMs: playheadMs)
         }
     }
 
     @ViewBuilder
-    private func chapterList(_ observer: ChapterEditorObserver) -> some View {
+    private func chapterList(_ observer: ChapterEditorObserver, playheadMs: Int64?) -> some View {
         List {
             if observer.changedElsewhere { Section { changedElsewhereNotice } }
             if let problem = observer.problem { Section { problemNotice(problem) } }
-            if let drift = observer.drift { Section { driftSection(observer, drift: drift) } }
-            chapterSection(observer)
+            if let drift = observer.drift { Section { driftSection(observer, drift: drift, playheadMs: playheadMs) } }
+            chapterSection(observer, playheadMs: playheadMs)
         }
         .listStyle(.insetGrouped)
         .haptic(.press, trigger: snaps)
         .searchable(text: $query, prompt: Text(String(localized: "chapter_editor.jump_to_title")))
-        .safeAreaBar(edge: .bottom) { addAtPlayheadBar(observer) }
+        .safeAreaBar(edge: .bottom) { addAtPlayheadBar(observer, playheadMs: playheadMs) }
     }
 
     private var changedElsewhereNotice: some View {
@@ -194,7 +187,11 @@ struct ChapterEditorView: View {
             .foregroundStyle(Color.listenUpOrange)
     }
 
-    private func driftSection(_ observer: ChapterEditorObserver, drift: DriftModel) -> some View {
+    private func driftSection(
+        _ observer: ChapterEditorObserver,
+        drift: DriftModel,
+        playheadMs: Int64?
+    ) -> some View {
         DriftPanel(
             drift: drift,
             canPin: observer.selectedChapterId != nil && playheadMs != nil,
@@ -210,10 +207,10 @@ struct ChapterEditorView: View {
     }
 
     @ViewBuilder
-    private func chapterSection(_ observer: ChapterEditorObserver) -> some View {
+    private func chapterSection(_ observer: ChapterEditorObserver, playheadMs: Int64?) -> some View {
         let rows = filtered(observer.chapters)
         if observer.chapters.isEmpty {
-            Section { emptyState(observer) }
+            Section { emptyState(observer, playheadMs: playheadMs) }
         } else if rows.isEmpty {
             Section {
                 Text(String(localized: .chapterEditorNoMatches(query)))
@@ -224,7 +221,7 @@ struct ChapterEditorView: View {
             // A search result is a flat set: a section says where a chapter sits in the book, and
             // the rows around it have been filtered away.
             Section {
-                ForEach(rows) { row in chapterRow(observer, row: row) }
+                ForEach(rows) { row in chapterRow(observer, row: row, playheadMs: playheadMs) }
             } header: {
                 bookSubtitle(observer)
             }
@@ -232,7 +229,7 @@ struct ChapterEditorView: View {
             if let titles = observer.partSuggestionTitles { partSuggestion(observer, titles: titles) }
             ForEach(observer.sections) { section in
                 Section {
-                    ForEach(section.rows) { row in chapterRow(observer, row: row) }
+                    ForEach(section.rows) { row in chapterRow(observer, row: row, playheadMs: playheadMs) }
                 } header: {
                     sectionHeader(observer, section: section)
                 }
@@ -314,7 +311,11 @@ struct ChapterEditorView: View {
         )
     }
 
-    private func chapterRow(_ observer: ChapterEditorObserver, row: EditableChapterRow) -> some View {
+    private func chapterRow(
+        _ observer: ChapterEditorObserver,
+        row: EditableChapterRow,
+        playheadMs: Int64?
+    ) -> some View {
         ChapterEditRow(
             row: row,
             isSelected: row.id == observer.selectedChapterId,
@@ -343,7 +344,7 @@ struct ChapterEditorView: View {
     }
 
     @ViewBuilder
-    private func emptyState(_ observer: ChapterEditorObserver) -> some View {
+    private func emptyState(_ observer: ChapterEditorObserver, playheadMs: Int64?) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(String(localized: "chapter_editor.empty_title"))
                 .font(.headline)
@@ -363,7 +364,7 @@ struct ChapterEditorView: View {
 
     /// ⛔ Absent, not disabled, when there is no playhead for THIS book — see the type's note.
     @ViewBuilder
-    private func addAtPlayheadBar(_ observer: ChapterEditorObserver) -> some View {
+    private func addAtPlayheadBar(_ observer: ChapterEditorObserver, playheadMs: Int64?) -> some View {
         if let at = playheadMs, !observer.chapters.isEmpty {
             Button {
                 observer.addAt(at, title: String(localized: "chapter_editor.new_chapter_title"))
@@ -380,10 +381,10 @@ struct ChapterEditorView: View {
     // MARK: - Toolbar
 
     @ToolbarContentBuilder
-    private var toolbar: some ToolbarContent {
+    private func toolbar(_ observer: ChapterEditorObserver) -> some ToolbarContent {
         ToolbarItem(placement: .cancellationAction) {
             Button(String(localized: "common.cancel")) {
-                switch dismissal.onCancel {
+                switch dismissal(observer).onCancel {
                 case .dismiss: dismiss()
                 case .confirmDiscard: pendingDiscard = true
                 }
@@ -391,39 +392,41 @@ struct ChapterEditorView: View {
         }
         ToolbarItem(placement: .topBarTrailing) {
             Button {
-                observer?.beginDrift()
+                observer.beginDrift()
             } label: {
                 Label(String(localized: "chapter_editor.drift_title"), systemImage: "waveform.path.ecg")
             }
-            .disabled(observer?.canFixDrift != true)
+            .disabled(!observer.canFixDrift)
         }
         ToolbarItem(placement: .topBarTrailing) {
             Button {
-                observer?.undo()
+                observer.undo()
             } label: {
                 Label(String(localized: "chapter_editor.undo"), systemImage: "arrow.uturn.backward")
             }
-            .disabled(observer?.canUndo != true)
+            .disabled(!observer.canUndo)
         }
         ToolbarItem(placement: .confirmationAction) {
             // Invariant: while saving the action is REPLACED by a spinner, not merely disabled —
             // the same load-bearing guard against double-submit `EditSheetScaffold` documents.
-            if observer?.isSaving == true {
+            if observer.isSaving {
                 ProgressView()
             } else {
-                Button(String(localized: "chapter_editor.done")) { observer?.save() }
-                    .disabled(observer?.isDirty != true)
+                Button(String(localized: "chapter_editor.done")) { observer.save() }
+                    .disabled(!observer.isDirty)
             }
         }
     }
 
     // MARK: - Helpers
 
-    private var dismissal: EditSheetDismissal { EditSheetDismissal(hasChanges: observer?.isDirty == true) }
+    private func dismissal(_ observer: ChapterEditorObserver) -> EditSheetDismissal {
+        EditSheetDismissal(hasChanges: observer.isDirty)
+    }
 
     /// The playhead, but only when the book being edited is the one loaded in the player.
-    private var playheadMs: Int64? {
-        guard let player, player.currentBookId == bookId else { return nil }
+    private func playheadMs(_ player: PlayerObserver) -> Int64? {
+        guard player.currentBookId == bookId else { return nil }
         return player.bookPositionMs
     }
 

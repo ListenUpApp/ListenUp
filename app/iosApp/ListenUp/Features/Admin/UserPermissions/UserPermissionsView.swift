@@ -7,45 +7,42 @@ import Shared
 struct UserPermissionsView: View {
     let userId: String
 
-    @Environment(\.dependencies) private var deps
     @Environment(\.dismiss) private var dismiss
-    @State private var observer: UserPermissionsObserver?
     @State private var confirmingDiscard = false
 
     var body: some View {
-        Group {
-            switch observer?.phase {
-            case .none, .loading:
-                LoadingStateView()
-            case .ready(let ready):
-                content(ready)
-            case .error(let message):
-                LoadFailedView(message: message) { observer?.retry() }
+        WithObserver(id: userId) {
+            UserPermissionsObserver(viewModel: $0.createUserPermissionsViewModel(userId: userId))
+        } content: { observer in
+            Group {
+                switch observer.phase {
+                case .loading:
+                    LoadingStateView()
+                case .ready(let ready):
+                    content(ready, observer: observer)
+                case .error(let message):
+                    LoadFailedView(message: message) { observer.retry() }
+                }
             }
-        }
-        .navigationTitle(String(localized: "common.permissions"))
-        .navigationSubtitle(subtitle)
-        .navigationBarTitleDisplayMode(.inline)
-        .onAppear {
-            if observer == nil {
-                observer = UserPermissionsObserver(viewModel: deps.createUserPermissionsViewModel(userId: userId))
-            }
+            .navigationTitle(String(localized: "common.permissions"))
+            .navigationSubtitle(subtitle(observer))
+            .navigationBarTitleDisplayMode(.inline)
         }
     }
 
-    private var subtitle: String {
-        if case .ready(let ready) = observer?.phase { return ready.name }
+    private func subtitle(_ observer: UserPermissionsObserver) -> String {
+        if case .ready(let ready) = observer.phase { return ready.name }
         return ""
     }
 
-    private func content(_ ready: UserPermissionsReadyModel) -> some View {
+    private func content(_ ready: UserPermissionsReadyModel, observer: UserPermissionsObserver) -> some View {
         Form {
-            roleAndPreset(ready)
+            roleAndPreset(ready, observer: observer)
             if ready.isAdmin {
                 adminSummary(ready)
             } else {
                 ForEach(ready.sections) { section in
-                    permissionSection(section, ready: ready)
+                    permissionSection(section, ready: ready, observer: observer)
                 }
             }
             if let error = ready.error {
@@ -54,14 +51,14 @@ struct UserPermissionsView: View {
         }
         .formStyle(.grouped)
         .navigationBarBackButtonHidden(ready.hasChanges)
-        .toolbar { saveToolbar(ready) }
+        .toolbar { saveToolbar(ready, observer: observer) }
         .confirmationDialog(
             String(localized: "book.edit_unsaved_changes"),
             isPresented: $confirmingDiscard,
             titleVisibility: .visible
         ) {
             Button(String(localized: "common.discard"), role: .destructive) {
-                observer?.discard()
+                observer.discard()
                 dismiss()
             }
             Button(String(localized: "book.edit_keep_editing"), role: .cancel) {}
@@ -70,18 +67,21 @@ struct UserPermissionsView: View {
             String(localized: .adminMakeAdminTitle(ready.name)),
             isPresented: Binding(
                 get: { ready.isConfirmingAdminPromotion },
-                set: { if !$0 { observer?.cancelAdminPromotion() } }
+                set: { if !$0 { observer.cancelAdminPromotion() } }
             )
         ) {
-            Button(String(localized: "admin.make_admin_confirm")) { observer?.confirmAdminPromotion() }
-            Button(String(localized: "common.cancel"), role: .cancel) { observer?.cancelAdminPromotion() }
+            Button(String(localized: "admin.make_admin_confirm")) { observer.confirmAdminPromotion() }
+            Button(String(localized: "common.cancel"), role: .cancel) { observer.cancelAdminPromotion() }
         } message: {
             Text(String(localized: "admin.make_admin_body"))
         }
     }
 
     @ToolbarContentBuilder
-    private func saveToolbar(_ ready: UserPermissionsReadyModel) -> some ToolbarContent {
+    private func saveToolbar(
+        _ ready: UserPermissionsReadyModel,
+        observer: UserPermissionsObserver
+    ) -> some ToolbarContent {
         if ready.hasChanges {
             ToolbarItem(placement: .cancellationAction) {
                 Button(String(localized: "common.cancel")) { confirmingDiscard = true }
@@ -91,7 +91,7 @@ struct UserPermissionsView: View {
                 if ready.isSaving {
                     ProgressView()
                 } else {
-                    Button(String(localized: "common.save")) { observer?.save() }
+                    Button(String(localized: "common.save")) { observer.save() }
                 }
             }
         }
@@ -99,14 +99,14 @@ struct UserPermissionsView: View {
 
     // MARK: - Role and preset
 
-    private func roleAndPreset(_ ready: UserPermissionsReadyModel) -> some View {
+    private func roleAndPreset(_ ready: UserPermissionsReadyModel, observer: UserPermissionsObserver) -> some View {
         Section {
             if ready.isOwner {
                 LabeledContent(String(localized: "common.role"), value: String(localized: "admin.role_owner"))
             } else {
                 Picker(
                     String(localized: "common.role"),
-                    selection: Binding(get: { ready.role }, set: { observer?.requestRole($0) })
+                    selection: Binding(get: { ready.role }, set: { observer.requestRole($0) })
                 ) {
                     Text(String(localized: "common.member")).tag(UserRole.member)
                     Text(String(localized: "common.admin")).tag(UserRole.admin)
@@ -117,7 +117,7 @@ struct UserPermissionsView: View {
             if !ready.isAdmin && ready.presetsShown {
                 Picker(
                     String(localized: "admin.preset"),
-                    selection: Binding(get: { ready.preset }, set: { observer?.selectPreset($0) })
+                    selection: Binding(get: { ready.preset }, set: { observer.selectPreset($0) })
                 ) {
                     ForEach(UserPermissionsReadyModel.pickablePresets, id: \.self) { preset in
                         Text(PermissionLabels.title(preset)).tag(preset)
@@ -139,13 +139,17 @@ struct UserPermissionsView: View {
 
     // MARK: - Toggles
 
-    private func permissionSection(_ section: PermissionSectionModel, ready: UserPermissionsReadyModel) -> some View {
+    private func permissionSection(
+        _ section: PermissionSectionModel,
+        ready: UserPermissionsReadyModel,
+        observer: UserPermissionsObserver
+    ) -> some View {
         Section {
             ForEach(section.rows) { row in
                 Toggle(
                     isOn: Binding(
                         get: { row.granted },
-                        set: { observer?.setPermission(row.permission, granted: $0) }
+                        set: { observer.setPermission(row.permission, granted: $0) }
                     )
                 ) {
                     Text(PermissionLabels.title(row.permission))

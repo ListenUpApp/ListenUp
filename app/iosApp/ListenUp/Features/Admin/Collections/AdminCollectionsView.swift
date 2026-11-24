@@ -14,9 +14,6 @@ import Shared
 /// Collection creation is a sheet with a single name field; deletion is a swipe or
 /// long-press context menu that fires `deleteCollection`.
 struct AdminCollectionsView: View {
-    @Environment(\.dependencies) private var deps
-
-    @State private var observer: AdminCollectionsObserver?
     @State private var showingCreateSheet = false
     @State private var createName = ""
     @State private var pendingDeleteId: String?
@@ -26,40 +23,33 @@ struct AdminCollectionsView: View {
     private let gridColumns = [GridItem(.adaptive(minimum: 160), spacing: 12)]
 
     var body: some View {
-        Group {
-            if let observer {
-                content(observer: observer)
-            } else {
-                LoadingStateView()
-            }
-        }
-        .background(Color.luSurface)
-        .navigationTitle(String(localized: "common.collections"))
-        .navigationBarTitleDisplayMode(.large)
-        .toolbar { addToolbarItem }
-        .onAppear {
-            if observer == nil {
-                observer = AdminCollectionsObserver(viewModel: deps.createAdminCollectionsViewModel())
-            }
-        }
-        .sheet(isPresented: $showingCreateSheet, onDismiss: { createName = "" }) {
-            createSheet
-        }
-        .confirmationDialog(
-            String(localized: "common.delete"),
-            isPresented: Binding(
-                get: { pendingDeleteId != nil },
-                set: { if !$0 { pendingDeleteId = nil } }
-            ),
-            titleVisibility: .visible
-        ) {
-            if let id = pendingDeleteId {
-                Button(String(localized: "common.delete"), role: .destructive) {
-                    observer?.deleteCollection(collectionId: id)
-                    pendingDeleteId = nil
+        WithObserver {
+            AdminCollectionsObserver(viewModel: $0.createAdminCollectionsViewModel())
+        } content: { observer in
+            content(observer: observer)
+                .background(Color.luSurface)
+                .navigationTitle(String(localized: "common.collections"))
+                .navigationBarTitleDisplayMode(.large)
+                .toolbar { addToolbarItem }
+                .sheet(isPresented: $showingCreateSheet, onDismiss: { createName = "" }) {
+                    createSheet(observer: observer)
                 }
-            }
-            Button(String(localized: "common.cancel"), role: .cancel) { pendingDeleteId = nil }
+                .confirmationDialog(
+                    String(localized: "common.delete"),
+                    isPresented: Binding(
+                        get: { pendingDeleteId != nil },
+                        set: { if !$0 { pendingDeleteId = nil } }
+                    ),
+                    titleVisibility: .visible
+                ) {
+                    if let id = pendingDeleteId {
+                        Button(String(localized: "common.delete"), role: .destructive) {
+                            observer.deleteCollection(collectionId: id)
+                            pendingDeleteId = nil
+                        }
+                    }
+                    Button(String(localized: "common.cancel"), role: .cancel) { pendingDeleteId = nil }
+                }
         }
     }
 
@@ -166,18 +156,18 @@ struct AdminCollectionsView: View {
         !createName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
-    private func createCollection() {
-        observer?.createCollection(name: createName)
+    private func createCollection(_ observer: AdminCollectionsObserver) {
+        observer.createCollection(name: createName)
         showingCreateSheet = false
         createName = ""
     }
 
     /// Return creates the collection under Save's own rule: an empty name does nothing.
-    private func createFromKeyboard() {
-        if canCreate { createCollection() }
+    private func createFromKeyboard(_ observer: AdminCollectionsObserver) {
+        if canCreate { createCollection(observer) }
     }
 
-    private var createSheet: some View {
+    private func createSheet(observer: AdminCollectionsObserver) -> some View {
         NavigationStack {
             Form {
                 AppTextField(
@@ -187,7 +177,7 @@ struct AdminCollectionsView: View {
                     label: String(localized: "admin.collection_name"),
                     icon: "folder.badge.plus",
                     submitLabel: .done,
-                    onSubmit: createFromKeyboard
+                    onSubmit: { createFromKeyboard(observer) }
                 )
             }
             .navigationTitle(String(localized: "admin.collection_new_collection"))
@@ -200,7 +190,7 @@ struct AdminCollectionsView: View {
                     }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(String(localized: "common.save")) { createCollection() }
+                    Button(String(localized: "common.save")) { createCollection(observer) }
                         .disabled(!canCreate)
                 }
             }

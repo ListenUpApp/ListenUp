@@ -16,17 +16,16 @@ import Shared
 struct CreateInviteView: View {
     @Environment(\.dismiss) private var dismiss
 
-    @Environment(\.dependencies) private var deps
-    @State private var observer: CreateInviteObserver?
-
     @State private var email = ""
     @State private var role: InviteRole = .member
     @State private var expiresInDays = 7
 
     var body: some View {
-        NavigationStack {
-            Group {
-                if let observer {
+        WithObserver {
+            CreateInviteObserver(viewModel: $0.createCreateInviteViewModel())
+        } content: { observer in
+            NavigationStack {
+                Group {
                     if let invite = observer.phase.createdInvite {
                         ScrollView {
                             successContent(observer: observer, invite: invite)
@@ -38,18 +37,15 @@ struct CreateInviteView: View {
                         formContent(observer: observer)
                     }
                 }
-            }
-            .background(Color.luSurface)
-            .navigationTitle(String(localized: "admin.create_invite"))
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(String(localized: "common.cancel")) { dismiss() }
+                .background(Color.luSurface)
+                .navigationTitle(String(localized: "admin.create_invite"))
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button(String(localized: "common.cancel")) { dismiss() }
+                    }
                 }
             }
-        }
-        .onAppear {
-            if observer == nil { observer = CreateInviteObserver(viewModel: deps.createCreateInviteViewModel()) }
         }
     }
 

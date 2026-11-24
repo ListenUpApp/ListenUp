@@ -17,9 +17,6 @@ struct ForgotPasswordView: View {
 
     // MARK: - State
 
-    @State private var observer = ForgotPasswordObserver(
-        viewModel: Dependencies.shared.makeForgotPasswordViewModel()
-    )
     @State private var email = ""
     @State private var code = ""
     @State private var newPassword = ""
@@ -31,18 +28,22 @@ struct ForgotPasswordView: View {
     // MARK: - Body
 
     var body: some View {
-        AuthScaffold {
-            phaseContent
-        } footer: {
-            phaseFooter
+        WithObserver {
+            ForgotPasswordObserver(viewModel: $0.makeForgotPasswordViewModel())
+        } content: { observer in
+            AuthScaffold {
+                phaseContent(observer)
+            } footer: {
+                phaseFooter(observer)
+            }
+            .onChange(of: observer.phase) { _, _ in codeErrorDismissed = false }
         }
-        .onChange(of: observer.phase) { _, _ in codeErrorDismissed = false }
     }
 
     // MARK: - Phase content
 
     @ViewBuilder
-    private var phaseContent: some View {
+    private func phaseContent(_ observer: ForgotPasswordObserver) -> some View {
         switch observer.phase {
         case .enterEmail:
             VStack(alignment: .leading, spacing: 20) {
@@ -184,7 +185,7 @@ struct ForgotPasswordView: View {
     // MARK: - Phase footer
 
     @ViewBuilder
-    private var phaseFooter: some View {
+    private func phaseFooter(_ observer: ForgotPasswordObserver) -> some View {
         switch observer.phase {
         case .enterEmail:
             Button {

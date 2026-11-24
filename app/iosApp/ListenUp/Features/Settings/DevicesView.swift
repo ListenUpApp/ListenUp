@@ -7,43 +7,33 @@ import SwiftUI
 /// Backed by the shared `DevicesViewModel` (via `DevicesObserver`), rendered as a system
 /// inset-grouped `List`.
 struct DevicesView: View {
-    @Environment(\.dependencies) private var deps
-
-    @State private var observer: DevicesObserver?
     @State private var showSignOutAllConfirmation = false
     /// The device whose sign-out is waiting on confirmation — ending another device's session also
     /// removes its downloads, which it can't get back without signing in again.
     @State private var pendingRevoke: RevokeTarget?
 
     var body: some View {
-        Group {
-            if let observer {
-                content(observer: observer)
-            } else {
-                LoadingStateView()
-            }
-        }
-        .background(Color.luSurface)
-        .navigationTitle(String(localized: "devices.title"))
-        .navigationBarTitleDisplayMode(.large)
-        .onAppear {
-            if observer == nil {
-                observer = DevicesObserver(viewModel: deps.createDevicesViewModel())
-            }
-        }
-        .confirmationDialog(
-            String(localized: "devices.sign_out_all_others"),
-            isPresented: $showSignOutAllConfirmation,
-            titleVisibility: .visible
-        ) {
-            // This device stays signed in, so there is nothing to tear down here — the list
-            // re-fetches and only this device's row remains.
-            Button(String(localized: "devices.sign_out_all_others"), role: .destructive) {
-                observer?.signOutOtherDevices()
-            }
-            Button(String(localized: "common.cancel"), role: .cancel) {}
-        } message: {
-            Text(String(localized: "devices.sign_out_all_others_confirm"))
+        WithObserver {
+            DevicesObserver(viewModel: $0.createDevicesViewModel())
+        } content: { observer in
+            content(observer: observer)
+                .background(Color.luSurface)
+                .navigationTitle(String(localized: "devices.title"))
+                .navigationBarTitleDisplayMode(.large)
+                .confirmationDialog(
+                    String(localized: "devices.sign_out_all_others"),
+                    isPresented: $showSignOutAllConfirmation,
+                    titleVisibility: .visible
+                ) {
+                    // This device stays signed in, so there is nothing to tear down here — the list
+                    // re-fetches and only this device's row remains.
+                    Button(String(localized: "devices.sign_out_all_others"), role: .destructive) {
+                        observer.signOutOtherDevices()
+                    }
+                    Button(String(localized: "common.cancel"), role: .cancel) {}
+                } message: {
+                    Text(String(localized: "devices.sign_out_all_others_confirm"))
+                }
         }
     }
 

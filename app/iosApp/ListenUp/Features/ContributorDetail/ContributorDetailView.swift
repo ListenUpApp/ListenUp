@@ -9,9 +9,7 @@ import Shared
 struct ContributorDetailView: View {
     let contributorId: String
 
-    @Environment(\.dependencies) private var deps
     @Environment(\.dismiss) private var dismiss
-    @State private var observer: ContributorDetailObserver?
     @Environment(\.presentShellSheet) private var presentShellSheet
     /// Set to open person Match details for the contributor on screen.
     @State private var matchTarget: PersonMatchTarget?
@@ -31,147 +29,141 @@ struct ContributorDetailView: View {
     /// The contributor actually on screen — the survivor after a merge, otherwise the one we were
     /// opened with. Re-targeting in place is deliberate: pushing the survivor would leave the
     /// deleted contributor in the back stack for the reader to return to, and popping to the
-    /// library would lose their place. `.task(id:)` reloads when this changes.
+    /// library would lose their place. `WithObserver(id:)` reloads when this changes.
     private var activeContributorId: String { mergedIntoContributorId ?? contributorId }
 
     var body: some View {
-        Group {
-            if let observer, observer.notFound {
-                notFoundView
-            } else if let observer, !observer.isLoading {
-                content(observer: observer)
-            } else {
-                loadingView
+        WithObserver(id: activeContributorId) { deps in
+            let obs = ContributorDetailObserver(viewModel: deps.createContributorDetailViewModel())
+            obs.loadContributor(contributorId: activeContributorId)
+            return obs
+        } content: { observer in
+            Group {
+                if observer.notFound {
+                    notFoundView
+                } else if !observer.isLoading {
+                    content(observer: observer)
+                } else {
+                    loadingView
+                }
             }
-        }
-        .background(Color.luSurface)
-        .navigationTitle(observer?.name ?? "")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                // Edit/merge/delete make no sense on a row that no longer exists, and each action shows
-                // only to those allowed it: edit and match need Edit metadata, delete needs Curate library.
-                // (`== false` keeps `observer` optional so the body's chaining stays valid.)
-                if observer?.notFound == false,
-                   observer?.canEditMetadata == true || observer?.canCurateLibrary == true {
-                    Menu {
-                        if observer?.canEditMetadata == true {
-                            Button {
-                                presentShellSheet(.contributorEdit(contributorId: activeContributorId))
-                            } label: {
-                                Label(String(localized: "common.edit"), systemImage: "pencil")
+            .background(Color.luSurface)
+            .navigationTitle(observer.name)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    // Edit/merge/delete make no sense on a row that no longer exists, and each action shows
+                    // only to those allowed it: edit and match need Edit metadata, delete needs Curate library.
+                    if !observer.notFound, observer.canEditMetadata || observer.canCurateLibrary {
+                        Menu {
+                            if observer.canEditMetadata {
+                                Button {
+                                    presentShellSheet(.contributorEdit(contributorId: activeContributorId))
+                                } label: {
+                                    Label(String(localized: "common.edit"), systemImage: "pencil")
+                                }
+                                Button {
+                                    matchTarget = PersonMatchTarget(contributorId: activeContributorId)
+                                } label: {
+                                    Label(String(localized: "match.menu_item"), systemImage: "sparkles")
+                                }
                             }
-                            Button {
-                                matchTarget = PersonMatchTarget(contributorId: activeContributorId)
-                            } label: {
-                                Label(String(localized: "match.menu_item"), systemImage: "sparkles")
+                            if observer.canAdjustPhoto {
+                                Button {
+                                    adjustTarget = AdjustPhotoTarget(
+                                        contributorId: activeContributorId,
+                                        imagePath: observer.imagePath,
+                                        frame: observer.imageFrame
+                                    )
+                                } label: {
+                                    Label(String(localized: "edit.adjust_photo_ios"), systemImage: "crop")
+                                }
                             }
+                            if observer.canCurateLibrary {
+                                Button(role: .destructive, action: {
+                                    observer.onDeleteContributor()
+                                }) {
+                                    Label(String(localized: "common.delete"), systemImage: "trash")
+                                }
+                            }
+                        } label: {
+                            Image(systemName: "ellipsis.circle")
+                                .accessibilityLabel(String(localized: "common.more_actions"))
                         }
-                        if observer?.canAdjustPhoto == true {
-                            Button {
-                                adjustTarget = AdjustPhotoTarget(
-                                    contributorId: activeContributorId,
-                                    imagePath: observer?.imagePath,
-                                    frame: observer?.imageFrame
-                                )
-                            } label: {
-                                Label(String(localized: "edit.adjust_photo_ios"), systemImage: "crop")
-                            }
-                        }
-                        if observer?.canCurateLibrary == true {
-                            Button(role: .destructive, action: {
-                                observer?.onDeleteContributor()
-                            }) {
-                                Label(String(localized: "common.delete"), systemImage: "trash")
-                            }
-                        }
-                    } label: {
-                        Image(systemName: "ellipsis.circle")
-                            .accessibilityLabel(String(localized: "common.more_actions"))
                     }
                 }
             }
-        }
-        .confirmationDialog(
-            String(localized: .commonDeleteName(observer?.name ?? "")),
-            isPresented: Binding(
-                get: { observer?.showDeleteConfirmation ?? false },
-                set: { _ in observer?.onDismissDelete() }
-            ),
-            titleVisibility: .visible
-        ) {
-            Button(String(localized: "common.delete"), role: .destructive) {
-                observer?.onConfirmDelete {
-                    dismiss()
+            .confirmationDialog(
+                String(localized: .commonDeleteName(observer.name)),
+                isPresented: Binding(
+                    get: { observer.showDeleteConfirmation },
+                    set: { _ in observer.onDismissDelete() }
+                ),
+                titleVisibility: .visible
+            ) {
+                Button(String(localized: "common.delete"), role: .destructive) {
+                    observer.onConfirmDelete {
+                        dismiss()
+                    }
+                }
+                Button(String(localized: "common.cancel"), role: .cancel) {}
+            } message: {
+                Text(String(localized: "contributor.remove_from_library"))
+            }
+            // A delete the server refused: the confirmation has closed, so its reason needs its own alert.
+            .alert(
+                String(localized: "common.something_went_wrong"),
+                isPresented: Binding(
+                    get: { observer.deleteRefusal != nil },
+                    set: { if !$0 { observer.dismissDeleteRefusal() } }
+                )
+            ) {
+                Button(String(localized: "common.ok"), role: .cancel) {}
+            } message: {
+                Text(observer.deleteRefusal ?? "")
+            }
+            // Match details: pushed on a compact width, a full-screen split view on a regular one. A merge made
+            // from its Edit by Hand re-targets this screen, as one made from Edit does.
+            .personMatchDetails($matchTarget, onMergedInto: { survivor in mergedIntoContributorId = survivor })
+            // The receipt Match details leaves behind, with Undo.
+            .matchReceipt(contributorId: activeContributorId, name: observer.name)
+            .frameEditor(item: $adjustTarget, onDismiss: editIfAsked) { target in
+                FetchedPhotoFrameEditor(
+                    fetch: {
+                        await FramePhoto.contributor(contributorId: target.contributorId, imagePath: target.imagePath)
+                    },
+                    initial: target.frame,
+                    confirm: .save,
+                    onConfirm: { frame in
+                        observer.adjustPhoto(frame)
+                        adjustTarget = nil
+                        photoAdjustedCount += 1
+                    },
+                    onCancel: { adjustTarget = nil },
+                    onChooseAnother: {
+                        // A saved photo that won't open is replaced from Edit, where a new one is picked (R6).
+                        editsAfterAdjust = true
+                        adjustTarget = nil
+                    }
+                )
+            }
+            .safeAreaInset(edge: .bottom) {
+                if showsPhotoAdjusted {
+                    PhotoAdjustedCapsule()
+                        .padding(.bottom, Spacing.xs)
+                        .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
                 }
             }
-            Button(String(localized: "common.cancel"), role: .cancel) {}
-        } message: {
-            Text(String(localized: "contributor.remove_from_library"))
-        }
-        // A delete the server refused: the confirmation has closed, so its reason needs its own alert.
-        .alert(
-            String(localized: "common.something_went_wrong"),
-            isPresented: Binding(
-                get: { observer?.deleteRefusal != nil },
-                set: { if !$0 { observer?.dismissDeleteRefusal() } }
-            )
-        ) {
-            Button(String(localized: "common.ok"), role: .cancel) {}
-        } message: {
-            Text(observer?.deleteRefusal ?? "")
-        }
-        // Match details: pushed on a compact width, a full-screen split view on a regular one. A merge made
-        // from its Edit by Hand re-targets this screen, as one made from Edit does.
-        .personMatchDetails($matchTarget, onMergedInto: { survivor in mergedIntoContributorId = survivor })
-        // The receipt Match details leaves behind, with Undo.
-        .matchReceipt(contributorId: activeContributorId, name: observer?.name ?? "")
-        .frameEditor(item: $adjustTarget, onDismiss: editIfAsked) { target in
-            FetchedPhotoFrameEditor(
-                fetch: {
-                    await FramePhoto.contributor(contributorId: target.contributorId, imagePath: target.imagePath)
-                },
-                initial: target.frame,
-                confirm: .save,
-                onConfirm: { frame in
-                    observer?.adjustPhoto(frame)
-                    adjustTarget = nil
-                    photoAdjustedCount += 1
-                },
-                onCancel: { adjustTarget = nil },
-                onChooseAnother: {
-                    // A saved photo that won't open is replaced from Edit, where a new one is picked (R6).
-                    editsAfterAdjust = true
-                    adjustTarget = nil
-                }
-            )
-        }
-        .safeAreaInset(edge: .bottom) {
-            if showsPhotoAdjusted {
-                PhotoAdjustedCapsule()
-                    .padding(.bottom, Spacing.xs)
-                    .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
+            .animation(reduceMotion ? .easeInOut(duration: 0.2) : .spring(duration: 0.35), value: showsPhotoAdjusted)
+            .haptic(.commit, trigger: photoAdjustedCount)
+            .task(id: photoAdjustedCount) {
+                guard photoAdjustedCount > 0 else { return }
+                VoiceOverAnnouncement.post(String(localized: "edit.frame_saved"))
+                showsPhotoAdjusted = true
+                try? await Task.sleep(for: .seconds(2))
+                guard !Task.isCancelled else { return }
+                showsPhotoAdjusted = false
             }
-        }
-        .animation(reduceMotion ? .easeInOut(duration: 0.2) : .spring(duration: 0.35), value: showsPhotoAdjusted)
-        .haptic(.commit, trigger: photoAdjustedCount)
-        .task(id: photoAdjustedCount) {
-            guard photoAdjustedCount > 0 else { return }
-            VoiceOverAnnouncement.post(String(localized: "edit.frame_saved"))
-            showsPhotoAdjusted = true
-            try? await Task.sleep(for: .seconds(2))
-            guard !Task.isCancelled else { return }
-            showsPhotoAdjusted = false
-        }
-        .task(id: activeContributorId) {
-            let vm = deps.createContributorDetailViewModel()
-            let obs = ContributorDetailObserver(viewModel: vm)
-            observer = obs
-            obs.loadContributor(contributorId: activeContributorId)
-        }
-        .onDisappear {
-            // Release the observer; its deinit cancels the FlowBridge subscriptions.
-            observer = nil
         }
     }
 

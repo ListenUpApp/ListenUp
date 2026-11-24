@@ -12,30 +12,21 @@ struct PersonMatchPhoneView: View {
     let onClose: () -> Void
     let onMergedInto: (String) -> Void
 
-    @Environment(\.dependencies) private var deps
-    @State private var observer: PersonMatchObserver?
-
     var body: some View {
-        Group {
-            if let observer {
-                PersonFindScreen(
-                    observer: observer, contributorId: contributorId, onClose: onClose, onMergedInto: onMergedInto
-                )
-            } else {
-                LoadingStateView().background(Color.luSurface)
-            }
-        }
-        .navigationTitle(String(localized: "match.title"))
-        .navigationSubtitle(observer?.find.subtitle ?? "")
-        .navigationBarTitleDisplayMode(.inline)
-        .task(id: contributorId) {
-            guard observer == nil else { return }
+        WithObserver(id: contributorId) { deps in
             let created = PersonMatchObserver(viewModel: deps.createPersonMatchViewModel(contributorId: contributorId))
             created.useTwoPane(false)
-            observer = created
-        }
-        .onChange(of: observer?.appliedToken ?? 0) { _, token in
-            if token > 0 { onClose() }
+            return created
+        } content: { observer in
+            PersonFindScreen(
+                observer: observer, contributorId: contributorId, onClose: onClose, onMergedInto: onMergedInto
+            )
+            .navigationTitle(String(localized: "match.title"))
+            .navigationSubtitle(observer.find.subtitle)
+            .navigationBarTitleDisplayMode(.inline)
+            .onChange(of: observer.appliedToken) { _, token in
+                if token > 0 { onClose() }
+            }
         }
     }
 }

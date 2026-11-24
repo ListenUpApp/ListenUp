@@ -6,31 +6,27 @@ import Shared
 struct UserDetailView: View {
     let userId: String
 
-    @Environment(\.dependencies) private var deps
-    @State private var observer: UserDetailObserver?
-
     var body: some View {
-        Group {
-            switch observer?.phase {
-            case .none, .loading:
-                LoadingStateView()
-            case .ready(let ready):
-                content(ready)
-            case .error(let message):
-                LoadFailedView(message: message) { observer?.retry() }
+        WithObserver(id: userId) {
+            UserDetailObserver(viewModel: $0.createUserDetailViewModel(userId: userId))
+        } content: { observer in
+            Group {
+                switch observer.phase {
+                case .loading:
+                    LoadingStateView()
+                case .ready(let ready):
+                    content(ready)
+                case .error(let message):
+                    LoadFailedView(message: message) { observer.retry() }
+                }
             }
-        }
-        .navigationTitle(observerTitle)
-        .navigationBarTitleDisplayMode(.inline)
-        .onAppear {
-            if observer == nil {
-                observer = UserDetailObserver(viewModel: deps.createUserDetailViewModel(userId: userId))
-            }
+            .navigationTitle(observerTitle(observer))
+            .navigationBarTitleDisplayMode(.inline)
         }
     }
 
-    private var observerTitle: String {
-        if case .ready(let ready) = observer?.phase { return ready.displayName }
+    private func observerTitle(_ observer: UserDetailObserver) -> String {
+        if case .ready(let ready) = observer.phase { return ready.displayName }
         return String(localized: "common.account")
     }
 
