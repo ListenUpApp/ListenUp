@@ -51,16 +51,19 @@ jobs:
       - name: Smoke-test pre-baked toolchains
         run: |
           docker run --rm listenup-ci:smoke bash -euo pipefail -c '
-            java -version 2>&1 | grep -q "version \"21\."
-            node -v | grep -q "^v24\."
+            java_ver="$(java -version 2>&1)"
+            grep -q "version \"21\." <<<"$java_ver"
+            node_ver="$(node -v)"
+            grep -q "^v24\." <<<"$node_ver"
             pnpm -v
-            ffmpeg -version | head -1
-            ffprobe -version | head -1
-            gst-inspect-1.0 fdkaacdec | head -3
-            gst-inspect-1.0 matroskademux | head -3
-            ldd /opt/listenup/gst-plugins/libgstfdkaac.so | grep /opt/listenup/gst-plugins/fdk-aac/lib/libfdk-aac
+            ffmpeg -version | sed -n "1p"
+            ffprobe -version | sed -n "1p"
+            gst-inspect-1.0 fdkaacdec | sed -n "1,3p"
+            gst-inspect-1.0 matroskademux | sed -n "1,3p"
+            ldd_out="$(ldd /opt/listenup/gst-plugins/libgstfdkaac.so)"
+            grep -F "/opt/listenup/gst-plugins/fdk-aac/lib/libfdk-aac" <<<"$ldd_out"
             pkg-config --modversion libargon2 sqlite3 libcurl
-            chrome_bin="$(find "$PLAYWRIGHT_BROWSERS_PATH" -type f -name chrome | head -n 1)"
+            chrome_bin="$(find "$PLAYWRIGHT_BROWSERS_PATH" -type f \( -name chrome -o -name chrome-headless-shell \) | sort | sed -n "1p")"
             test -x "$chrome_bin"
             "$chrome_bin" --version
           '
