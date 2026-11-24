@@ -58,11 +58,7 @@ class StatsRecorderIsSoleStatsWriterRule :
         test(
             "UserStatsRepository.upsert and BookReadsRepository.recordRead are reachable only from the allowlisted classes",
         ) {
-            // Narrowed to the `server` module's production sources — the two stats-write primitives and
-            // every holder of them live in `:server`. A whole-repo `scopeFromProduction()` parsed every
-            // module's PSI (the dominant cost of the server suite) for zero added coverage. Production
-            // scope still excludes the jvmTest rogue fixtures the SelfTest points at directly.
-            val scope = Konsist.scopeFromProduction("server")
+            val scope = serverProductionScope()
             // Vacuity guard: prove the narrowed scope actually reached server production by asserting
             // the choke-point class is present. Without it, a misconfigured scope finds zero holders
             // and the rule passes while the invariant is unguarded.
@@ -81,8 +77,7 @@ class StatsRecorderIsSoleStatsWriterRule :
                     setOf("insert", "update", "softDeleteById", "insertPulled", "deletePulledForUser")
             }
             val writers =
-                Konsist
-                    .scopeFromProduction("server")
+                serverProductionScope()
                     .files
                     .filter { directStatsWrites(it.text, labels).isNotEmpty() }
                     .map { it.path.substringAfterLast("/") }

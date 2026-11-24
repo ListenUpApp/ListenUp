@@ -1,6 +1,9 @@
 import com.calypsan.listenup.gradle.failBelowDiscoveredTestCount
 import com.calypsan.listenup.gradle.forwardKotestFilterProperties
 import java.security.MessageDigest
+import org.gradle.api.GradleException
+import org.gradle.api.file.FileTreeElement
+import org.gradle.api.specs.Spec
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.plugin.mpp.NativeBuildType
 
@@ -415,8 +418,69 @@ val jvmTestCompilation =
 val jvmMainRuntimeClasspath = files(jvmMainCompilation.output.allOutputs, jvmMainCompilation.runtimeDependencyFiles)
 val jvmTestRuntimeClasspath = files(jvmTestCompilation.output.allOutputs, jvmTestCompilation.runtimeDependencyFiles)
 
+class ServerTestShardSpec(
+    private val targetShard: Int,
+    private val totalShards: Int,
+) : Spec<FileTreeElement> {
+    override fun isSatisfiedBy(element: FileTreeElement): Boolean {
+        if (element.isDirectory || !element.path.endsWith(".class")) {
+            return false
+        }
+        val outerClass = element.path.substringBefore('$').removeSuffix(".class")
+        return Math.floorMod(outerClass.hashCode(), totalShards) != targetShard
+    }
+}
+
+val rawServerShard: String? = providers.gradleProperty("serverTestShard").orNull
+val parsedServerShard: Pair<Int, Int>? =
+    rawServerShard?.let { raw ->
+        val match = Regex("""^(\d+)/(\d+)$""").matchEntire(raw.trim())
+            ?: throw GradleException("Invalid -PserverTestShard='$raw' — expected '<i>/<n>' (e.g. '1/3').")
+        val index = match.groupValues[1].toInt()
+        val total = match.groupValues[2].toInt()
+        if (total < 1 || index !in 1..total) {
+            throw GradleException("Invalid -PserverTestShard='$raw' — require 1 <= i <= n and n >= 1.")
+        }
+        index to total
+    }
+val shardIndex: Int? = parsedServerShard?.first
+val shardTotal: Int? = parsedServerShard?.second
+
+val serverProductionSourceText =
+    listOf("commonMain", "jvmMain", "linuxMain").map { fileTree("src/$it") }
+
+val konsistTest =
+    tasks.register<Test>("konsistTest") {
+        group = "verification"
+        description = "Runs server Konsist architectural rules in a single JVM fork."
+        testClassesDirs = jvmTestCompilation.output.classesDirs
+        classpath = jvmTestRuntimeClasspath
+        useJUnitPlatform()
+        include("com/calypsan/listenup/server/konsist/**")
+        maxHeapSize = "3g"
+        jvmArgs("-XX:+HeapDumpOnOutOfMemoryError", "-XX:HeapDumpPath=${layout.buildDirectory.get().asFile}/oom-dumps")
+        forwardKotestFilterProperties()
+        inputs
+            .files(serverProductionSourceText)
+            .withPropertyName("serverProductionSourceText")
+            .withPathSensitivity(PathSensitivity.RELATIVE)
+    }
+
+failBelowDiscoveredTestCount("konsistTest", floor = 20)
+tasks.named("check") { dependsOn(konsistTest) }
+
 tasks.named<Test>("jvmTest") {
     useJUnitPlatform()
+    // Konsist specs run in `:server:konsistTest` on a single JVM so their PSI parse happens once
+    // rather than being repeated across every `forkEvery(25)` worker batch.
+    exclude("com/calypsan/listenup/server/konsist/**")
+    if (shardIndex != null && shardTotal != null) {
+        exclude(ServerTestShardSpec(shardIndex - 1, shardTotal))
+    }
+    inputs.property(
+        "serverTestShard",
+        if (shardIndex != null && shardTotal != null) "$shardIndex/$shardTotal" else "all",
+    )
     // Recycle the test JVM every 25 classes. The Ktor `testApplication` specs extract the
     // runtime classpath into the working dir on first use; left in a single long-lived worker
     // alongside the full spec count this intermittently corrupts class loading of synthetic
@@ -426,21 +490,6 @@ tasks.named<Test>("jvmTest") {
     // Gradle's 512 MB worker default is borderline for a 25-class batch of `testApplication`
     // specs — a worker can die with OutOfMemoryError (surfacing as JPLISAgent assertions +
     // "Test process encountered an unexpected problem") with zero failing tests.
-    //
-    // Raised 1g → 2g on 2026-08-11: the symptom above returned twice in one session on a lane
-    // that now runs ~2,900 specs. The tell is unmistakable and worth recognising — the build
-    // fails while every test result file reports 0 failures and 0 errors, because nothing failed
-    // a test, the worker process died. Grows with the suite; if it recurs, this is the number.
-    //
-    // Raised 2g → 4g on 2026-08-15: recurred (heap histogram showed ~1.6 GB of Kotlin PSI from
-    // the Konsist snapshot — it re-parses the whole codebase per forked worker, so the ceiling
-    // scales with SOURCE size, not just spec count — and forkEvery(25) batches classes by
-    // execution order, so adding test classes can shift a Konsist-heavy class into the same
-    // fork as heavyweight testApplication specs; a worker can also wedge in MessageHub.stop
-    // instead of dying when the assertion kills an IPC thread).
-    //
-    // Peak footprint stays modest: forkEvery(25) with Gradle's default single fork means one test
-    // JVM at a time, so a CI runner holds the build JVM plus one 4g worker.
     maxHeapSize = "4g"
     // A further OOM should hand us the evidence, not another mystery: dumps land under build/.
     jvmArgs("-XX:+HeapDumpOnOutOfMemoryError", "-XX:HeapDumpPath=${layout.buildDirectory.get().asFile}/oom-dumps")
@@ -470,11 +519,10 @@ tasks.named<Test>("jvmTest") {
     // spec today is Gradle's own `--tests` with the EXACT fully-qualified class name — a glob
     // pattern fails outright here with Gradle's own "No tests found for given includes".
     forwardKotestFilterProperties()
-    // NoRetiredLibraryNamesRule reads production source TEXT — comments and `.sq` files included —
-    // at run time. A comment-only edit compiles to identical classes, so without this the task
-    // stays UP-TO-DATE and the rule re-reports its previous verdict.
+    // Non-konsist tests (`CollectionAccessEmissionContractTest`, `BookReadsQueriesClassifiedTest`) read
+    // production source and `.sq` files at runtime.
     inputs
-        .files(listOf("commonMain", "jvmMain", "linuxMain").map { fileTree("src/$it") })
+        .files(serverProductionSourceText)
         .withPropertyName("serverProductionSourceText")
         .withPathSensitivity(PathSensitivity.RELATIVE)
     // Pin the E2E retry ledger (written by FlakyServerSpecRetryExtension) to an absolute path under
@@ -509,7 +557,7 @@ tasks.named<Test>("jvmTest") {
 // enough below that a normal deletion does not trip it. This lane is the reason the margin is generous —
 // PR #1214 legitimately removed ~180 tests here in one change, so a floor set just under the current
 // count would fail honest work and train people to edit the number without reading it.
-failBelowDiscoveredTestCount("jvmTest", floor = 2200)
+failBelowDiscoveredTestCount("jvmTest", floor = if (shardTotal != null) 2200 / shardTotal else 2200)
 
 // Give the native test binaries a real temp directory — the native mirror of the `java.io.tmpdir`
 // redirect on jvmTest above. The Kotlin/Native test runner inherits the ambient environment, and

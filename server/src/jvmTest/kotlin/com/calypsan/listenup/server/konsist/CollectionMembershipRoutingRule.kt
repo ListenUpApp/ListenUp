@@ -1,6 +1,5 @@
 package com.calypsan.listenup.server.konsist
 
-import com.lemonappdev.konsist.api.Konsist
 import io.kotest.core.spec.style.FunSpec
 import com.lemonappdev.konsist.api.container.KoScope
 import io.kotest.assertions.withClue
@@ -50,7 +49,7 @@ import io.kotest.matchers.collections.shouldContainAll
 class CollectionMembershipRoutingRule :
     FunSpec({
         test("the membership write set is derived from the repository, and follows its wrappers") {
-            val derived = membershipWriteTokens(Konsist.scopeFromProduction("server"))
+            val derived = membershipWriteTokens(serverProductionScope())
             withClue("derived membership writes: ${derived.tokens}") {
                 derived.writes shouldContainAll
                     setOf(
@@ -66,10 +65,7 @@ class CollectionMembershipRoutingRule :
         }
 
         test("every collection_books membership mutation also calls reconcileSystemMembership (#680 exclusivity)") {
-            // Narrowed to the `server` module's production sources — this rule only inspects server
-            // repositories/services. A whole-repo `scopeFromProduction()` parsed every module's PSI
-            // (the dominant cost of the server suite) for zero added coverage.
-            val scope = Konsist.scopeFromProduction("server")
+            val scope = serverProductionScope()
             val membershipTokens = membershipWriteTokens(scope)
             // Gather class-member functions (the precedent shape — `KoScope.functions()` alone does
             // not descend into classes) plus any top-level ones, so no membership mutation escapes.

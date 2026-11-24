@@ -24,7 +24,7 @@ import java.io.File
 class OneAdminCheckRule :
     FunSpec({
         test("only auth/Roles.kt compares a role against ROOT and ADMIN") {
-            val files = Konsist.scopeFromProduction("server").files
+            val files = serverProductionScope().files
             files.size shouldBeGreaterThanOrEqual 300
             val offenders =
                 findOffenders(files.filterNot { it.path.endsWith("/auth/Roles.kt") })
@@ -40,7 +40,7 @@ class OneAdminCheckRule :
         }
 
         test("every reviewed site still matches, so the list cannot go stale") {
-            val kotlinHits = findOffenders(Konsist.scopeFromProduction("server").files)
+            val kotlinHits = findOffenders(serverProductionScope().files)
             val sqlHits = sqlFiles().flatMap { findSqlOffenders(it.path, it.readText()) }
             val stale = REVIEWED.filterNot { reviewed -> (kotlinHits + sqlHits).any { reviewed.matches(it) } }
             withClue("Reviewed sites that no longer match:\n" + stale.joinToString("\n")) { stale.shouldBeEmpty() }

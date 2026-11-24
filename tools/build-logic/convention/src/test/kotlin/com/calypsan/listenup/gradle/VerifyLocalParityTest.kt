@@ -8,9 +8,9 @@ import kotlin.test.assertTrue
 /**
  * Structural parity guard between CI's Linux lane and the local pre-push gate.
  *
- * Every gating Gradle task that ci.yml's `lint` and `test-jvm` jobs run must be
+ * Every gating Gradle task that ci.yml's `lint` and split `test-jvm-*` jobs run must be
  * wired into the root `verifyLocal` task, and the CLAUDE.md "Pushing" table's
- * `Test (JVM)` row must list every gating `test-jvm` task. This drift has shipped
+ * `Test (JVM)` row must list every gating `test-jvm-*` task. This drift has shipped
  * twice (fixed in PR #984, reopened by PR #993 adding the compiler-flag canary to
  * CI only) — this test makes the manual "if ci.yml changes, verifyLocal changes"
  * convention self-enforcing. Steps marked `continue-on-error: true` (the Kover
@@ -23,12 +23,14 @@ class VerifyLocalParityTest {
     private val repoRoot = File(requireNotNull(System.getProperty("listenup.repo.root")))
     private val ciYml = repoRoot.resolve(".github/workflows/ci.yml").readText()
     private val rootBuildScript = repoRoot.resolve("build.gradle.kts").readText()
+    private val jvmTestJobs = listOf("test-jvm-client", "test-jvm-sharedui", "test-jvm-sharedlogic-android", "test-jvm-server")
 
     @Test
     fun `verifyLocal covers every gating gradle task of CI lint and test-jvm jobs`() {
-        val ciTasks = gatingGradleTasks("lint") + gatingGradleTasks("test-jvm")
+        val ciTasks = gatingGradleTasks("lint") + jvmTestJobs.flatMap { gatingGradleTasks(it) }
         // Anchor assertions: if the ci.yml parser rots, fail loudly instead of
         // vacuously passing on an empty set.
+        assertTrue(":server:konsistTest" in ciTasks, "ci.yml parser drift — expected anchor task missing: $ciTasks")
         assertTrue(":server:jvmTest" in ciTasks, "ci.yml parser drift — expected anchor task missing: $ciTasks")
         assertTrue("spotlessCheck" in ciTasks, "ci.yml parser drift — expected anchor task missing: $ciTasks")
 
@@ -49,7 +51,7 @@ class VerifyLocalParityTest {
                 .resolve("AGENTS.md")
                 .readLines()
                 .single { it.startsWith("| `Test (JVM)`") }
-        val missing = gatingGradleTasks("test-jvm").filterNot { it in row }
+        val missing = jvmTestJobs.flatMapTo(mutableSetOf()) { gatingGradleTasks(it) }.filterNot { it in row }
         assertEquals(
             emptyList<String>(),
             missing,
@@ -59,11 +61,15 @@ class VerifyLocalParityTest {
 
     @Test
     fun `every gating ci-yml job has a Pushing-table row`() {
-        // Both are bookkeeping, not gates: dependency-graph submits a graph to GitHub, and
-        // dependency-review runs only on pull requests against GitHub's advisory data. Neither has a
-        // local equivalent.
-        val nonGating = setOf("dependency-graph", "dependency-review")
-        val jobNames = topLevelJobKeys().filterNot { it in nonGating }.map { jobName(it) }
+        // Non-gating / plumbing jobs: dependency-graph submits a graph to GitHub, dependency-review
+        // inspects PR diffs against GitHub's advisory data, changes computes PR path filters, and
+        // coverage runs non-gating Kover XML generation on main only.
+        val nonGating = setOf("dependency-graph", "dependency-review", "changes", "coverage")
+        val jobNames =
+            topLevelJobKeys()
+                .filterNot { it in nonGating }
+                .map { canonicalRowName(jobName(it)) }
+                .distinct()
         assertTrue("Test (JVM)" in jobNames, "ci.yml parser drift — expected anchor job missing: $jobNames")
         assertTrue("Lint" in jobNames, "ci.yml parser drift — expected anchor job missing: $jobNames")
 
@@ -75,6 +81,15 @@ class VerifyLocalParityTest {
             "ci.yml jobs with no row in CLAUDE.md's Pushing table. Add a row, or exclude a job that " +
                 "genuinely has no local form (with a comment saying why).",
         )
+    }
+
+    private fun canonicalRowName(name: String): String {
+        val unquoted = name.trim().removeSurrounding("'").removeSurrounding("\"")
+        return when {
+            unquoted.startsWith("Test (JVM:") -> "Test (JVM)"
+            unquoted.startsWith("Test (iOS:") -> "Test (iOS)"
+            else -> unquoted
+        }
     }
 
     @Test
