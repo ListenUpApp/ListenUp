@@ -24,10 +24,10 @@ import io.kotest.matchers.collections.shouldContainAll
  *    **and** `collectionBookRepository`) so we don't over-match `grantRepo.upsert` /
  *    `collectionRepo.softDelete`; every other write name is unique to the repository and is matched
  *    receiver-agnostically;
- *  - one level of indirection: every private top-level wrapper in `CollectionServiceImpl.kt` that calls a
- *    write (`upsertOrLog`, `releaseHeldBook`) is itself a write token, so a function that mutates only
- *    through a wrapper is still held to the reconcile. A test pins both wrappers so the derivation
- *    cannot silently shrink.
+ *  - one level of indirection: every non-public top-level wrapper in the collection service's files
+ *    ([SERVICE_FILES]) that calls a write (`upsertOrLog`, `releaseHeldBook`) is itself a write token, so a
+ *    function that mutates only through a wrapper is still held to the reconcile. A test pins both
+ *    wrappers so the derivation cannot silently shrink.
  *
  * G1's `canAccess` assertions remain the receiver-name-agnostic semantic guard behind this tripwire.
  *
@@ -119,6 +119,12 @@ class CollectionMembershipRoutingRule :
         /** The two field spellings a membership repository is held under (`BookRepository` uses the long one). */
         private val RECEIVERS = listOf("collectionBookRepo", "collectionBookRepository")
 
+        /**
+         * The files whose non-public top-level functions are wrapper candidates: the service, and the
+         * reconciler the service's membership helpers were extracted into.
+         */
+        private val SERVICE_FILES = setOf("CollectionServiceImpl", "CollectionSystemReconciler")
+
         /** A function named like this reads; everything else public on [REPOSITORY] writes membership. */
         private val READ_NAME = Regex("""^(find|get|list|select|count|exists|observe|is|has)[A-Z]?.*""")
 
@@ -131,7 +137,7 @@ class CollectionMembershipRoutingRule :
 
         /**
          * Reads [REPOSITORY]'s public, non-override, non-read functions as the membership writes, then
-         * adds every private top-level wrapper in the collection service whose body calls one of them
+         * adds every non-public top-level wrapper in [SERVICE_FILES] whose body calls one of them
          * (one level of indirection: `upsertOrLog`, `releaseHeldBook`).
          */
         private fun membershipWriteTokens(scope: KoScope): MembershipTokens {
@@ -152,9 +158,9 @@ class CollectionMembershipRoutingRule :
                 scope
                     .files
                     .asSequence()
-                    .filter { it.name == "CollectionServiceImpl" }
+                    .filter { it.name in SERVICE_FILES }
                     .flatMap { it.functions(includeNested = false) }
-                    .filter { it.hasPrivateModifier }
+                    .filter { it.hasPrivateModifier || it.hasInternalModifier }
                     .filter { fn ->
                         val body = stripComments(fn.text)
                         directTokens.any { it in body } ||
