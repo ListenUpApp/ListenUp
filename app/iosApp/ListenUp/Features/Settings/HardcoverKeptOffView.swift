@@ -8,9 +8,7 @@ import Shared
 /// book for VoiceOver. A row leaves as its book syncs again, with an announcement in place of a toast; the
 /// list pops back to the Hardcover screen when the last one goes.
 struct HardcoverKeptOffView: View {
-    @Environment(\.dependencies) private var deps
     @Environment(\.dismiss) private var dismiss
-    @State private var observer: HardcoverKeptOffObserver?
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     /// At accessibility sizes the large title truncates to "Kept off Har…"; the inline title holds it whole.
@@ -18,24 +16,17 @@ struct HardcoverKeptOffView: View {
     static func usesInlineTitle(at size: DynamicTypeSize) -> Bool { size.isAccessibilitySize }
 
     var body: some View {
-        Group {
-            if let observer {
-                content(observer)
-            } else {
-                LoadingStateView()
-            }
-        }
-        .background(Color.luSurface)
-        .navigationTitle(String(localized: "hardcover.kept_off_title").titleStyled)
-        .navigationBarTitleDisplayMode(Self.usesInlineTitle(at: dynamicTypeSize) ? .inline : .large)
-        .onAppear {
-            if observer == nil {
-                observer = HardcoverKeptOffObserver(viewModel: deps.createKeptOffBooksViewModel())
-            }
-        }
-        .messageAlert(Binding(get: { observer?.alert }, set: { observer?.alert = $0 }))
-        .onChange(of: observer?.shouldClose ?? false) { _, close in
-            if close { dismiss() }
+        WithObserver {
+            HardcoverKeptOffObserver(viewModel: $0.createKeptOffBooksViewModel())
+        } content: { observer in
+            content(observer)
+                .background(Color.luSurface)
+                .navigationTitle(String(localized: "hardcover.kept_off_title").titleStyled)
+                .navigationBarTitleDisplayMode(Self.usesInlineTitle(at: dynamicTypeSize) ? .inline : .large)
+                .messageAlert(Binding(get: { observer.alert }, set: { observer.alert = $0 }))
+                .onChange(of: observer.shouldClose) { _, close in
+                    if close { dismiss() }
+                }
         }
     }
 
