@@ -12,10 +12,6 @@ import UniformTypeIdentifiers
 /// (rule 12). A row's Download streams the archive to a staging file (never into memory), then the
 /// system file mover offers "Save to Files" under the archive's own name.
 struct AdminBackupsView: View {
-    @Environment(\.dependencies) private var deps
-
-    @State private var observer: AdminBackupsObserver?
-    @State private var restoreFromFile: RestoreFromFileObserver?
     @State private var showingCreateSheet = false
     @State private var showingFileImporter = false
     @State private var pendingDelete: BackupRowModel?
@@ -23,99 +19,89 @@ struct AdminBackupsView: View {
     @State private var pickError: String?
 
     var body: some View {
-        Group {
-            if let observer, restoreFromFile != nil {
-                content(observer: observer)
-            } else {
-                LoadingStateView()
-            }
-        }
-        .background(Color.luSurface)
-        .navigationTitle(String(localized: "admin.backups"))
-        .navigationBarTitleDisplayMode(.large)
-        .navigationBarBackButtonHidden(isUploading)
-        .toolbar { toolbar }
-        .onAppear {
-            if observer == nil {
-                observer = AdminBackupsObserver(viewModel: deps.createAdminBackupViewModel())
-            }
-            if restoreFromFile == nil {
-                restoreFromFile = RestoreFromFileObserver(viewModel: deps.createRestoreFromFileViewModel())
-            }
-        }
-        .sheet(isPresented: $showingCreateSheet) {
-            if let observer {
-                CreateBackupSheet(observer: observer)
-            }
-        }
-        .fileImporter(
-            isPresented: $showingFileImporter,
-            allowedContentTypes: Self.backupContentTypes
-        ) { result in
-            handlePickResult(result)
-        }
-        .navigationDestination(item: $restoreTarget) { target in
-            RestoreBackupView(backupId: target.backupId)
-        }
-        .onChange(of: restoreFromFile?.stagedBackupId) { _, newValue in
-            // `newValue` is doubly optional (optional-chained String?); flatten to the staged id.
-            guard let staged = newValue.flatMap({ $0 }) else { return }
-            restoreFromFile?.stagedBackupId = nil
-            restoreTarget = RestoreBackupDestination(backupId: staged)
-        }
-        .confirmationDialog(
-            String(localized: "admin.delete_backup"),
-            isPresented: deleteConfirmationPresented,
-            titleVisibility: .visible
-        ) {
-            if let pendingDelete {
-                Button(String(localized: "common.delete"), role: .destructive) {
-                    observer?.confirmDelete(id: pendingDelete.id)
+        WithObserver { deps in
+            (
+                AdminBackupsObserver(viewModel: deps.createAdminBackupViewModel()),
+                RestoreFromFileObserver(viewModel: deps.createRestoreFromFileViewModel())
+            )
+        } content: { observer, restoreFromFile in
+            content(observer: observer, restoreFromFile: restoreFromFile)
+                .background(Color.luSurface)
+                .navigationTitle(String(localized: "admin.backups"))
+                .navigationBarTitleDisplayMode(.large)
+                .navigationBarBackButtonHidden(isUploading(restoreFromFile))
+                .toolbar { toolbar(observer) }
+                .sheet(isPresented: $showingCreateSheet) {
+                    CreateBackupSheet(observer: observer)
                 }
-                Button(String(localized: "common.cancel"), role: .cancel) {
-                    observer?.cancelDelete()
+                .fileImporter(
+                    isPresented: $showingFileImporter,
+                    allowedContentTypes: Self.backupContentTypes
+                ) { result in
+                    handlePickResult(result, restoreFromFile: restoreFromFile)
                 }
-            }
-        } message: {
-            if let pendingDelete {
-                Text(String(localized: .adminConfirmDeleteBackup(pendingDelete.id)))
-            }
-        }
-        .messageAlert(errorAlertBinding) { observer?.clearError() }
-        .messageAlert(downloadErrorBinding) { observer?.clearDownloadError() }
-        // "Save to Files": moves the staged archive (no copy, no memory) to the chosen folder.
-        // Completion and cancellation both end the export, which drops whatever is left staged.
-        .fileMover(isPresented: exportPresented, file: observer?.downloadTracker.ready?.url) { _ in
-            observer?.finishExport()
-        }
-        .alert(
-            String(localized: "admin.restore_from_file_upload_failed"),
-            isPresented: uploadErrorPresented,
-            presenting: uploadErrorMessage
-        ) { _ in
-            Button(String(localized: "admin.restore_from_file_choose")) {
-                restoreFromFile?.reset()
-                showingFileImporter = true
-            }
-            Button(String(localized: "common.cancel"), role: .cancel) { restoreFromFile?.reset() }
-        } message: { message in
-            Text(message)
-        }
-        .alert(
-            String(localized: "common.something_went_wrong"),
-            isPresented: pickErrorPresented,
-            presenting: pickError
-        ) { _ in
-            Button(String(localized: "common.ok")) { pickError = nil }
-        } message: { message in
-            Text(message)
+                .navigationDestination(item: $restoreTarget) { target in
+                    RestoreBackupView(backupId: target.backupId)
+                }
+                .onChange(of: restoreFromFile.stagedBackupId) { _, newValue in
+                    guard let staged = newValue else { return }
+                    restoreFromFile.stagedBackupId = nil
+                    restoreTarget = RestoreBackupDestination(backupId: staged)
+                }
+                .confirmationDialog(
+                    String(localized: "admin.delete_backup"),
+                    isPresented: deleteConfirmationPresented(observer),
+                    titleVisibility: .visible
+                ) {
+                    if let pendingDelete {
+                        Button(String(localized: "common.delete"), role: .destructive) {
+                            observer.confirmDelete(id: pendingDelete.id)
+                        }
+                        Button(String(localized: "common.cancel"), role: .cancel) {
+                            observer.cancelDelete()
+                        }
+                    }
+                } message: {
+                    if let pendingDelete {
+                        Text(String(localized: .adminConfirmDeleteBackup(pendingDelete.id)))
+                    }
+                }
+                .messageAlert(errorAlertBinding(observer)) { observer.clearError() }
+                .messageAlert(downloadErrorBinding(observer)) { observer.clearDownloadError() }
+                // "Save to Files": moves the staged archive (no copy, no memory) to the chosen folder.
+                // Completion and cancellation both end the export, which drops whatever is left staged.
+                .fileMover(isPresented: exportPresented(observer), file: observer.downloadTracker.ready?.url) { _ in
+                    observer.finishExport()
+                }
+                .alert(
+                    String(localized: "admin.restore_from_file_upload_failed"),
+                    isPresented: uploadErrorPresented(restoreFromFile),
+                    presenting: uploadErrorMessage(restoreFromFile)
+                ) { _ in
+                    Button(String(localized: "admin.restore_from_file_choose")) {
+                        restoreFromFile.reset()
+                        showingFileImporter = true
+                    }
+                    Button(String(localized: "common.cancel"), role: .cancel) { restoreFromFile.reset() }
+                } message: { message in
+                    Text(message)
+                }
+                .alert(
+                    String(localized: "common.something_went_wrong"),
+                    isPresented: pickErrorPresented,
+                    presenting: pickError
+                ) { _ in
+                    Button(String(localized: "common.ok")) { pickError = nil }
+                } message: { message in
+                    Text(message)
+                }
         }
     }
 
     // MARK: - Phase routing
 
     @ViewBuilder
-    private func content(observer: AdminBackupsObserver) -> some View {
+    private func content(observer: AdminBackupsObserver, restoreFromFile: RestoreFromFileObserver) -> some View {
         switch observer.phase {
         case .loading:
             LoadingStateView()
@@ -128,14 +114,18 @@ struct AdminBackupsView: View {
                 Button(String(localized: "common.retry")) { observer.reload() }
             }
         case .ready(let ready):
-            readyBody(observer: observer, ready: ready)
+            readyBody(observer: observer, ready: ready, restoreFromFile: restoreFromFile)
         }
     }
 
     /// A real inset-grouped `List`, so the rows' trailing swipe actually fires (it only works inside
     /// a `List`); the context menu stays as the discoverable path (HIG, Lists and tables).
     @ViewBuilder
-    private func readyBody(observer: AdminBackupsObserver, ready: BackupsReadyModel) -> some View {
+    private func readyBody(
+        observer: AdminBackupsObserver,
+        ready: BackupsReadyModel,
+        restoreFromFile: RestoreFromFileObserver
+    ) -> some View {
         List {
             Section {
                 restoreFromFileRow
@@ -164,7 +154,7 @@ struct AdminBackupsView: View {
         .readableListWidth()
         .refreshable { await observer.reloadNow() }
         .overlay {
-            if case .uploading(let filename) = restoreFromFile?.phase {
+            if case .uploading(let filename) = restoreFromFile.phase {
                 uploadingOverlay(filename: filename)
             }
         }
@@ -224,76 +214,76 @@ struct AdminBackupsView: View {
     // MARK: - Toolbar
 
     @ToolbarContentBuilder
-    private var toolbar: some ToolbarContent {
+    private func toolbar(_ observer: AdminBackupsObserver) -> some ToolbarContent {
         ToolbarItem(placement: .topBarTrailing) {
             Button {
                 showingCreateSheet = true
             } label: {
                 Label(String(localized: "admin.create_backup"), systemImage: "plus")
             }
-            .disabled(isCreating)
+            .disabled(isCreating(observer))
         }
     }
 
     // MARK: - Derived state
 
-    private var isCreating: Bool {
-        guard case .ready(let ready) = observer?.phase else { return false }
+    private func isCreating(_ observer: AdminBackupsObserver) -> Bool {
+        guard case .ready(let ready) = observer.phase else { return false }
         return ready.isCreating
     }
 
-    private var isUploading: Bool {
-        if case .uploading = restoreFromFile?.phase { return true }
+    private func isUploading(_ restoreFromFile: RestoreFromFileObserver) -> Bool {
+        if case .uploading = restoreFromFile.phase { return true }
         return false
     }
 
     // MARK: - Bindings
 
-    private var deleteConfirmationPresented: Binding<Bool> {
+    private func deleteConfirmationPresented(_ observer: AdminBackupsObserver) -> Binding<Bool> {
         Binding(
             get: { pendingDelete != nil },
             set: { presenting in
                 if !presenting {
                     pendingDelete = nil
-                    observer?.cancelDelete()
+                    observer.cancelDelete()
                 }
             }
         )
     }
 
-    private var errorAlertBinding: Binding<MessageAlert?> {
+    private func errorAlertBinding(_ observer: AdminBackupsObserver) -> Binding<MessageAlert?> {
         Binding(
             get: {
-                guard case .ready(let ready)? = observer?.phase, let message = ready.error else { return nil }
+                guard case .ready(let ready) = observer.phase, let message = ready.error else { return nil }
                 return MessageAlert(message: message)
             },
-            set: { if $0 == nil { observer?.clearError() } }
+            set: { if $0 == nil { observer.clearError() } }
         )
     }
 
-    private var downloadErrorBinding: Binding<MessageAlert?> {
+    private func downloadErrorBinding(_ observer: AdminBackupsObserver) -> Binding<MessageAlert?> {
         Binding(
-            get: { observer?.downloadError.map { MessageAlert(message: $0) } },
-            set: { if $0 == nil { observer?.clearDownloadError() } }
+            get: { observer.downloadError.map { MessageAlert(message: $0) } },
+            set: { if $0 == nil { observer.clearDownloadError() } }
         )
     }
 
-    private var exportPresented: Binding<Bool> {
+    private func exportPresented(_ observer: AdminBackupsObserver) -> Binding<Bool> {
         Binding(
-            get: { observer?.downloadTracker.ready != nil },
-            set: { if !$0 { observer?.finishExport() } }
+            get: { observer.downloadTracker.ready != nil },
+            set: { if !$0 { observer.finishExport() } }
         )
     }
 
-    private var uploadErrorMessage: String? {
-        if case .error(let message)? = restoreFromFile?.phase { return message }
+    private func uploadErrorMessage(_ restoreFromFile: RestoreFromFileObserver) -> String? {
+        if case .error(let message) = restoreFromFile.phase { return message }
         return nil
     }
 
-    private var uploadErrorPresented: Binding<Bool> {
+    private func uploadErrorPresented(_ restoreFromFile: RestoreFromFileObserver) -> Binding<Bool> {
         Binding(
-            get: { uploadErrorMessage != nil },
-            set: { if !$0 { restoreFromFile?.reset() } }
+            get: { uploadErrorMessage(restoreFromFile) != nil },
+            set: { if !$0 { restoreFromFile.reset() } }
         )
     }
 
@@ -319,7 +309,7 @@ struct AdminBackupsView: View {
     /// targets `.audiobookshelf` exports.
     private static var backupContentTypes: [UTType] { [.zip, .archive, .data] }
 
-    private func handlePickResult(_ result: Result<URL, Error>) {
+    private func handlePickResult(_ result: Result<URL, Error>, restoreFromFile: RestoreFromFileObserver) {
         switch result {
         case .success(let url):
             Task {
@@ -336,7 +326,7 @@ struct AdminBackupsView: View {
                     data: data,
                     filename: url.lastPathComponent
                 )
-                restoreFromFile?.onFilePicked(fileSource: fileSource)
+                restoreFromFile.onFilePicked(fileSource: fileSource)
             }
         case .failure:
             // User cancelled the picker, or it failed — stay put silently.

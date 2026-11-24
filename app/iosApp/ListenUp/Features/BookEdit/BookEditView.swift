@@ -8,36 +8,28 @@ import Shared
 struct BookEditView: View {
     let bookId: String
 
-    @Environment(\.dependencies) private var deps
     @Environment(\.dismiss) private var dismiss
-    @State private var observer: BookEditObserver?
     @FocusState private var focusedField: BookEditFocusField?
 
     var body: some View {
-        Group {
-            if let observer {
-                switch observer.phase {
-                case .loading:
-                    LoadingStateView()
-                case .loadFailed(let message, let canRetry):
-                    EditLoadFailedView(
-                        message: message,
-                        canRetry: canRetry,
-                        onRetry: { observer.onRetryLoad() },
-                        onClose: { dismiss() }
-                    )
-                case .editing:
-                    editingSheet(observer)
-                }
-            } else {
+        WithObserver(id: bookId) { deps in
+            let observer = BookEditObserver(viewModel: deps.createBookEditViewModel())
+            observer.loadBook(bookId: bookId)
+            return observer
+        } content: { observer in
+            switch observer.phase {
+            case .loading:
                 LoadingStateView()
+            case .loadFailed(let message, let canRetry):
+                EditLoadFailedView(
+                    message: message,
+                    canRetry: canRetry,
+                    onRetry: { observer.onRetryLoad() },
+                    onClose: { dismiss() }
+                )
+            case .editing:
+                editingSheet(observer)
             }
-        }
-        .task(id: bookId) {
-            guard observer == nil else { return }
-            let obs = BookEditObserver(viewModel: deps.createBookEditViewModel())
-            observer = obs
-            obs.loadBook(bookId: bookId)
         }
     }
 

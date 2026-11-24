@@ -4,30 +4,27 @@ import SwiftUI
 struct BookReadersListView: View {
     let bookId: String
 
-    @Environment(\.dependencies) private var deps
-    @State private var observer: BookReadersObserver?
-
     var body: some View {
-        ScrollView {
-            Group {
-                switch observer?.phase {
-                case .data(let rows):
-                    BookReadersSection(readers: rows, showsHeading: false)
-                case .loading, .none:
-                    ProgressView()
-                        .frame(maxWidth: .infinity, minHeight: 160)
-                default:
-                    ContentUnavailableView(String(localized: "book.detail_readers_empty"), systemImage: "person.2")
+        WithObserver(id: bookId) {
+            BookReadersObserver(viewModel: $0.createBookReadersViewModel(bookId: bookId))
+        } content: { observer in
+            ScrollView {
+                Group {
+                    switch observer.phase {
+                    case .data(let rows):
+                        BookReadersSection(readers: rows, showsHeading: false)
+                    case .loading:
+                        ProgressView()
+                            .frame(maxWidth: .infinity, minHeight: 160)
+                    default:
+                        ContentUnavailableView(String(localized: "book.detail_readers_empty"), systemImage: "person.2")
+                    }
                 }
+                .padding()
             }
-            .padding()
-        }
-        .background(Color(.systemBackground))
-        .navigationTitle(String(localized: "book.detail_readers"))
-        .navigationBarTitleDisplayMode(.inline)
-        .task(id: bookId) {
-            guard observer == nil else { return }
-            observer = BookReadersObserver(viewModel: deps.createBookReadersViewModel(bookId: bookId))
+            .background(Color(.systemBackground))
+            .navigationTitle(String(localized: "book.detail_readers"))
+            .navigationBarTitleDisplayMode(.inline)
         }
     }
 }

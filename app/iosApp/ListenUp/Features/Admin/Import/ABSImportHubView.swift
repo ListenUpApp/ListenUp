@@ -14,47 +14,35 @@ import Shared
 /// The roster is a system inset-grouped `List`, which keeps readable margins on iPad by itself
 /// (rule 12).
 struct ABSImportHubView: View {
-    @Environment(\.dependencies) private var deps
-
-    @State private var observer: ABSImportHubObserver?
     @State private var showingWizard = false
     @State private var pendingDelete: ImportSummaryRowModel?
 
     var body: some View {
-        Group {
-            if let observer {
-                content(observer: observer)
-            } else {
-                LoadingStateView()
-            }
-        }
-        .background(Color.luSurface)
-        .navigationTitle(String(localized: "import.title"))
-        .navigationBarTitleDisplayMode(.large)
-        .toolbar { toolbar }
-        .onAppear {
-            if observer == nil {
-                observer = ABSImportHubObserver(viewModel: deps.createABSImportHubViewModel())
-            }
-        }
-        .sheet(isPresented: $showingWizard) {
-            ImportWizardView { observer?.reload() }
-        }
-        .messageAlert(errorAlertBinding) { observer?.clearError() }
-        .confirmationDialog(
-            String(localized: "import.delete_import"),
-            isPresented: deleteConfirmationPresented,
-            titleVisibility: .visible
-        ) {
-            if let pendingDelete {
-                Button(String(localized: "common.delete"), role: .destructive) {
-                    observer?.deleteImport(id: pendingDelete.id)
-                    self.pendingDelete = nil
+        WithObserver { ABSImportHubObserver(viewModel: $0.createABSImportHubViewModel()) } content: { observer in
+            content(observer: observer)
+                .background(Color.luSurface)
+                .navigationTitle(String(localized: "import.title"))
+                .navigationBarTitleDisplayMode(.large)
+                .toolbar { toolbar }
+                .sheet(isPresented: $showingWizard) {
+                    ImportWizardView { observer.reload() }
                 }
-            }
-            Button(String(localized: "common.cancel"), role: .cancel) { pendingDelete = nil }
-        } message: {
-            Text(String(localized: "import.delete_import_confirm"))
+                .messageAlert(errorAlertBinding(observer)) { observer.clearError() }
+                .confirmationDialog(
+                    String(localized: "import.delete_import"),
+                    isPresented: deleteConfirmationPresented,
+                    titleVisibility: .visible
+                ) {
+                    if let pendingDelete {
+                        Button(String(localized: "common.delete"), role: .destructive) {
+                            observer.deleteImport(id: pendingDelete.id)
+                            self.pendingDelete = nil
+                        }
+                    }
+                    Button(String(localized: "common.cancel"), role: .cancel) { pendingDelete = nil }
+                } message: {
+                    Text(String(localized: "import.delete_import_confirm"))
+                }
         }
     }
 
@@ -143,13 +131,13 @@ struct ABSImportHubView: View {
 
     // MARK: - Bindings
 
-    private var errorAlertBinding: Binding<MessageAlert?> {
+    private func errorAlertBinding(_ observer: ABSImportHubObserver) -> Binding<MessageAlert?> {
         Binding(
             get: {
-                guard case .ready(let ready)? = observer?.phase, let message = ready.error else { return nil }
+                guard case .ready(let ready) = observer.phase, let message = ready.error else { return nil }
                 return MessageAlert(message: message)
             },
-            set: { if $0 == nil { observer?.clearError() } }
+            set: { if $0 == nil { observer.clearError() } }
         )
     }
 

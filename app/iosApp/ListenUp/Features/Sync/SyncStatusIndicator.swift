@@ -7,13 +7,11 @@ import Shared
 /// bulk retry/dismiss. Matches the intent of Android's `AppHeader` sync indicator without porting
 /// its dropdown chrome.
 struct SyncStatusIndicator: View {
-    @Environment(\.dependencies) private var deps
-    @State private var observer: SyncStatusObserver?
     @State private var showDetails = false
 
     var body: some View {
-        Group {
-            if let observer, observer.presentation.isVisible {
+        WithObserver { SyncStatusObserver(viewModel: $0.createSyncIndicatorViewModel()) } content: { observer in
+            if observer.presentation.isVisible {
                 Button {
                     showDetails = true
                 } label: {
@@ -25,11 +23,6 @@ struct SyncStatusIndicator: View {
                     SyncDetailsSheet(observer: observer)
                         .presentationDetents([.medium, .large])
                 }
-            }
-        }
-        .onAppear {
-            if observer == nil {
-                observer = SyncStatusObserver(viewModel: deps.createSyncIndicatorViewModel())
             }
         }
     }

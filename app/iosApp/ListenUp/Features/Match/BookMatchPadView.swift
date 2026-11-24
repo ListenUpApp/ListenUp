@@ -9,30 +9,22 @@ struct BookMatchPadView: View {
     let bookId: String
     let onClose: () -> Void
 
-    @Environment(\.dependencies) private var deps
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-    @State private var observer: BookMatchObserver?
     @State private var draft: String?
 
     var body: some View {
-        Group {
-            if let observer {
-                split(observer)
-            } else {
-                LoadingStateView().background(Color.luSurface)
-            }
-        }
-        .task(id: bookId) {
-            guard observer == nil else { return }
+        WithObserver(id: bookId) { deps in
             let created = BookMatchObserver(viewModel: deps.createBookMatchViewModel(bookId: bookId))
             created.useTwoPane(horizontalSizeClass == .regular)
-            observer = created
-        }
-        .onChange(of: horizontalSizeClass) { _, sizeClass in
-            observer?.useTwoPane(sizeClass == .regular)
-        }
-        .onChange(of: observer?.appliedToken ?? 0) { _, token in
-            if token > 0 { onClose() }
+            return created
+        } content: { observer in
+            split(observer)
+                .onChange(of: horizontalSizeClass) { _, sizeClass in
+                    observer.useTwoPane(sizeClass == .regular)
+                }
+                .onChange(of: observer.appliedToken) { _, token in
+                    if token > 0 { onClose() }
+                }
         }
     }
 

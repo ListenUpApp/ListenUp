@@ -160,6 +160,7 @@ class LibraryWritesGoThroughBrokerRule :
             setOf(
                 "creationTimeMillis",
                 "statFile",
+                "listDirectory",
                 "isSymlink",
                 "canonicalize",
                 "openSeekableSource",

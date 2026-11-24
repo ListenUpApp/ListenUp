@@ -17,17 +17,20 @@ import Shared
 /// to admin / root users (`User.isAdmin`) and pushes `AdminView`. The Devices row
 /// is now present and pushes `DevicesView`.
 struct SettingsView: View {
-    @Environment(\.dependencies) private var deps
     @Environment(CurrentUserObserver.self) private var currentUser
 
-    @State private var observer: SettingsObserver?
     @State private var showingSignOutConfirmation = false
     /// The log files Share logs offers; re-read on every appearance, since logging never stops.
     @State private var logFiles: [URL] = []
 
     var body: some View {
-        Form {
-            if let observer {
+        WithObserver { deps in
+            SettingsObserver(
+                viewModel: deps.createSettingsViewModel(),
+                stopPlayback: { await deps.playerCoordinator.stop() }
+            )
+        } content: { observer in
+            Form {
                 accountSection(observer)
                 if currentUser.user?.isAdmin == true {
                     administrationSection()
@@ -41,33 +44,27 @@ struct SettingsView: View {
                 aboutSection(observer)
                 signOutSection(observer)
             }
-        }
-        .navigationTitle(String(localized: "common.settings"))
-        .navigationBarTitleDisplayMode(.large)
-        // A grouped `Form` does not cap its own width on iOS 26, so a wide iPad pane stretched every
-        // row; the readable column widens the scroll margins instead of framing the Form, which
-        // clipped its background into a floating column. Matches Admin's 720.
-        .readableListWidth(720)
-        .onAppear {
-            logFiles = LogFiles.shareable()
-            if observer == nil {
-                observer = SettingsObserver(
-                    viewModel: deps.createSettingsViewModel(),
-                    stopPlayback: { await deps.playerCoordinator.stop() }
-                )
+            .navigationTitle(String(localized: "common.settings"))
+            .navigationBarTitleDisplayMode(.large)
+            // A grouped `Form` does not cap its own width on iOS 26, so a wide iPad pane stretched every
+            // row; the readable column widens the scroll margins instead of framing the Form, which
+            // clipped its background into a floating column. Matches Admin's 720.
+            .readableListWidth(720)
+            .onAppear {
+                logFiles = LogFiles.shareable()
             }
-        }
-        .confirmationDialog(
-            String(localized: "settings.sign_out_confirm_title"),
-            isPresented: $showingSignOutConfirmation,
-            titleVisibility: .visible
-        ) {
-            Button(String(localized: "common.sign_out"), role: .destructive) {
-                Task { await observer?.signOut() }
+            .confirmationDialog(
+                String(localized: "settings.sign_out_confirm_title"),
+                isPresented: $showingSignOutConfirmation,
+                titleVisibility: .visible
+            ) {
+                Button(String(localized: "common.sign_out"), role: .destructive) {
+                    Task { await observer.signOut() }
+                }
+                Button(String(localized: "common.cancel"), role: .cancel) {}
+            } message: {
+                Text(String(localized: "settings.are_you_sure_you_want"))
             }
-            Button(String(localized: "common.cancel"), role: .cancel) {}
-        } message: {
-            Text(String(localized: "settings.are_you_sure_you_want"))
         }
     }
 
