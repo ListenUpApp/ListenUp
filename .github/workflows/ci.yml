@@ -636,7 +636,12 @@ jobs:
     needs: [changes]
     if: needs.changes.outputs.ios_swift == 'true'
     runs-on: xcode-27
-    timeout-minutes: 45
+    # Nearly all the time is the Kotlin/Native + Swift-Export framework compile that xcodebuild runs
+    # before any test, and it stays in this job: the sharedLogic Kotlin lane's split took only its
+    # few minutes of tests out. A warm run takes about 35m; a run whose caches miss (a Kotlin bump
+    # invalidates every native artifact, and a PR cannot write the Gradle cache) took 47m with every
+    # step green. 60m covers that cold run while still turning a wedged build into a visible failure.
+    timeout-minutes: 60
 
     steps:
       - name: Checkout code
