@@ -3,31 +3,14 @@
 // tools/scripts/store-screenshots-android.sh builds it and runs it on an emulator against a seeded rig server.
 plugins {
     alias(libs.plugins.androidTest)
+    id("listenup.android.defaults")
 }
 
 android {
     namespace = "com.calypsan.listenup.storeshots"
-    compileSdk =
-        libs.versions.android.compileSdk
-            .get()
-            .toInt()
 
     defaultConfig {
-        minSdk =
-            libs.versions.android.minSdk
-                .get()
-                .toInt()
-        targetSdk =
-            libs.versions.android.targetSdk
-                .get()
-                .toInt()
-
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-    }
-
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
     }
 
     targetProjectPath = ":app:androidApp"
