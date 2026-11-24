@@ -513,11 +513,13 @@ jobs:
           printf '%s\n' "$ldd_out" | grep -F "/opt/listenup/gst-plugins/fdk-aac/lib/libfdk-aac"
 
       # Several server suites verify EACCES against chmod 0555/0000 directories; root ignores POSIX mode bits via CAP_DAC_OVERRIDE.
+      # Never chown $RUNNER_TEMP itself: the host runner (UID 1001) reads $RUNNER_TEMP/_github_workflow/event.json between steps.
       - name: Prepare non-root user for POSIX permission tests
         run: |
           id ubuntu >/dev/null 2>&1 || useradd -m -s /bin/bash ubuntu
-          mkdir -p "$GRADLE_USER_HOME" "$RUNNER_TEMP/.gradle-actions"
-          chown -R ubuntu:ubuntu "$GITHUB_WORKSPACE" "$GRADLE_USER_HOME" "$RUNNER_TEMP"
+          mkdir -p "$GRADLE_USER_HOME" "$RUNNER_TEMP/.gradle-actions/build-results"
+          chown -R ubuntu:ubuntu "$GITHUB_WORKSPACE" "$GRADLE_USER_HOME"
+          chmod -R a+rwX "$RUNNER_TEMP/.gradle-actions"
 
       - name: Run server Konsist and shard 1/3 tests
         if: matrix.shard == 1
