@@ -636,11 +636,11 @@ jobs:
     needs: [changes]
     if: needs.changes.outputs.ios_swift == 'true'
     runs-on: xcode-27
-    # Nearly all the time is the Kotlin/Native + Swift-Export framework compile that xcodebuild runs
-    # before any test, and it stays in this job: the sharedLogic Kotlin lane's split took only its
-    # few minutes of tests out. A warm run takes about 35m; a run whose caches miss (a Kotlin bump
-    # invalidates every native artifact, and a PR cannot write the Gradle cache) took 47m with every
-    # step green. 60m covers that cold run while still turning a wedged build into a visible failure.
+    # Main builds snapshot Swift Export outputs ($RUNNER_TEMP/swift-export-cache + Shared.swift)
+    # and Xcode's CompilationCache.noindex so Swift-only PRs restore both read-only and skip the
+    # ~20m Kotlin/Native + Swift Export build. Tests reuse the booted simulator serially
+    # (-parallel-testing-enabled NO) to skip clone boot and avoid parallel clone CPU contention.
+    # 60m still bounds cold cache-miss runs (Kotlin bumps or first build after key change).
     timeout-minutes: 60
 
     steps:
@@ -662,6 +662,12 @@ jobs:
         uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
         with:
           cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+
+      # SwiftExportAction can OOM at the repo-wide 4G Gradle daemon heap on 16G macOS runners.
+      - name: Raise Gradle daemon heap for Swift Export
+        run: |
+          mkdir -p ~/.gradle
+          printf '\norg.gradle.jvmargs=-Xmx6144M -Dfile.encoding=UTF-8\n' >> ~/.gradle/gradle.properties
 
       - name: Read Kotlin version for Konan cache key
         id: kotlin-version
@@ -707,6 +713,43 @@ jobs:
           path: ${{ runner.temp }}/spm-packages
           key: ${{ runner.os }}-${{ runner.arch }}-spm-v1-${{ hashFiles('app/iosApp/ListenUp.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}
 
+      # Exact key only (no restore-keys): stale Swift Export products must never mask Kotlin/contract changes.
+      - name: Cache Swift Export outputs
+        if: github.ref == 'refs/heads/main'
+        uses: actions/cache@v6
+        with:
+          path: |
+            ${{ runner.temp }}/swift-export-cache
+            app/sharedLogic/build/SPMPackage/iosSimulatorArm64/Debug/Sources/Shared/Shared.swift
+          key: ${{ runner.os }}-${{ runner.arch }}-xcode27.1-swiftexport-v1-${{ hashFiles('VERSION', 'gradle/libs.versions.toml', 'contract/**', 'app/sharedLogic/**', 'tools/build-logic/**') }}
+
+      - name: Restore Swift Export outputs (read-only on PRs)
+        if: github.ref != 'refs/heads/main'
+        uses: actions/cache/restore@v6
+        with:
+          path: |
+            ${{ runner.temp }}/swift-export-cache
+            app/sharedLogic/build/SPMPackage/iosSimulatorArm64/Debug/Sources/Shared/Shared.swift
+          key: ${{ runner.os }}-${{ runner.arch }}-xcode27.1-swiftexport-v1-${{ hashFiles('VERSION', 'gradle/libs.versions.toml', 'contract/**', 'app/sharedLogic/**', 'tools/build-logic/**') }}
+
+      - name: Cache Xcode compilation cache (CAS)
+        if: github.ref == 'refs/heads/main'
+        uses: actions/cache@v6
+        with:
+          path: ${{ runner.temp }}/DerivedData/CompilationCache.noindex
+          key: ${{ runner.os }}-${{ runner.arch }}-xcode27.1-cas-v1-${{ hashFiles('app/iosApp/**') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-xcode27.1-cas-v1-
+
+      - name: Restore Xcode compilation cache (CAS, read-only on PRs)
+        if: github.ref != 'refs/heads/main'
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ runner.temp }}/DerivedData/CompilationCache.noindex
+          key: ${{ runner.os }}-${{ runner.arch }}-xcode27.1-cas-v1-${{ hashFiles('app/iosApp/**') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-xcode27.1-cas-v1-
+
       - name: Resolve a simulator destination
         id: sim
         run: |
@@ -731,11 +774,15 @@ jobs:
           xcodebuild test \
             -scheme ListenUp \
             -destination "platform=iOS Simulator,name=${{ steps.sim.outputs.device }},OS=latest" \
+            -derivedDataPath "$RUNNER_TEMP/DerivedData" \
             -clonedSourcePackagesDirPath "$RUNNER_TEMP/spm-packages" \
             -resultBundlePath "$RUNNER_TEMP/ios-test.xcresult" \
+            -parallel-testing-enabled NO \
             -test-timeouts-enabled YES \
             -default-test-execution-time-allowance 120 \
-            -maximum-test-execution-time-allowance 300
+            -maximum-test-execution-time-allowance 300 \
+            LISTENUP_SWIFT_EXPORT_CACHE_DIR="$RUNNER_TEMP/swift-export-cache" \
+            COMPILATION_CACHE_ENABLE_CACHING=YES
 
       - name: Upload iOS test results
         uses: actions/upload-artifact@v7
