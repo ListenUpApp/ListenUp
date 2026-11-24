@@ -63,10 +63,10 @@ fun AdminInboxPage(
     onClearReleaseResult: () -> Unit,
     onRetry: () -> Unit,
     onOpenAdmin: () -> Unit,
-    onOpenBookEdit: (String) -> Unit = {},
-    onOpenMatch: (String) -> Unit = {},
+    onOpenBookEdit: (String) -> Unit,
+    onOpenMatch: (String) -> Unit,
     /** Open a held book's page — its triage layout (spec §8): a row's press, not its checkbox. */
-    onOpenBook: (String) -> Unit = {},
+    onOpenBook: (String) -> Unit,
 ) {
     Div(attrs = { classes("inbox") }) {
         Breadcrumb(trail = listOf("Admin", "Inbox"), onNavigate = { onOpenAdmin() })

@@ -38,19 +38,20 @@ import com.calypsan.listenup.client.presentation.match.ReviewUiState
 import com.calypsan.listenup.web.features.admin.finished
 import com.calypsan.listenup.web.features.admin.preview
 import com.calypsan.listenup.web.features.bookdetail.BookChaptersSection
-import com.calypsan.listenup.web.features.bookdetail.BookDetailPage
-import com.calypsan.listenup.web.features.bookdetail.PlacedReaders
-import com.calypsan.listenup.web.features.bookdetail.face
 import com.calypsan.listenup.web.features.bookdetail.BookFilesPage
 import com.calypsan.listenup.web.features.bookdetail.ChapterMapPage
+import com.calypsan.listenup.web.features.bookdetail.PlacedReaders
+import com.calypsan.listenup.web.features.bookdetail.face
 import com.calypsan.listenup.web.features.bookdetail.readyBook
 import com.calypsan.listenup.web.features.bookdetail.sampleDocuments
+import com.calypsan.listenup.web.features.bookdetail.testBookDetailPage
 import com.calypsan.listenup.web.features.bookedit.BookEditPage
 import com.calypsan.listenup.web.features.bulkedit.BulkEditActions
 import com.calypsan.listenup.web.features.bulkedit.BulkEditCatalog
 import com.calypsan.listenup.web.features.bulkedit.BulkEditPage
 import com.calypsan.listenup.web.features.bulkedit.editing
 import com.calypsan.listenup.web.features.chaptereditor.ChapterEditorPage
+import com.calypsan.listenup.web.features.chaptereditor.chapterMarkerCalls
 import com.calypsan.listenup.web.features.chaptereditor.editingChapters
 import com.calypsan.listenup.web.features.chaptereditor.threeChapters
 import com.calypsan.listenup.web.features.match.AUDIBLE
@@ -81,7 +82,7 @@ import com.calypsan.listenup.web.features.match.searching
 import com.calypsan.listenup.web.features.profile.editing
 import com.calypsan.listenup.web.features.ratings.RateBookDialog
 import com.calypsan.listenup.web.features.ratings.RatingSourcesDialog
-import com.calypsan.listenup.web.features.ratings.RatingsPanel
+import com.calypsan.listenup.web.features.ratings.testRatingsPanel
 import com.calypsan.listenup.web.features.readers.ReadersPage
 import com.calypsan.listenup.web.features.readers.ReadersPanel
 import com.calypsan.listenup.web.features.readers.reader
@@ -115,7 +116,7 @@ private fun bookdetailContractShapes(): Map<String, @Composable () -> Unit> =
 private fun bookdetailShapes1(): Map<String, @Composable () -> Unit> =
     shapes(
         shape("#1: BookDetailPage( state = readyBook( series = listOf(") {
-            BookDetailPage(
+            testBookDetailPage(
                 state =
                     readyBook(
                         series =
@@ -127,16 +128,12 @@ private fun bookdetailShapes1(): Map<String, @Composable () -> Unit> =
                         tags = listOf(Tag(id = "t1", name = "Grimdark", slug = "grimdark")),
                         moods = listOf(Mood(id = "m1", name = "Cosy", slug = "cosy")),
                     ),
-                onPlayFromChapter = {},
-                onOpenLibrary = {},
-                onPlay = {},
-                onRetryConnection = {},
             )
         },
         shape("#2: BookDetailPage( state = readyBook( readingStage = Re") {
             // The one page in progress, with readers and a series: the social line, the chapter
             // rows and the series path each draw classes of their own.
-            BookDetailPage(
+            testBookDetailPage(
                 state =
                     readyBook(
                         readingStage = ReadingStage.InProgress,
@@ -145,15 +142,11 @@ private fun bookdetailShapes1(): Map<String, @Composable () -> Unit> =
                                 BookSeries(seriesId = "s1", seriesName = "The Stormlight Archive", sequence = 1.0),
                             ),
                     ),
-                onOpenLibrary = {},
-                onPlay = {},
-                onPlayFromChapter = {},
                 readers =
                     readersData(
                         reader(userId = "u1", displayName = "Maya", progressPct = 40),
                         reader(userId = "u2", displayName = "Tom", finishes = listOf(1L)),
                     ),
-                onRetryConnection = {},
             )
         },
         shape("#3: ChapterMapPage( state = readyBook(), selection = set") {
@@ -178,21 +171,13 @@ private fun bookdetailShapes1(): Map<String, @Composable () -> Unit> =
             // The states with no book draw classes of their own, so they belong in
             // the contract too — an invented class hides just as well in an empty
             // state as in a full one.
-            BookDetailPage(
+            testBookDetailPage(
                 state = BookDetailUiState.Error(BookError.NotFound()),
-                onPlayFromChapter = {},
-                onOpenLibrary = {},
-                onPlay = {},
-                onRetryConnection = {},
             )
         },
         shape("#6: BookDetailPage( state = BookDetailUiState.Loading, o") {
-            BookDetailPage(
+            testBookDetailPage(
                 state = BookDetailUiState.Loading,
-                onPlayFromChapter = {},
-                onOpenLibrary = {},
-                onPlay = {},
-                onRetryConnection = {},
             )
         },
     )
@@ -420,6 +405,7 @@ private fun bookdetailShapes4(): Map<String, @Composable () -> Unit> =
                 onSave = {},
                 onLeave = {},
                 problem = "Chapter 2 needs a title.",
+                markers = chapterMarkerCalls(),
             )
         },
         shape("#21: ChapterEditorPage( state = editingChapters( selected") {
@@ -457,6 +443,7 @@ private fun bookdetailShapes4(): Map<String, @Composable () -> Unit> =
                 onUndo = {},
                 onSave = {},
                 onLeave = {},
+                markers = chapterMarkerCalls(),
             )
         },
     )
@@ -491,6 +478,7 @@ private fun bookdetailShapes5(): Map<String, @Composable () -> Unit> =
                 onUndo = {},
                 onSave = {},
                 onLeave = {},
+                markers = chapterMarkerCalls(),
             )
         },
         shape("#23: ChapterEditorPage( state = editingChapters(chapters") {
@@ -514,6 +502,7 @@ private fun bookdetailShapes5(): Map<String, @Composable () -> Unit> =
                 onUndo = {},
                 onSave = {},
                 onLeave = {},
+                markers = chapterMarkerCalls(),
             )
         },
         shape("#24: ChapterEditorPage( state = ChapterEditorUiState.Load") {
@@ -537,6 +526,7 @@ private fun bookdetailShapes5(): Map<String, @Composable () -> Unit> =
                 onUndo = {},
                 onSave = {},
                 onLeave = {},
+                markers = chapterMarkerCalls(),
             )
         },
     )
@@ -576,7 +566,7 @@ private fun readerShapes(): Map<String, @Composable () -> Unit> {
     val many = (1..7).map { reader(userId = "u$it", displayName = "Reader $it", progressPct = it) }
 
     fun panel(state: BookReadersUiState): @Composable () -> Unit =
-        { ReadersPanel(state = state, nowMs = now, onOpenProfile = {}, onSeeAll = {}) }
+        { ReadersPanel(state = state, nowMs = now, onOpenProfile = {}, onSeeAll = {}, onLanded = {}) }
 
     fun page(state: BookReadersUiState): @Composable () -> Unit =
         {
@@ -677,10 +667,10 @@ private fun ratingShapes(): Map<String, @Composable () -> Unit> {
     val sourcesBreakdown = listOf(ExternalRating(ExternalRatingSource.AUDIBLE, 4.8, 11_000, fetchedAtMs = 1L))
     return shapes(
         shape("rating #1: { RatingsPanel(state = rated, onSetStars") {
-            RatingsPanel(state = rated, onSetStars = {}, onRate = { _, _ -> }, onClear = {})
+            testRatingsPanel(state = rated)
         },
         shape("rating #2: { RatingsPanel( state = BookRatingsUiSta") {
-            RatingsPanel(
+            testRatingsPanel(
                 state =
                     BookRatingsUiState.Ready(
                         listeners = null,
@@ -689,13 +679,10 @@ private fun ratingShapes(): Map<String, @Composable () -> Unit> {
                         breakdown = emptyList(),
                         canRefresh = true,
                     ),
-                onSetStars = {},
-                onRate = { _, _ -> },
-                onClear = {},
             )
         },
         shape("rating #3: { RatingsPanel( state = BookRatingsUiSta") {
-            RatingsPanel(
+            testRatingsPanel(
                 state =
                     BookRatingsUiState.Ready(
                         listeners = ListenerAverage(9.0, 1),
@@ -705,13 +692,10 @@ private fun ratingShapes(): Map<String, @Composable () -> Unit> {
                         canRefresh = false,
                         isCheckingExternal = true,
                     ),
-                onSetStars = {},
-                onRate = { _, _ -> },
-                onClear = {},
             )
         },
         shape("rating #4: { RatingsPanel( state = BookRatingsUiSta") {
-            RatingsPanel(
+            testRatingsPanel(
                 state =
                     BookRatingsUiState.Ready(
                         listeners = ListenerAverage(8.0, 3),
@@ -720,9 +704,6 @@ private fun ratingShapes(): Map<String, @Composable () -> Unit> {
                         breakdown = sourcesBreakdown,
                         canRefresh = false,
                     ),
-                onSetStars = {},
-                onRate = { _, _ -> },
-                onClear = {},
             )
         },
         shape("rating #5: { RatingSourcesDialog( open = true, read") {
@@ -745,7 +726,7 @@ private fun ratingShapes(): Map<String, @Composable () -> Unit> {
             RateBookDialog(open = true, current = mine, onSave = { _, _ -> }, onClear = {}, onDismiss = {})
         },
         shape("rating #7: { ReadersPanel(state = readersData(rated") {
-            ReadersPanel(state = readersData(ratedReader), nowMs = 0L, onOpenProfile = {}, onSeeAll = {})
+            ReadersPanel(state = readersData(ratedReader), nowMs = 0L, onOpenProfile = {}, onSeeAll = {}, onLanded = {})
         },
     )
 }

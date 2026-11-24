@@ -64,7 +64,7 @@ fun SeriesEditPage(
     onMergeQuery: (String) -> Unit,
     parentPickerRows: List<ParentPickerRow> = emptyList(),
     addSubSeries: AddSubSeriesUiState = AddSubSeriesUiState.Closed(),
-    onAddSubSeriesEvent: (AddSubSeriesEvent) -> Unit = {},
+    onAddSubSeriesEvent: (AddSubSeriesEvent) -> Unit,
 ) {
     val editing = state as? SeriesEditUiState.Editing
     val guard = rememberUnsavedWorkGuard(dirty = editing?.hasChanges == true)

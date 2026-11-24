@@ -107,7 +107,7 @@ private fun page(
     onSave: () -> Unit = {},
     onLeave: () -> Unit = {},
     problem: String? = null,
-    markers: ChapterMarkerCalls = ChapterMarkerCalls(),
+    markers: ChapterMarkerCalls = chapterMarkerCalls(),
 ): HTMLElement {
     val host = document.createElement("div") as HTMLElement
     document.body!!.appendChild(host)
@@ -610,6 +610,7 @@ class ChapterEditorPageTest :
                             onSave = {},
                             onLeave = {},
                             problem = null,
+                            markers = chapterMarkerCalls(),
                         )
                     }
                 }
@@ -758,7 +759,7 @@ class ChapterEditorPageTest :
             val host =
                 page(
                     editingChapters(chapters = markedChapters()),
-                    markers = ChapterMarkerCalls(onSave = { id, tier, title, to -> saves += listOf(id, tier, title, to) }),
+                    markers = chapterMarkerCalls(onSave = { id, tier, title, to -> saves += listOf(id, tier, title, to) }),
                 )
 
             markerRows(host)[1]
@@ -805,7 +806,7 @@ class ChapterEditorPageTest :
             val host =
                 page(
                     editingChapters(chapters = markedChapters()),
-                    markers = ChapterMarkerCalls(onSave = { id, tier, title, to -> saves += listOf(id, tier, title, to) }),
+                    markers = chapterMarkerCalls(onSave = { id, tier, title, to -> saves += listOf(id, tier, title, to) }),
                 )
 
             markerRows(host)[0]
@@ -844,7 +845,7 @@ class ChapterEditorPageTest :
             val host =
                 page(
                     editingChapters(chapters = markedChapters()),
-                    markers = ChapterMarkerCalls(onRemove = { id, tier -> removed += id to tier }),
+                    markers = chapterMarkerCalls(onRemove = { id, tier -> removed += id to tier }),
                 )
 
             markerRows(host)[0]
@@ -862,7 +863,7 @@ class ChapterEditorPageTest :
             val host =
                 page(
                     editingChapters(),
-                    markers = ChapterMarkerCalls(onStart = { id, tier, title -> started += listOf(id, tier, title) }),
+                    markers = chapterMarkerCalls(onStart = { id, tier, title -> started += listOf(id, tier, title) }),
                 )
 
             rowMenuItem(host, 1, "Start a part here").shouldNotBeNull().click()
@@ -883,7 +884,7 @@ class ChapterEditorPageTest :
         test("cancelling a new marker writes nothing") {
             val started = mutableListOf<String>()
             val host =
-                page(editingChapters(), markers = ChapterMarkerCalls(onStart = { id, _, _ -> started += id }))
+                page(editingChapters(), markers = chapterMarkerCalls(onStart = { id, _, _ -> started += id }))
 
             rowMenuItem(host, 1, "Start a part here").shouldNotBeNull().click()
             awaitFrame()
@@ -951,7 +952,7 @@ class ChapterEditorPageTest :
                 page(
                     editingChapters().copy(partSuggestion = PartSuggestion(listOf("Part I", "Part II", "Part III"))),
                     markers =
-                        ChapterMarkerCalls(
+                        chapterMarkerCalls(
                             onAcceptSuggestion = { answers += "accept" },
                             onDismissSuggestion = { answers += "dismiss" },
                         ),

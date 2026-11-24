@@ -22,7 +22,7 @@ class LibraryStripPinnedTest :
                 )
             val frame =
                 frames.mount(width = DESKTOP, height = SHORT) {
-                    InShell { LibraryPage(state = state, onEvent = {}, onOpenBook = {}, onSelectFacet = {}) }
+                    InShell { testLibraryPage(state = state) }
                 }
             awaitFrame()
             val main = frame.find(".shell-main")

@@ -46,7 +46,7 @@ class BookDetailCoverThemeTest :
             mounts
                 .mount {
                     CompositionLocalProvider(LocalCoverThemes provides source) {
-                        BookDetailPage(state = ready, onPlayFromChapter = {}, onOpenLibrary = {}, onPlay = {}, onRetryConnection = {})
+                        testBookDetailPage(state = ready)
                     }
                 }.querySelector(".bd-head") as HTMLElement
 
@@ -87,7 +87,7 @@ class BookDetailCoverThemeTest :
                 val frame =
                     frames.mount(width = 1280, height = 900) {
                         CompositionLocalProvider(LocalCoverThemes provides FakeCoverThemes(known = KINGS_THEMES)) {
-                            BookDetailPage(state = ready, onPlayFromChapter = {}, onOpenLibrary = {}, onPlay = {}, onRetryConnection = {})
+                            testBookDetailPage(state = ready)
                         }
                     }
                 val root = frame.host.ownerDocument!!.documentElement!!
@@ -133,13 +133,9 @@ class BookDetailCoverThemeTest :
             mounts
                 .mount {
                     CompositionLocalProvider(LocalCoverThemes provides source) {
-                        BookDetailPage(
+                        testBookDetailPage(
                             state = state,
                             bookId = "42",
-                            onPlayFromChapter = {},
-                            onOpenLibrary = {},
-                            onPlay = {},
-                            onRetryConnection = {},
                         )
                     }
                 }.querySelector(".bd-head") as HTMLElement

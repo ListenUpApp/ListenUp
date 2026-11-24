@@ -32,7 +32,7 @@ class HomeFinishedTest :
 
         fun card(
             slot: HomeSlot.JustFinished = finishedSlot(),
-            actions: HomeActions = HomeActions.None,
+            actions: HomeActions = homeActions(),
         ): HTMLElement = mounts.mount { HomeFinishedCard(slot.card, nowMs = BOARD_NOW, actions = actions, zone = TimeZone.UTC) }
 
         test("the card is a region named for what happened") {
@@ -51,7 +51,7 @@ class HomeFinishedTest :
 
         test("Play next book plays the next book through the play entry") {
             var played: String? = null
-            card(actions = HomeActions.None.copy(onPlay = { played = it }))
+            card(actions = homeActions(onPlay = { played = it }))
                 .buttonsNamed("Play next book: Words of Radiance")
                 .single()
                 .click()
@@ -60,7 +60,7 @@ class HomeFinishedTest :
 
         test("dismiss calls the session's action with the finished book") {
             var dismissed: String? = null
-            card(actions = HomeActions.None.copy(onDismissFinished = { dismissed = it }))
+            card(actions = homeActions(onDismissFinished = { dismissed = it }))
                 .buttonsNamed("Dismiss on all your devices")
                 .single()
                 .click()
@@ -69,7 +69,7 @@ class HomeFinishedTest :
 
         test("the rating is the shared half-star control, labelled, and committing it rates") {
             var rated: Pair<String, Int>? = null
-            val host = card(actions = HomeActions.None.copy(onRateFinished = { id, h -> rated = id to h }))
+            val host = card(actions = homeActions(onRateFinished = { id, h -> rated = id to h }))
             val slider = host.querySelector("[role=slider]") as HTMLElement
             slider.getAttribute("aria-label") shouldBe "How was it?"
             slider.press("End")
@@ -79,7 +79,7 @@ class HomeFinishedTest :
         test("the finishers line names two and counts the rest, as a control into the readers") {
             var readers: String? = null
             val host =
-                card(finishedSlot(names = listOf("Maya", "Tom"), more = 3), HomeActions.None.copy(onOpenReaders = { readers = it }))
+                card(finishedSlot(names = listOf("Maya", "Tom"), more = 3), homeActions(onOpenReaders = { readers = it }))
             val link = host.querySelector(".home-finished-others") as HTMLElement
             link.textContent shouldBe "Maya, Tom and 3 more finished it too"
             link.click()
@@ -96,7 +96,7 @@ class HomeFinishedTest :
 
         test("cover and title are one control into the book, never nested") {
             var opened: String? = null
-            val host = card(actions = HomeActions.None.copy(onOpenBook = { opened = it }))
+            val host = card(actions = homeActions(onOpenBook = { opened = it }))
             host.count(".home-finished-id") shouldBe 1
             host.querySelectorAll(".home-finished-id button, .home-finished-id a").length shouldBe 0
             (host.querySelector(".home-finished-id") as HTMLElement).click()

@@ -160,34 +160,33 @@ private fun PlaybackSession.pageActions(
     )
 
 /**
- * Every gesture the Now Playing page hands out, as lambdas, so the page renders and is specced without a router or a
- * player behind it. Each defaults to doing nothing for specs; [NowPlayingRoute] supplies every one.
+ * Every gesture the Now Playing page hands out, as lambdas. [NowPlayingRoute] supplies every one.
  */
 class NowPlayingActions(
-    val onCollapse: () -> Unit = {},
-    val onOpenBook: (String) -> Unit = {},
-    val onOpenSeries: (String) -> Unit = {},
-    val onOpenContributor: (String) -> Unit = {},
-    val onPrimary: () -> Unit = {},
-    val onSeek: (Long) -> Unit = {},
-    val onSkipBack: () -> Unit = {},
-    val onSkipForward: () -> Unit = {},
-    val onPreviousChapter: () -> Unit = {},
-    val onNextChapter: () -> Unit = {},
-    val onSeekToChapter: (Int) -> Unit = {},
-    val onCardAction: (PlayerCardAction) -> Unit = {},
-    val onRate: (Int) -> Unit = {},
-    val onCloseBook: () -> Unit = {},
+    val onCollapse: () -> Unit,
+    val onOpenBook: (String) -> Unit,
+    val onOpenSeries: (String) -> Unit,
+    val onOpenContributor: (String) -> Unit,
+    val onPrimary: () -> Unit,
+    val onSeek: (Long) -> Unit,
+    val onSkipBack: () -> Unit,
+    val onSkipForward: () -> Unit,
+    val onPreviousChapter: () -> Unit,
+    val onNextChapter: () -> Unit,
+    val onSeekToChapter: (Int) -> Unit,
+    val onCardAction: (PlayerCardAction) -> Unit,
+    val onRate: (Int) -> Unit,
+    val onCloseBook: () -> Unit,
     /** Close book from More: unload, and leave the page for wherever it was opened from. */
-    val onCloseBookAndLeave: () -> Unit = {},
-    val onSetSpeed: (Float) -> Unit = {},
-    val onResetSpeed: () -> Unit = {},
-    val onStepSpeed: (Boolean) -> Unit = {},
-    val onSetSleepTimer: (SleepTimerMode) -> Unit = {},
-    val onCancelSleepTimer: () -> Unit = {},
-    val onExtendSleepTimer: (Int) -> Unit = {},
-    val onSetBoost: (Float) -> Unit = {},
-    val onResetBoost: () -> Unit = {},
+    val onCloseBookAndLeave: () -> Unit,
+    val onSetSpeed: (Float) -> Unit,
+    val onResetSpeed: () -> Unit,
+    val onStepSpeed: (Boolean) -> Unit,
+    val onSetSleepTimer: (SleepTimerMode) -> Unit,
+    val onCancelSleepTimer: () -> Unit,
+    val onExtendSleepTimer: (Int) -> Unit,
+    val onSetBoost: (Float) -> Unit,
+    val onResetBoost: () -> Unit,
 )
 
 /**

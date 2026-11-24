@@ -68,6 +68,7 @@ import com.calypsan.listenup.web.features.bookedit.fixedBookEdit
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.presentation.chaptereditor.ChapterEditorEvent
 import com.calypsan.listenup.web.features.chaptereditor.ChapterEditorSession
+import com.calypsan.listenup.web.features.chaptereditor.chapterMarkerCalls
 import com.calypsan.listenup.web.features.chaptereditor.OpenChapterEditor
 import com.calypsan.listenup.web.features.match.MatchDetailsGraph
 import com.calypsan.listenup.web.features.match.fixedMatchDetails
@@ -254,6 +255,7 @@ internal fun mountAt(
     openMyShelves: OpenMyShelves = fixedMyShelves(),
     onToast: (String) -> Unit = {},
     onActionToast: ShowActionToast = { _, _, _ -> },
+    onSignOut: () -> Unit = {},
     openPlayback: OpenPlayback = fixedPlayback(),
     compositionProbe: (String) -> Unit = {},
     beforeRouteChange: (RouteChange) -> Unit = {},
@@ -344,6 +346,7 @@ internal fun mountAt(
                             ),
                         onToast = onToast,
                         onActionToast = onActionToast,
+                        onSignOut = onSignOut,
                     )
                 }
             }
@@ -572,6 +575,7 @@ internal class RecordingChapterEditor(
             onUndo = {},
             onResetToSource = { resets += Unit },
             onSave = {},
+            markers = chapterMarkerCalls(),
             close = {},
         )
     }

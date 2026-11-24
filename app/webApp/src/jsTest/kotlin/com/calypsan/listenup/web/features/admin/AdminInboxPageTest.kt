@@ -184,6 +184,9 @@ private fun ViewportFrames.mountInShell(state: AdminInboxUiState): ViewportFrame
                 onClearReleaseResult = {},
                 onRetry = {},
                 onOpenAdmin = {},
+                onOpenBookEdit = {},
+                onOpenMatch = {},
+                onOpenBook = {},
             )
         }
     }

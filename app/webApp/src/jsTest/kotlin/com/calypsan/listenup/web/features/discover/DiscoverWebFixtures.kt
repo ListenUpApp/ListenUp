@@ -211,12 +211,16 @@ internal fun selection(
     onStart: () -> Unit = {},
     onToggle: (String) -> Unit = {},
     onShelveOne: (String) -> Unit = {},
+    onCollectOne: (String) -> Unit = {},
+    onStartWith: (String) -> Unit = {},
 ) = BookSelection(
     isSelecting = isSelecting,
     selectedIds = selected,
     onToggle = onToggle,
     onStart = onStart,
     onShelveOne = onShelveOne,
+    onCollectOne = onCollectOne,
+    onStartWith = onStartWith,
 )
 
 /** [count] picks, "p0".."p(count-1)", standalone. */

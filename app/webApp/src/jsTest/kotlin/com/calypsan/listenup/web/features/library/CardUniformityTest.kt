@@ -34,7 +34,7 @@ class CardUniformityTest :
         test("cards are the same height whether their titles are short or very long") {
             val root =
                 mounts.mount {
-                    LibraryPage(
+                    testLibraryPage(
                         state =
                             contractLibrary(
                                 listOf(
@@ -47,9 +47,6 @@ class CardUniformityTest :
                                     contractBook("b3", "Dune"),
                                 ),
                             ),
-                        onEvent = {},
-                        onOpenBook = {},
-                        onSelectFacet = {},
                     )
                 }
 
@@ -83,7 +80,7 @@ class CardUniformityTest :
             val root =
                 mounts.mount {
                     Div(attrs = { style { width(TWO_UP_WIDTH.px) } }) {
-                        LibraryPage(state = state, onEvent = {}, onOpenBook = {}, onSelectFacet = {})
+                        testLibraryPage(state = state)
                     }
                 }
 
@@ -105,7 +102,7 @@ class CardUniformityTest :
             val root =
                 mounts.mount {
                     Div(attrs = { style { width(TWO_UP_WIDTH.px) } }) {
-                        LibraryPage(state = state, onEvent = {}, onOpenBook = {}, onSelectFacet = {})
+                        testLibraryPage(state = state)
                     }
                 }
 
@@ -121,11 +118,8 @@ class CardUniformityTest :
             // single-line title, which is most of them.
             val root =
                 mounts.mount {
-                    LibraryPage(
+                    testLibraryPage(
                         state = contractLibrary(listOf(contractBook("b1", "A Title Long Enough To Wrap If It Were Ever Allowed To"))),
-                        onEvent = {},
-                        onOpenBook = {},
-                        onSelectFacet = {},
                     )
                 }
 

@@ -11,13 +11,13 @@ import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditUiEvent
 import com.calypsan.listenup.client.presentation.shelf.CreateEditShelfUiState
 import com.calypsan.listenup.web.MountRegistry
 import com.calypsan.listenup.web.features.admin.CollectionDetailPage
-import com.calypsan.listenup.web.features.admin.PermissionsPanelActions
-import com.calypsan.listenup.web.features.admin.ServerSettingsPage
 import com.calypsan.listenup.web.features.admin.UserDetailPage
+import com.calypsan.listenup.web.features.admin.permissionsPanelActions
 import com.calypsan.listenup.web.features.admin.permissionsReady
 import com.calypsan.listenup.web.features.admin.readyDetail
 import com.calypsan.listenup.web.features.admin.readyServerSettings
 import com.calypsan.listenup.web.features.admin.readyUser
+import com.calypsan.listenup.web.features.admin.testServerSettingsPage
 import com.calypsan.listenup.web.features.bookedit.BookEditPage
 import com.calypsan.listenup.web.features.bulkedit.BulkEditActions
 import com.calypsan.listenup.web.features.bulkedit.BulkEditCatalog
@@ -26,8 +26,8 @@ import com.calypsan.listenup.web.features.contributoredit.ContributorEditPage
 import com.calypsan.listenup.web.features.contributoredit.editingContributor
 import com.calypsan.listenup.web.features.profile.EditProfilePage
 import com.calypsan.listenup.web.features.profile.editing
-import com.calypsan.listenup.web.features.seriesedit.SeriesEditPage
 import com.calypsan.listenup.web.features.seriesedit.editingSeries
+import com.calypsan.listenup.web.features.seriesedit.testSeriesEditPage
 import com.calypsan.listenup.web.features.shelf.ShelfEditPage
 import io.kotest.core.spec.style.FunSpec
 
@@ -80,12 +80,9 @@ class UnsavedWorkPagesTest :
             mounts = mounts,
             mount = { registry, dirty, onLeave ->
                 registry.mount {
-                    SeriesEditPage(
+                    testSeriesEditPage(
                         state = editingSeries(hasChanges = dirty),
-                        mergeCandidates = emptyList(),
-                        mergeHistory = MergeHistoryState.Ready(emptyList()),
                         onEvent = { if (it is SeriesEditUiEvent.CancelClicked) onLeave() },
-                        onMergeQuery = {},
                     )
                 }
             },
@@ -137,15 +134,8 @@ class UnsavedWorkPagesTest :
             mounts = mounts,
             mount = { registry, dirty, onLeave ->
                 registry.mount {
-                    ServerSettingsPage(
+                    testServerSettingsPage(
                         state = readyServerSettings(isDirty = dirty),
-                        onServerName = {},
-                        onRemoteUrl = {},
-                        onHoldNewBooks = {},
-                        onPushNotifications = {},
-                        onSave = {},
-                        onClearError = {},
-                        onRetry = {},
                         onOpenAdmin = onLeave,
                     )
                 }
@@ -189,7 +179,7 @@ class UnsavedWorkPagesTest :
                     UserDetailPage(
                         state = readyUser(),
                         permissions = permissionsReady(changeCount = if (dirty) 1 else 0),
-                        actions = PermissionsPanelActions(),
+                        actions = permissionsPanelActions(),
                         onRetry = {},
                         onOpenAdmin = onLeave,
                     )

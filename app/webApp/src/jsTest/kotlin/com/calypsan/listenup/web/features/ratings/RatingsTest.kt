@@ -379,11 +379,8 @@ class RatingsTest :
             var request by mutableIntStateOf(0)
             val host =
                 mounts.mount {
-                    RatingsPanel(
+                    testRatingsPanel(
                         state = ready(mine = rating(8)),
-                        onSetStars = {},
-                        onRate = { _, _ -> },
-                        onClear = {},
                         starsFocusRequest = request,
                     )
                 }
@@ -437,7 +434,7 @@ class RatingsTest :
             // Inside the app's surface, so the sheet's `.luw` rules — the row's min-height — apply.
             val host =
                 mounts.mount {
-                    WebAppSurface { RatingsPanel(state = state, onSetStars = {}, onRate = { _, _ -> }, onClear = {}) }
+                    WebAppSurface { testRatingsPanel(state = state) }
                 }
             awaitFrame()
 
@@ -498,7 +495,7 @@ class RatingsTest :
             var state by mutableStateOf(ready(isCheckingExternal = true))
             val host =
                 mounts.mount {
-                    RatingsPanel(state = state, onSetStars = {}, onRate = { _, _ -> }, onClear = {})
+                    testRatingsPanel(state = state)
                 }
             awaitFrame()
             val live = host.querySelector(".rt-ev [role=status]") as HTMLElement
@@ -516,7 +513,7 @@ class RatingsTest :
             var state by mutableStateOf(ready(external = SCORE, breakdown = listOf(AUDIBLE), isCheckingExternal = true))
             val host =
                 mounts.mount {
-                    RatingsPanel(state = state, onSetStars = {}, onRate = { _, _ -> }, onClear = {})
+                    testRatingsPanel(state = state)
                 }
             awaitFrame()
 

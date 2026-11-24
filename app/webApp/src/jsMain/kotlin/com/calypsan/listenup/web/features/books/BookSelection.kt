@@ -16,11 +16,11 @@ class BookSelection(
      * Shelve one book: select it alone, open the shelf picker, and end the selection when the picker
      * closes (plan C5). A row menu's "Add {book} to a shelf" — iOS's `addOneBookToShelf`.
      */
-    val onShelveOne: (String) -> Unit = {},
+    val onShelveOne: (String) -> Unit,
     /** Add one book to a collection, by the same rule as [onShelveOne] (an admin's book menu). */
-    val onCollectOne: (String) -> Unit = {},
+    val onCollectOne: (String) -> Unit,
     /** Start selecting with [String] picked: a book menu's Select. */
-    val onStartWith: (String) -> Unit = {},
+    val onStartWith: (String) -> Unit,
     /** Whether the reader is an admin: collections and editing are theirs. */
     val isAdmin: Boolean = false,
 ) {

@@ -122,7 +122,7 @@ class TransportBarTest :
             onCancelSleepTimer: () -> Unit = {},
         ): HTMLElement =
             mounts.mount {
-                TransportBar(
+                testTransportBar(
                     state = state,
                     progress = progress,
                     onPrimary = onPrimary,
@@ -259,7 +259,16 @@ class TransportBarTest :
 
         test("with no book loaded the bar renders nothing at all") {
             // An empty transport bar is chrome that lies about there being something to play.
-            val host = mounts.mount { TransportBarHost(fixedPlayback()(), onOpenBook = {}) }
+            val host =
+                mounts.mount {
+                    TransportBarHost(
+                        fixedPlayback()(),
+                        onOpenBook = {},
+                        onOpenInbox = {},
+                        onOpenNowPlaying = {},
+                        onCloseNowPlaying = {},
+                    )
+                }
 
             host.querySelector(".tport") shouldBe null
             host.textContent.orEmpty() shouldBe ""
@@ -350,14 +359,9 @@ class TransportBarTest :
             val opened = mutableListOf<HTMLElement?>()
             val host =
                 mounts.mount {
-                    TransportBar(
+                    testTransportBar(
                         state = chaptered(),
                         progress = CHAPTER_PROGRESS,
-                        onPrimary = {},
-                        onSeek = {},
-                        onSkipBack = {},
-                        onSkipForward = {},
-                        onSetSpeed = {},
                         onOpenNowPlaying = { opened += it },
                     )
                 }
@@ -475,14 +479,9 @@ class TransportBarTest :
 
             fun chevronBar(isOpen: Boolean): HTMLElement =
                 mounts.mount {
-                    TransportBar(
+                    testTransportBar(
                         state = chaptered(),
                         progress = CHAPTER_PROGRESS,
-                        onPrimary = {},
-                        onSeek = {},
-                        onSkipBack = {},
-                        onSkipForward = {},
-                        onSetSpeed = {},
                         isNowPlayingOpen = isOpen,
                         onOpenNowPlaying = { opened += it },
                         onCloseNowPlaying = { closes++ },
@@ -505,14 +504,9 @@ class TransportBarTest :
             var focused = 0
             val host =
                 mounts.mount {
-                    TransportBar(
+                    testTransportBar(
                         state = chaptered(),
                         progress = CHAPTER_PROGRESS,
-                        onPrimary = {},
-                        onSeek = {},
-                        onSkipBack = {},
-                        onSkipForward = {},
-                        onSetSpeed = {},
                         isNowPlayingOpen = true,
                         onFocusChapters = { focused++ },
                     )

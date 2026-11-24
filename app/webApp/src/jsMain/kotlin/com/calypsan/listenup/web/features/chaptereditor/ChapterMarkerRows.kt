@@ -19,11 +19,11 @@ import org.jetbrains.compose.web.dom.Text
  * @property onSave the chapter carrying the marker, its tier, its name, and the chapter it starts at.
  */
 class ChapterMarkerCalls(
-    val onStart: (String, ChapterMarkerTier, String) -> Unit = { _, _, _ -> },
-    val onSave: (String, ChapterMarkerTier, String, String) -> Unit = { _, _, _, _ -> },
-    val onRemove: (String, ChapterMarkerTier) -> Unit = { _, _ -> },
-    val onAcceptSuggestion: () -> Unit = {},
-    val onDismissSuggestion: () -> Unit = {},
+    val onStart: (String, ChapterMarkerTier, String) -> Unit,
+    val onSave: (String, ChapterMarkerTier, String, String) -> Unit,
+    val onRemove: (String, ChapterMarkerTier) -> Unit,
+    val onAcceptSuggestion: () -> Unit,
+    val onDismissSuggestion: () -> Unit,
 )
 
 /** The marker rows [chapter] opens, Book above Part. Most chapters draw nothing here. */

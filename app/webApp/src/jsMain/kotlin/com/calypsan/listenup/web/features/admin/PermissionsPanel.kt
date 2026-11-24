@@ -29,16 +29,16 @@ import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
 import org.w3c.dom.HTMLInputElement
 
-/** The permissions panel's callbacks; each defaults to nothing so specs pass only what they press. */
+/** The permissions panel's callbacks; every caller wires every action explicitly. */
 class PermissionsPanelActions(
-    val onSelectPreset: (PermissionPreset) -> Unit = {},
-    val onSetPermission: (Permission, Boolean) -> Unit = { _, _ -> },
-    val onRequestRole: (UserRole) -> Unit = {},
-    val onConfirmAdminPromotion: () -> Unit = {},
-    val onCancelAdminPromotion: () -> Unit = {},
-    val onDiscard: () -> Unit = {},
-    val onSave: () -> Unit = {},
-    val onRetry: () -> Unit = {},
+    val onSelectPreset: (PermissionPreset) -> Unit,
+    val onSetPermission: (Permission, Boolean) -> Unit,
+    val onRequestRole: (UserRole) -> Unit,
+    val onConfirmAdminPromotion: () -> Unit,
+    val onCancelAdminPromotion: () -> Unit,
+    val onDiscard: () -> Unit,
+    val onSave: () -> Unit,
+    val onRetry: () -> Unit,
 )
 
 /**

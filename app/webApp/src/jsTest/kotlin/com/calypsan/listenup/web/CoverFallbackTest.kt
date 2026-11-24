@@ -3,9 +3,9 @@ package com.calypsan.listenup.web
 import com.calypsan.listenup.web.features.contributordetail.RoleTile
 import com.calypsan.listenup.web.features.contributordetail.bookItem
 import com.calypsan.listenup.web.features.library.BookCard
-import com.calypsan.listenup.web.features.seriesdetail.SeriesDetailPage
 import com.calypsan.listenup.web.features.seriesdetail.readySeries
 import com.calypsan.listenup.web.features.seriesdetail.seriesBook
+import com.calypsan.listenup.web.features.seriesdetail.testSeriesDetailPage
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
@@ -32,10 +32,8 @@ class CoverFallbackTest :
             val contributor = mounts.mount { RoleTile(book = bookItem("b1", TITLE), progress = null, onOpen = {}) }
             val series =
                 mounts.mount {
-                    SeriesDetailPage(
+                    testSeriesDetailPage(
                         state = readySeries(books = listOf(seriesBook("b1", TITLE, 1.0))),
-                        onOpenLibrary = {},
-                        onOpenBook = {},
                     )
                 }
             val hosts = listOf(library, contributor, series.querySelector(".sd-book") as HTMLElement)

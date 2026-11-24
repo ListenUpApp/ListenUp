@@ -201,6 +201,7 @@ class ChaptersPaneTest :
                             ),
                         onToast = {},
                         onActionToast = { _, _, _ -> },
+                        onSignOut = {},
                     )
                 }
             return host to router

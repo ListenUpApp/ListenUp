@@ -175,7 +175,7 @@ class PeopleTest :
         fun userPage(
             state: UserDetailUiState,
             permissions: UserPermissionsUiState = permissionsReady(),
-            actions: PermissionsPanelActions = PermissionsPanelActions(),
+            actions: PermissionsPanelActions = permissionsPanelActions(),
             onOpenAdmin: () -> Unit = {},
         ): HTMLElement =
             mounts.mount {
@@ -373,7 +373,7 @@ class PeopleTest :
                 userPage(
                     readyUser(adminUser()),
                     permissions = withStoryWorld,
-                    actions = PermissionsPanelActions(onSetPermission = { p, g -> presses += "set:$p=$g" }),
+                    actions = permissionsPanelActions(onSetPermission = { p, g -> presses += "set:$p=$g" }),
                 )
 
             host.textContent.orEmpty() shouldContain "Story World"
@@ -392,7 +392,7 @@ class PeopleTest :
                 userPage(
                     readyUser(adminUser()),
                     actions =
-                        PermissionsPanelActions(
+                        permissionsPanelActions(
                             onSelectPreset = { presses += "preset:$it" },
                             onSetPermission = { p, g -> presses += "set:$p=$g" },
                         ),
@@ -428,7 +428,7 @@ class PeopleTest :
         test("Save and Discard reach the ViewModel, and nothing unsaved shows no bar") {
             val presses = mutableListOf<String>()
             val actions =
-                PermissionsPanelActions(onDiscard = { presses += "discard" }, onSave = { presses += "save" })
+                permissionsPanelActions(onDiscard = { presses += "discard" }, onSave = { presses += "save" })
             val host = userPage(readyUser(adminUser()), permissions = permissionsReady(changeCount = 2), actions = actions)
 
             host.textContent.orEmpty() shouldContain "2 unsaved changes to Quinn's permissions"
@@ -444,7 +444,7 @@ class PeopleTest :
         test("the role picker asks for Admin, and the promotion is confirmed in a dialog") {
             val presses = mutableListOf<String>()
             val actions =
-                PermissionsPanelActions(
+                permissionsPanelActions(
                     onRequestRole = { presses += "role:$it" },
                     onConfirmAdminPromotion = { presses += "confirm" },
                 )

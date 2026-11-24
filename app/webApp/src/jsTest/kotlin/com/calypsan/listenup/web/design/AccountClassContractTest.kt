@@ -77,7 +77,22 @@ private fun accountShapes1(): Map<String, @Composable () -> Unit> =
     shapes(
         shape("#1: SettingsPage(SettingsUiState(isLoading = true), {},") {
             // Loading and loaded: the skeleton's class lives only in the former.
-            SettingsPage(SettingsUiState(isLoading = true), {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
+            SettingsPage(
+                SettingsUiState(isLoading = true),
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                onOpenHardcover = {},
+                onOpenCategories = {},
+            )
         },
         shape("#2: SettingsPage( SettingsUiState( isLoading = false, se") {
             SettingsPage(
@@ -96,7 +111,10 @@ private fun accountShapes1(): Map<String, @Composable () -> Unit> =
                 {},
                 {},
                 {},
+                {},
                 hardcoverRow = HardcoverRowState.Connected("simon"),
+                onOpenHardcover = {},
+                onOpenCategories = {},
             )
         },
     )

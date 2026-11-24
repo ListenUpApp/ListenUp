@@ -47,7 +47,7 @@ fun ReadersPanel(
     onOpenProfile: (String) -> Unit,
     onSeeAll: () -> Unit,
     land: Boolean = false,
-    onLanded: () -> Unit = {},
+    onLanded: () -> Unit,
 ) {
     val data = state as? BookReadersUiState.Data ?: return
     val lines = data.lines

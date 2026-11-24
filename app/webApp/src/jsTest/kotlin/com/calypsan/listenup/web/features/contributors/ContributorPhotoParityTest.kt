@@ -9,8 +9,8 @@ import com.calypsan.listenup.client.presentation.library.SortState
 import com.calypsan.listenup.client.domain.model.ContributorWithBookCount
 import com.calypsan.listenup.web.MountRegistry
 import com.calypsan.listenup.web.design.awaitImagesApplied
-import com.calypsan.listenup.web.features.contributordetail.ContributorDetailPage
 import com.calypsan.listenup.web.features.contributordetail.readyContributor
+import com.calypsan.listenup.web.features.contributordetail.testContributorDetailPage
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -30,27 +30,16 @@ class ContributorPhotoParityTest :
 
         fun contributorsPage(people: List<ContributorWithBookCount>): HTMLElement =
             mounts.mount {
-                ContributorsPage(
+                testContributorsPage(
                     state = people,
                     role = ContributorRole.AUTHOR,
-                    onSelectFacet = {},
-                    onOpenContributor = {},
                     sortState = SortState(SortCategory.NAME, SortDirection.ASCENDING),
-                    onEvent = {},
                 )
             }
 
         fun detailPage(state: ContributorDetailUiState): HTMLElement =
             mounts.mount {
-                ContributorDetailPage(
-                    onAdjustPhoto = {},
-                    state = state,
-                    onOpenLibrary = {},
-                    onOpenContributors = {},
-                    onOpenBook = {},
-                    onConfirmDelete = {},
-                    onDismissDeleteError = {},
-                )
+                testContributorDetailPage(state = state)
             }
 
         // Each "has a photo" case reads the DOM from the first composition: a spec has no server, so

@@ -27,13 +27,8 @@ class BookHeaderOnAPhoneTest :
         fun header(width: Int) =
             frames.mount(width) {
                 InShell {
-                    BookDetailPage(
+                    testBookDetailPage(
                         state = readyBook(),
-                        onPlayFromChapter = {},
-                        onOpenLibrary = {},
-                        onPlay = {},
-                        onEdit = {},
-                        onRetryConnection = {},
                     )
                 }
             }

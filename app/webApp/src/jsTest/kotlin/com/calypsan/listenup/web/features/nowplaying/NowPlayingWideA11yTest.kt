@@ -57,7 +57,7 @@ class NowPlayingWideA11yTest :
         ): ViewportFrame =
             frames.mount(width = width, height = height) {
                 CompositionLocalProvider(LocalCoverThemes provides NoCoverThemes) {
-                    NowPlayingPage(state = book, progress = progress, actions = NowPlayingActions())
+                    NowPlayingPage(state = book, progress = progress, actions = nowPlayingActions())
                 }
             }
 
@@ -99,14 +99,9 @@ class NowPlayingWideA11yTest :
         test("on /playing the bar keeps its pinned order, Shortcuts included; only Open turns into Close") {
             val host =
                 mounts.mount {
-                    TransportBar(
+                    testTransportBar(
                         state = book,
                         progress = progress,
-                        onPrimary = {},
-                        onSeek = {},
-                        onSkipBack = {},
-                        onSkipForward = {},
-                        onSetSpeed = {},
                         isNowPlayingOpen = true,
                         onFocusChapters = {},
                     )

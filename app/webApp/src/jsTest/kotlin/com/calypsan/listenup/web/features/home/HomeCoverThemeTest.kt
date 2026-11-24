@@ -30,7 +30,7 @@ class HomeCoverThemeTest :
                         HomeFinishedCard(
                             finishedSlot().card.let { it.copy(book = it.book.copy(coverHash = "h1")) },
                             nowMs = BOARD_NOW,
-                            actions = HomeActions.None,
+                            actions = homeActions(),
                             zone = TimeZone.UTC,
                         )
                     }
@@ -66,7 +66,7 @@ class HomeCoverThemeTest :
                     HomeFinishedCard(
                         finishedSlot().card.let { it.copy(book = it.book.copy(coverHash = null)) },
                         nowMs = BOARD_NOW,
-                        actions = HomeActions.None,
+                        actions = homeActions(),
                         zone = TimeZone.UTC,
                     )
                 }

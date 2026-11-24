@@ -69,10 +69,10 @@ fun ContributorDetailPage(
     onOpenLibrary: () -> Unit,
     onOpenContributors: () -> Unit,
     onOpenBook: (String) -> Unit,
-    onOpenSeries: (String) -> Unit = {},
-    onOpenRoleBooks: (String) -> Unit = {},
-    onEdit: () -> Unit = {},
-    onMatchMetadata: () -> Unit = {},
+    onOpenSeries: (String) -> Unit,
+    onOpenRoleBooks: (String) -> Unit,
+    onEdit: () -> Unit,
+    onMatchMetadata: () -> Unit,
     /**
      * Remove this contributor. No default: a defaulted no-op would render a real, enabled Delete
      * that does nothing — the same reasoning `BookDetailPage.onPlay` carries.
@@ -85,7 +85,7 @@ fun ContributorDetailPage(
      */
     onAdjustPhoto: (ImageFrame) -> Unit,
     /** Say the frame was saved; the route raises the toast. */
-    onPhotoAdjusted: () -> Unit = {},
+    onPhotoAdjusted: () -> Unit,
 ) {
     Div(attrs = { classes("cd") }) {
         // The breadcrumb renders in every state, including the ones with no contributor: a page

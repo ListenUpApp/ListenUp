@@ -35,6 +35,7 @@ class StarTargetTest :
                         onSetStars = {},
                         onRate = { _, _ -> },
                         onClear = {},
+                        onRefreshExternal = {},
                     )
                 }
             awaitFrame()

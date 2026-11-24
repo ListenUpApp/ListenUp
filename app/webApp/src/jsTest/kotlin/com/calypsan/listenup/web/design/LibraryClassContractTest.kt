@@ -35,36 +35,36 @@ import com.calypsan.listenup.web.features.browse.BrowseFacetPage
 import com.calypsan.listenup.web.features.browse.GenreDestinationPage
 import com.calypsan.listenup.web.features.browse.facetReady
 import com.calypsan.listenup.web.features.browse.genreReady
-import com.calypsan.listenup.web.features.contributordetail.ContributorDetailPage
 import com.calypsan.listenup.web.features.contributordetail.bookItem
 import com.calypsan.listenup.web.features.contributordetail.readyContributor
 import com.calypsan.listenup.web.features.contributordetail.roleSection
 import com.calypsan.listenup.web.features.contributordetail.seriesWithBooks
+import com.calypsan.listenup.web.features.contributordetail.testContributorDetailPage
 import com.calypsan.listenup.web.features.contributoredit.ContributorEditPage
 import com.calypsan.listenup.web.features.contributoredit.candidate
 import com.calypsan.listenup.web.features.contributoredit.editingContributor
-import com.calypsan.listenup.web.features.contributors.ContributorsPage
 import com.calypsan.listenup.web.features.contributors.contributor
+import com.calypsan.listenup.web.features.contributors.testContributorsPage
 import com.calypsan.listenup.web.features.home.scanning
 import com.calypsan.listenup.web.features.home.shelf
-import com.calypsan.listenup.web.features.library.LibraryPage
 import com.calypsan.listenup.web.features.library.contractBook
 import com.calypsan.listenup.web.features.library.contractLibrary
-import com.calypsan.listenup.web.features.search.CommandPalette
+import com.calypsan.listenup.web.features.library.testLibraryPage
 import com.calypsan.listenup.web.features.search.ResultsList
-import com.calypsan.listenup.web.features.search.SearchPage
 import com.calypsan.listenup.web.features.search.SeeAllPage
 import com.calypsan.listenup.web.features.search.bookHit
 import com.calypsan.listenup.web.features.search.contributorHit
 import com.calypsan.listenup.web.features.search.searchResult
-import com.calypsan.listenup.web.features.seriesdetail.SeriesDetailPage
+import com.calypsan.listenup.web.features.search.testCommandPalette
+import com.calypsan.listenup.web.features.search.testSearchPage
 import com.calypsan.listenup.web.features.seriesdetail.readySeries
 import com.calypsan.listenup.web.features.seriesdetail.seriesBook
-import com.calypsan.listenup.web.features.seriesedit.SeriesEditPage
+import com.calypsan.listenup.web.features.seriesdetail.testSeriesDetailPage
 import com.calypsan.listenup.web.features.seriesedit.editingSeries
 import com.calypsan.listenup.web.features.seriesedit.seriesCandidate
+import com.calypsan.listenup.web.features.seriesedit.testSeriesEditPage
 import com.calypsan.listenup.web.features.shelf.ShelfDetailPage
-import com.calypsan.listenup.web.features.shelf.ShelfEditPage
+import com.calypsan.listenup.web.features.shelf.testShelfEditPage
 import io.kotest.core.spec.style.FunSpec
 
 /**
@@ -95,39 +95,30 @@ private fun libraryShapes1(): Map<String, @Composable () -> Unit> =
             // Every Library state draws classes of its own — the grid and sort row
             // from a loaded page, and the two empty states, which are the ones most
             // likely to be styled by eye and never looked at again.
-            LibraryPage(
+            testLibraryPage(
                 state = contractLibrary(books = listOf(contractBook("b1", "Dune"))),
-                onEvent = {},
-                onOpenBook = {},
-                onSelectFacet = {},
             )
         },
         shape("#2: LibraryPage( state = contractLibrary(syncing = true)") {
-            LibraryPage(
+            testLibraryPage(
                 state = contractLibrary(syncing = true),
-                onEvent = {},
-                onOpenBook = {},
-                onSelectFacet = {},
             )
         },
         shape("#3: LibraryPage(state = contractLibrary(), onEvent = {},") {
-            LibraryPage(state = contractLibrary(), onEvent = {}, onOpenBook = {}, onSelectFacet = {})
+            testLibraryPage(state = contractLibrary())
         },
         shape("#4: LibraryPage(state = LibraryUiState.Loading, onEvent") {
-            LibraryPage(state = LibraryUiState.Loading, onEvent = {}, onOpenBook = {}, onSelectFacet = {})
+            testLibraryPage(state = LibraryUiState.Loading)
         },
         shape("#5: LibraryPage(state = LibraryUiState.Error(nope), onEv") {
             // The error state's Retry, and a live scan's strip above the grid.
-            LibraryPage(state = LibraryUiState.Error("nope"), onEvent = {}, onOpenBook = {}, onSelectFacet = {})
+            testLibraryPage(state = LibraryUiState.Error("nope"))
         },
         shape("#6: LibraryPage( state = contractLibrary(books = listOf(") {
-            LibraryPage(
+            testLibraryPage(
                 state =
                     contractLibrary(books = listOf(contractBook("b1", "Dune")))
                         .copy(isServerScanning = true, scanProgress = scanning()),
-                onEvent = {},
-                onOpenBook = {},
-                onSelectFacet = {},
             )
         },
         shape("#7: ContributorsPage( state = listOf(contributor(c1, And") {
@@ -138,35 +129,27 @@ private fun libraryShapes1(): Map<String, @Composable () -> Unit> =
             // below is explicit, so a page nobody adds here is a page whose invented
             // classes nothing catches (which is exactly how `.contrib-list` shipped
             // undefined).
-            ContributorsPage(
+            testContributorsPage(
                 state = listOf(contributor("c1", "Andy Weir", 3)),
                 role = ContributorRole.AUTHOR,
-                onSelectFacet = {},
-                onOpenContributor = {},
             )
         },
         shape("#8: ContributorsPage( state = listOf(contributor(c2, San") {
-            ContributorsPage(
+            testContributorsPage(
                 state = listOf(contributor("c2", "Santino Fontana", 2)),
                 role = ContributorRole.NARRATOR,
-                onSelectFacet = {},
-                onOpenContributor = {},
             )
         },
         shape("#9: ContributorsPage( state = emptyList(), role = Contri") {
-            ContributorsPage(
+            testContributorsPage(
                 state = emptyList(),
                 role = ContributorRole.NARRATOR,
-                onSelectFacet = {},
-                onOpenContributor = {},
             )
         },
         shape("#10: ContributorsPage( state = null, role = ContributorRo") {
-            ContributorsPage(
+            testContributorsPage(
                 state = null,
                 role = ContributorRole.AUTHOR,
-                onSelectFacet = {},
-                onOpenContributor = {},
             )
         },
     )
@@ -177,8 +160,7 @@ private fun libraryShapes2(): Map<String, @Composable () -> Unit> =
             // Contributor Detail: a fully loaded page (role panels, a credited-as alias,
             // a series panel) and every non-Ready state — each draws classes of its own,
             // and a state nobody renders here is one whose invented classes nothing catches.
-            ContributorDetailPage(
-                onAdjustPhoto = {},
+            testContributorDetailPage(
                 state =
                     readyContributor(
                         roleSections =
@@ -192,44 +174,21 @@ private fun libraryShapes2(): Map<String, @Composable () -> Unit> =
                         bookCreditedAs = mapOf("b1" to "Richard Bachman"),
                         series = listOf(seriesWithBooks()),
                     ),
-                onOpenLibrary = {},
-                onOpenContributors = {},
-                onOpenBook = {},
-                onConfirmDelete = {},
-                onDismissDeleteError = {},
             )
         },
         shape("#12: ContributorDetailPage( onAdjustPhoto = {}, state = C") {
-            ContributorDetailPage(
-                onAdjustPhoto = {},
+            testContributorDetailPage(
                 state = ContributorDetailUiState.Loading,
-                onOpenLibrary = {},
-                onOpenContributors = {},
-                onOpenBook = {},
-                onConfirmDelete = {},
-                onDismissDeleteError = {},
             )
         },
         shape("#13: ContributorDetailPage( onAdjustPhoto = {}, state = C") {
-            ContributorDetailPage(
-                onAdjustPhoto = {},
+            testContributorDetailPage(
                 state = ContributorDetailUiState.Error("The server could not be reached."),
-                onOpenLibrary = {},
-                onOpenContributors = {},
-                onOpenBook = {},
-                onConfirmDelete = {},
-                onDismissDeleteError = {},
             )
         },
         shape("#14: ContributorDetailPage( onAdjustPhoto = {}, state = C") {
-            ContributorDetailPage(
-                onAdjustPhoto = {},
+            testContributorDetailPage(
                 state = ContributorDetailUiState.NotFound,
-                onOpenLibrary = {},
-                onOpenContributors = {},
-                onOpenBook = {},
-                onConfirmDelete = {},
-                onDismissDeleteError = {},
             )
         },
         shape("#15: ContributorEditPage( state = editingContributor( err") {
@@ -282,51 +241,35 @@ private fun libraryShapes3(): Map<String, @Composable () -> Unit> =
             // the same form with a staged pick (which swaps the art for a preview and
             // adds the discard control), the skeleton, and the picker in each of its
             // three shapes — nothing matched, a selectable list, and a capped one.
-            SeriesEditPage(
+            testSeriesEditPage(
                 state = editingSeries(error = ValidationError(message = "That name is taken."), coverPath = "series/s.jpg"),
-                mergeCandidates = emptyList(),
                 mergeHistory = contractMergeHistory,
-                onEvent = {},
-                onMergeQuery = {},
             )
         },
         shape("#20: SeriesEditPage( state = stagedCoverSeries, mergeCand") {
-            SeriesEditPage(
+            testSeriesEditPage(
                 state = stagedCoverSeries,
-                mergeCandidates = emptyList(),
                 mergeHistory = MergeHistoryState.Unavailable(TransportError.NetworkUnavailable()),
-                onEvent = {},
-                onMergeQuery = {},
             )
         },
         shape("#21: SeriesEditPage( state = editingSeries(isLoading = tr") {
-            SeriesEditPage(
+            testSeriesEditPage(
                 state = editingSeries(isLoading = true),
-                mergeCandidates = emptyList(),
                 mergeHistory = MergeHistoryState.Loading,
-                onEvent = {},
-                onMergeQuery = {},
             )
         },
         shape("#22: SeriesEditPage( state = editingSeries(mergeDialogVis") {
-            SeriesEditPage(
+            testSeriesEditPage(
                 state = editingSeries(mergeDialogVisible = true, mergeQuery = "Nothing"),
-                mergeCandidates = emptyList(),
-                mergeHistory = MergeHistoryState.Ready(emptyList()),
-                onEvent = {},
-                onMergeQuery = {},
             )
         },
         shape("#23: SeriesEditPage( state = editingSeries(mergeDialogVis") {
-            SeriesEditPage(
+            testSeriesEditPage(
                 state = editingSeries(mergeDialogVisible = true, mergeQuery = "Mist"),
                 mergeCandidates =
                     (1..MAX_MERGE_CANDIDATES).map {
                         seriesCandidate(id = "s$it", displayName = "Series $it")
                     },
-                mergeHistory = MergeHistoryState.Ready(emptyList()),
-                onEvent = {},
-                onMergeQuery = {},
             )
         },
         shape("#24: ContributorEditPage( state = editingContributor(merg") {
@@ -349,7 +292,7 @@ private fun libraryShapes4(): Map<String, @Composable () -> Unit> =
             // Series Detail: a fully loaded page — hero stats, the reading order with a
             // progress bar and a finished mark, and the About panel — plus the two
             // states with no series, which draw classes of their own.
-            SeriesDetailPage(
+            testSeriesDetailPage(
                 state =
                     readySeries(
                         seriesDescription = "Ten orders of Knights Radiant.",
@@ -362,22 +305,16 @@ private fun libraryShapes4(): Map<String, @Composable () -> Unit> =
                         finishedBookIds = setOf(BookId("b1")),
                         resumeTarget = BookId("b2"),
                     ),
-                onOpenLibrary = {},
-                onOpenBook = {},
             )
         },
         shape("#26: SeriesDetailPage( state = SeriesDetailUiState.Error(") {
-            SeriesDetailPage(
+            testSeriesDetailPage(
                 state = SeriesDetailUiState.Error("Series not found"),
-                onOpenLibrary = {},
-                onOpenBook = {},
             )
         },
         shape("#27: SeriesDetailPage( state = SeriesDetailUiState.Loadin") {
-            SeriesDetailPage(
+            testSeriesDetailPage(
                 state = SeriesDetailUiState.Loading,
-                onOpenLibrary = {},
-                onOpenBook = {},
             )
         },
         shape("#28: SearchPage( state = SearchUiState.Idle(), onQueryCha") {
@@ -385,47 +322,23 @@ private fun libraryShapes4(): Map<String, @Composable () -> Unit> =
             // zero-hit Results and a populated one. The page joins this contract by
             // hand, same as ContributorsPage above — a state nobody adds here is a
             // state whose invented classes nothing catches.
-            SearchPage(
+            testSearchPage(
                 state = SearchUiState.Idle(),
-                onQueryChanged = {},
-                onToggleType = {},
-                onClearTypes = {},
-                onOpenHit = {},
-                onRetry = {},
-                openableTypes = SearchHitType.entries.toSet(),
             )
         },
         shape("#29: SearchPage( state = SearchUiState.TooShort(query = d") {
-            SearchPage(
+            testSearchPage(
                 state = SearchUiState.TooShort(query = "du", selectedTypes = emptySet()),
-                onQueryChanged = {},
-                onToggleType = {},
-                onClearTypes = {},
-                onOpenHit = {},
-                onRetry = {},
-                openableTypes = SearchHitType.entries.toSet(),
             )
         },
         shape("#30: SearchPage( state = SearchUiState.Searching(query =") {
-            SearchPage(
+            testSearchPage(
                 state = SearchUiState.Searching(query = "dun", selectedTypes = emptySet()),
-                onQueryChanged = {},
-                onToggleType = {},
-                onClearTypes = {},
-                onOpenHit = {},
-                onRetry = {},
-                openableTypes = SearchHitType.entries.toSet(),
             )
         },
         shape("#31: SearchPage( state = SearchUiState.Error(query = dune") {
-            SearchPage(
+            testSearchPage(
                 state = SearchUiState.Error(query = "dune", selectedTypes = emptySet(), message = "oops"),
-                onQueryChanged = {},
-                onToggleType = {},
-                onClearTypes = {},
-                onOpenHit = {},
-                onRetry = {},
-                openableTypes = SearchHitType.entries.toSet(),
             )
         },
     )
@@ -433,26 +346,20 @@ private fun libraryShapes4(): Map<String, @Composable () -> Unit> =
 private fun libraryShapes5(): Map<String, @Composable () -> Unit> =
     shapes(
         shape("#32: SearchPage( state = SearchUiState.Results( query = z") {
-            SearchPage(
+            testSearchPage(
                 state =
                     SearchUiState.Results(
                         query = "zzzzz",
                         selectedTypes = emptySet(),
                         result = searchResult(query = "zzzzz", hits = emptyList()),
                     ),
-                onQueryChanged = {},
-                onToggleType = {},
-                onClearTypes = {},
-                onOpenHit = {},
-                onRetry = {},
-                openableTypes = SearchHitType.entries.toSet(),
             )
         },
         shape("#33: SearchPage( state = SearchUiState.Results( query = d") {
             // A book hit (openable — real chevron and button semantics) alongside a
             // contributor hit (not in openableTypes — exercises `.is-static`, the
             // class a hit type with no destination renders instead of a dead click).
-            SearchPage(
+            testSearchPage(
                 state =
                     SearchUiState.Results(
                         query = "dune",
@@ -467,11 +374,6 @@ private fun libraryShapes5(): Map<String, @Composable () -> Unit> =
                                     ),
                             ),
                     ),
-                onQueryChanged = {},
-                onToggleType = {},
-                onClearTypes = {},
-                onOpenHit = {},
-                onRetry = {},
                 openableTypes = setOf(SearchHitType.BOOK),
             )
         },
@@ -480,43 +382,23 @@ private fun libraryShapes5(): Map<String, @Composable () -> Unit> =
             // SearchUiState cases, plus the highlighted-row state SearchPage never
             // sets — every one of them joins this contract by hand, same as
             // SearchPage's block above.
-            CommandPalette(
+            testCommandPalette(
                 state = SearchUiState.Idle(),
-                onQueryChanged = {},
-                onOpenHit = {},
-                openableTypes = SearchHitType.entries.toSet(),
-                highlighted = null,
-                onDismiss = {},
             )
         },
         shape("#35: CommandPalette( state = SearchUiState.TooShort(query") {
-            CommandPalette(
+            testCommandPalette(
                 state = SearchUiState.TooShort(query = "du", selectedTypes = emptySet()),
-                onQueryChanged = {},
-                onOpenHit = {},
-                openableTypes = SearchHitType.entries.toSet(),
-                highlighted = null,
-                onDismiss = {},
             )
         },
         shape("#36: CommandPalette( state = SearchUiState.Searching(quer") {
-            CommandPalette(
+            testCommandPalette(
                 state = SearchUiState.Searching(query = "dun", selectedTypes = emptySet()),
-                onQueryChanged = {},
-                onOpenHit = {},
-                openableTypes = SearchHitType.entries.toSet(),
-                highlighted = null,
-                onDismiss = {},
             )
         },
         shape("#37: CommandPalette( state = SearchUiState.Error(query =") {
-            CommandPalette(
+            testCommandPalette(
                 state = SearchUiState.Error(query = "dune", selectedTypes = emptySet(), message = "oops"),
-                onQueryChanged = {},
-                onOpenHit = {},
-                openableTypes = SearchHitType.entries.toSet(),
-                highlighted = null,
-                onDismiss = {},
             )
         },
     )
@@ -524,24 +406,19 @@ private fun libraryShapes5(): Map<String, @Composable () -> Unit> =
 private fun libraryShapes6(): Map<String, @Composable () -> Unit> =
     shapes(
         shape("#38: CommandPalette( state = SearchUiState.Results( query") {
-            CommandPalette(
+            testCommandPalette(
                 state =
                     SearchUiState.Results(
                         query = "zzzzz",
                         selectedTypes = emptySet(),
                         result = searchResult(query = "zzzzz", hits = emptyList()),
                     ),
-                onQueryChanged = {},
-                onOpenHit = {},
-                openableTypes = SearchHitType.entries.toSet(),
-                highlighted = null,
-                onDismiss = {},
             )
         },
         shape("#39: run { val hit = bookHit(b1, Dune, author = Frank Her") {
             run {
                 val hit = bookHit("b1", "Dune", author = "Frank Herbert")
-                CommandPalette(
+                testCommandPalette(
                     state =
                         SearchUiState.Results(
                             query = "dune",
@@ -552,11 +429,8 @@ private fun libraryShapes6(): Map<String, @Composable () -> Unit> =
                                     hits = listOf(hit, contributorHit("c1", "Frank Herbert")),
                                 ),
                         ),
-                    onQueryChanged = {},
-                    onOpenHit = {},
                     openableTypes = setOf(SearchHitType.BOOK),
                     highlighted = hit,
-                    onDismiss = {},
                 )
             }
         },
@@ -675,7 +549,7 @@ private fun shelfShapes(): Map<String, @Composable () -> Unit> {
     fun editPage(
         state: CreateEditShelfUiState,
         isEditing: Boolean,
-    ): @Composable () -> Unit = { ShelfEditPage(state, isEditing, { _, _, _ -> }, {}, {}, {}) }
+    ): @Composable () -> Unit = { testShelfEditPage(state, isEditing) }
 
     return shapes(
         "shelf #1: detailPage(ShelfDetailUiState.Loading)" to detailPage(ShelfDetailUiState.Loading),

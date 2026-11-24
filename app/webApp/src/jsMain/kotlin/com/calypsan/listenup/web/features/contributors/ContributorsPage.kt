@@ -63,7 +63,7 @@ fun ContributorsPage(
     onSelectFacet: (LibraryFacet) -> Unit,
     onOpenContributor: (String) -> Unit,
     sortState: SortState = SortState(SortCategory.NAME, SortDirection.ASCENDING),
-    onEvent: (LibraryUiEvent) -> Unit = {},
+    onEvent: (LibraryUiEvent) -> Unit,
     letters: List<LetterSection> = emptyList(),
 ) {
     Div(attrs = { classes("lib-header") }) {

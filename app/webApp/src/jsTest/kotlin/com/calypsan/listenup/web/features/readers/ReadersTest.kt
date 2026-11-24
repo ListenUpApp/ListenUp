@@ -94,9 +94,10 @@ class ReadersTest :
             state: BookReadersUiState,
             onOpenProfile: (String) -> Unit = {},
             onSeeAll: () -> Unit = {},
+            onLanded: () -> Unit = {},
         ): HTMLElement =
             mounts.mount {
-                ReadersPanel(state = state, nowMs = READERS_NOW, onOpenProfile = onOpenProfile, onSeeAll = onSeeAll)
+                ReadersPanel(state = state, nowMs = READERS_NOW, onOpenProfile = onOpenProfile, onSeeAll = onSeeAll, onLanded = onLanded)
             }
 
         fun page(

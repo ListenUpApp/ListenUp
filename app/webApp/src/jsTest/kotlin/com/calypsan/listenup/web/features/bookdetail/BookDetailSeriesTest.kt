@@ -30,18 +30,14 @@ class BookDetailSeriesTest :
             onOpenSeries: (String) -> Unit = {},
         ): HTMLElement =
             mounts.mount {
-                BookDetailPage(
+                testBookDetailPage(
                     state =
                         if (seriesPaths == null) {
                             readyBook(series = series)
                         } else {
                             readyBook(series = series, seriesPaths = seriesPaths)
                         },
-                    onPlayFromChapter = {},
-                    onOpenLibrary = {},
-                    onPlay = {},
                     onOpenSeries = onOpenSeries,
-                    onRetryConnection = {},
                 )
             }
 

@@ -5,9 +5,9 @@ import com.calypsan.listenup.web.TABLET
 import com.calypsan.listenup.web.ViewportFrame
 import com.calypsan.listenup.web.ViewportFrames
 import com.calypsan.listenup.web.awaitFrame
-import com.calypsan.listenup.web.features.admin.AdminInboxPage
 import com.calypsan.listenup.web.features.admin.inboxBook
 import com.calypsan.listenup.web.features.admin.readyInbox
+import com.calypsan.listenup.web.features.admin.testAdminInboxPage
 import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.doubles.plusOrMinus
@@ -87,17 +87,8 @@ class MenuClippingTest :
         test("the inbox row menu is wholly visible below a lone book") {
             val frame =
                 frames.mount(TABLET, FRAME_HEIGHT) {
-                    AdminInboxPage(
+                    testAdminInboxPage(
                         state = readyInbox(books = listOf(inboxBook(title = "Other Worlds Than These"))),
-                        onToggleBook = {},
-                        onSelectAll = {},
-                        onClearSelection = {},
-                        onRelease = {},
-                        onDismissIssue = {},
-                        onClearError = {},
-                        onClearReleaseResult = {},
-                        onRetry = {},
-                        onOpenAdmin = {},
                     )
                 }
 

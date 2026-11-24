@@ -29,7 +29,7 @@ class NowPlayingPhoneTransportFitTest :
                             NowPlayingPage(
                                 state = wayOfKings(chapters = chapterRows(75, 1_235_000), currentChapterIndex = 5),
                                 progress = PlayerProgress.Zero,
-                                actions = NowPlayingActions(),
+                                actions = nowPlayingActions(),
                             )
                         }
                     }

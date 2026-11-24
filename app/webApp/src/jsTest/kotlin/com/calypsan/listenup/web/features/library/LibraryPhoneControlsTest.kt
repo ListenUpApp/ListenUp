@@ -24,7 +24,7 @@ class LibraryPhoneControlsTest :
         fun phone() =
             frames.mount(PHONE_390) {
                 val books = (1..6).map { contractBook("b$it", "Book number $it") }
-                InShell { LibraryPage(state = contractLibrary(books), onEvent = {}, onOpenBook = {}, onSelectFacet = {}) }
+                InShell { testLibraryPage(state = contractLibrary(books)) }
             }
 
         test("'6 books' and 'All · Title, A–Z' share one row, and there is no chip row") {
@@ -49,11 +49,8 @@ class LibraryPhoneControlsTest :
                 frames.mount(SMALL_PHONE) {
                     val books = (1..15).map { contractBook("b$it", "Book number $it") }
                     InShell {
-                        LibraryPage(
+                        testLibraryPage(
                             state = contractLibrary(books),
-                            onEvent = {},
-                            onOpenBook = {},
-                            onSelectFacet = {},
                             onStartSelecting = {},
                             inbox = InboxBadgeState(heldCount = 3, previewBookIds = listOf("h1", "h2", "h3")),
                         )
@@ -92,7 +89,7 @@ class LibraryPhoneControlsTest :
             val frame =
                 frames.mount(DESKTOP_1280) {
                     val books = (1..6).map { contractBook("b$it", "Book number $it") }
-                    InShell { LibraryPage(state = contractLibrary(books), onEvent = {}, onOpenBook = {}, onSelectFacet = {}) }
+                    InShell { testLibraryPage(state = contractLibrary(books)) }
                 }
             awaitFrame()
 

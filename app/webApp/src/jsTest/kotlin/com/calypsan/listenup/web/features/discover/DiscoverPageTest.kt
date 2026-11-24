@@ -2,6 +2,7 @@ package com.calypsan.listenup.web.features.discover
 
 import com.calypsan.listenup.api.error.UnexpectedClientError
 import com.calypsan.listenup.web.features.books.BookSelection
+import com.calypsan.listenup.web.features.library.testBookSelection
 import com.calypsan.listenup.client.presentation.discover.CommunitySize
 import com.calypsan.listenup.client.presentation.discover.DiscoverShelfOwner
 import com.calypsan.listenup.client.presentation.discover.DiscoverShelfUi
@@ -704,12 +705,12 @@ class DiscoverPageTest :
     })
 
 private fun idleSelection(onToggle: (String) -> Unit = {}) =
-    BookSelection(isSelecting = false, selectedIds = emptySet(), onToggle = onToggle, onStart = {})
+    testBookSelection(isSelecting = false, selectedIds = emptySet(), onToggle = onToggle)
 
 private fun selecting(
     selected: Set<String> = emptySet(),
     onToggle: (String) -> Unit = {},
-) = BookSelection(isSelecting = true, selectedIds = selected, onToggle = onToggle, onStart = {})
+) = testBookSelection(isSelecting = true, selectedIds = selected, onToggle = onToggle)
 
 private const val FEED_BOOK_ID = "b-feed"
 

@@ -75,7 +75,7 @@ internal fun LeaderboardSection(
     onRefresh: () -> Unit,
     community: CommunitySize,
     land: Boolean = false,
-    onLanded: () -> Unit = {},
+    onLanded: () -> Unit,
 ) {
     val currentOnLanded by rememberUpdatedState(onLanded)
     LaunchedEffect(land) {

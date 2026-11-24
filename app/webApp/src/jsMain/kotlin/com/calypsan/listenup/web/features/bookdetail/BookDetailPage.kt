@@ -97,25 +97,24 @@ fun BookDetailPage(
     onPlay: () -> Unit,
     /** Plays this book from a chapter's start (book milliseconds). No default, for the reason [onPlay] has none. */
     onPlayFromChapter: (Long) -> Unit,
-    onEdit: () -> Unit = {},
-    onEditChapters: () -> Unit = {},
-    onMatchMetadata: () -> Unit = {},
-    onOpenGenre: (String) -> Unit = {},
-    onOpenTag: (String) -> Unit = {},
-    onOpenMood: (String) -> Unit = {},
-    onOpenContributor: (String) -> Unit = {},
-    onOpenSeries: (String) -> Unit = {},
+    onEdit: () -> Unit,
+    onEditChapters: () -> Unit,
+    onMatchMetadata: () -> Unit,
+    onOpenGenre: (String) -> Unit,
+    onOpenTag: (String) -> Unit,
+    onOpenMood: (String) -> Unit,
+    onOpenContributor: (String) -> Unit,
+    onOpenSeries: (String) -> Unit,
     readers: BookReadersUiState = BookReadersUiState.Loading,
     /**
-     * The rating panel's state and the ViewModel's actions. Defaulted to Loading, which draws no
-     * panel at all, so the no-op actions below are unreachable until a caller supplies a state.
+     * The rating panel's state and the ViewModel's actions.
      * [ratingStarsFocusRequest] moves focus to your stars each time it changes (after an Undo).
      */
     ratings: BookRatingsUiState = BookRatingsUiState.Loading,
-    onRate: (halfStars: Int, note: String?) -> Unit = { _, _ -> },
-    onClearRating: () -> Unit = {},
-    onRefreshExternalRating: () -> Unit = {},
-    onSetStars: (halfStars: Int) -> Unit = {},
+    onRate: (halfStars: Int, note: String?) -> Unit,
+    onClearRating: () -> Unit,
+    onRefreshExternalRating: () -> Unit,
+    onSetStars: (halfStars: Int) -> Unit,
     ratingStarsFocusRequest: Int = 0,
     /**
      * The book's supplementary documents, from the sibling flow of the same name. Defaulted empty
@@ -129,46 +128,45 @@ fun BookDetailPage(
     onRetryConnection: () -> Unit,
     /** True while a play request for this book is in flight — see the Play button. */
     isPreparing: Boolean = false,
-    onMarkComplete: (startedAt: Long?, finishedAt: Long) -> Unit = { _, _ -> },
-    onDiscardProgress: () -> Unit = {},
-    onRestart: () -> Unit = {},
-    onShare: () -> Unit = {},
+    onMarkComplete: (startedAt: Long?, finishedAt: Long) -> Unit,
+    onDiscardProgress: () -> Unit,
+    onRestart: () -> Unit,
+    onShare: () -> Unit,
     /** The pickers' state comes from [state]; these open, answer and dismiss them. */
-    pickers: BookPickers = BookPickers(),
+    pickers: BookPickers,
     nowMs: Long = 0L,
-    onOpenProfile: (String) -> Unit = {},
-    onSeeAllReaders: () -> Unit = {},
+    onOpenProfile: (String) -> Unit,
+    onSeeAllReaders: () -> Unit,
     /**
-     * The Hardcover panel's state, its two ways out, and Sync with Hardcover (#1541). Defaulted to Hidden, which draws no panel
-     * at all, so the no-op actions are unreachable until a caller supplies a state.
+     * The Hardcover panel's state, its two ways out, and Sync with Hardcover (#1541).
      */
     hardcover: BookHardcoverUiState = BookHardcoverUiState.Hidden,
-    onFindHardcoverMatch: () -> Unit = {},
-    onRemoveHardcoverMatch: () -> Unit = {},
-    onSetHardcoverSynced: (Boolean) -> Unit = {},
+    onFindHardcoverMatch: () -> Unit,
+    onRemoveHardcoverMatch: () -> Unit,
+    onSetHardcoverSynced: (Boolean) -> Unit,
     /** The chapter map page (`/book/{id}/map`), from the Chapters header. */
-    onOpenChapterMap: () -> Unit = {},
+    onOpenChapterMap: () -> Unit,
     /** The files page (`/book/{id}/files`), from the Details panel. */
-    onOpenFiles: () -> Unit = {},
+    onOpenFiles: () -> Unit,
     bookId: String? = null,
     /**
      * Delete this book's folder from the server (admin-only; the menu gates it). The confirm dialog
      * is the page's own, so these are the ViewModel's two calls, not "open the dialog".
      */
-    onDeleteBook: () -> Unit = {},
-    onClearDeleteError: () -> Unit = {},
+    onDeleteBook: () -> Unit,
+    onClearDeleteError: () -> Unit,
     /** Release this held book (the triage layout's primary action; the page confirms first). */
-    onReleaseFromInbox: () -> Unit = {},
+    onReleaseFromInbox: () -> Unit,
     /** Put a stranded book back in All Books ("Show to all members"; no confirmation). */
-    onRestoreToAllBooks: () -> Unit = {},
+    onRestoreToAllBooks: () -> Unit,
     /** Open an admin collection from the Visibility panel. */
-    onOpenCollection: (String) -> Unit = {},
+    onOpenCollection: (String) -> Unit,
     /** The last-match row ("Details matched … · See what changed · Undo last match"), above the sections. */
     lastMatchRow: @Composable () -> Unit = {},
     /** Arrive with the Readers panel in view and its heading focused: Home's finishers line. */
     landOnReaders: Boolean = false,
     /** Called once that landing has happened, so the route can drop it from the URL. */
-    onLandedOnReaders: () -> Unit = {},
+    onLandedOnReaders: () -> Unit,
 ) {
     val root = remember { PageRoot() }
     // Kotlin decides the layout, not CSS: the two columns split the stage order, one column keeps it whole. A first
@@ -567,7 +565,7 @@ internal class SectionPanes(
     /** The book's documents, for the Details panel's Maps & illustrations row. */
     val documents: List<BookDocument> = emptyList(),
     /** A person's page, from the Details panel's All credits. */
-    val onOpenContributor: (String) -> Unit = {},
+    val onOpenContributor: (String) -> Unit,
 )
 
 /**

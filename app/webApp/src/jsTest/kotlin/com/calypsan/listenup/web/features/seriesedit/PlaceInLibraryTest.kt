@@ -178,6 +178,7 @@ class PlaceInLibraryTest :
                             }
                         },
                         onMergeQuery = {},
+                        onAddSubSeriesEvent = {},
                     )
                 }
 

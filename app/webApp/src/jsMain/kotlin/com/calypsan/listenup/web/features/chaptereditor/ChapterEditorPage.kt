@@ -69,7 +69,7 @@ fun ChapterEditorPage(
     onSave: () -> Unit,
     onLeave: () -> Unit,
     problem: String? = null,
-    markers: ChapterMarkerCalls = ChapterMarkerCalls(),
+    markers: ChapterMarkerCalls,
 ) {
     Div(attrs = { classes("ched") }) {
         when (state) {

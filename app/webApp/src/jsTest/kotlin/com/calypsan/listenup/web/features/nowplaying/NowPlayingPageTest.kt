@@ -42,7 +42,7 @@ class NowPlayingPageTest :
             state: PlayerUiState.Loaded,
             progress: PlayerProgress = PlayerProgress.Zero,
             themes: CoverThemeRepository = NoCoverThemes,
-            actions: NowPlayingActions = NowPlayingActions(),
+            actions: NowPlayingActions = nowPlayingActions(),
         ): HTMLElement =
             mounts.mount {
                 CompositionLocalProvider(LocalCoverThemes provides themes) {
@@ -61,7 +61,7 @@ class NowPlayingPageTest :
                 state,
                 progress,
                 actions =
-                    NowPlayingActions(
+                    nowPlayingActions(
                         onOpenBook = onOpenBook,
                         onOpenContributor = onOpenContributor,
                         onOpenSeries = onOpenSeries,
@@ -115,7 +115,7 @@ class NowPlayingPageTest :
             val host =
                 mounts.mount {
                     CompositionLocalProvider(LocalCoverThemes provides NoCoverThemes) {
-                        NowPlayingPage(state = state, progress = PlayerProgress.Zero, actions = NowPlayingActions())
+                        NowPlayingPage(state = state, progress = PlayerProgress.Zero, actions = nowPlayingActions())
                     }
                 }
             val before = host.querySelector("[role=status].np-status") as HTMLElement
@@ -276,7 +276,7 @@ class NowPlayingBylineTest :
                             NowPlayingPage(
                                 state = wayOfKings(narrators = FIVE_NARRATORS),
                                 progress = PlayerProgress.Zero,
-                                actions = NowPlayingActions(),
+                                actions = nowPlayingActions(),
                             )
                         }
                     }
@@ -303,7 +303,7 @@ class NowPlayingBylineTest :
                 val frame =
                     frames.mount(width, height) {
                         CompositionLocalProvider(LocalCoverThemes provides NoCoverThemes) {
-                            NowPlayingPage(state = wayOfKings(), progress = PlayerProgress.Zero, actions = NowPlayingActions())
+                            NowPlayingPage(state = wayOfKings(), progress = PlayerProgress.Zero, actions = nowPlayingActions())
                         }
                     }
                 val links = if (width == PHONE) ".np-narrated a" else ".np-by a, .np-read-by a"

@@ -305,13 +305,9 @@ class ShelfPagesTest :
         test("a refused save on the edit form is announced") {
             val host =
                 mounts.mount {
-                    ShelfEditPage(
+                    testShelfEditPage(
                         CreateEditShelfUiState.Error("That shelf could not be saved."),
                         true,
-                        { _, _, _ -> },
-                        {},
-                        {},
-                        {},
                     )
                 }
 
@@ -360,7 +356,7 @@ class ShelfPagesTest :
         // ── the create/edit form ─────────────────────────────────────────────────
 
         test("a shelf cannot be saved without a name") {
-            val host = mounts.mount { ShelfEditPage(CreateEditShelfUiState.Idle, false, { _, _, _ -> }, {}, {}, {}) }
+            val host = mounts.mount { testShelfEditPage(CreateEditShelfUiState.Idle, false) }
 
             val save = host.querySelector("button[type=submit]") as HTMLElement
             save.getAttribute("disabled") shouldBe ""
@@ -369,13 +365,9 @@ class ShelfPagesTest :
         test("editing seeds the form from the shelf, once") {
             val host =
                 mounts.mount {
-                    ShelfEditPage(
+                    testShelfEditPage(
                         CreateEditShelfUiState.Loaded("Comfort reads", "Sleepy books", true),
                         true,
-                        { _, _, _ -> },
-                        {},
-                        {},
-                        {},
                     )
                 }
 
@@ -427,7 +419,7 @@ class ShelfPagesTest :
         }
 
         test("creating offers no way to delete something that does not exist yet") {
-            val host = mounts.mount { ShelfEditPage(CreateEditShelfUiState.Idle, false, { _, _, _ -> }, {}, {}, {}) }
+            val host = mounts.mount { testShelfEditPage(CreateEditShelfUiState.Idle, false) }
 
             host.textContent.orEmpty() shouldNotContain "Delete shelf"
         }
@@ -435,7 +427,7 @@ class ShelfPagesTest :
         test("deleting asks first, in a dialog, and says what survives") {
             var deleted = 0
             val host =
-                mounts.mount { ShelfEditPage(CreateEditShelfUiState.Idle, true, { _, _, _ -> }, { deleted++ }, {}, {}) }
+                mounts.mount { testShelfEditPage(CreateEditShelfUiState.Idle, true, onDelete = { deleted++ }) }
 
             (host.querySelector(".shelf-danger button") as HTMLElement).click()
             awaitFrame()
@@ -450,7 +442,7 @@ class ShelfPagesTest :
         test("confirming in the dialog is what deletes") {
             var deleted = 0
             val host =
-                mounts.mount { ShelfEditPage(CreateEditShelfUiState.Idle, true, { _, _, _ -> }, { deleted++ }, {}, {}) }
+                mounts.mount { testShelfEditPage(CreateEditShelfUiState.Idle, true, onDelete = { deleted++ }) }
 
             (host.querySelector(".shelf-danger button") as HTMLElement).click()
             awaitFrame()
@@ -464,7 +456,7 @@ class ShelfPagesTest :
         test("cancelling the dialog leaves the shelf alone") {
             var deleted = 0
             val host =
-                mounts.mount { ShelfEditPage(CreateEditShelfUiState.Idle, true, { _, _, _ -> }, { deleted++ }, {}, {}) }
+                mounts.mount { testShelfEditPage(CreateEditShelfUiState.Idle, true, onDelete = { deleted++ }) }
 
             (host.querySelector(".shelf-danger button") as HTMLElement).click()
             awaitFrame()

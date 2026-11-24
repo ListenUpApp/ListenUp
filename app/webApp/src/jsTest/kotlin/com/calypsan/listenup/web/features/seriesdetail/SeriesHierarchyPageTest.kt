@@ -41,10 +41,8 @@ class SeriesHierarchyPageTest :
             addSubSeries: AddSubSeriesUiState = AddSubSeriesUiState.Closed(),
         ): HTMLElement =
             mounts.mount {
-                SeriesDetailPage(
+                testSeriesDetailPage(
                     state = state,
-                    onOpenLibrary = {},
-                    onOpenBook = {},
                     onOpenSeries = { opened += it },
                     onToggleSection = { toggled += it },
                     addSubSeries = addSubSeries,

@@ -54,7 +54,7 @@ fun RatingsPanel(
     onSetStars: (halfStars: Int) -> Unit,
     onRate: (halfStars: Int, note: String?) -> Unit,
     onClear: () -> Unit,
-    onRefreshExternal: () -> Unit = {},
+    onRefreshExternal: () -> Unit,
     nowMs: Long = 0L,
     starsFocusRequest: Int = 0,
     /** The reader has finished the book: "How was it?" leads, and the note is for their listeners (spec §3.2.3). */

@@ -52,7 +52,7 @@ fun ShelfEditPage(
     onDelete: () -> Unit,
     onDismissError: () -> Unit,
     onCancel: () -> Unit,
-    hasChanges: (name: String, description: String, isPrivate: Boolean) -> Boolean = { _, _, _ -> false },
+    hasChanges: (name: String, description: String, isPrivate: Boolean) -> Boolean,
 ) {
     val opened = rememberOpenedShelf(state)
     // Keyed on the opened shelf, so the fields carry it from their very first composition rather

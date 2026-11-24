@@ -7,14 +7,14 @@ import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.web.MountRegistry
 import com.calypsan.listenup.web.awaitFrame
 import com.calypsan.listenup.web.design.WebAppSurface
-import com.calypsan.listenup.web.features.contributordetail.ContributorDetailPage
 import com.calypsan.listenup.web.features.contributordetail.readyContributor
-import com.calypsan.listenup.web.features.contributors.ContributorsPage
+import com.calypsan.listenup.web.features.contributordetail.testContributorDetailPage
 import com.calypsan.listenup.web.features.contributors.contributor
+import com.calypsan.listenup.web.features.contributors.testContributorsPage
 import com.calypsan.listenup.web.features.library.contractBook
 import com.calypsan.listenup.web.features.library.contractLibrary
-import com.calypsan.listenup.web.features.seriesdetail.SeriesDetailPage
 import com.calypsan.listenup.web.features.seriesdetail.readySeries
+import com.calypsan.listenup.web.features.seriesdetail.testSeriesDetailPage
 import com.calypsan.listenup.web.features.serieslist.SeriesListPage
 import com.calypsan.listenup.web.motions
 import io.kotest.core.spec.style.FunSpec
@@ -59,18 +59,16 @@ class SharedElementFlightsTest :
         fun seriesDetail(): HTMLElement =
             mounts.mount {
                 WebAppSurface {
-                    SeriesDetailPage(state = readySeries(seriesId = "s-stormlight"), onOpenLibrary = {}, onOpenBook = {})
+                    testSeriesDetailPage(state = readySeries(seriesId = "s-stormlight"))
                 }
             }
 
         fun contributorsList(): HTMLElement =
             mounts.mount {
                 WebAppSurface {
-                    ContributorsPage(
+                    testContributorsPage(
                         state = listOf(contributor("c-king", "Stephen King")),
                         role = ContributorRole.AUTHOR,
-                        onSelectFacet = {},
-                        onOpenContributor = {},
                     )
                 }
             }
@@ -78,15 +76,7 @@ class SharedElementFlightsTest :
         fun contributorDetail(): HTMLElement =
             mounts.mount {
                 WebAppSurface {
-                    ContributorDetailPage(
-                        onAdjustPhoto = {},
-                        state = readyContributor(),
-                        onOpenLibrary = {},
-                        onOpenContributors = {},
-                        onOpenBook = {},
-                        onConfirmDelete = {},
-                        onDismissDeleteError = {},
-                    )
+                    testContributorDetailPage(state = readyContributor())
                 }
             }
 

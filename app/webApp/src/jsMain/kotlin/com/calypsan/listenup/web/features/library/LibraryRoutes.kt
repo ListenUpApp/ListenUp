@@ -86,7 +86,7 @@ internal fun LibraryRouteContent(
     /** The URL's query: a one-visit sort or status filter landing. */
     query: Map<String, String> = emptyMap(),
     /** Plays a book from its menu: the shell's one play entry. */
-    onPlayBook: (String) -> Unit = {},
+    onPlayBook: (String) -> Unit,
 ) {
     // Once applied, each landing leaves the URL, so Back to here does not force it again over the reader's own choice.
     LibrarySortLanding(query[SORT_QUERY_KEY], librarySession.onEvent) {
@@ -154,7 +154,7 @@ internal fun LibraryRouteContent(
 internal fun LibrarySortLanding(
     sortQuery: String?,
     onEvent: (LibraryUiEvent) -> Unit,
-    onApplied: () -> Unit = {},
+    onApplied: () -> Unit,
 ) {
     val currentOnApplied by rememberUpdatedState(onApplied)
     LaunchedEffect(sortQuery) {
@@ -174,7 +174,7 @@ internal fun LibrarySortLanding(
 internal fun LibraryStatusLanding(
     statusQuery: String?,
     onEvent: (LibraryUiEvent) -> Unit,
-    onApplied: () -> Unit = {},
+    onApplied: () -> Unit,
 ) {
     val currentOnApplied by rememberUpdatedState(onApplied)
     LaunchedEffect(statusQuery) {

@@ -183,6 +183,7 @@ class ComposeHtmlRenderTest :
                             ),
                         onToast = {},
                         onActionToast = { _, _, _ -> },
+                        onSignOut = {},
                     )
                 }
             router.dispose()
@@ -268,6 +269,7 @@ class ComposeHtmlRenderTest :
                             ),
                         onToast = {},
                         onActionToast = { _, _, _ -> },
+                        onSignOut = {},
                     )
                 }
             router.dispose()

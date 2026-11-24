@@ -43,7 +43,7 @@ class NowPlayingPagePhoneTest :
         fun phonePage(
             state: PlayerUiState.Loaded,
             progress: PlayerProgress = PlayerProgress.Zero,
-            actions: NowPlayingActions = NowPlayingActions(),
+            actions: NowPlayingActions = nowPlayingActions(),
         ): ViewportFrame =
             frames.mount(width = PHONE, height = PHONE_HEIGHT) {
                 CompositionLocalProvider(LocalCoverThemes provides NoCoverThemes) {
@@ -77,7 +77,7 @@ class NowPlayingPagePhoneTest :
                             PlayerContributor("c2", "Dan Wells", 6),
                         ),
                 )
-            val frame = phonePage(two, actions = NowPlayingActions(onOpenContributor = { opened += it }))
+            val frame = phonePage(two, actions = nowPlayingActions(onOpenContributor = { opened += it }))
             awaitFrame()
             frame.find(".np-more button[aria-haspopup=menu]").click()
             awaitFrame()
@@ -143,7 +143,7 @@ class NowPlayingPagePhoneTest :
             val frame =
                 phonePage(
                     wayOfKings(chapters = chapterRows(5), currentChapterIndex = 2),
-                    actions = NowPlayingActions(onPreviousChapter = { previous++ }, onNextChapter = { next++ }),
+                    actions = nowPlayingActions(onPreviousChapter = { previous++ }, onNextChapter = { next++ }),
                 )
             frame.find(".np-mob .np-prev").click()
             frame.find(".np-mob .np-next").click()
@@ -153,7 +153,7 @@ class NowPlayingPagePhoneTest :
 
         test("busy shows a spinner in the play circle and it still pauses") {
             var presses = 0
-            val frame = phonePage(wayOfKings(phase = PlayerPhase.Buffering), actions = NowPlayingActions(onPrimary = { presses++ }))
+            val frame = phonePage(wayOfKings(phase = PlayerPhase.Buffering), actions = nowPlayingActions(onPrimary = { presses++ }))
             frame.find(".np-mob .np-play .tport-wait").shouldNotBeNull()
             frame.find(".np-mob .np-play").getAttribute("aria-label") shouldBe "Loading. Pause"
             frame.find(".np-mob .np-play").click()

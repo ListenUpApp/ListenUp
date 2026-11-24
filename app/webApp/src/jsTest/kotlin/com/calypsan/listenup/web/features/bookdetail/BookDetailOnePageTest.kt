@@ -25,17 +25,13 @@ class BookDetailOnePageTest :
             width: Int,
             stage: ReadingStage,
         ) = frames.mount(width, height = 2400) {
-            BookDetailPage(
+            testBookDetailPage(
                 state =
                     readyBook(
                         readingStage = stage,
                         series = listOf(BookSeries(seriesId = "s1", seriesName = "The Stormlight Archive", sequence = 1.0)),
                     ),
-                onOpenLibrary = {},
-                onPlay = {},
-                onPlayFromChapter = {},
                 readers = readersData(reader(userId = "u1", displayName = "Maya", progressPct = 40)),
-                onRetryConnection = {},
             )
         }
 

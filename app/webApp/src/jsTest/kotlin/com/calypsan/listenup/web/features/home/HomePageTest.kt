@@ -1,7 +1,7 @@
 package com.calypsan.listenup.web.features.home
 
 import com.calypsan.listenup.api.error.UnexpectedClientError
-import com.calypsan.listenup.web.features.books.BookSelection
+import com.calypsan.listenup.web.features.library.testBookSelection
 import com.calypsan.listenup.client.domain.GenreShare
 import com.calypsan.listenup.client.domain.model.ContinueListeningItem
 import com.calypsan.listenup.client.presentation.home.HomeConnectivity
@@ -60,9 +60,9 @@ class HomePageTest :
         fun homePage(
             state: HomeUiState,
             stats: HomeStatsUiState = HomeStatsUiState.Loading,
-            actions: HomeActions = HomeActions.None,
+            actions: HomeActions = homeActions(),
             isWide: Boolean = false,
-            selection: BookSelection? = null,
+            selection: com.calypsan.listenup.web.features.books.BookSelection? = null,
         ): HTMLElement =
             mounts.mount {
                 HomePage(state, stats, actions, isWide = isWide, selection = selection)
@@ -118,7 +118,7 @@ class HomePageTest :
             val host =
                 homePage(
                     readyHome(everythingInProgress = listOf(continuing("b1", "The Institute"))),
-                    actions = HomeActions.None.copy(onOpenBook = { opened = it }),
+                    actions = homeActions(onOpenBook = { opened = it }),
                 )
 
             (host.querySelector(".home-card") as HTMLElement).click()
@@ -131,7 +131,7 @@ class HomePageTest :
             val host =
                 homePage(
                     readyHome(everythingInProgress = listOf(continuing("b1", "The Institute"))),
-                    actions = HomeActions.None.copy(onOpenBook = { opened = it }),
+                    actions = homeActions(onOpenBook = { opened = it }),
                 )
 
             (host.querySelector(".home-card") as HTMLElement).press("Enter")
@@ -159,7 +159,7 @@ class HomePageTest :
             val host =
                 homePage(
                     readyHome(everythingInProgress = listOf(continuing("b1", "Babel"))),
-                    actions = HomeActions.None.copy(onOpenInProgress = { opened = true }),
+                    actions = homeActions(onOpenInProgress = { opened = true }),
                 )
             host.textOf(".home-progress-h") shouldBe "Everything in progress"
             host.buttonsLabelled("In Library →").single().click()
@@ -238,7 +238,7 @@ class HomePageTest :
             var opened = false
             homePage(
                 readyHome(slot = HomeSlot.NothingInProgress(candidate = null), everythingInProgress = emptyList()),
-                actions = HomeActions.None.copy(onOpenLibrary = { opened = true }),
+                actions = homeActions(onOpenLibrary = { opened = true }),
             ).buttonsLabelled("Browse the Library").single().click()
             opened shouldBe true
         }
@@ -249,7 +249,7 @@ class HomePageTest :
             var seeAll = false
             homePage(
                 readyHome(myShelves = listOf(shelf("Winter"))),
-                actions = HomeActions.None.copy(onSeeAllShelves = { seeAll = true }),
+                actions = homeActions(onSeeAllShelves = { seeAll = true }),
             ).buttonsLabelled("See all").single().apply {
                 getAttribute("aria-label") shouldBe "See all shelves"
                 click()
@@ -261,7 +261,7 @@ class HomePageTest :
 
         test("Select in the Everything in progress header starts selecting, and hides while selecting (H16)") {
             var started = false
-            val idle = BookSelection(isSelecting = false, selectedIds = emptySet(), onToggle = {}, onStart = { started = true })
+            val idle = testBookSelection(isSelecting = false, onStart = { started = true })
             homePage(readyHome(everythingInProgress = listOf(continuing("babel", "Babel"))), selection = idle)
                 .buttonsLabelled("Select")
                 .single()
@@ -299,7 +299,7 @@ class HomePageTest :
             val host =
                 homePage(
                     readyHome(myShelves = listOf(shelf("Finished"), shelf("Want to Listen"))),
-                    actions = HomeActions.None.copy(onOpenShelf = { opened = it }),
+                    actions = homeActions(onOpenShelf = { opened = it }),
                 )
 
             (host.querySelectorAll(".home-shelf").item(1) as HTMLElement).click()
@@ -404,7 +404,7 @@ class HomePageTest :
 
         test("the leaderboard link leaves for Discover's leaderboard") {
             var opened = false
-            homePage(readyHome(), stats = weekStats(), actions = HomeActions.None.copy(onOpenLeaderboard = { opened = true }))
+            homePage(readyHome(), stats = weekStats(), actions = homeActions(onOpenLeaderboard = { opened = true }))
                 .buttonsLabelled("7-day leaderboard →")
                 .single()
                 .click()
@@ -447,7 +447,7 @@ class HomePageTest :
                 homePage(
                     readyHome(),
                     stats = HomeStatsUiState.Error(isRetryable = true),
-                    actions = HomeActions.None.copy(onRetry = { homeRetries++ }, onRetryStats = { statsRetries++ }),
+                    actions = homeActions(onRetry = { homeRetries++ }, onRetryStats = { statsRetries++ }),
                 )
 
             val retries = host.buttonsLabelled("Try again")
@@ -469,7 +469,7 @@ class HomePageTest :
             val host =
                 homePage(
                     HomeUiState.Error(UnexpectedClientError(), TimeOfDay.Afternoon),
-                    actions = HomeActions.None.copy(onRetry = { retries++ }),
+                    actions = homeActions(onRetry = { retries++ }),
                 )
 
             val retry = host.buttonsLabelled("Try again")
@@ -585,7 +585,7 @@ class HomePageTest :
                 val page =
                     homePage(
                         readyHome(connectivity = connectivity),
-                        actions = HomeActions.None.copy(onRetryConnection = { retried = true }),
+                        actions = homeActions(onRetryConnection = { retried = true }),
                     )
                 val notice = page.querySelector(".home-notice") as HTMLElement
                 notice.getAttribute("role") shouldBe "status"
@@ -612,7 +612,7 @@ class HomePageTest :
             val page =
                 homePage(
                     readyHome(continueListeningError = UnexpectedClientError()),
-                    actions = HomeActions.None.copy(onRetry = { retried = true }),
+                    actions = homeActions(onRetry = { retried = true }),
                 )
             val line = page.querySelector(".home-cl-failed") as HTMLElement
             line.textContent.orEmpty() shouldContain "Couldn't load what you're listening to"
@@ -635,7 +635,7 @@ class HomePageTest :
         // the mode — the same rule the library grid follows, now that Home is selectable too.
         test("a continue card opens the book when nothing is being selected") {
             var opened: String? = null
-            val host = homePage(withOneBook(), actions = HomeActions.None.copy(onOpenBook = { opened = it }), selection = null)
+            val host = homePage(withOneBook(), actions = homeActions(onOpenBook = { opened = it }), selection = null)
 
             (host.querySelector(".home-card") as HTMLElement).click()
 
@@ -652,7 +652,7 @@ class HomePageTest :
             val host =
                 homePage(
                     withOneBook(),
-                    actions = HomeActions.None.copy(onOpenBook = { opened = it }),
+                    actions = homeActions(onOpenBook = { opened = it }),
                     selection = idleSelection(onToggle = { picked += it }),
                 )
 
@@ -668,7 +668,7 @@ class HomePageTest :
             val host =
                 homePage(
                     withOneBook(),
-                    actions = HomeActions.None.copy(onOpenBook = { opened = it }),
+                    actions = homeActions(onOpenBook = { opened = it }),
                     selection = selecting(onToggle = { picked += it }),
                 )
 
@@ -698,13 +698,12 @@ class HomePageTest :
         }
     })
 
-private fun idleSelection(onToggle: (String) -> Unit = {}) =
-    BookSelection(isSelecting = false, selectedIds = emptySet(), onToggle = onToggle, onStart = {})
+private fun idleSelection(onToggle: (String) -> Unit = {}) = testBookSelection(isSelecting = false, onToggle = onToggle)
 
 private fun selecting(
     selected: Set<String> = emptySet(),
     onToggle: (String) -> Unit = {},
-) = BookSelection(isSelecting = true, selectedIds = selected, onToggle = onToggle, onStart = {})
+) = testBookSelection(isSelecting = true, selectedIds = selected, onToggle = onToggle)
 
 /** A Home with exactly one Continue Listening card, which is what the selection specs press. */
 private fun withOneBook() = readyHome(everythingInProgress = listOf(continuing(CONTINUE_BOOK_ID, "Elantris")))

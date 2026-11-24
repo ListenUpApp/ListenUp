@@ -340,6 +340,7 @@ class ChapterReadersTest :
                             nowMs = READERS_NOW,
                             onOpenProfile = {},
                             onSeeAll = {},
+                            onLanded = {},
                         )
                     }
                 }

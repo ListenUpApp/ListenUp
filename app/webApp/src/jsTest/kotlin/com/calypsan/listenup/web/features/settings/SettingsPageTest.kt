@@ -65,7 +65,7 @@ private fun page(
     onOpenCategories: () -> Unit = {},
     onDownloadLogs: (() -> Unit)? = null,
 ) {
-    SettingsPage(
+    testSettingsPage(
         state = state,
         onThemeMode = onThemeMode,
         onDefaultSpeed = onDefaultSpeed,

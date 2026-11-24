@@ -1,10 +1,60 @@
 package com.calypsan.listenup.web.features.search
 
+import androidx.compose.runtime.Composable
 import com.calypsan.listenup.api.dto.image.ImageFrame
 import com.calypsan.listenup.client.domain.model.SearchFacets
 import com.calypsan.listenup.client.domain.model.SearchHit
 import com.calypsan.listenup.client.domain.model.SearchHitType
 import com.calypsan.listenup.client.domain.model.SearchResult
+import com.calypsan.listenup.client.presentation.search.SearchUiState
+
+/** Renders [SearchPage] with no-op callback defaults for specs. */
+@Composable
+@Suppress("LongParameterList")
+internal fun testSearchPage(
+    state: SearchUiState,
+    onQueryChanged: (String) -> Unit = {},
+    onToggleType: (SearchHitType) -> Unit = {},
+    onClearTypes: () -> Unit = {},
+    onOpenHit: (SearchHit) -> Unit = {},
+    onRetry: () -> Unit = {},
+    openableTypes: Set<SearchHitType> = SearchHitType.entries.toSet(),
+    onSeeAll: (SearchHitType) -> Unit = {},
+) {
+    SearchPage(
+        state = state,
+        onQueryChanged = onQueryChanged,
+        onToggleType = onToggleType,
+        onClearTypes = onClearTypes,
+        onOpenHit = onOpenHit,
+        onRetry = onRetry,
+        openableTypes = openableTypes,
+        onSeeAll = onSeeAll,
+    )
+}
+
+/** Renders [CommandPalette] with no-op callback defaults for specs. */
+@Composable
+@Suppress("LongParameterList")
+internal fun testCommandPalette(
+    state: SearchUiState,
+    onQueryChanged: (String) -> Unit = {},
+    onOpenHit: (SearchHit) -> Unit = {},
+    openableTypes: Set<SearchHitType> = SearchHitType.entries.toSet(),
+    highlighted: SearchHit? = null,
+    onDismiss: () -> Unit = {},
+    onSeeAll: (SearchHitType) -> Unit = {},
+) {
+    CommandPalette(
+        state = state,
+        onQueryChanged = onQueryChanged,
+        onOpenHit = onOpenHit,
+        openableTypes = openableTypes,
+        highlighted = highlighted,
+        onDismiss = onDismiss,
+        onSeeAll = onSeeAll,
+    )
+}
 
 /**
  * One search hit's worth of data — enough for a spec to drive the grouping, row and click

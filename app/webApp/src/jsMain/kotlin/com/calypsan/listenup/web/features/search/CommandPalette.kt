@@ -35,7 +35,7 @@ fun CommandPalette(
     openableTypes: Set<SearchHitType>,
     highlighted: SearchHit?,
     onDismiss: () -> Unit,
-    onSeeAll: (SearchHitType) -> Unit = {},
+    onSeeAll: (SearchHitType) -> Unit,
 ) {
     // The app's one modal shell, not a `div role=dialog` over a scrim: that looked the same and gave
     // no inert page behind it, so a screen reader could wander out of the palette into the page it

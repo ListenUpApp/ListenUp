@@ -44,13 +44,9 @@ class BookDetailCreditsTest :
             onOpenContributor: (String) -> Unit = {},
         ): HTMLElement =
             mounts.mount {
-                BookDetailPage(
+                testBookDetailPage(
                     state = readyBook(authors = authors, narrators = narrators, allContributors = allContributors),
-                    onPlayFromChapter = {},
-                    onOpenLibrary = {},
-                    onPlay = {},
                     onOpenContributor = onOpenContributor,
-                    onRetryConnection = {},
                 )
             }
 

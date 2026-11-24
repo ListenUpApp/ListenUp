@@ -45,7 +45,7 @@ class LibraryPageTest :
 
         fun render(state: LibraryUiState): HTMLElement =
             mounts.mount {
-                LibraryPage(state = state, onEvent = {}, onOpenBook = {}, onSelectFacet = {})
+                testLibraryPage(state = state)
             }
 
         test("the facet row survives every state — it is navigation, not data") {
@@ -70,11 +70,9 @@ class LibraryPageTest :
             val events = mutableListOf<LibraryUiEvent>()
             val root =
                 mounts.mount {
-                    LibraryPage(
+                    testLibraryPage(
                         state = loadedWith(listOf(bookItem("b1", "Dune"))),
                         onEvent = { events += it },
-                        onOpenBook = {},
-                        onSelectFacet = {},
                     )
                 }
 
@@ -92,11 +90,8 @@ class LibraryPageTest :
         test("Count, Select and Sort share one row, and there are no status pills") {
             val root =
                 mounts.mount {
-                    LibraryPage(
+                    testLibraryPage(
                         state = loadedWith(listOf(bookItem("b1", "Dune"), bookItem("b2", "Ubik"))),
-                        onEvent = {},
-                        onOpenBook = {},
-                        onSelectFacet = {},
                         onStartSelecting = {},
                     )
                 }
@@ -118,14 +113,12 @@ class LibraryPageTest :
             )
             val root =
                 mounts.mount {
-                    LibraryPage(
+                    testLibraryPage(
                         state = state,
                         onEvent = { event ->
                             events += event
                             if (event is LibraryUiEvent.StatusFilterChanged) state = state.copy(statusFilter = event.filter)
                         },
-                        onOpenBook = {},
-                        onSelectFacet = {},
                     )
                 }
             (root.querySelector(".lib-sort-trigger") as HTMLElement).click()
@@ -152,11 +145,8 @@ class LibraryPageTest :
         test("while selecting, Sort stays but is still: filtering would change what is being picked") {
             val root =
                 mounts.mount {
-                    LibraryPage(
+                    testLibraryPage(
                         state = loadedWith(listOf(bookItem("b1", "Dune"))),
-                        onEvent = {},
-                        onOpenBook = {},
-                        onSelectFacet = {},
                         selecting = true,
                     )
                 }
@@ -186,11 +176,8 @@ class LibraryPageTest :
             onOpenInbox: () -> Unit = {},
         ): HTMLElement =
             mounts.mount {
-                LibraryPage(
+                testLibraryPage(
                     state = loadedWith(listOf(bookItem("b1", "Dune"))),
-                    onEvent = {},
-                    onOpenBook = {},
-                    onSelectFacet = {},
                     selecting = selecting,
                     inbox = InboxBadgeState(heldCount = heldCount),
                     onOpenInbox = onOpenInbox,
@@ -426,11 +413,9 @@ class LibraryPageTest :
             val events = mutableListOf<LibraryUiEvent>()
             val root =
                 mounts.mount {
-                    LibraryPage(
+                    testLibraryPage(
                         state = LibraryUiState.Error("Failed to load library"),
                         onEvent = { events += it },
-                        onOpenBook = {},
-                        onSelectFacet = {},
                     )
                 }
 
@@ -482,7 +467,7 @@ class LibraryPageTest :
                     statusCounts = BookStatusCounts(all = 3, inProgress = 1, notStarted = 2, finished = 0),
                 )
             val root =
-                mounts.mount { LibraryPage(state = state, onEvent = { sent += it }, onOpenBook = {}, onSelectFacet = {}) }
+                mounts.mount { testLibraryPage(state = state, onEvent = { sent += it }) }
 
             root.textContent!! shouldContain "No finished books yet."
             root.textContent!! shouldNotContain "No books yet"

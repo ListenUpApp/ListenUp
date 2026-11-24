@@ -205,6 +205,7 @@ class BookDetailTest :
                             ),
                         onToast = {},
                         onActionToast = { _, _, _ -> },
+                        onSignOut = {},
                     )
                 }
             return host to router

@@ -404,7 +404,7 @@ private fun LoginBranch(
     authGraph: AuthGraph,
     openRegistration: Boolean,
     initialInviteCode: String? = null,
-    onInviteConsumed: () -> Unit = {},
+    onInviteConsumed: () -> Unit,
 ) {
     var pane by remember { mutableStateOf(if (initialInviteCode != null) LoginPane.Invite else LoginPane.SignIn) }
 

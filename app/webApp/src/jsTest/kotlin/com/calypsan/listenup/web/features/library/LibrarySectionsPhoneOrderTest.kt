@@ -4,8 +4,8 @@ import com.calypsan.listenup.client.domain.model.ContributorRole
 import com.calypsan.listenup.web.ViewportFrames
 import com.calypsan.listenup.web.awaitFrame
 import com.calypsan.listenup.web.design.WebIcon
-import com.calypsan.listenup.web.features.contributors.ContributorsPage
 import com.calypsan.listenup.web.features.contributors.contributor
+import com.calypsan.listenup.web.features.contributors.testContributorsPage
 import com.calypsan.listenup.web.features.serieslist.SeriesListPage
 import com.calypsan.listenup.web.shell.NavEntry
 import com.calypsan.listenup.web.shell.NavSection
@@ -56,11 +56,9 @@ class LibrarySectionsPhoneOrderTest :
             listOf(ContributorRole.AUTHOR to "Authors", ContributorRole.NARRATOR to "Narrators").forEach { (role, heading) ->
                 val frame =
                     phone {
-                        ContributorsPage(
+                        testContributorsPage(
                             state = listOf(contributor("c1", "Ann Leckie")),
                             role = role,
-                            onSelectFacet = {},
-                            onOpenContributor = {},
                         )
                     }
                 awaitFrame()

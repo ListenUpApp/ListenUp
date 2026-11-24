@@ -102,6 +102,7 @@ private fun page(
             mergeHistory = mergeHistory,
             onEvent = onEvent,
             onMergeQuery = onMergeQuery,
+            onAddSubSeriesEvent = {},
         )
     }
     return host

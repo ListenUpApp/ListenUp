@@ -1,17 +1,49 @@
 package com.calypsan.listenup.web.features.seriesdetail
 
+import androidx.compose.runtime.Composable
 import com.calypsan.listenup.domain.BookProgress
 import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.BookSeries
 import com.calypsan.listenup.client.presentation.seriesdetail.SeriesDetailUiState
 import com.calypsan.listenup.client.presentation.seriesdetail.SeriesResumeUi
+import com.calypsan.listenup.client.presentation.seriesedit.AddSubSeriesEvent
+import com.calypsan.listenup.client.presentation.seriesedit.AddSubSeriesUiState
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.core.Timestamp
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.hours
+
+/** Renders [SeriesDetailPage] with no-op callback defaults for specs. */
+@Composable
+@Suppress("LongParameterList")
+internal fun testSeriesDetailPage(
+    state: SeriesDetailUiState,
+    onOpenLibrary: () -> Unit = {},
+    onOpenBook: (String) -> Unit = {},
+    onPlayBook: (String) -> Unit = {},
+    onEdit: () -> Unit = {},
+    onOpenSeries: (String) -> Unit = {},
+    onToggleSection: (String) -> Unit = {},
+    addSubSeries: AddSubSeriesUiState = AddSubSeriesUiState.Closed(),
+    onAddSubSeriesEvent: (AddSubSeriesEvent) -> Unit = {},
+    onOpenContributor: (String) -> Unit = {},
+) {
+    SeriesDetailPage(
+        state = state,
+        onOpenLibrary = onOpenLibrary,
+        onOpenBook = onOpenBook,
+        onPlayBook = onPlayBook,
+        onEdit = onEdit,
+        onOpenSeries = onOpenSeries,
+        onToggleSection = onToggleSection,
+        addSubSeries = addSubSeries,
+        onAddSubSeriesEvent = onAddSubSeriesEvent,
+        onOpenContributor = onOpenContributor,
+    )
+}
 
 /**
  * A loaded series, for specs about the hero, the reading order and the resume target.
