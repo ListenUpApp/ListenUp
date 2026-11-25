@@ -16,7 +16,6 @@ struct MatchReviewActions {
     var toggleChapter: (Int32) -> Void = { _ in }
     var apply: () -> Void = {}
 
-    @MainActor
     static func observing(_ observer: BookMatchObserver) -> MatchReviewActions {
         MatchReviewActions(
             setTicked: { observer.setTicked($0, $1) },

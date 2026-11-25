@@ -8,7 +8,6 @@ struct PersonReviewActions {
     var setBiographyTicked: (Bool) -> Void = { _ in }
     var chooseBiographySource: (MatchSourceSelection) -> Void = { _ in }
 
-    @MainActor
     static func observing(_ observer: PersonMatchObserver) -> PersonReviewActions {
         PersonReviewActions(
             setPhotoTicked: { observer.setPhotoTicked($0) },

@@ -12,7 +12,6 @@ import Shared
 /// `reloadedToken` counts `ReviewReloaded`, which Review says out loud. Errors reach the person through
 /// the shared bus as well as inline, so this observer keeps no error state of its own.
 @Observable
-@MainActor
 final class BookMatchObserver {
     private(set) var find: MatchFind = .initial
     private(set) var review: MatchReviewPhase = .noneChosen
@@ -155,7 +154,6 @@ final class BookMatchObserver {
 /// Observes a receipt — `MatchReceiptViewModel` — as one native phase, for Book Detail or the contributor
 /// page. A person's name arrives with their page, so a new `subject` re-says the receipt already shown.
 @Observable
-@MainActor
 final class MatchReceiptObserver {
     private(set) var phase: MatchReceiptPhase = .none
     var subject: MatchReceiptSubject {

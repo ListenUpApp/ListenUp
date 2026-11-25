@@ -7,7 +7,6 @@ import Shared
 /// Match details for VoiceOver and large text (spec, "Accessibility requirements"): headings, toggles and
 /// radios that say what they are, names that say what and where, 44-point targets, and an Apply tray that
 /// leaves the screen to the fields at AX5.
-@MainActor
 @Suite("Match details accessibility", .serialized)
 struct MatchDetailsAccessibilityTests {
     private typealias Fixture = MatchFixtures

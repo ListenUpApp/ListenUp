@@ -26,7 +26,6 @@ struct SelectionCollectionRow: Identifiable, Equatable {
 /// app-wide error alert; successes come back on `events` and become `confirmation`, which the
 /// screen chrome confirms (haptic + VoiceOver announcement). Both halves of a bulk add are therefore visible to the user.
 @Observable
-@MainActor
 final class BookSelectionObserver {
     // MARK: - Flattened state
 
@@ -195,7 +194,7 @@ final class BookSelectionObserver {
 
     /// Whether the selection bar reads Deselect All over these books: the shared `selectAllOffer` rule, which is
     /// the same answer Android and web give (every book on screen is picked, and there is at least one).
-    nonisolated static func readsDeselectAll(onScreen: [String], selected: Set<String>) -> Bool {
+    static func readsDeselectAll(onScreen: [String], selected: Set<String>) -> Bool {
         let rules = ExportedKotlinPackages.com.calypsan.listenup.client.presentation.books.self
         guard let offer = rules.selectAllOffer(onScreen: onScreen, selected: selected) else { return false }
         switch offer.sealedType() {

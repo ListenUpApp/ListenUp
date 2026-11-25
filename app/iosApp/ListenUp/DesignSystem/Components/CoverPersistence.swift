@@ -10,7 +10,6 @@ import Foundation
 /// `bookId` and `coverHash` pair goes through; repeats are dropped here. A new hash (a re-scraped
 /// cover) is a new pair, so it's persisted again. A request that fails is retried on the next launch,
 /// and the sync engine persists covers on its own too.
-@MainActor
 final class CoverPersistence {
     static let shared = CoverPersistence { bookId in
         KoinHelper.shared.ensureBookCoverCached(bookId: bookId)

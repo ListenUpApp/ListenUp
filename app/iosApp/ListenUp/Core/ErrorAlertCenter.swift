@@ -37,7 +37,6 @@ struct ErrorAlert: Identifiable, Equatable, Sendable {
 /// reliably re-present an alert whose flag never went false. So `dismissCurrent()` clears the slot,
 /// and the host calls `showNext()` once the first alert has gone.
 @Observable
-@MainActor
 final class ErrorAlertCenter {
     /// Past this, the oldest waiting alert is dropped. Four is already more than anyone reads.
     static let maxQueued = 4

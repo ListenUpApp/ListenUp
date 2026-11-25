@@ -45,10 +45,10 @@ struct RecentlyListenedStrip: View {
     @ScaledMetric(relativeTo: .subheadline) private var coverWidth: CGFloat = 112
 
     /// An empty strip is absent, not an empty heading over nothing.
-    nonisolated static func isShown(books: [ProfileRecentBookRow]) -> Bool { !books.isEmpty }
+    static func isShown(books: [ProfileRecentBookRow]) -> Bool { !books.isEmpty }
 
     /// "Recently listened" on someone else's profile; addressed to you on your own.
-    nonisolated static func title(isOwnProfile: Bool) -> String {
+    static func title(isOwnProfile: Bool) -> String {
         isOwnProfile
             ? String(localized: "profile.recently_listened_own")
             : String(localized: "profile.recently_listened")

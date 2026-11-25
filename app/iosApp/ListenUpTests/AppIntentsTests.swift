@@ -4,7 +4,6 @@ import Testing
 @testable import ListenUpActivityKit
 
 /// Records which control method the intent invoked.
-@MainActor
 final class FakePlaybackController: PlaybackControlling {
     var toggled = false
     var skippedForward = false
@@ -30,7 +29,6 @@ final class FakePlaybackController: PlaybackControlling {
 }
 
 /// Supplies a canned "last-played book id" for `ResumePlaybackIntent` routing tests.
-@MainActor
 final class FakeLastPlayedBookProvider: LastPlayedBookProviding {
     var bookId: String?
     init(bookId: String?) { self.bookId = bookId }
@@ -54,7 +52,6 @@ final class FakeLastPlayedBookProvider: LastPlayedBookProviding {
 ///
 /// ⛔ A new test that installs an App Intents dependency belongs in **this suite**, not a new
 /// file. A second serialized suite reintroduces exactly the race this one exists to remove.
-@MainActor
 @Suite(.serialized)
 struct AppIntentsTests {
 

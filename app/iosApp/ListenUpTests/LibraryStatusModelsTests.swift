@@ -3,7 +3,6 @@ import Testing
 @preconcurrency import Shared
 @testable import ListenUp
 
-@MainActor
 @Suite("Library status models")
 struct LibraryStatusModelsTests {
     @Test func inProgressBridgesFractionAndTimeLeft() {

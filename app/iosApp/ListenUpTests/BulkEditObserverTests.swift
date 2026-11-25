@@ -205,7 +205,7 @@ struct BulkEditObserverTests {
 
     // MARK: - State mapping
 
-    @MainActor private func makeObserver() -> BulkEditObserver {
+    private func makeObserver() -> BulkEditObserver {
         BulkEditObserver(viewModel: Dependencies.shared.createBulkEditViewModel(bookIds: []))
     }
 
@@ -257,7 +257,7 @@ struct BulkEditObserverTests {
         )
     }
 
-    @MainActor @Test func editingMapsTheCountsAndThePublishingFields() {
+    @Test func editingMapsTheCountsAndThePublishingFields() {
         let observer = makeObserver()
         observer.applyState(Self.armedEditing)
 
@@ -276,7 +276,7 @@ struct BulkEditObserverTests {
         #expect(observer.selectionCovers.isEmpty)
     }
 
-    @MainActor @Test func editingMapsThePreviewAndTheConsequences() {
+    @Test func editingMapsThePreviewAndTheConsequences() {
         let observer = makeObserver()
         observer.applyState(Self.armedEditing)
 
@@ -293,7 +293,7 @@ struct BulkEditObserverTests {
         ))
     }
 
-    @MainActor @Test func editingProjectsEveryInstructionOntoItsOwnChips() {
+    @Test func editingProjectsEveryInstructionOntoItsOwnChips() {
         let observer = makeObserver()
         observer.applyState(Self.armedEditing)
 
@@ -307,7 +307,7 @@ struct BulkEditObserverTests {
         #expect(observer.moodChips == [EditableRelation(id: "Cozy", label: "Cozy")])
     }
 
-    @MainActor @Test func aSecondEditingStateReplacesEveryField() {
+    @Test func aSecondEditingStateReplacesEveryField() {
         let observer = makeObserver()
         observer.applyState(Self.armedEditing)
         observer.applyState(Self.untouchedEditing)
@@ -339,7 +339,7 @@ struct BulkEditObserverTests {
         #expect(observer.moodChips.isEmpty)
     }
 
-    @MainActor @Test func loadingPutsTheObserverBackIntoLoading() {
+    @Test func loadingPutsTheObserverBackIntoLoading() {
         let observer = makeObserver()
         observer.applyState(Self.untouchedEditing)
         observer.applyState(BulkEditUiStateLoading.shared)

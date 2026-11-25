@@ -5,7 +5,6 @@ import ListenupContract
 @preconcurrency import Shared
 
 /// The reader's strip follows the mini player: the chapter line, back N and the main button, and a problem's way out.
-@MainActor
 @Suite("Reader strip accessibility", .serialized)
 struct NowPlayingStripAccessibilityTests {
     private func model(

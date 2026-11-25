@@ -5,7 +5,6 @@ import Testing
 /// on (measured R128 wins over the file tag, both fall back to 0 dB) and the user's boost adds
 /// on top; a refined measurement is persisted when playback settles but never re-applied live.
 @Suite("Volume boost")
-@MainActor
 struct PlayerBoostTests {
     private func book(boostDb: Float = 0, measuredGainDb: Float? = nil, normalizationGainDb: Float? = nil)
         -> PreparedPlayback {

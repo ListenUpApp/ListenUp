@@ -9,7 +9,6 @@ import Foundation
 ///
 /// Thin over `FlowBridge`; the row mapping lives in a pure, testable initializer.
 @Observable
-@MainActor
 final class ActivityFeedObserver {
     // MARK: - State
 

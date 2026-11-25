@@ -16,7 +16,6 @@ enum QuickActionDisposition: Equatable {
 /// One per process, like `DeepLinkRouter`: the app delegate and the window scene delegate receive the
 /// tap before any view exists, and `RootView` resolves it once the auth state is known.
 @Observable
-@MainActor
 final class QuickActionRouter {
     static let shared = QuickActionRouter()
 
@@ -41,7 +40,7 @@ final class QuickActionRouter {
 
     /// THE decision: wait while the session is settling, play when signed in (a lapsed session keeps
     /// its library, so playback still works), drop when signed out.
-    nonisolated static func disposition(pendingBookId: String?, authState: AuthStateKind) -> QuickActionDisposition {
+    static func disposition(pendingBookId: String?, authState: AuthStateKind) -> QuickActionDisposition {
         guard let pendingBookId else { return .wait }
         switch authState {
         case .initializing, .checkingServer: return .wait

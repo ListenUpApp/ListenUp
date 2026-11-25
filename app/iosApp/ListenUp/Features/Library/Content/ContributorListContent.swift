@@ -97,7 +97,7 @@ struct ContributorListContent: View {
 
     /// Where a scrubber letter jumps: the first person under it. Rows, not section headers, are what
     /// a `List`'s `scrollTo` reliably resolves.
-    nonisolated static func scrollTarget(
+    static func scrollTarget(
         forLetter letter: String,
         in sections: [LetterRun.Section<ContributorRow>]
     ) -> String? {

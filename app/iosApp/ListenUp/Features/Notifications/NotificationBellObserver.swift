@@ -4,7 +4,6 @@ import Shared
 /// Observes `NotificationBellViewModel`'s unread count for the toolbar bell. The count derives
 /// from the same Room table the inbox list reads, so bell and list can never disagree.
 @Observable
-@MainActor
 final class NotificationBellObserver {
     private(set) var unreadCount: Int = 0
 

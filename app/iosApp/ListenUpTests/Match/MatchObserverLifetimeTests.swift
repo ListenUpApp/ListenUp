@@ -9,7 +9,6 @@ import Testing
 /// - every screen gets its own ViewModel from Koin's `factory`, so one screen closing its ViewModel can never cancel
 ///   another screen's (the CarPlay Library bug, #1192).
 @Suite("Matching observers close their ViewModels")
-@MainActor
 struct MatchObserverLifetimeTests {
     @Test func theBookMatchObserverIsReleasedWithItsScreen() {
         weak var released: BookMatchObserver?

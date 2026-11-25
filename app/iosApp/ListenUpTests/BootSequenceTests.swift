@@ -15,14 +15,12 @@ import Testing
 /// `SyncSessionControllerTests` cover the direct `connectAndResume()` golden path and ordering;
 /// this suite covers the **fire-and-forget `activate()` boot trigger** and the **representative
 /// failure path** (Never Stranded: a sync-connect failure must leave the app usable).
-@MainActor
 struct BootSequenceTests {
 
     /// Records the two boot side effects via an `AsyncGate` so the fire-and-forget `activate()`
     /// can be awaited by causality rather than a wall-clock sleep. `@MainActor`-isolated so it
     /// can construct the `@MainActor`-isolated `SyncSessionController` (the outer suite's
     /// `@MainActor` does not propagate into a nested type).
-    @MainActor
     private final class BootRecorder: @unchecked Sendable {
         private(set) var connectCount = 0
         private(set) var resumeCount = 0

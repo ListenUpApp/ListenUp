@@ -15,7 +15,7 @@ struct LibrarySectionCountsTests {
     }
 
     /// The sidebar re-renders only when a count really changes: an equal value must not notify observers.
-    @MainActor @Test func anEqualValueDoesNotNotify() {
+    @Test func anEqualValueDoesNotNotify() {
         let holder = SectionCountsHolder()
         holder.assign(LibrarySectionCountsValue(books: 1, series: 0, authors: 0, narrators: 0))
         // onChange is @Sendable and fires on the mutating thread, so the flag is a Mutex, not a captured var.

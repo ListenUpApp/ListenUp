@@ -3,7 +3,7 @@ import Foundation
 @preconcurrency import Shared
 
 /// A remote command (lock screen, AirPods, CarPlay) waiting its turn in the coordinator's ordered queue.
-enum RemoteAction: Sendable {
+nonisolated enum RemoteAction: Sendable {
     case togglePlayPause, play, pause, skipForward, skipBackward
     case setRate(Float)
     /// A scrub on the lock screen: a position within the current chapter's window.
@@ -13,7 +13,7 @@ enum RemoteAction: Sendable {
 }
 
 /// What one audio-session notification asks of the player, read on the thread that posted it.
-enum AudioSessionEvent: Sendable {
+nonisolated enum AudioSessionEvent: Sendable {
     case interruption(InterruptionPolicy.Action)
     /// Every route change may move the AirPlay device the status slot names; `lostOutput` says the device the book
     /// was playing on went away.

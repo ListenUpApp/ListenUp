@@ -3,7 +3,7 @@ import SwiftUI
 /// Horizontal progress fill drawn purely in the render pass without `GeometryReader` layout passes.
 ///
 /// Mirrors automatically in right-to-left layouts and animates `progress` smoothly via `animatableData`.
-struct ProgressFillShape: Shape {
+nonisolated struct ProgressFillShape: Shape {
     var progress: Double
     var cornerRadius: CGFloat?
     var minWidth: CGFloat

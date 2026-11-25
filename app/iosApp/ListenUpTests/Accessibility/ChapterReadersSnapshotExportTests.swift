@@ -6,7 +6,6 @@ import UIKit
 /// Renders the hero's social line and chapter rows carrying reader stacks to PNGs, so the overlapped initials can be
 /// looked at, at the default text size and at the largest accessibility size. Off unless LU_SNAPSHOT_DIR is set (xcodebuild passes
 /// TEST_RUNNER_LU_SNAPSHOT_DIR through), so it never runs in CI. Test target only: no app launch, no audio.
-@MainActor
 @Suite("Chapter readers review snapshots", .serialized,
        .enabled(if: ProcessInfo.processInfo.environment["LU_SNAPSHOT_DIR"] != nil))
 struct ChapterReadersSnapshotExportTests {

@@ -12,7 +12,6 @@ import Shared
 ///
 /// Thin over `FlowBridge`; the `Data` mapping lives in a pure, testable helper.
 @Observable
-@MainActor
 final class BookReadersObserver {
     // MARK: - State
 
@@ -62,9 +61,8 @@ final class BookReadersObserver {
 
     /// Pure: project the shared `BookReaders` to display rows. `isLive` is the shared answer for who is listening
     /// right now (`BookReadersUiState.Data.isLive`: you, while the player plays this book; anyone else, while fresh
-    /// presence says they are listening to it). `nonisolated` because
-    /// it touches no actor state — callable from tests off the main actor.
-    nonisolated static func rows(
+    /// presence says they are listening to it).
+    static func rows(
         from readers: BookReaders,
         isLive: (Reader) -> Bool = { _ in false }
     ) -> [BookReaderRow] {

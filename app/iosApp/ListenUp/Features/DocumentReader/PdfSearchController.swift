@@ -28,7 +28,6 @@ struct PdfSearchHit: Identifiable {
 ///
 /// **Hit cap:** results are capped at `maxHits` to bound memory and snippet-computation
 /// cost for common queries in large documents.
-@MainActor
 @Observable
 final class PdfSearchController {
     private(set) var query: String = ""
@@ -48,7 +47,7 @@ final class PdfSearchController {
     /// read on the main thread; this wrapper satisfies `@Sendable` for the notification
     /// block while keeping the value main-confined. The one tolerated `@unchecked Sendable`:
     /// `PDFSelection` predates Sendable, and the compiler rejects sending it directly.
-    private struct SelectionTransfer: @unchecked Sendable { // swiftlint:disable:this unsafe_concurrency_escape
+    private nonisolated struct SelectionTransfer: @unchecked Sendable { // swiftlint:disable:this unsafe_concurrency_escape
         let selection: PDFSelection
     }
 

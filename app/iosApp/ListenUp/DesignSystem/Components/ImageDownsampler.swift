@@ -4,7 +4,7 @@ import UIKit
 /// Decodes images downsampled via ImageIO so the full-resolution bitmap is
 /// never materialized. Shared by the cover tint, avatars, the staged profile photo, CarPlay and
 /// `SystemIntegration`.
-enum ImageDownsampler {
+nonisolated enum ImageDownsampler {
     /// Decode the image at `path` downsampled so its longest edge ≤ `maxPixelSize`
     /// (in pixels). Returns `nil` if the file can't be read or `maxPixelSize <= 0`.
     static func downsampledImage(atPath path: String, maxPixelSize: Int) -> UIImage? {

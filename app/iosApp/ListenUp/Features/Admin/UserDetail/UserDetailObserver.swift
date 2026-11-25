@@ -5,7 +5,6 @@ import Shared
 /// Observes the shared `UserDetailViewModel`, flattening `UserDetailUiState` into native `@Observable`
 /// properties the SwiftUI screen binds to. Mirrors the other admin observers (thin over `FlowBridge`).
 @Observable
-@MainActor
 final class UserDetailObserver {
     private(set) var phase: UserDetailPhase = .loading
 

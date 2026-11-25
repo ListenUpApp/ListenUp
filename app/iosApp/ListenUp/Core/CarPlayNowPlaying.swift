@@ -80,7 +80,6 @@ struct CarPlayNowPlayingButtons: Equatable, Sendable {
 /// Hands the buttons to the template only when they differ from the ones already there. Rebuilding and re-pushing an
 /// identical set makes a head unit drop knob and touchpad focus, so a re-observation that changes nothing must stay
 /// silent.
-@MainActor
 final class CarPlayButtonsPresenter {
     private let push: (CarPlayNowPlayingButtons) -> Void
     private var lastPushed: CarPlayNowPlayingButtons?

@@ -5,7 +5,6 @@ import Testing
 @testable import ListenUp
 
 /// A book's context menu: what it offers for what the screen can do, and the share link it hands out.
-@MainActor
 @Suite("Book context menu")
 struct BookContextMenuTests {
     @Test func memberMenuIsTheBoardsFourInThreeGroups() {

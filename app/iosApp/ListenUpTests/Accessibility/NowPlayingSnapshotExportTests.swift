@@ -8,7 +8,6 @@ import ListenupContract
 /// Renders Now Playing per state, light and dark, to PNGs for the design review and for Simon. Off unless
 /// LU_SNAPSHOT_DIR is set (xcodebuild passes TEST_RUNNER_LU_SNAPSHOT_DIR through), so it never runs in CI.
 /// Test target only: a detached observer, no app launch, no audio.
-@MainActor
 @Suite("Now Playing review snapshots", .serialized,
        .enabled(if: ProcessInfo.processInfo.environment["LU_SNAPSHOT_DIR"] != nil))
 struct NowPlayingSnapshotExportTests {
@@ -94,7 +93,6 @@ struct NowPlayingSnapshotExportTests {
 /// landscape, the panel offering Back to Current Chapter, upright, a Split View half (the phone layout),
 /// accessibility size 3, and the Reduce Transparency card — light and dark. Sized explicitly, so it renders the same on
 /// any destination; run it on the iPad one. Off unless LU_SNAPSHOT_DIR is set; no app, no audio.
-@MainActor
 @Suite("Now Playing iPad review snapshots", .serialized,
        .enabled(if: ProcessInfo.processInfo.environment["LU_SNAPSHOT_DIR"] != nil))
 struct NowPlayingIPadSnapshotExportTests {
@@ -194,7 +192,6 @@ private extension PlayerUiStateLoaded {
 /// Renders the Now Playing sheets (player spec §5.5) to PNGs for the design review, at the default text size and at
 /// accessibility size 3, light and dark. One coherent book throughout: The Way of Kings at 1.25×, 12:04 into Bridge
 /// Four (8 min of it left), a 30-minute timer with 23:41 to go. Off unless LU_SNAPSHOT_DIR is set; no app, no audio.
-@MainActor
 @Suite("Player sheet review snapshots", .serialized,
        .enabled(if: ProcessInfo.processInfo.environment["LU_SNAPSHOT_DIR"] != nil))
 struct PlayerSheetsSnapshotExportTests {

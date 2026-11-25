@@ -40,7 +40,6 @@ struct FormFocusChainTests {
         expectRun([BookEditFocusField.isbn, .asin])
     }
 
-    @MainActor
     @Test func advanceSubmitsOnlyAtTheEndOfARun() {
         var submitted = 0
         var focus: LoginFocusField? = .email

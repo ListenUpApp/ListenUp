@@ -35,7 +35,6 @@ struct AccessibilityStop: CustomStringConvertible {
 /// app never links it). The tree it returns is the one `XCUIApplication` would query: combined rows are
 /// one stop, hidden images are absent, and a symbol's default label ("Selected" for `checkmark`) shows up
 /// exactly where VoiceOver would speak it.
-@MainActor
 final class HostedView {
     let window: UIWindow
     private let fit: (CGSize) -> CGSize
@@ -254,7 +253,6 @@ final class HostedView {
 
 /// The contrast of what was actually drawn, measured from the window's own pixels with the WCAG formula
 /// `SRGBColor` implements — the measurement the audit took from screenshots, made repeatable.
-@MainActor
 struct DrawnContrast {
     private let pixels: [UInt8]
     private let width: Int

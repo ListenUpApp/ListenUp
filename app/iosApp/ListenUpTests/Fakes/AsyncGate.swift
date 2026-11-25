@@ -28,7 +28,7 @@ import Foundation
 /// and the check-then-append is atomic against `fire`/`signal`. `@unchecked Sendable` so the
 /// gate can be stored in the `Sendable` player fakes; soundness now rests on that honoured
 /// single-domain discipline, not on an assumption the compiler was quietly violating.
-final class AsyncGate: @unchecked Sendable {
+nonisolated final class AsyncGate: @unchecked Sendable {
     private var waiters: [(predicate: () -> Bool, resume: () -> Void)] = []
     /// Keys that have fired at least once, for the keyed `fire`/`wait(forKey:)` API used by
     /// actor-confined fakes (whose isolated state a non-isolated predicate closure can't read).

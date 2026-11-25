@@ -45,7 +45,6 @@ struct PlaybackEngineSeamTests {
 }
 
 @Suite("PlayerCoordinator wiring")
-@MainActor
 struct PlayerCoordinatorWiringTests {
     /// A seek then a play on the book the engine holds is a resume in place — the shared player's
     /// "the book the engine already holds" path — never a second load.
@@ -103,7 +102,6 @@ struct PlayerCoordinatorWiringTests {
 }
 
 @Suite("Save current position")
-@MainActor
 struct SaveCurrentPositionTests {
     @Test func saveCurrentPositionPersistsImmediately() async throws {
         let harness = PlayerHarness()
@@ -135,7 +133,6 @@ struct InterruptionPolicyTests {
 }
 
 @Suite("Route change handling")
-@MainActor
 struct RouteChangeTests {
     /// A private center per test instance — the coordinator observes THIS, not the process-global
     /// `.default`, so this suite's route-change post can never leak into a concurrent suite's coordinator.
@@ -161,7 +158,6 @@ struct RouteChangeTests {
 // A test that checks what a post did, or did not do, first waits for `session.settle`: the coordinator has
 // handled every post by then, so the check reads its answer, not a moment before it.
 @Suite("Audio-session interruption handling", .serialized)
-@MainActor
 struct AudioSessionInterruptionTests {
     private let session = AudioSessionPoster()
 
@@ -349,7 +345,6 @@ struct RouteChangePolicyTests {
 }
 
 @Suite("Skip interval wiring")
-@MainActor
 struct SkipIntervalTests {
     /// With no override, the lock screen's forward and backward skips use their *distinct* default
     /// intervals (30 / 10). (The in-app skips are the shared player's, tested in Kotlin.)
@@ -411,7 +406,6 @@ struct SkipIntervalTests {
 }
 
 @Suite("Seek persistence")
-@MainActor
 struct SeekPersistenceTests {
     @Test func seekReportsNewPositionToProgressAndTheSharedPlayer() async throws {
         let harness = PlayerHarness()
@@ -452,7 +446,6 @@ struct SeamValueTypeTests {
 }
 
 @Suite("Stop deactivates session")
-@MainActor
 struct StopDeactivatesSessionTests {
     @Test func stopDeactivatesAudioSession() async throws {
         let harness = PlayerHarness()
@@ -498,7 +491,6 @@ struct StopDeactivatesSessionTests {
 }
 
 @Suite("Playback lifecycle")
-@MainActor
 struct PlaybackLifecycleTests {
     /// A full load → pause → stop journey leaves the engine and the reported phase consistent.
     @Test func loadPauseStopLeavesConsistentState() async throws {
@@ -534,7 +526,6 @@ struct PlaybackLifecycleTests {
 
 /// Next and previous track from the lock screen, AirPods and CarPlay move by chapter, by the shared rule (§3.3).
 @Suite("Remote track commands")
-@MainActor
 struct RemoteTrackCommandTests {
     private static func chapter(_ id: String, start: Int64, duration: Int64) -> Chapter {
         Chapter(id: id, title: id, duration: duration, startTime: start, partTitle: nil, bookTitle: nil)

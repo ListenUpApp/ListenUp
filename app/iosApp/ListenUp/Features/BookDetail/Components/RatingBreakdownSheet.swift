@@ -113,9 +113,8 @@ struct RatingBreakdownSheet: View {
     }
 
     /// Every row the sheet lists: each outside source in `breakdown`, then "Your listeners" when
-    /// `score` counts them. The row builders are `nonisolated` so tests can call them off the main
-    /// actor — a main-actor closure inside `map` traps when a test calls it from elsewhere.
-    nonisolated static func rows(
+    /// `score` counts them.
+    static func rows(
         breakdown: [ExternalRatingRow],
         score: ExternalScore?,
         listeners: ListenersAverage?,
@@ -141,13 +140,13 @@ struct RatingBreakdownSheet: View {
     }
 
     /// "Combined from 3 sources" — only when the score draws on more than one.
-    nonisolated static func combinedFrom(_ score: ExternalScore?) -> String? {
+    static func combinedFrom(_ score: ExternalScore?) -> String? {
         guard let score, score.sourceCount >= 2 else { return nil }
         return String(localized: .bookDetailRatingCombinedFrom("\(score.sourceCount)"))
     }
 
     /// "Updated today", "Updated yesterday", "Updated 3 days ago"; nil when the server never said.
-    nonisolated static func updatedLabel(fetchedAtMs: Int64?, nowMs: Int64) -> String? {
+    static func updatedLabel(fetchedAtMs: Int64?, nowMs: Int64) -> String? {
         guard let fetchedAtMs else { return nil }
         let days = Int(RatingLabels.shared.daysSince(fetchedAtMs: fetchedAtMs, nowMs: nowMs))
         switch days {
@@ -157,7 +156,7 @@ struct RatingBreakdownSheet: View {
         }
     }
 
-    private nonisolated static func row(
+    private static func row(
         label: String,
         average: Double,
         count: Int,

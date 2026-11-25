@@ -16,7 +16,6 @@ import UserNotifications
 /// natively with the app closed. Per-type enriched text and action buttons arrive with the
 /// notification service extension (spec 2026-08-11 §1.2), alongside the first payload that
 /// needs them.
-@MainActor
 final class PushCoordinator: NSObject {
     static let shared = PushCoordinator()
 

@@ -1,7 +1,6 @@
 import Testing
 @testable import ListenUp
 
-@MainActor
 @Suite("LoginViewModelWrapper")
 struct LoginViewModelWrapperTests {
     // LoginViewModelWrapper needs a live KMP LoginViewModel to drive its flow;

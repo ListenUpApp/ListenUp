@@ -9,7 +9,7 @@ import os
 /// included. Whichever comes first, the completion or the timeout, resumes the caller exactly once; the other is
 /// ignored. `start` runs synchronously on the caller's actor (the function is `nonisolated(nonsending)`, the project
 /// default), so it may touch the caller's isolated state.
-func awaitCompletion<Value: Sendable>(
+nonisolated func awaitCompletion<Value: Sendable>(
     within timeout: Duration,
     _ start: (@escaping @Sendable (Value) -> Void) -> Void
 ) async -> Value? {
@@ -31,7 +31,7 @@ func awaitCompletion<Value: Sendable>(
     }
 }
 
-private extension Duration {
+nonisolated private extension Duration {
     /// This duration in seconds, for `DispatchTime` arithmetic.
     var timeInterval: TimeInterval {
         let (seconds, attoseconds) = components

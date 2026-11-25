@@ -76,7 +76,6 @@ struct DeviceRowModel: Identifiable, Equatable {
 /// Observes `DevicesViewModel`, flattening `DevicesUiState` into flat `@Observable`
 /// properties the SwiftUI Devices screen binds to. Mirrors `FacetBooksObserver`.
 @Observable
-@MainActor
 final class DevicesObserver {
     // MARK: - State
 

@@ -4,7 +4,6 @@ import Shared
 /// Observes `PendingApprovalViewModel`'s `state` flow, flattening `PendingApprovalUiState`
 /// into SwiftUI-native state. Thin over `FlowBridge`.
 @Observable
-@MainActor
 final class PendingApprovalViewModelWrapper {
 
     // MARK: - State

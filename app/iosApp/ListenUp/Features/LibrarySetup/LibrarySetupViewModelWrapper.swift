@@ -38,7 +38,6 @@ enum LibrarySetupPhase: Equatable {
 /// Errors are mapped once here: a failed check into ``phase``, a browse/registration failure into
 /// ``errorMessage`` (no `errorBus`).
 @Observable
-@MainActor
 final class LibrarySetupViewModelWrapper {
     /// Checking, failed, not needed, or browsing — the screen switches on this first.
     private(set) var phase: LibrarySetupPhase = .checking

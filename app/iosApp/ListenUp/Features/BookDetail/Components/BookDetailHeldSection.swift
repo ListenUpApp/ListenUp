@@ -24,7 +24,7 @@ struct BookDetailHeldSection: View {
         let secondary: [Action]
     }
 
-    nonisolated static func arrange(_ actions: [Action]) -> Arrangement {
+    static func arrange(_ actions: [Action]) -> Arrangement {
         Arrangement(
             prominent: actions.first { $0 == .release },
             secondary: actions.filter { $0 != .release }

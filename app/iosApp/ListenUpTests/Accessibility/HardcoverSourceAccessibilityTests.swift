@@ -3,7 +3,6 @@ import Testing
 @testable import ListenUp
 
 /// Administration → Hardcover's API token, for VoiceOver, Voice Control and large text (#1562).
-@MainActor
 @Suite("Hardcover token accessibility", .serialized)
 struct HardcoverSourceAccessibilityTests {
     private func model(

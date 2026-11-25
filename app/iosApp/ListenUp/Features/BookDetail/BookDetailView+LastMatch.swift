@@ -2,7 +2,6 @@ import SwiftUI
 import UIKit
 
 /// Book Detail's "Undo last match", split out of `BookDetailView.swift`, which sits at SwiftLint's body cap.
-@MainActor
 extension BookDetailView {
     /// The last-match row under the actions, while the book's last match can still be undone; nothing otherwise.
     @ViewBuilder

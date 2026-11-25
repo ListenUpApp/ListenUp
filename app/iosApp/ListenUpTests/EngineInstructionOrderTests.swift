@@ -5,7 +5,6 @@ import Testing
 /// The shared player's instructions reach AVAudioEngine in the order it issued them (spec risk R2):
 /// one bridge collector hands each to the coordinator, whose one task runs them, and each load's start, in order.
 @Suite("Engine instructions run in order")
-@MainActor
 struct EngineInstructionOrderTests {
     @Test("Load → SeekTo → Play reaches the engine in that order")
     func ordered() async throws {

@@ -2,7 +2,6 @@ import SwiftUI
 
 /// Book Detail's states: the admin's scan warning, the offline reason in the hero and the error.
 /// Split out of `BookDetailView.swift`, which sits at SwiftLint's type-body cap.
-@MainActor
 extension BookDetailView {
     /// The scanner's flag, for an admin only (`showScanWarning`); Review opens Files & Audio.
     @ViewBuilder

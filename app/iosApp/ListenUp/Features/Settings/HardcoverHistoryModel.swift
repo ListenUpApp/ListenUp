@@ -12,7 +12,7 @@ enum HardcoverHistoryModel: Equatable {
     case done(sent: Int, needsMatch: Int)
 
     /// Projects the shared state. Deliberately no `default`: a new state must fail to compile here.
-    nonisolated static func from(_ history: HardcoverHistory) -> HardcoverHistoryModel {
+    static func from(_ history: HardcoverHistory) -> HardcoverHistoryModel {
         switch history.sealedType() {
         case .none:
             HardcoverHistoryModel.none
@@ -30,13 +30,13 @@ enum HardcoverHistoryModel: Equatable {
 
 /// The earlier-books sentences, singular or plural, already resolved; buttons in title case (unit-tested).
 enum HardcoverHistoryText {
-    nonisolated static func offerBody(books: Int) -> String {
+    static func offerBody(books: Int) -> String {
         books == 1
             ? String(localized: "hardcover.history_offer_body_one")
             : String(format: String(localized: "hardcover.history_offer_body"), books)
     }
 
-    nonisolated static func sendTitle(books: Int) -> String {
+    static func sendTitle(books: Int) -> String {
         let sentence =
             books == 1
                 ? String(localized: "hardcover.history_send_one")
@@ -44,23 +44,23 @@ enum HardcoverHistoryText {
         return sentence.titleStyled
     }
 
-    nonisolated static func notNowTitle() -> String {
+    static func notNowTitle() -> String {
         String(localized: "hardcover.history_not_now").titleStyled
     }
 
-    nonisolated static func sendingTitle(sent: Int, total: Int) -> String {
+    static func sendingTitle(sent: Int, total: Int) -> String {
         total == 1
             ? String(localized: "hardcover.history_sending_one")
             : String(format: String(localized: "hardcover.history_sending"), sent, total)
     }
 
-    nonisolated static func progressValue(sent: Int, total: Int) -> String {
+    static func progressValue(sent: Int, total: Int) -> String {
         String(format: String(localized: "hardcover.history_progress_value"), sent, total)
     }
 
     /// What the send came to. D4: when nothing could be sent, it says what waits for a match — never
     /// "Sent 0 books".
-    nonisolated static func doneTitle(sent: Int, needsMatch: Int) -> String {
+    static func doneTitle(sent: Int, needsMatch: Int) -> String {
         if sent == 0 && needsMatch > 0 {
             return needsMatch == 1
                 ? String(localized: "hardcover.history_none_sent_one")
@@ -71,17 +71,17 @@ enum HardcoverHistoryText {
         return String(format: String(localized: "hardcover.history_sent"), sent)
     }
 
-    nonisolated static func needsMatchLine(_ count: Int) -> String {
+    static func needsMatchLine(_ count: Int) -> String {
         count == 1
             ? String(localized: "hardcover.history_needs_match_one")
             : String(format: String(localized: "hardcover.history_needs_match"), count)
     }
 
-    nonisolated static func rowTitle() -> String {
+    static func rowTitle() -> String {
         String(localized: "hardcover.history_row_title").titleStyled
     }
 
-    nonisolated static func availableDetail(books: Int) -> String {
+    static func availableDetail(books: Int) -> String {
         books == 1
             ? String(localized: "hardcover.history_row_detail_one")
             : String(format: String(localized: "hardcover.history_row_detail"), books)

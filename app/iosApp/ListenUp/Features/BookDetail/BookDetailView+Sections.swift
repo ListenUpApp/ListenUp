@@ -3,7 +3,6 @@ import SwiftUI
 /// Book Detail's sections, in the visit's stage order — the order the shared ViewModel decided when the
 /// page opened, and kept while it stays open. Both layouts walk it: the iPhone as one column, the iPad as
 /// `BookDetailIPadRows`. A section with nothing to show renders nothing (skipped, not left as a gap).
-@MainActor
 extension BookDetailView {
     /// The Readers section's scroll anchor: the social line brings it into view, and so can a landing on it.
     static let readersAnchor = "readers"

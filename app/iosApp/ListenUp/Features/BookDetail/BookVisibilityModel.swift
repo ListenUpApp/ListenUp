@@ -20,7 +20,7 @@ enum BookVisibilityModel: Equatable {
     case restricted(collections: [VisibilityCollection], hiddenFrom: HiddenFromModel)
     case stranded
 
-    nonisolated static func from(_ visibility: BookVisibility?) -> BookVisibilityModel? {
+    static func from(_ visibility: BookVisibility?) -> BookVisibilityModel? {
         guard let visibility else { return nil }
         switch visibility.sealedType() {
         case .public, .held:
@@ -37,7 +37,7 @@ enum BookVisibilityModel: Equatable {
     }
 
     // Deliberately no `default`: a new Kotlin case must fail to compile here.
-    nonisolated static func hiddenFrom(_ hiddenFrom: HiddenFrom) -> HiddenFromModel {
+    static func hiddenFrom(_ hiddenFrom: HiddenFrom) -> HiddenFromModel {
         switch hiddenFrom.sealedType() {
         case .nobody: return .nobody
         case .everyone: return .everyone
@@ -48,7 +48,7 @@ enum BookVisibilityModel: Equatable {
 
 /// The section's words, from the shared catalog; pure so it is tested without a view.
 enum VisibilityCopy {
-    nonisolated static func headline(_ hiddenFrom: HiddenFromModel, expanded: Bool) -> String {
+    static func headline(_ hiddenFrom: HiddenFromModel, expanded: Bool) -> String {
         switch hiddenFrom {
         case .nobody: return String(localized: "book.visibility_every_member")
         case .everyone: return String(localized: "book.visibility_hidden_from_all")
@@ -59,7 +59,7 @@ enum VisibilityCopy {
 
     /// "Alice", "Alice and Ben", "Alice, Ben and Cy", or "Alice, Dev, Hana and 2 others" — cut by
     /// the shared `HiddenFromNames`, so every platform stops at the same place.
-    nonisolated static func nameList(_ names: [String], expanded: Bool) -> String {
+    static func nameList(_ names: [String], expanded: Bool) -> String {
         let summary = HiddenFromNames.shared.summarize(names: names, expanded: expanded)
         let shown = summary.shown
         // Stays Int32: the catalog's `%2$d` reads a C int, so the argument matches it exactly.
@@ -75,11 +75,11 @@ enum VisibilityCopy {
         return String(localized: .bookVisibilityNamesTwo(shown.dropLast().joined(separator: ", "), shown[shown.count - 1]))
     }
 
-    nonisolated static func canExpand(_ names: [String], expanded: Bool) -> Bool {
+    static func canExpand(_ names: [String], expanded: Bool) -> Bool {
         HiddenFromNames.shared.canExpand(names: names, expanded: expanded)
     }
 
-    nonisolated static func reason(_ hiddenFrom: HiddenFromModel, collections: [VisibilityCollection]) -> String {
+    static func reason(_ hiddenFrom: HiddenFromModel, collections: [VisibilityCollection]) -> String {
         let only = collections.count == 1 ? collections[0].name : nil
         switch hiddenFrom {
         case .members:

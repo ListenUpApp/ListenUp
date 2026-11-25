@@ -87,7 +87,7 @@ struct ShelfDetailObserverTests {
         #expect(snapshot == ShelfDetailSnapshot(phase: .error("Shelf not found.")))
     }
 
-    @MainActor @Test func aSecondStateReplacesEveryObserverField() {
+    @Test func aSecondStateReplacesEveryObserverField() {
         let observer = ShelfDetailObserver(viewModel: Dependencies.shared.createShelfDetailViewModel())
 
         observer.apply(ready(isOwner: true))
@@ -107,7 +107,7 @@ struct ShelfDetailObserverTests {
 
     // MARK: - A refused reorder
 
-    @MainActor @Test func aRefusedReorderPutsTheGridBackAndSaysWhy() {
+    @Test func aRefusedReorderPutsTheGridBackAndSaysWhy() {
         let alerts = ErrorAlertCenter()
         let observer = ShelfDetailObserver(viewModel: Dependencies.shared.createShelfDetailViewModel(), alerts: alerts)
         observer.apply(ready(isOwner: true))
@@ -120,7 +120,7 @@ struct ShelfDetailObserverTests {
         #expect(alerts.current?.message == "Couldn't save the new order.")
     }
 
-    @MainActor @Test func aRefusedRemovalLeavesTheGridAsTheServerLastSentIt() {
+    @Test func aRefusedRemovalLeavesTheGridAsTheServerLastSentIt() {
         let alerts = ErrorAlertCenter()
         let observer = ShelfDetailObserver(viewModel: Dependencies.shared.createShelfDetailViewModel(), alerts: alerts)
         observer.apply(ready(isOwner: true))

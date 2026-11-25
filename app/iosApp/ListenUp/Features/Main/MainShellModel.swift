@@ -47,7 +47,6 @@ enum ShellTab: Hashable, Codable {
 /// so every routing rule — a deep link closing the player, the compact ↔ sidebar hand-over, the
 /// scene-storage round trip — is a tested method, not a closure buried in `MainTabView`.
 @Observable
-@MainActor
 final class MainShellModel {
     var selectedTab: ShellTab = .home
     /// Per-tab navigation paths, so each tab keeps its own history.

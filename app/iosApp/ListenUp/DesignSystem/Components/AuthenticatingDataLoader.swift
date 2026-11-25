@@ -11,7 +11,7 @@ import os
 /// token is only ever sent to the trusted server's scheme, host and port, never to a third-party image
 /// URL. A request that already carries an `Authorization` header (contributor photos and avatars still
 /// build theirs) is left alone.
-final class AuthenticatingDataLoader: DataLoading {
+nonisolated final class AuthenticatingDataLoader: DataLoading {
     static let shared = AuthenticatingDataLoader(
         inner: {
             // The data cache replaces URLCache (Nuke's `withDataCache` shape): one disk cache, keyed on
@@ -84,7 +84,7 @@ final class AuthenticatingDataLoader: DataLoading {
 
 /// One authenticated load: the token fetch, then the inner load it starts. Cancelling either stage
 /// cancels the load; a cancel that lands between them cancels the inner load as it attaches.
-private final class PendingLoad: Cancellable {
+private nonisolated final class PendingLoad: Cancellable {
     private struct State {
         var isCancelled = false
         var task: Task<Void, Never>?

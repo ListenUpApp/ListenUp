@@ -3,7 +3,6 @@ import SwiftUI
 /// Book Detail's hero and its listen unit — the Resume unit over the actions — shared by the iPhone stack and the
 /// iPad rail. Split out of `BookDetailView.swift`, which sits at SwiftLint's type-body cap; the presentation state
 /// stays on the view, because `@State` storage cannot live in an extension.
-@MainActor
 extension BookDetailView {
     func hero(_ observer: BookDetailObserver) -> some View {
         BookDetailHero(

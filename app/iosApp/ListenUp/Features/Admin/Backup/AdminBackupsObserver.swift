@@ -11,7 +11,6 @@ import ListenupContract
 /// Thin over `FlowBridge`, mirroring `ABSImportHubObserver` (iosApp rule 8: no bridged Kotlin
 /// object ever reaches a `ForEach`).
 @Observable
-@MainActor
 final class AdminBackupsObserver {
     // MARK: - State
 
@@ -106,8 +105,7 @@ final class AdminBackupsObserver {
     }
 
     /// Pure: project the sealed `AdminBackupUiState` onto the backups screen's phase.
-    /// `nonisolated` so tests can exercise it off the main actor.
-    nonisolated static func phase(from state: AdminBackupUiState) -> BackupsPhase {
+    static func phase(from state: AdminBackupUiState) -> BackupsPhase {
         switch state.sealedType() {
         case .loading:
             return .loading

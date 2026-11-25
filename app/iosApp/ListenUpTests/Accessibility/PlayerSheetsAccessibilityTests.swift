@@ -5,7 +5,6 @@ import UIKit
 
 /// The player's sheet chrome, read the way VoiceOver and large text meet it (player spec §3.8, §8): a close button
 /// with a full target, and content that scrolls instead of clipping at accessibility sizes (HIG, Typography).
-@MainActor
 @Suite("Player sheet chrome accessibility", .serialized)
 struct PlayerSheetsAccessibilityTests {
     private var forty: some View {

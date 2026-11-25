@@ -70,11 +70,11 @@ struct MarkerEdit: Identifiable, Equatable {
     var id: String { "\(chapterId)-\(tier)" }
 
     /// The wire's ceiling for a marker's name, in the UTF-16 units Kotlin counts.
-    nonisolated static var maxNameLength: Int { Int(ChapterInput.Companion.shared.MAX_SECTION_TITLE) }
+    static var maxNameLength: Int { Int(ChapterInput.Companion.shared.MAX_SECTION_TITLE) }
 
     /// Whether `name`, already trimmed, is one the ViewModel will take. It refuses anything else
     /// without a word, so a sheet that closed on one would drop the name silently.
-    nonisolated static func accepts(_ name: String) -> Bool {
+    static func accepts(_ name: String) -> Bool {
         !name.isEmpty && name.utf16.count <= maxNameLength
     }
 }

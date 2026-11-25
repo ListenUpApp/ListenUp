@@ -9,7 +9,6 @@ import Testing
 /// not the process-global one: an active session is what makes the system derive play/pause and
 /// timeline state from the attached player, and publishing to `.default()` alongside it splits
 /// the now-playing state across two stores (CarPlay reads one, the lock screen the other).
-@MainActor
 @Suite("SystemIntegration session publishing")
 struct SystemIntegrationSessionTests {
     @Test func updatePushesToTheSessionsInfoCenter() {
@@ -116,7 +115,6 @@ struct SystemIntegrationSessionTests {
 }
 
 /// Records the remote commands a `SystemIntegration` forwards.
-@MainActor
 final class RecordingRemoteHandler: RemoteCommandHandler {
     private(set) var requestedRates: [Float] = []
     func remoteTogglePlayPause() {}

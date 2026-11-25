@@ -88,7 +88,7 @@ final class Dependencies: Sendable {
 
     /// The single app-wide player orchestrator. Built lazily on first access,
     /// injecting the KMP seam from Koin.
-    @MainActor var playerCoordinator: PlayerCoordinator {
+    var playerCoordinator: PlayerCoordinator {
         if let coordinator = playerSlot.coordinator { return coordinator }
         let coordinator = PlayerCoordinator(deps: self)
         playerSlot.coordinator = coordinator
@@ -99,7 +99,7 @@ final class Dependencies: Sendable {
 
     /// The app-wide SwiftUI model of the shared player. Built lazily, with the coordinator, so the shared
     /// player's instructions are drained from the first read. App-lifetime, so its `PlayerViewModel` is not owned.
-    @MainActor var playerObserver: PlayerObserver {
+    var playerObserver: PlayerObserver {
         if let observer = observerSlot.observer { return observer }
         let observer = PlayerObserver(viewModel: KoinHelper.shared.getPlayerViewModel(), coordinator: playerCoordinator)
         observerSlot.observer = observer
@@ -241,14 +241,12 @@ final class Dependencies: Sendable {
 
 /// Holds the app's one `PlayerCoordinator`, on the main actor, so that `Dependencies` itself has no
 /// mutable state and can be shared across isolation domains.
-@MainActor
 private final class PlayerCoordinatorSlot {
     var coordinator: PlayerCoordinator?
     nonisolated init() {}
 }
 
 /// Holds the app's one `PlayerObserver`, on the main actor, like `PlayerCoordinatorSlot`.
-@MainActor
 private final class PlayerObserverSlot {
     var observer: PlayerObserver?
     nonisolated init() {}
@@ -258,7 +256,7 @@ private final class PlayerObserverSlot {
 
 /// Thread-safe memo cache for Koin-resolved singletons. Replaces the previous
 /// unsynchronized `[String: Any]` that raced when resolved off the main actor.
-final class LockedCache: Sendable {
+nonisolated final class LockedCache: Sendable {
     // Values are arbitrary Koin singletons, so the dictionary is not `Sendable`. The lock is the
     // synchronization boundary: it is only ever touched inside `withLockUnchecked`.
     private let storage = OSAllocatedUnfairLock<[String: Any]>(uncheckedState: [:])

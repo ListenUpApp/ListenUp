@@ -14,7 +14,6 @@ extension BGContinuedProcessingTask: ContinuedTask {}
 
 /// What keeps an upload going when no continued-processing task can: the screen stays awake and a
 /// short background task lets the file in flight finish.
-@MainActor
 protocol UploadHold: AnyObject {
     func hold()
     func release()
@@ -36,7 +35,6 @@ protocol UploadHold: AnyObject {
 ///
 /// The system requires the task to report progress and may expire one that looks stalled; the upload
 /// phase after the last byte (the server importing) holds the final value rather than inventing any.
-@MainActor
 final class ContinuedUpload {
     /// The `Progress` total the controller maps the upload onto.
     static let totalUnits: Int64 = 1000

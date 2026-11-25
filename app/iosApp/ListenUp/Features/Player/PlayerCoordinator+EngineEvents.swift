@@ -3,7 +3,6 @@ import Foundation
 
 /// Engine event handling (position ticks, buffering/ready transitions, completion, failure) and the
 /// playback-preempts-downloads bandwidth signal. Split out of `PlayerCoordinator.swift`.
-@MainActor
 extension PlayerCoordinator {
     func handleEngineEvent(_ event: AudioEngineEvent) {
         // Drop any engine event that arrives while a book is loading: it belongs to the outgoing

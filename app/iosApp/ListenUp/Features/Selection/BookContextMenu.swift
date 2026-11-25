@@ -54,7 +54,7 @@ enum BookMenuPrimaryValue: Equatable {
 /// finished state, so the menu could only offer them blind — offering Download on a book that is
 /// already downloaded. Both remain on Book Detail.
 enum BookContextMenuModel {
-    nonisolated static func sections(
+    static func sections(
         canShare: Bool,
         canSelect: Bool,
         isAdmin: Bool = false
@@ -90,7 +90,6 @@ enum BookShareLink {
 /// The window's share links: the connected server's identity, read once, so every book's context
 /// menu can offer Share without a round trip of its own.
 @Observable
-@MainActor
 final class BookShareLinks {
     private struct Server: Equatable {
         let instanceId: String

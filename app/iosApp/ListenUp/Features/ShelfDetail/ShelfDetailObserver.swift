@@ -85,7 +85,6 @@ private typealias SharedShelfOrder = ExportedKotlinPackages.com.calypsan.listenu
 /// Observes `ShelfDetailViewModel`, flattening `ShelfDetailUiState` into flat
 /// `@Observable` properties the SwiftUI screen binds to.
 @Observable
-@MainActor
 final class ShelfDetailObserver {
     private(set) var phase: ShelfDetailPhase = .loading
     private(set) var shelfName: String = ""

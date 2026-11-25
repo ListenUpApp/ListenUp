@@ -9,7 +9,6 @@ import AVFoundation
 /// steps in turn. A test that checks state straight after a post, or after a fixed wait, reads it before the
 /// coordinator got there on a starved runner. A check that something did NOT happen then passes without testing
 /// anything, and a check that it did fails.
-@MainActor
 final class AudioSessionPoster {
     let center = NotificationCenter()
     /// Route changes posted so far. The coordinator reports the route once for each, as it reads the event.

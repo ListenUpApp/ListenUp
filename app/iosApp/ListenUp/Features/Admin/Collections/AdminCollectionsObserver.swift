@@ -8,7 +8,6 @@ import Shared
 /// Actions (`createCollection`, `deleteCollection`, `clearError`, `clearCreateSuccess`)
 /// forward directly to the Kotlin VM. The observer never owns business logic.
 @Observable
-@MainActor
 final class AdminCollectionsObserver {
     // MARK: - State
 

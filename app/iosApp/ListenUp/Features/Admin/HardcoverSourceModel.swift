@@ -13,7 +13,7 @@ struct HardcoverSourceModel: Equatable {
     }
 
     /// Hardcover's API page, where an admin gets a token.
-    nonisolated static let apiPage = URL(string: "https://hardcover.app/account/api")
+    static let apiPage = URL(string: "https://hardcover.app/account/api")
 
     let token: Token
     let metadataEnabled: Bool
@@ -25,20 +25,20 @@ struct HardcoverSourceModel: Equatable {
     let refusal: String?
 
     /// "Set · belongs to @simon", while a token Hardcover accepted is stored.
-    nonisolated var savedLine: String? {
+    var savedLine: String? {
         guard case .saved(let username) = token else { return nil }
         return String(localized: .adminHardcoverTokenSet(username))
     }
 
     /// The metadata switch's subtitle: what it does, or what it needs first.
-    nonisolated var metadataSubtitle: String {
+    var metadataSubtitle: String {
         metadataUnavailable
             ? String(localized: "admin.hardcover_metadata_unavailable")
             : String(localized: "admin.hardcover_metadata_subtitle")
     }
 
-    /// Pure mapping from the Swift Export-bridged shared types; `nonisolated` so tests need no main actor.
-    nonisolated static func from(_ status: HardcoverSourceStatus, save: HardcoverTokenSave) -> HardcoverSourceModel {
+    /// Pure mapping from the Swift Export-bridged shared types.
+    static func from(_ status: HardcoverSourceStatus, save: HardcoverTokenSave) -> HardcoverSourceModel {
         HardcoverSourceModel(
             token: token(from: status.apiToken),
             metadataEnabled: status.metadataEnabled,
@@ -48,7 +48,7 @@ struct HardcoverSourceModel: Equatable {
         )
     }
 
-    private nonisolated static func token(from status: HardcoverApiTokenStatus) -> Token {
+    private static func token(from status: HardcoverApiTokenStatus) -> Token {
         switch status.sealedType() {
         case .notSet: .notSet
         case .saved(let savedType): .saved(username: savedType.value.username)
@@ -56,12 +56,12 @@ struct HardcoverSourceModel: Equatable {
         }
     }
 
-    private nonisolated static func isBusy(_ save: HardcoverTokenSave) -> Bool {
+    private static func isBusy(_ save: HardcoverTokenSave) -> Bool {
         if case .busy = save.sealedType() { return true }
         return false
     }
 
-    private nonisolated static func refusal(_ save: HardcoverTokenSave) -> String? {
+    private static func refusal(_ save: HardcoverTokenSave) -> String? {
         if case .refused(let refusedType) = save.sealedType() { return refusedType.value.error.message }
         return nil
     }

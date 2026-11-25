@@ -3,7 +3,6 @@ import Testing
 
 /// Pins the de-duplication in front of `ensureBookCoverCached`: each cover cell used to ask on every
 /// appearance, costing a coroutine, a disk check, a database write and a log line each time.
-@MainActor
 @Suite("CoverPersistence")
 struct CoverPersistenceTests {
     private final class Recorder {

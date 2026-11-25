@@ -23,7 +23,6 @@ enum StagedAvatar: Equatable {
 /// avatar action passes straight through to a VM setter. The SwiftUI view keeps no
 /// parallel `@State` copy.
 @Observable
-@MainActor
 final class EditProfileObserver {
     private(set) var isLoading: Bool = true
     private(set) var user: User?
@@ -138,7 +137,7 @@ final class EditProfileObserver {
     /// Projects the VM's `AvatarChange` onto the Swift-friendly `StagedAvatar`. An upload
     /// is previewed from the locally retained `pickedImage`; if that's somehow absent we
     /// fall back to `.none` rather than fabricate empty image data.
-    nonisolated static func stagedAvatar(for change: AvatarChange, pickedImage: Data?) -> StagedAvatar {
+    static func stagedAvatar(for change: AvatarChange, pickedImage: Data?) -> StagedAvatar {
         switch change.sealedType() {
         case .none:
             return .none

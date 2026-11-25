@@ -5,7 +5,6 @@ import Testing
 /// The car's Continue Listening list is every book in progress — the loaded one included — exactly as Android Auto
 /// reads it (`BrowseTreeProvider` → `HomeRepository`), not Home's rail, which leaves the loaded book out (spec F1).
 @Suite("CarPlay home wrapper")
-@MainActor
 struct CarPlayHomeWrapperTests {
     @Test func itemsMapEveryBookInProgressInOrder() {
         let book = ContinueListeningBook(

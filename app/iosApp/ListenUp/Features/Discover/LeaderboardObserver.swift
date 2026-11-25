@@ -13,7 +13,6 @@ import Shared
 ///
 /// Thin over `FlowBridge`; the `Data` mapping lives in a pure, testable helper.
 @Observable
-@MainActor
 final class LeaderboardObserver {
     // MARK: - State
 
@@ -86,9 +85,8 @@ final class LeaderboardObserver {
     }
 
     /// Pure: map the ranking for `metric` to display rows; the reader's own row is the entry
-    /// marked `isYou`. `nonisolated` because it touches no actor state — callable from tests off
-    /// the main actor.
-    nonisolated static func rows(
+    /// marked `isYou`.
+    static func rows(
         from snapshot: LeaderboardSnapshot,
         metric: LeaderboardMetric = .time
     ) -> [LeaderboardRow] {

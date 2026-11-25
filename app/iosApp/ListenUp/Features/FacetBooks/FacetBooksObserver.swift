@@ -53,7 +53,6 @@ struct FacetBooksSnapshot: Equatable {
 /// properties the SwiftUI screen binds to. The Kotlin `BookListItem`s are projected to native
 /// `BookRow` value types at this boundary so the grid never feeds bridged objects to a `ForEach`.
 @Observable
-@MainActor
 final class FacetBooksObserver {
     private(set) var phase: FacetBooksPhase = .loading
     private(set) var facetName: String = ""

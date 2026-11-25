@@ -120,7 +120,7 @@ struct AdminView: View {
         guard !hasArrived, arrival != .waiting else { return }
         hasArrived = true
         if case .scroll(let section) = arrival {
-            Task { @MainActor in
+            Task {
                 withAnimation { proxy.scrollTo(section, anchor: .top) }
             }
         }

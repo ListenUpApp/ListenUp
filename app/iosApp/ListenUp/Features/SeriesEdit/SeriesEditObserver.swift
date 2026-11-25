@@ -6,7 +6,6 @@ import Shared
 /// properties and dispatching edits as `SeriesEditUiEvent`s. `NavigateBack` flips
 /// `didFinish` so the sheet dismisses.
 @Observable
-@MainActor
 final class SeriesEditObserver {
     /// Loading, failed to load, or editing — the sheet switches on this first.
     private(set) var phase: EditScreenPhase = .loading

@@ -7,7 +7,6 @@ import ListenupContract
 
 /// Now Playing read the way VoiceOver meets it (player spec §8): the header, the transport by state, the settings row,
 /// and the state card that takes the transport's place.
-@MainActor
 @Suite("Now Playing accessibility", .serialized)
 struct NowPlayingAccessibilityTests {
     private func host(_ state: PlayerUiStateLoaded) async -> HostedView {

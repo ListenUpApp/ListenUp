@@ -6,7 +6,6 @@ import Shared
 /// guard against feeding Swift-Export-bridged Kotlin objects into a `ForEach` (iosApp rule 8).
 /// Mirrors `DirectoryItemMappingTests` (the established native-mapping test style).
 @Suite("LibrarySettings folder row mapping")
-@MainActor
 struct LibraryFolderRowModelTests {
     @Test func mapsIdAndRootPath() {
         let model = LibraryFolderRowModel(from: LibraryFolderRef(id: "f1", rootPath: "/media/books"))
@@ -22,7 +21,6 @@ struct LibraryFolderRowModelTests {
 }
 
 @Suite("LibrarySettings browser entry mapping")
-@MainActor
 struct BrowserEntryModelTests {
     @Test func mapsNamePathAndId() {
         let model = BrowserEntryModel(from: DirectoryEntryResponse(name: "Books", path: "/media/books"))
@@ -35,7 +33,6 @@ struct BrowserEntryModelTests {
 
 /// Try Again on a library-settings screen whose load failed reaches the shared ViewModel, which starts over.
 @Suite("LibrarySettings retry")
-@MainActor
 struct LibrarySettingsRetryTests {
     @Test func tryAgainAfterAFailedLoadStartsTheLoadOver() async throws {
         // No server is configured under test, so the first load fails.

@@ -44,7 +44,6 @@ struct LanguageChoice: Identifiable, Hashable {
 /// Swift Export-bridged Kotlin object ever reaches a `ForEach`. Both display+remove and the
 /// search-and-add pickers are wired here.
 @Observable
-@MainActor
 final class BookEditObserver {
     /// Loading, failed to load, or editing — the sheet switches on this first.
     private(set) var phase: EditScreenPhase = .loading
@@ -99,7 +98,7 @@ final class BookEditObserver {
 
     /// Whether the Collections section shows the "choosing collections releases" line. Only an
     /// admin sees Collections at all, and only a held book has an inbox to leave.
-    nonisolated static func warnsCollectionsRelease(isAdmin: Bool, isHeld: Bool) -> Bool { isAdmin && isHeld }
+    static func warnsCollectionsRelease(isAdmin: Bool, isHeld: Bool) -> Bool { isAdmin && isHeld }
 
     // Raw Kotlin lists retained for the id→object lookup when a chip's remove button is tapped.
     // Held off the SwiftUI diff path (never iterated by a ForEach), so they don't re-bridge.
@@ -454,19 +453,19 @@ final class BookEditObserver {
     /// `List<ContributorRole>` traps, and a Swift-constructed value is only safe in the
     /// function-argument direction. Mirrors `ContributorRole` in the contract — a role added there
     /// must be added here, which `BookEditObserverTests` pins.
-    nonisolated static let allRoleApiValues = [
+    static let allRoleApiValues = [
         "author", "narrator", "editor", "translator", "foreword",
         "introduction", "afterword", "producer", "adapter", "illustrator"
     ]
 
     /// The role's display name from its `apiValue`. Falls back to the raw value for a role this
     /// build does not know — visible and searchable, rather than blank.
-    nonisolated static func roleTitle(roleApiValue: String) -> String {
+    static func roleTitle(roleApiValue: String) -> String {
         guard let role = roleFromApiValue(roleApiValue) else { return roleApiValue }
         return roleTitle(role)
     }
 
-    nonisolated static func roleFromApiValue(_ apiValue: String) -> ContributorRole? {
+    static func roleFromApiValue(_ apiValue: String) -> ContributorRole? {
         switch apiValue {
         case "author": return .author
         case "narrator": return .narrator
@@ -484,7 +483,7 @@ final class BookEditObserver {
 
     /// Localized display name for a contributor role. Kept in Swift (not the Kotlin `displayName`
     /// extension, which doesn't reliably cross Swift Export) so the strings resolve from the catalog.
-    nonisolated static func roleTitle(_ role: ContributorRole) -> String {
+    static func roleTitle(_ role: ContributorRole) -> String {
         switch role {
         case .author: return String(localized: "book.role_author")
         case .narrator: return String(localized: "book.role_narrator")
@@ -511,7 +510,7 @@ final class BookEditObserver {
     }
     /// "in Cosmere › Mistborn · 8 books" — where the series sits, so two series with one name can be
     /// told apart. Shared with bulk edit's "Add to series".
-    nonisolated static func seriesResult(_ result: SeriesSearchResult) -> RelationSearchResult {
+    static func seriesResult(_ result: SeriesSearchResult) -> RelationSearchResult {
         RelationSearchResult(
             id: result.id,
             name: result.name,

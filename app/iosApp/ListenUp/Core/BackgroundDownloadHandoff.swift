@@ -4,7 +4,6 @@ import UIKit
 
 /// The two calls into the shared download service that UIKit's background-session hooks make — a protocol so a test
 /// can stand in for the Kotlin graph and for a wake the system only gives a real, backgrounded app.
-@MainActor
 protocol BackgroundDownloadEvents {
     /// Create the background sessions and reconcile them with the database.
     func attach()
@@ -30,7 +29,6 @@ struct SharedBackgroundDownloads: BackgroundDownloadEvents {
 /// lets the system suspend the app again and refresh its snapshot. Called too early, iOS can suspend the app between a
 /// file landing on disk and its row saying so; never called, iOS stops waking it. So the handler waits for the drain —
 /// and is called when the drain throws, too. A second wake for a session whose drain is still running joins it.
-@MainActor
 final class BackgroundDownloadHandoff {
     static let shared = BackgroundDownloadHandoff()
 

@@ -11,12 +11,11 @@ import Testing
 /// has begun, from the wait's own isolation domain, always resumes it. Under the pre-fix
 /// off-actor gate they race and can hang; under the `isolation:`-pinned gate they are
 /// deterministic on the single-threaded domain.
-@MainActor
 @Suite("AsyncGate isolation")
 struct AsyncGateTests {
     @Test func resumesWhenKeyFiresAfterWaitBegins() async {
         let gate = AsyncGate()
-        let waiting = Task { @MainActor in await gate.wait(forKey: "resumeDownloads") }
+        let waiting = Task { await gate.wait(forKey: "resumeDownloads") }
         // Hand the main actor to the child so its wait registers, then fire from this same
         // domain. A lost wakeup here would hang `waiting.value` — the exact boot-test failure.
         await Task.yield()
@@ -27,7 +26,7 @@ struct AsyncGateTests {
     @Test func resumesWhenPredicateSignalsAfterWaitBegins() async {
         let gate = AsyncGate()
         var ready = false
-        let waiting = Task { @MainActor in await gate.wait(until: { ready }) }
+        let waiting = Task { await gate.wait(until: { ready }) }
         await Task.yield()
         ready = true
         gate.signal()

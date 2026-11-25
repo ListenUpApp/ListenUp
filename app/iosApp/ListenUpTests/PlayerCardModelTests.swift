@@ -5,7 +5,6 @@ import ListenupContract
 @preconcurrency import Shared
 
 @Suite("The shared state card as native values")
-@MainActor
 struct PlayerCardModelTests {
     @Test("no card while playing")
     func playing() {

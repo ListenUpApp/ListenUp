@@ -5,7 +5,6 @@ import Shared
 /// `@Observable` properties and projects the VM's type filter onto a single-select
 /// `SearchScope`. Thin over `FlowBridge`, mirroring `LibraryObserver`.
 @Observable
-@MainActor
 final class SearchObserver {
     // MARK: - Flattened state
 

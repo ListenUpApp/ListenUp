@@ -23,7 +23,6 @@ enum MyShelvesPhase: Equatable {
 /// Observes `MyShelvesViewModel` for the My Shelves list. Its one action is Try Again; opening a shelf and starting a
 /// new one are navigation and a sheet.
 @Observable
-@MainActor
 final class MyShelvesObserver {
     private(set) var phase: MyShelvesPhase = .loading
 

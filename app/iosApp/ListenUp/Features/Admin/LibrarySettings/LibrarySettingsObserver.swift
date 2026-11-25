@@ -12,7 +12,6 @@ import Shared
 ///
 /// Thin over `FlowBridge`, mirroring `AdminObserver` / `LibrarySetupViewModelWrapper`.
 @Observable
-@MainActor
 final class LibrarySettingsObserver {
     // MARK: - State
 

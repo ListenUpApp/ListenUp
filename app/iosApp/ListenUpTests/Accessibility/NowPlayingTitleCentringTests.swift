@@ -8,7 +8,6 @@ import UIKit
 /// by …", each centred on the cover to within a point, at a short title, a two-line title and an accessibility size.
 /// The HIG accepts either alignment for a media title (Playing audio); Simon chose centred. iPad's wide player keeps its
 /// own leading block.
-@MainActor
 @Suite("Now Playing title centring", .serialized)
 struct NowPlayingTitleCentringTests {
     private static func state(title: String = "The Way of Kings") -> PlayerUiStateLoaded {

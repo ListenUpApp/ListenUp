@@ -147,32 +147,32 @@ struct RatingStarsView: View {
 
     // MARK: - Pure helpers (unit-tested)
 
-    nonisolated static let starCount = 5
+    static let starCount = 5
     /// Apple's minimum touch target.
     static let minInputHeight: CGFloat = 44
     private static let emptySymbol = "star"
 
-    nonisolated static var minHalfStars: Int { Int(ListenerRatingLimits.shared.MIN_HALF_STARS) }
-    nonisolated static var maxHalfStars: Int { Int(ListenerRatingLimits.shared.MAX_HALF_STARS) }
+    static var minHalfStars: Int { Int(ListenerRatingLimits.shared.MIN_HALF_STARS) }
+    static var maxHalfStars: Int { Int(ListenerRatingLimits.shared.MAX_HALF_STARS) }
 
     /// The number of stars every platform says for `halfStars` ("4", "3.5"); an average rounds to
     /// the nearest half.
-    nonisolated static func starsLabel(_ halfStars: Double) -> String {
+    static func starsLabel(_ halfStars: Double) -> String {
         ListenerRatingLimits.shared.starsLabel(halfStars: halfStars)
     }
 
     /// "3.5 out of 5 stars".
-    nonisolated static func starsA11y(halfStars: Int) -> String {
+    static func starsA11y(halfStars: Int) -> String {
         String(localized: .ratingStarsA11Y(starsLabel(Double(halfStars))))
     }
 
     /// The input's VoiceOver value: the stars, or "Not rated" before one is chosen.
-    nonisolated static func spokenValue(halfStars: Int) -> String {
+    static func spokenValue(halfStars: Int) -> String {
         halfStars < minHalfStars ? String(localized: "rating.stars_unrated") : starsA11y(halfStars: halfStars)
     }
 
     /// The SF Symbol for star `index` (0-based) of a `halfStars` rating.
-    nonisolated static func symbol(halfStars: Int, index: Int) -> String {
+    static func symbol(halfStars: Int, index: Int) -> String {
         let starEnd = (index + 1) * 2
         if halfStars >= starEnd { return "star.fill" }
         if halfStars == starEnd - 1 { return "star.leadinghalf.filled" }
@@ -182,7 +182,7 @@ struct RatingStarsView: View {
     /// The rating a touch at `x` sets on five equal stars spanning `width`. The start half of a star
     /// counts half of it, the end half counts it whole; the start is the right edge in RTL. Clamped
     /// to one...five stars, so a touch at the very start still rates the book.
-    nonisolated static func halfStars(forX x: CGFloat, width: CGFloat, isRightToLeft: Bool = false) -> Int {
+    static func halfStars(forX x: CGFloat, width: CGFloat, isRightToLeft: Bool = false) -> Int {
         guard width > 0 else { return minHalfStars }
         let fromStart = isRightToLeft ? width - x : x
         let halves = Int((fromStart / (width / CGFloat(starCount)) * 2).rounded(.up))
@@ -191,13 +191,13 @@ struct RatingStarsView: View {
 
     /// Whether a drag of `translation` is someone scrolling past the stars rather than rating: it has
     /// travelled further up or down than across, beyond a tap's wobble.
-    nonisolated static func isScrollAttempt(_ translation: CGSize) -> Bool {
+    static func isScrollAttempt(_ translation: CGSize) -> Bool {
         abs(translation.height) > 12 && abs(translation.height) > abs(translation.width)
     }
 
     /// One VoiceOver step of `delta` halves. The first step up from unrated lands on one star; a
     /// step down from unrated stays unrated.
-    nonisolated static func stepped(_ halfStars: Int, by delta: Int) -> Int {
+    static func stepped(_ halfStars: Int, by delta: Int) -> Int {
         if halfStars < minHalfStars { return delta > 0 ? minHalfStars : halfStars }
         return min(max(halfStars + delta, minHalfStars), maxHalfStars)
     }

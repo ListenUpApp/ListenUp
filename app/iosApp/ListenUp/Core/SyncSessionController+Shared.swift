@@ -1,5 +1,5 @@
 import Foundation
-import Shared
+@preconcurrency import Shared
 
 extension SyncSessionController {
     /// The process's one sync session, over the shared `SyncRepository` and `DownloadService`.

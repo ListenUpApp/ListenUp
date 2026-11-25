@@ -9,7 +9,6 @@ struct ObserverDefaultID: Equatable {}
 /// `@MainActor` `body` pass without mutating `@State` or allocating wasted instances on parent redraws.
 /// Changing `id` replaces the stored value immediately, releasing the previous observer (and its
 /// `FlowBridge` / owned Kotlin ViewModel). Releasing the slot runs `isolated deinit` on `@MainActor`.
-@MainActor
 final class ObserverSlot<ID: Equatable, Value> {
     private var entry: (id: ID, value: Value)?
 

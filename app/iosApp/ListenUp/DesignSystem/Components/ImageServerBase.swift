@@ -10,7 +10,6 @@ import ListenupContract
 /// including a switch between the local and remote address). Each change is also handed to
 /// `AuthenticatingDataLoader`, which attaches the access token only to requests for this host.
 @Observable
-@MainActor
 final class ImageServerBase {
     static let shared = ImageServerBase()
 

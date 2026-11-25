@@ -6,10 +6,10 @@ import AVFoundation
 // is unit-testable in isolation (and to keep the coordinator file focused).
 
 /// Pure decision for an audio-session interruption — testable without notifications.
-enum InterruptionPolicy {
+nonisolated enum InterruptionPolicy {
     /// `.declined` is an interruption that ended without the system's leave to resume: it is over, so the
     /// pause it caused must stop waiting for a resume that will never be its own.
-    enum Action: Equatable { case pause, resume, declined, none }
+    enum Action: Sendable, Equatable { case pause, resume, declined, none }
     static func action(type: AVAudioSession.InterruptionType, shouldResume: Bool) -> Action {
         switch type {
         case .began: return .pause
@@ -20,7 +20,7 @@ enum InterruptionPolicy {
 }
 
 /// Pure decision for an audio-route change — testable without notifications.
-enum RouteChangePolicy {
+nonisolated enum RouteChangePolicy {
     /// Pause only when the previous output device went away (headphones/AirPods
     /// unplugged) — otherwise audio would blast out of the speaker (charter rule 13).
     static func shouldPause(reason: AVAudioSession.RouteChangeReason) -> Bool {

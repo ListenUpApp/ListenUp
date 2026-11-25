@@ -29,7 +29,6 @@ enum KeptOffEffect: Equatable {
 /// Observes `KeptOffBooksViewModel` (#1541): flattens its state into a native `KeptOffPhase`, announces each
 /// Sync Again, closes the list after the last, and turns a refusal into an alert (iosApp rule 10).
 @Observable
-@MainActor
 final class HardcoverKeptOffObserver {
     private(set) var phase: KeptOffPhase = .loading
     /// The error to show, from a refused Sync Again. Cleared when the alert is dismissed.
@@ -62,7 +61,7 @@ final class HardcoverKeptOffObserver {
 
     // MARK: - Pure mappings (unit-tested)
 
-    nonisolated static func phase(from state: KeptOffBooksUiState) -> KeptOffPhase {
+    static func phase(from state: KeptOffBooksUiState) -> KeptOffPhase {
         switch state.sealedType() {
         case .loading:
             return .loading
@@ -81,7 +80,7 @@ final class HardcoverKeptOffObserver {
         }
     }
 
-    nonisolated static func effect(of event: KeptOffBooksEvent) -> KeptOffEffect {
+    static func effect(of event: KeptOffBooksEvent) -> KeptOffEffect {
         switch event.sealedType() {
         case .syncingAgain(let syncingType):
             let syncing = syncingType.value

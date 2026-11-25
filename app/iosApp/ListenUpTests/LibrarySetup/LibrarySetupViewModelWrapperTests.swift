@@ -4,7 +4,6 @@ import Shared
 @testable import ListenUp
 
 @Suite("DirectoryItem mapping")
-@MainActor
 struct DirectoryItemMappingTests {
     private func entry(
         name: String = "Audiobooks",
@@ -42,7 +41,6 @@ struct DirectoryItemMappingTests {
 }
 
 @Suite("LibrarySetupViewModelWrapper selection gate")
-@MainActor
 struct LibrarySetupWrapperSelectionTests {
     /// Build a `LibrarySetupUiState` with explicit `selectedPaths` and `directories` so we
     /// can assert the gate reads the TOTAL selection, not just the visible rows.
@@ -137,7 +135,6 @@ struct LibrarySetupWrapperSelectionTests {
 }
 
 @Suite("LibrarySetupViewModelWrapper phase")
-@MainActor
 struct LibrarySetupWrapperPhaseTests {
     @Test func checkingMapsToChecking() {
         let wrapper = LibrarySetupViewModelWrapper()

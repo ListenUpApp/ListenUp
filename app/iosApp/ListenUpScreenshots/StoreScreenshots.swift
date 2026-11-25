@@ -10,7 +10,7 @@ import XCTest
 ///
 /// The password never passes through `typeText`: XCUITest logs typed text, so the account rides in the
 /// app's launch environment instead and a DEBUG-only hook in `LoginView` pre-fills the form.
-final class StoreScreenshots: XCTestCase {
+nonisolated final class StoreScreenshots: XCTestCase {
 
     private var app: XCUIApplication!
     private var rig: Rig!
@@ -329,7 +329,7 @@ final class StoreScreenshots: XCTestCase {
 }
 
 /// The screenshot-rig server and account, from the test runner's environment.
-private struct Rig {
+private nonisolated struct Rig {
     let serverUrl: String
     let appBundleId: String
     let email: String

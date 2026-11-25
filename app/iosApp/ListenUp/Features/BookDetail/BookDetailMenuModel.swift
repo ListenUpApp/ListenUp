@@ -100,7 +100,7 @@ struct BookDetailMenuSection: Hashable {
 /// The More menu's sections for this device: the shared rule's groups, less Share while the server has not named
 /// itself (no link to share), and never an empty section.
 enum BookDetailMenuModel {
-    nonisolated static func sections(_ groups: [BookDetailMenuSection], canShare: Bool) -> [BookDetailMenuSection] {
+    static func sections(_ groups: [BookDetailMenuSection], canShare: Bool) -> [BookDetailMenuSection] {
         groups
             .map { section in
                 canShare ? section : BookDetailMenuSection(

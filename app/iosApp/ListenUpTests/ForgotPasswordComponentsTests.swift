@@ -7,7 +7,6 @@ import Testing
 /// Both are pinned here because getting either wrong is silent. An attempts threshold that shouts
 /// too early spends the alarm before it means anything; a code rule stricter than the server's
 /// rejects input the server would happily accept, from the exact person this flow exists to rescue.
-@MainActor
 @Suite("Forgot password components")
 struct ForgotPasswordComponentsTests {
 

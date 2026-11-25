@@ -5,7 +5,6 @@ import ListenupContract
 /// Observes `BookDetailViewModel` — flattens the sealed `BookDetailUiState` into
 /// flat `@Observable` properties, plus a download-status secondary flow. Thin over `FlowBridge`.
 @Observable
-@MainActor
 final class BookDetailObserver {
     // MARK: - Flattened state
 
@@ -169,7 +168,7 @@ final class BookDetailObserver {
     }
 
     /// Pure: a play is in flight for exactly `bookId`.
-    nonisolated static func isPlayPending(preparingBookId: String?, bookId: String?) -> Bool {
+    static func isPlayPending(preparingBookId: String?, bookId: String?) -> Bool {
         guard let bookId else { return false }
         return preparingBookId == bookId
     }
@@ -533,7 +532,7 @@ final class BookDetailObserver {
     }
 
     /// Pure: which reaction a nav action asks for.
-    nonisolated static func navReaction(to action: BookDetailNavAction) -> BookDetailNavReaction {
+    static func navReaction(to action: BookDetailNavAction) -> BookDetailNavReaction {
         switch action.sealedType() {
         case .openDocumentViewer(let openType):
             return .openDocument(localPath: openType.value.localPath)

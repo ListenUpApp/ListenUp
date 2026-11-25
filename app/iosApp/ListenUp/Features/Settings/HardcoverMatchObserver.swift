@@ -80,7 +80,6 @@ enum HardcoverMatchEffect: Equatable {
 /// Observes `HardcoverMatchViewModel`: flattens its state, closes the sheet on a link or a removed
 /// match, and turns errors into an alert (iosApp rule 10).
 @Observable
-@MainActor
 final class HardcoverMatchObserver {
     private(set) var phase: HardcoverMatchPhase = .loading
     /// The error to show, from a failed link or removal. Cleared when the alert is dismissed.
@@ -125,7 +124,7 @@ final class HardcoverMatchObserver {
 
     // MARK: - Pure mappings (unit-tested)
 
-    nonisolated static func phase(from state: HardcoverMatchUiState) -> HardcoverMatchPhase {
+    static func phase(from state: HardcoverMatchUiState) -> HardcoverMatchPhase {
         switch state.sealedType() {
         case .loading: return .loading
         case .bookMissing: return .bookMissing
@@ -146,7 +145,7 @@ final class HardcoverMatchObserver {
         }
     }
 
-    nonisolated static func searchPhase(from search: HardcoverSearchState) -> HardcoverSearchPhase {
+    static func searchPhase(from search: HardcoverSearchState) -> HardcoverSearchPhase {
         switch search.sealedType() {
         case .searching: return .searching
         case .noResults: return .noResults
@@ -158,14 +157,14 @@ final class HardcoverMatchObserver {
         }
     }
 
-    nonisolated static func effect(of event: HardcoverMatchEvent) -> HardcoverMatchEffect {
+    static func effect(of event: HardcoverMatchEvent) -> HardcoverMatchEffect {
         switch event.sealedType() {
         case .linked, .matchRemoved: .dismiss
         case .showError(let errorType): .alert(errorType.value.error.message)
         }
     }
 
-    nonisolated static func candidate(from row: HardcoverCandidateRow) -> HardcoverCandidate {
+    static func candidate(from row: HardcoverCandidateRow) -> HardcoverCandidate {
         let detail = [
             row.hasAudiobookEdition ? String(localized: "hardcover.match_audiobook") : nil,
             row.releaseYear.map { String($0) }
@@ -182,7 +181,7 @@ final class HardcoverMatchObserver {
         )
     }
 
-    nonisolated static func currentMatch(from match: HardcoverMatchedBook) -> HardcoverCurrentMatch {
+    static func currentMatch(from match: HardcoverMatchedBook) -> HardcoverCurrentMatch {
         HardcoverCurrentMatch(
             title: match.title ?? String(localized: "hardcover.book_row_matched_unnamed"),
             byline: byline(authors: match.authors, year: match.releaseYear)
@@ -190,7 +189,7 @@ final class HardcoverMatchObserver {
     }
 
     /// "Andy Weir, Ray Porter · 2021": two credited names (Hardcover lists narrators too), then the year.
-    nonisolated static func byline(authors: [String], year: Int32?) -> String? {
+    static func byline(authors: [String], year: Int32?) -> String? {
         let parts = [authors.prefix(2).joined(separator: ", "), year.map { String($0) }]
             .compactMap { $0 }
             .filter { !$0.isEmpty }
@@ -198,7 +197,7 @@ final class HardcoverMatchObserver {
     }
 
     /// "47,312 ratings", "1 rating", or "No ratings yet", the count grouped for the reader's locale.
-    nonisolated static func ratingsText(_ count: Int32?) -> String {
+    static func ratingsText(_ count: Int32?) -> String {
         guard let count, count > 0 else { return String(localized: "hardcover.match_ratings_none") }
         if count == 1 { return String(localized: "hardcover.match_ratings_one") }
         return String(localized: .hardcoverMatchRatings(Int(count).formatted()))

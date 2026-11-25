@@ -5,7 +5,6 @@ import Shared
 /// SwiftUI-native `StatsPhase` for the Home stats section. Thin over `FlowBridge`;
 /// the `Data` mapping lives in a pure, testable initializer.
 @Observable
-@MainActor
 final class HomeStatsObserver {
     // MARK: - State
 

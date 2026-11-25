@@ -9,7 +9,7 @@ import os
 /// here on purpose: the real-time audio thread must never call into the Kotlin runtime, which
 /// can allocate and take locks. The shared implementation stays the specification; this is its
 /// audio-thread-safe transcription.
-final class GainCell: Sendable {
+nonisolated final class GainCell: Sendable {
     private let linear = OSAllocatedUnfairLock<Float>(initialState: 1)
 
     /// Set the boost in decibels. 0 dB is unity.
@@ -28,7 +28,7 @@ final class GainCell: Sendable {
 /// audio thread. Guarded by `os_unfair_lock`, the only lock cheap enough for that side.
 ///
 /// The buffer is allocated once, in `setFormat`; `write` never allocates.
-final class SampleRing: Sendable {
+nonisolated final class SampleRing: Sendable {
     /// How much audio the ring holds. Wide enough that a worker drain every 500 ms has eight
     /// passes of slack before the oldest samples roll off.
     private static let capacitySeconds = 4.0
@@ -141,7 +141,7 @@ final class SampleRing: Sendable {
 /// Everything a tap's C callbacks need, reached through `clientInfo`/tap storage. Retained when
 /// the tap is created and released in the finalize callback — the tap outlives the Swift call
 /// that made it.
-final class GainTapContext: Sendable {
+nonisolated final class GainTapContext: Sendable {
     let gain: GainCell
     let ring: SampleRing
 
@@ -165,7 +165,7 @@ final class GainTapContext: Sendable {
 }
 
 /// Builds the `AVAudioMix` that carries the volume-boost gain stage.
-enum GainTap {
+nonisolated enum GainTap {
     /// Create a fresh tap and wrap it in a mix ready to assign to `AVPlayerItem.audioMix`.
     /// One mix per item — a tap belongs to exactly one item, so every item in a queue rebuild
     /// needs its own call.
@@ -264,7 +264,7 @@ enum GainTap {
 /// This replaced `min(1, max(-1, …))`. A brick wall flattens the tops off a waveform, which
 /// manufactures high-order harmonics — heard as a buzz, and heard worst on a phone speaker, which
 /// reproduces the harmonics but not the fundamental that would otherwise mask them.
-enum GainCurve {
+nonisolated enum GainCurve {
     /// Must equal Kotlin `VolumeGain.KNEE_LINEAR`.
     static let knee: Float = 0.708
     /// Must equal Kotlin `VolumeGain.CEILING_LINEAR`.
@@ -287,7 +287,7 @@ enum GainCurve {
 // the tap's storage. Everything below `prepare` runs on the real-time audio thread — no
 // allocation, no Kotlin, no Swift runtime calls that could take an unbounded lock.
 
-private func gainTapInit(
+nonisolated private func gainTapInit(
     tap: MTAudioProcessingTap,
     clientInfo: UnsafeMutableRawPointer?,
     tapStorageOut: UnsafeMutablePointer<UnsafeMutableRawPointer?>
@@ -295,11 +295,11 @@ private func gainTapInit(
     tapStorageOut.pointee = clientInfo
 }
 
-private func gainTapFinalize(tap: MTAudioProcessingTap) {
+nonisolated private func gainTapFinalize(tap: MTAudioProcessingTap) {
     Unmanaged<GainTapContext>.fromOpaque(MTAudioProcessingTapGetStorage(tap)).release()
 }
 
-private func gainTapPrepare(
+nonisolated private func gainTapPrepare(
     tap: MTAudioProcessingTap,
     maxFrames: CMItemCount,
     processingFormat: UnsafePointer<AudioStreamBasicDescription>
@@ -313,7 +313,7 @@ private func gainTapPrepare(
 // Six parameters because `MTAudioProcessingTapProcessCallback` declares six — the signature is
 // MediaToolbox's, not ours, and the function pointer won't convert if it differs.
 // swiftlint:disable:next function_parameter_count
-private func gainTapProcess(
+nonisolated private func gainTapProcess(
     tap: MTAudioProcessingTap,
     numberFrames: CMItemCount,
     flags: MTAudioProcessingTapFlags,

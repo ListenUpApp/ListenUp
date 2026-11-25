@@ -6,7 +6,6 @@ import Testing
 /// moment it handles the notification), or on `session.settle` where a post must change nothing, before releasing
 /// the load, so the interleaving is forced, not slept.
 @Suite("Interruption during a load", .serialized)
-@MainActor
 struct InterruptionDuringLoadTests {
     private let session = AudioSessionPoster()
 

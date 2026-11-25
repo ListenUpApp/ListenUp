@@ -4,7 +4,6 @@ import Shared
 /// Observes `LoginViewModel`'s `state` flow, flattening `LoginUiState` into
 /// SwiftUI-native properties. Thin over `FlowBridge`.
 @Observable
-@MainActor
 final class LoginViewModelWrapper {
     private(set) var isLoading: Bool = false
     private(set) var isSuccess: Bool = false

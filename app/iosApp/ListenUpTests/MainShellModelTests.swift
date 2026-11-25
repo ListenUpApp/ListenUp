@@ -2,7 +2,6 @@ import SwiftUI
 import Testing
 @testable import ListenUp
 
-@MainActor
 @Suite("Main shell navigation")
 struct MainShellModelTests {
     // MARK: - Sidebar or tab bar

@@ -15,7 +15,6 @@ import Shared
 /// so the screen's ViewModel ends with the screen. `cancelAll()` stays callable from any
 /// thread for the cases that re-bind: the task list is guarded by an `OSAllocatedUnfairLock`,
 /// and `Task.cancel()` is itself thread-safe.
-@MainActor
 final class FlowBridge {
     // Lock-guarded so cancellation is isolation-free and callable from a nonisolated deinit.
     // `Task.cancel()` is thread-safe; the lock only protects the array mutation.
@@ -39,7 +38,7 @@ final class FlowBridge {
         onError: (@MainActor (Error) -> Void)? = nil,
         to sink: @escaping @MainActor (S.Element) -> Void
     ) {
-        let task = Task { @MainActor in
+        let task = Task {
             // `for await` keeps the iterator confined to this `@MainActor` task —
             // the manual `iterator.next()` form `sending`s the non-Sendable bridged
             // iterator under Swift 6 strict concurrency.

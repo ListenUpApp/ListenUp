@@ -6,7 +6,6 @@ import UIKit
 
 /// The Library list appears at once; its covers are decoded behind it, off the main actor.
 @Suite("CarPlay Library rendering")
-@MainActor
 struct CarPlayLibraryRenderTests {
     /// Holds every decode back until `open()`, so a test can look at the list before any cover exists.
     private actor DecodeGate {

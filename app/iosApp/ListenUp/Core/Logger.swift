@@ -16,7 +16,7 @@ import Shared
 /// Settings → Share logs hands over), `detail` included: a file the user chooses to share is the
 /// whole point of keeping it, and `<private>` would leave it saying nothing. The rule for `detail`
 /// therefore stands as it always has — redact credentials before they reach it (`UrlRedaction`).
-enum Log {
+nonisolated enum Log {
     private static let subsystem = Bundle.main.bundleIdentifier ?? "com.calypsan.listenup"
 
     static func debug(_ message: String, detail: String? = nil, file: String = #fileID) {
@@ -116,7 +116,7 @@ enum Log {
 /// The server signs audio URLs with an HMAC in the query string
 /// (`/api/v1/audio/{book}/{file}?u=&exp=&sig=`), so logging one verbatim writes a live
 /// credential into the device log. The path alone is what diagnosis actually needs.
-enum UrlRedaction {
+nonisolated enum UrlRedaction {
     static func withoutQuery(_ raw: String?) -> String {
         guard let raw, let components = URLComponents(string: raw) else { return "—" }
         guard let host = components.host else { return components.path.isEmpty ? "—" : components.path }

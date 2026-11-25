@@ -3,7 +3,6 @@ import Testing
 @testable import ListenUp
 
 /// Kept Off Hardcover at the largest text sizes (#1562, M4 and m4).
-@MainActor
 @Suite("Kept off Hardcover accessibility", .serialized)
 struct HardcoverKeptOffAccessibilityTests {
     private let book = KeptOffBookRow(

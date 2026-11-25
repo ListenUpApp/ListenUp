@@ -6,7 +6,6 @@ import Shared
 ///
 /// 2026-09-25: Android committed every pointer move of a drag as its own edit, so Undo walked a
 /// drag back a pixel at a time. These pin that iOS commits once, on release, through the same lane.
-@MainActor
 @Suite("ChapterTimeline")
 struct ChapterTimelineModelTests {
     private func chapter(_ id: String, start: Int64) -> Chapter {

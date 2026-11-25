@@ -1,7 +1,7 @@
 import Foundation
 
 /// One file the user picked, as a path the upload can open and the path the server should see.
-struct UploadPick: Equatable, Sendable {
+nonisolated struct UploadPick: Equatable, Sendable {
     /// Where the file sits relative to what was picked — a bare filename for loose files, or a path
     /// that begins with the picked folder's own name.
     let relPath: String
@@ -18,7 +18,7 @@ struct UploadPick: Equatable, Sendable {
 ///
 /// Safe off the main actor: it only reads the filesystem, and every value it returns is `Sendable`.
 /// The caller must already hold the picked URLs' security-scoped access.
-enum UploadSelection {
+nonisolated enum UploadSelection {
     /// Loose files: each is its own filename, with no folder invented for it.
     static func files(_ urls: [URL]) -> [UploadPick] {
         urls.map { UploadPick(relPath: $0.lastPathComponent, path: $0.path) }

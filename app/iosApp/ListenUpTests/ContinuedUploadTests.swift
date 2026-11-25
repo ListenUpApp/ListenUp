@@ -2,7 +2,6 @@ import Foundation
 import Testing
 @testable import ListenUp
 
-@MainActor
 private final class FakeTask: ContinuedTask {
     let progress = Progress(totalUnitCount: 0)
     var expirationHandler: (() -> Void)?
@@ -12,7 +11,6 @@ private final class FakeTask: ContinuedTask {
     func updateTitle(_ title: String, subtitle: String) { subtitles.append(subtitle) }
 }
 
-@MainActor
 private final class FakeHold: UploadHold {
     private(set) var holds = 0
     private(set) var releases = 0
@@ -20,7 +18,6 @@ private final class FakeHold: UploadHold {
     func release() { releases += 1 }
 }
 
-@MainActor
 private final class Harness {
     struct Refused: Error {}
     let hold = FakeHold()
@@ -55,7 +52,6 @@ private func model(file: Int = 1, of count: Int = 2, fraction: Double? = nil) ->
 }
 
 @Suite("ContinuedUpload")
-@MainActor
 struct ContinuedUploadTests {
     @Test func startSubmitsOneRequestAndASecondStartDoesNot() {
         let harness = Harness()

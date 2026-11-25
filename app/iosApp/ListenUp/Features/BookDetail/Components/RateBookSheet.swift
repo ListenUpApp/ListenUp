@@ -29,7 +29,7 @@ struct RateBookSheet: View {
     }
 
     /// Whether the sheet holds a rating other than the one it opened on — what Cancel would lose.
-    nonisolated static func hasChanges(halfStars: Int, note: String, openedOn current: MyRating?) -> Bool {
+    static func hasChanges(halfStars: Int, note: String, openedOn current: MyRating?) -> Bool {
         halfStars != (current?.halfStars ?? 0) || note != (current?.note ?? "")
     }
 
@@ -107,14 +107,14 @@ struct RateBookSheet: View {
 /// as much of the *inserted* text as fits — whole characters, never half a surrogate pair — and
 /// never chops the end of what was already written.
 enum RatingNote {
-    nonisolated static var maxLength: Int { Int(ListenerRatingLimits.shared.NOTE_MAX_CHARS) }
+    static var maxLength: Int { Int(ListenerRatingLimits.shared.NOTE_MAX_CHARS) }
 
     /// The note's length in UTF-16 units — the unit the server validates.
-    nonisolated static func length(_ note: String) -> Int { note.utf16.count }
+    static func length(_ note: String) -> Int { note.utf16.count }
 
     /// `proposed` if it fits in `maxLength` (or shortens `previous`); otherwise `proposed` with its
     /// inserted run clipped to what fits between the unchanged head and tail.
-    nonisolated static func limited(_ proposed: String, previous: String, maxLength: Int) -> String {
+    static func limited(_ proposed: String, previous: String, maxLength: Int) -> String {
         let proposedLength = length(proposed)
         guard proposedLength > maxLength, proposedLength > length(previous) else { return proposed }
 

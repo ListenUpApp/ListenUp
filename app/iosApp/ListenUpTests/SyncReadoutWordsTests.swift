@@ -4,7 +4,6 @@ import Testing
 @testable import ListenUp
 
 /// The sync readout's wording over the shared `SyncReadout` rule, and what a failed refresh does to the indicator.
-@MainActor
 @Suite("Sync readout words")
 struct SyncReadoutWordsTests {
     @Test func eachReadoutIsWordedFromTheCatalog() {

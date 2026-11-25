@@ -15,7 +15,6 @@ import ListenupContract
 /// Row models and the status classification live in pure, testable initializers / statics.
 /// Thin over `FlowBridge`, mirroring `AdminObserver`.
 @Observable
-@MainActor
 final class ABSImportHubObserver {
     // MARK: - State
 
@@ -49,8 +48,7 @@ final class ABSImportHubObserver {
     }
 
     /// Pure: project the sealed `ABSImportListUiState` onto the hub screen's phase.
-    /// `nonisolated` so tests can exercise it off the main actor.
-    nonisolated static func phase(from state: ABSImportListUiState) -> ImportHubPhase {
+    static func phase(from state: ABSImportListUiState) -> ImportHubPhase {
         switch state.sealedType() {
         case .loading:
             return .loading

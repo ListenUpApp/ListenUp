@@ -10,7 +10,7 @@ struct NotificationsView: View {
     let route: (NotificationTapOutcome) -> Void
 
     /// One formatter for every row — creating one per row is measurable list-scroll work.
-    @MainActor private static let relativeFormatter = RelativeDateTimeFormatter()
+    private static let relativeFormatter = RelativeDateTimeFormatter()
 
     var body: some View {
         WithObserver {

@@ -8,7 +8,6 @@ import ListenupContract
 
 /// The sleep timer ticks once a second; only the surfaces that draw the countdown may redraw for it.
 @Suite("A sleep-timer tick reaches only the countdown's readers")
-@MainActor
 struct PlayerObserverTickTests {
     private static func state(remainingMs: Int64) -> PlayerUiStateLoaded {
         .fixture(sleepTimer: SleepTimerStateActive(

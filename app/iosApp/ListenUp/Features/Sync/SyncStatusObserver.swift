@@ -62,7 +62,6 @@ struct SyncStatusPresentation: Equatable {
 /// Thin over `FlowBridge`; failed operations are projected to native `PendingOperationRow` values
 /// so the details list never feeds bridged Kotlin objects to a `ForEach`.
 @Observable
-@MainActor
 final class SyncStatusObserver {
     private(set) var isSyncing: Bool = false
     private(set) var pendingCount: Int = 0

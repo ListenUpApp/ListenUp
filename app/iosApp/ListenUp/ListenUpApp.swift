@@ -178,7 +178,7 @@ private struct RootView: View {
                 }
                 guard taskId != .invalid else { return }   // background time denied; nothing to do
 
-                Task { @MainActor in
+                Task {
                     defer {
                         if taskId != .invalid {
                             UIApplication.shared.endBackgroundTask(taskId)

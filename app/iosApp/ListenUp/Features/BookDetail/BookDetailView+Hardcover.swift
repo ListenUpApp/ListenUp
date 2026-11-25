@@ -2,7 +2,6 @@ import SwiftUI
 
 /// Book Detail's Hardcover section and the two confirmations it asks for, split out of
 /// `BookDetailView.swift` for the same reason `+Held` is: that struct sits at SwiftLint's 400-line body cap.
-@MainActor
 extension BookDetailView {
     /// The Hardcover match, under Readers. Renders only for a connected user, whatever the book's match:
     /// matched, needs a match, never matched, or kept off Hardcover; otherwise it stays out of the layout,

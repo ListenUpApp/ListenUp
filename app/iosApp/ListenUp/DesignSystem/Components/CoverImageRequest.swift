@@ -13,7 +13,6 @@ import Nuke
 /// needs nothing asynchronous and never embeds a token: a cached cover survives token rotation and
 /// the cache keys stay token-free.
 enum CoverImageRequest {
-    @MainActor
     static func book(
         bookId: String?,
         coverPath: String?,

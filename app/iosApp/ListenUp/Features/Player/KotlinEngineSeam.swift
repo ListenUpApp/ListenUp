@@ -3,7 +3,6 @@ import Foundation
 
 /// `NativePlayerEngine.commands`, in order: one `FlowBridge` binding (one task, so order holds, rule 7) hands
 /// each mapped instruction straight to the coordinator as it is collected.
-@MainActor
 final class KotlinEngineInstructions: EngineInstructionSource {
     private let engine: NativePlayerEngine
     private let bridge = FlowBridge()
@@ -38,7 +37,6 @@ final class KotlinEngineInstructions: EngineInstructionSource {
 }
 
 /// Engine facts into `NativePlayerEngine`'s plain, non-suspend methods.
-@MainActor
 struct KotlinEngineFacts: EngineFactReporting {
     let engine: NativePlayerEngine
 

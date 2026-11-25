@@ -8,7 +8,6 @@ import ListenupContract
 /// Now Playing on iPad (player spec §3.11, §5.3, §8; the `NP-iPad` board), read the way VoiceOver and the eye meet it:
 /// the titled header, the series link, the always-visible chapter panel that opens on your chapter and follows only
 /// while you're watching it, its ink on every wash, and the large-text and multitasking fallbacks.
-@MainActor
 @Suite("Now Playing on iPad: the chapter panel", .serialized)
 struct ChapterPanelAccessibilityTests {
     /// The board's landscape iPad, and the same iPad upright.
@@ -415,13 +414,11 @@ struct ChapterPanelAccessibilityTests {
 }
 
 /// Where the series link took the reader.
-@MainActor
 private final class OpenedSeries {
     var ids: [String] = []
 }
 
 /// How many times a row read the playhead.
-@MainActor
 private final class ProgressReads {
     var times = 0
 }

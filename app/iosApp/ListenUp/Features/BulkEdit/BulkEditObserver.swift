@@ -15,7 +15,6 @@ import Shared
 /// ViewModel emits to both the bus and the event channel, so the two are not in competition — the
 /// global surface still catches anything this screen does not.
 @Observable
-@MainActor
 final class BulkEditObserver {
     // MARK: - Flattened state
 

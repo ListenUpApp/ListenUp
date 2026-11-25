@@ -6,7 +6,6 @@ import ListenupContract
 /// The reporter fans each signal out to position persistence *and* (on iOS, where a
 /// recorder is bound) listening-event recording — so iOS listening history reaches the
 /// server. See `PlaybackProgressReporter` in `:app:sharedLogic`.
-@MainActor
 struct KotlinProgressReporting: PlaybackProgressReporting {
     let reporter: PlaybackProgressReporter
     func onPlaybackStarted(bookId: String, positionMs: Int64, speed: Float, durationMs: Int64) {
@@ -57,7 +56,6 @@ struct KotlinProgressReporting: PlaybackProgressReporting {
 /// Bridges `PlaybackPreferences`' reactive skip-interval `Flow<Int>`s into native
 /// `AsyncStream<Int>`s. The shared store emits the current value on first collect and
 /// re-emits on every write (from any surface), so the player tracks the setting live.
-@MainActor
 final class KotlinSkipIntervalProviding: SkipIntervalProviding {
     private let bridge: FlowBridge
     let forwardSeconds: AsyncStream<Int>

@@ -19,12 +19,11 @@ import Testing
 /// issued *after* the wait has begun, from the wait's own (main-actor) domain, always resumes it.
 /// Under the pre-fix off-actor fake this races and can hang; under the isolated fake it is
 /// deterministic on the single-threaded domain.
-@MainActor
 @Suite("FakeProgressReporting isolation")
 struct FakeProgressReportingIsolationTests {
     @Test func waitForStartedResumesWhenSignalFiresAfterWaitBegins() async {
         let progress = FakeProgressReporting()
-        let waiting = Task { @MainActor in await progress.waitForStarted(bookId: "book1") }
+        let waiting = Task { await progress.waitForStarted(bookId: "book1") }
         // Hand the main actor to the child so its wait registers, then signal from this same
         // domain. A lost wakeup here would hang `waiting.value` — the exact PlayerSwitchPath flake.
         await Task.yield()

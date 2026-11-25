@@ -7,7 +7,6 @@ import UIKit
 /// so SwiftUI still builds the window. Its one job is the warm-launch quick action: a cold launch
 /// delivers the item in the connection options instead, which the app delegate reads.
 final class WindowSceneDelegate: NSObject, UIWindowSceneDelegate {
-    @MainActor
     func windowScene(
         _ windowScene: UIWindowScene,
         performActionFor shortcutItem: UIApplicationShortcutItem

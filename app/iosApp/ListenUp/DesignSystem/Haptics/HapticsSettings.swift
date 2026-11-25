@@ -4,7 +4,6 @@ import Shared
 /// App-lifetime source of truth for whether haptics are enabled, bridged from the shared
 /// `SettingsViewModel`. Injected at the root via `.environment(...)` and read by `.haptic(_:trigger:)`.
 @Observable
-@MainActor
 final class HapticsSettings {
     private(set) var isEnabled: Bool = true
 

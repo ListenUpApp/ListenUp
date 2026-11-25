@@ -10,7 +10,6 @@ import Shared
 /// Thin over `FlowBridge`; the actual bytes are read off the main thread by the shared
 /// `ImportFileSourceBridge` and handed to the VM as a non-`Sendable` `FileSource`.
 @Observable
-@MainActor
 final class RestoreFromFileObserver {
     // MARK: - State
 
@@ -47,8 +46,7 @@ final class RestoreFromFileObserver {
     }
 
     /// Pure: project the sealed `RestoreFromFileUiState` onto the upload phase.
-    /// `nonisolated` so tests can exercise it off the main actor.
-    nonisolated static func phase(from state: RestoreFromFileUiState) -> UploadPhase {
+    static func phase(from state: RestoreFromFileUiState) -> UploadPhase {
         switch state.sealedType() {
         case .idle:
             return .idle

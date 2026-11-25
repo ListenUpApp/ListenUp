@@ -3,7 +3,6 @@ import Foundation
 
 /// Ordered instruction execution (`load`, `play`, `pause`, `seek`, `setRate`, `stop`) plus load-epoch
 /// superseding and uncancellable teardown persistence. Split out of `PlayerCoordinator.swift`.
-@MainActor
 extension PlayerCoordinator {
     /// Execute one instruction from the shared player. Awaited by the drain task, so instructions
     /// reach the engine in the order they were issued; a `.load` only starts its load task and

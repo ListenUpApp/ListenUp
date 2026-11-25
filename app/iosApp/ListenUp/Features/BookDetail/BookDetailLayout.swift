@@ -5,7 +5,7 @@ enum BookDetailLayout: Equatable {
     case full
     case triage
 
-    nonisolated static func forBook(isHeld: Bool) -> BookDetailLayout { isHeld ? .triage : .full }
+    static func forBook(isHeld: Bool) -> BookDetailLayout { isHeld ? .triage : .full }
 
     /// The listen unit: the Resume unit, the offline reason, and the actions (Play, Download, Add to Shelf).
     var showsPlayback: Bool { self == .full }
@@ -23,7 +23,7 @@ enum BookDetailLayout: Equatable {
 
     /// The layout once the book is on screen: `nil` while it loads, and after an error, when there is no book — so a
     /// menu built for a book that is gone never stays in the toolbar.
-    nonisolated static func loaded(isLoading: Bool, hasError: Bool, isHeld: Bool) -> BookDetailLayout? {
+    static func loaded(isLoading: Bool, hasError: Bool, isHeld: Bool) -> BookDetailLayout? {
         guard !isLoading, !hasError else { return nil }
         return forBook(isHeld: isHeld)
     }
@@ -31,7 +31,7 @@ enum BookDetailLayout: Equatable {
     /// The page's one trailing toolbar item, for the layout once the book has loaded — `nil` while it
     /// is still loading. Nothing is offered until it is known whether the book is held: the full menu
     /// (Delete, Share, shelf) must never flash for a held book and then swap to the Held pill.
-    nonisolated static func toolbar(for layout: BookDetailLayout?) -> Toolbar {
+    static func toolbar(for layout: BookDetailLayout?) -> Toolbar {
         guard let layout else { return .none }
         return layout.showsOverflowMenu ? .overflowMenu : .heldPill
     }

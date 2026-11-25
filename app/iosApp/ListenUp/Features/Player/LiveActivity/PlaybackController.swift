@@ -3,7 +3,6 @@ import ListenUpActivityKit
 /// The app's `PlaybackControlling` implementation — forwards playback App Intent
 /// runs (Siri, Shortcuts, Control Center) to the shared player, through the app-wide `PlayerObserver`.
 /// Registered with `AppDependencyManager` at launch (see `ListenUpApp`).
-@MainActor
 final class PlaybackController: PlaybackControlling {
 
     private var player: PlayerObserver { Dependencies.shared.playerObserver }

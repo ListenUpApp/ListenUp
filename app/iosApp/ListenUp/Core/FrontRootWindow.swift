@@ -9,7 +9,6 @@ import Observation
 /// notification taps (`DeepLinkRouter`, `PushTapRouter`); this is the same rule (`FrontWindow`) for
 /// what is presented before a shell exists.
 @Observable
-@MainActor
 final class FrontRootWindow {
     static let shared = FrontRootWindow()
 

@@ -15,7 +15,6 @@ enum BookDetailMenuConfirmation: Identifiable {
 ///
 /// Split out of `BookDetailView.swift`, which sits at SwiftLint's type-body cap. The presentation state stays on the
 /// view, because `@State` storage cannot live in an extension.
-@MainActor
 extension BookDetailView {
 
     /// The toolbar for the book on screen: the More menu, or — for a held book — the Held pill. While the book loads

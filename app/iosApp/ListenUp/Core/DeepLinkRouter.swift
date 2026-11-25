@@ -8,7 +8,6 @@ import SwiftUI
 /// authenticated tab shell. Bridged Kotlin `ShareTarget`s are mapped to native values here
 /// (never handed to a view) per the iOS data-boundary rule.
 @Observable
-@MainActor
 final class DeepLinkRouter {
 
     /// The resolved, view-facing outcome of the current pending share-link target.
@@ -106,7 +105,7 @@ final class DeepLinkRouter {
             deliver(.claimInvite(serverURL: invite.serverUrl, code: invite.code, remoteURL: invite.remoteUrl))
         case .book(let bookType):
             let book = bookType.value
-            Task { @MainActor [weak self] in await self?.resolveBook(book) }
+            Task { [weak self] in await self?.resolveBook(book) }
         }
     }
 

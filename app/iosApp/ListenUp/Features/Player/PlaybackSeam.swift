@@ -3,7 +3,7 @@ import Foundation
 /// The audio transport the coordinator drives. `AudioEngine` is the production
 /// conformer; `FakePlaybackEngine` the test double. Platform-neutral — no
 /// AVFoundation types cross this boundary, so it ports to macOS/watchOS as-is.
-protocol PlaybackEngine: Sendable {
+nonisolated protocol PlaybackEngine: Sendable {
     /// The engine's event stream. Created once at init; consumed once.
     nonisolated var events: AsyncStream<AudioEngineEvent> { get }
     /// Configure the session, enqueue `segments`, and seek to `startPositionMs` before
@@ -47,7 +47,7 @@ protocol PlaybackEngine: Sendable {
 
 /// A navigable series/contributor behind the playing book — the player overflow menu's
 /// "Go to Series / Author / Narrator" targets. Native mirror of the shared `PlaybackNavRef`.
-struct ContributorNavRef: Sendable, Hashable, Identifiable {
+nonisolated struct ContributorNavRef: Sendable, Hashable, Identifiable {
     let id: String
     let name: String
     /// Their books in your library, for the byline menu ("14 books"); 0 where it isn't known.
@@ -56,7 +56,7 @@ struct ContributorNavRef: Sendable, Hashable, Identifiable {
 
 /// Native, platform-neutral snapshot of a prepared book. The Kotlin adapter maps
 /// the shared preparer's result into this so the protocol never leaks KMP types.
-struct PreparedPlayback: Sendable {
+nonisolated struct PreparedPlayback: Sendable {
     let bookTitle: String
     let bookAuthor: String
     /// Comma-joined narrator(s); empty when the book has no narrator.
@@ -88,12 +88,12 @@ struct PreparedPlayback: Sendable {
     var coverHash: String?
 }
 
-struct PreparedTimeline: Sendable {
+nonisolated struct PreparedTimeline: Sendable {
     let totalDurationMs: Int64
     let files: [PreparedFile]
 }
 
-struct PreparedFile: Sendable {
+nonisolated struct PreparedFile: Sendable {
     let localPath: String?
     let streamingUrl: String
     let durationMs: Int64
@@ -108,7 +108,6 @@ struct PreparedFile: Sendable {
 /// which matters for the test fake, whose `AsyncGate` waits and `signal()`s must share one
 /// isolation domain to be race-free (a non-isolated conformer's `nonisolated async` waits
 /// hop to the generic executor and lose wakeups against a main-actor `signal()`).
-@MainActor
 protocol PlaybackProgressReporting {
     /// A finished book that starts again outside the end credits of `durationMs` begins a re-listen
     /// (the shared tracker decides).
@@ -141,7 +140,6 @@ protocol PlaybackProgressReporting {
 ///
 /// `@MainActor`-isolated: the conformer holds a main-actor `FlowBridge` and the sole
 /// consumer (`PlayerCoordinator`) is `@MainActor` — isolation enforces it, no `@unchecked`.
-@MainActor
 protocol SkipIntervalProviding {
     /// Forward skip interval in seconds. Emits current value, then on every change.
     var forwardSeconds: AsyncStream<Int> { get }

@@ -12,7 +12,6 @@ enum ConnectRecovery: Equatable {
 /// `ServerConnectUiState` into SwiftUI-native properties. Holds the URL text as
 /// wrapper input state (it is view input, not ViewModel state). Thin over `FlowBridge`.
 @Observable
-@MainActor
 final class ServerConnectViewModelWrapper {
     /// The URL the user is typing — wrapper-held input state.
     var serverUrl: String = ""

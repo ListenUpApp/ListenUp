@@ -38,7 +38,6 @@ struct PositionTrackerTests {
 }
 
 @Suite("PositionTracker reset & seed")
-@MainActor
 struct PositionTrackerResetTests {
     /// Seeding with a paused sample (rate 0) surfaces the resume position immediately, so the
     /// UI shows the right chapter/time before the engine's first real sample (RC-2). Rate 0 is

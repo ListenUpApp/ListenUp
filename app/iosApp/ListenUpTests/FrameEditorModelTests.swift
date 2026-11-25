@@ -4,7 +4,6 @@ import Testing
 
 /// Move and Scale's model over the shared `FrameEditor`: the gestures, the VoiceOver steps and the slider all
 /// drive the same reducer, and the frame it holds is the one Done or Save stores.
-@MainActor
 @Suite("FrameEditorModel")
 struct FrameEditorModelTests {
     /// A 600×800 portrait in a 340 pt cut-out, as on the iPhone board.

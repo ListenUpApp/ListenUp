@@ -7,7 +7,6 @@ import Shared
 // Match details' boundary: every shared Find, Review and receipt state lands on its native value, so the
 // views only lay out what the mapping already said.
 
-@MainActor
 @Suite("Match details mapping")
 struct BookMatchMappingTests {
     private typealias Fixture = MatchFixtures

@@ -1,7 +1,6 @@
 import Testing
 @testable import ListenUp
 
-@MainActor
 @Suite("CurrentUserObserver")
 struct CurrentUserObserverTests {
     // CurrentUserObserver needs a live KMP UserRepository to drive its flow; full

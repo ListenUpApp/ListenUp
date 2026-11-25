@@ -34,7 +34,6 @@ struct TimelineInput {
 /// **One drag is one edit.** A drag previews while it moves and `release()` commits it once through
 /// `onRetime`. Committing every movement made Undo walk a drag back a pixel at a time on Android.
 @Observable
-@MainActor
 final class ChapterTimelineModel {
     private(set) var markers: [LaneMarker] = []
     private(set) var ghostFractions: [Double] = []

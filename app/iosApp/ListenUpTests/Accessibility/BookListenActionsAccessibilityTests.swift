@@ -4,7 +4,6 @@ import Testing
 
 /// Book Detail's actions, read the way VoiceOver meets them: Download names its size (spec N2), the primary is a
 /// live button unless the book is Unavailable Offline (N8), and Add to Shelf is a visible button.
-@MainActor
 @Suite("Book Detail listen actions accessibility", .serialized)
 struct BookListenActionsAccessibilityTests {
     private let size: Int64 = 1_288_490_189
