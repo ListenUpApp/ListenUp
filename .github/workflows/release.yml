@@ -273,6 +273,13 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
 
+      # SwiftExportAction can OOM at the repo-wide 4G Gradle daemon heap on 16G macOS runners; ci.yml's
+      # iOS jobs raise it the same way. v0.9.15's first archive died here with "Java heap space".
+      - name: Raise Gradle daemon heap for Swift Export
+        run: |
+          mkdir -p ~/.gradle
+          printf '\norg.gradle.jvmargs=-Xmx6144M -Dfile.encoding=UTF-8\n' >> ~/.gradle/gradle.properties
+
       - name: Read Kotlin version for Konan cache key
         id: kotlin-version
         run: |
