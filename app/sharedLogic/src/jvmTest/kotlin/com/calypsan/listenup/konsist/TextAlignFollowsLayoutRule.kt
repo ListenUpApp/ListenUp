@@ -12,12 +12,9 @@ internal fun alignsByParagraph(source: String): Boolean = paragraphRelativeAlign
 /** Where the theme's direction rule is defined: the one file allowed to name the paragraph-relative alignments. */
 private const val DIRECTION_RULE_FILE = "design/text/ContentTextDirection.kt"
 
-/** The Compose UI's production sources: the shared screens, the Android and desktop shells, not their tests. */
+/** The Compose UI's production sources: the shared screens and the Android shell, not their tests. */
 private fun isComposeUiSource(path: String): Boolean =
-    (
-        path.startsWith("app/sharedUI/src/") || path.startsWith("app/androidApp/src/") ||
-            path.startsWith("app/desktopApp/src/")
-    ) &&
+    (path.startsWith("app/sharedUI/src/") || path.startsWith("app/androidApp/src/")) &&
         "Test/" !in path
 
 /**
@@ -34,7 +31,7 @@ class TextAlignFollowsLayoutRule :
             assertScopeNotEmpty(
                 sources,
                 expectedMin = 550,
-                why = "Kotlin files in :app:sharedUI, :app:androidApp and :app:desktopApp's production source sets",
+                why = "Kotlin files in :app:sharedUI and :app:androidApp's production source sets",
             )
 
             sources

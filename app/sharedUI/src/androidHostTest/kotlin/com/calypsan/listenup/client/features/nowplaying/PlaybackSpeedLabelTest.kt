@@ -8,11 +8,6 @@ import java.util.Locale
 /**
  * How this UI writes a speed. The rounding it draws from (`snapPlaybackSpeed`) is commonMain's and
  * is covered there — what is left here is purely how the number is spelled on a pill.
- *
- * In `androidHostTest` rather than beside the desktop specs, because that is the sharedUI source
- * set CI actually runs: `ci.yml` invokes `:app:sharedUI:testAndroidHostTest` and never
- * `:app:sharedUI:desktopTest`, so a spec placed there is neither run nor compiled on a PR. Nothing
- * here needs a desktop.
  */
 class PlaybackSpeedLabelTest :
     FunSpec({

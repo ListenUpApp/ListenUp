@@ -12,21 +12,14 @@ plugins {
     alias(libs.plugins.kover)
 }
 
-// Mokkery is used in desktopTest and androidHostTest — see
-// app/sharedUI/src/desktopTest (DesktopPlaybackControllerTest) and
-// app/sharedUI/src/androidHostTest (BrowseTreeProviderTest).
+// Mokkery is used in androidHostTest (BrowseTreeProviderTest).
 //
-// Scope note: desktopTest's DesktopPlaybackControllerTest constructs a
-// never-invoked `mock<PlaybackManager>()` to satisfy the controller's
-// constructor; androidHostTest's BrowseTreeProviderTest is the second mokkery
-// consumer. Both flags below are module-wide and therefore apply to every
-// future mokkery mock in either source set; revisit them when a test surfaces a
-// different mockability need (e.g. a real test that exercises PlaybackManager
-// behaviour, at which point a hand-rolled FakePlaybackManager + an interface
-// seam is the likely better answer).
+// Both flags below are module-wide and therefore apply to every future mokkery
+// mock in androidHostTest; revisit them when a test surfaces a different
+// mockability need.
 //
-// - `ignoreFinalMembers` lets us mock PlaybackManager (open class) without
-//   having to mark each member as `open` individually.
+// - `ignoreFinalMembers` lets us mock open/final members without marking each
+//   member `open` individually.
 // - `stubs.allowConcreteClassInstantiation` lets mokkery synthesize stub
 //   instances for concrete constructor argument types (DeviceContext,
 //   EndPlaybackSessionHandler).
@@ -157,9 +150,6 @@ kotlin {
         }
     }
 
-    // JVM target for desktop (Windows/Linux)
-    jvm("desktop")
-
     sourceSets {
         androidMain.dependencies {
             implementation(libs.compose.ui.tooling.preview)
@@ -247,25 +237,6 @@ kotlin {
             // AboutLibraries — open-source license loader (compose-m3 includes core + compose-core)
             implementation(libs.aboutlibraries.compose.m3)
         }
-        getByName("desktopMain") {
-            dependencies {
-                // FFmpeg for audio decoding (self-contained, decodes all formats)
-                implementation(libs.javacv)
-                implementation(libs.javacpp)
-                implementation(libs.ffmpeg)
-
-                // Platform-specific native libraries
-                // macOS uses AVFoundation natively (appleMain), no javacpp needed
-                val javacppVersion = libs.versions.javacpp.get()
-                val ffmpegVersion =
-                    libs.versions.ffmpeg.javacpp
-                        .get()
-                listOf("linux-x86_64", "windows-x86_64").forEach { platform ->
-                    implementation("org.bytedeco:javacpp:$javacppVersion:$platform")
-                    implementation("org.bytedeco:ffmpeg:$ffmpegVersion:$platform")
-                }
-            }
-        }
         getByName("androidHostTest") {
             dependencies {
                 implementation(libs.kotlinx.coroutines.test)
@@ -291,34 +262,16 @@ kotlin {
                 implementation(libs.androidx.work.testing)
             }
         }
-        getByName("desktopTest") {
-            dependencies {
-                implementation(libs.kotlinx.coroutines.test)
-                implementation(libs.mokkery.runtime)
-
-                // Kotest — canonical FunSpec framework for new desktopTest tests.
-                // The runner is the JUnit5 platform engine; desktopTest switches to
-                // useJUnitPlatform() below. No vintage engine needed here — there are
-                // no JUnit4 tests in desktopTest.
-                implementation(libs.bundles.kotest)
-            }
-        }
     }
 }
 
-// Kotest's runner is the JUnit5 platform engine, so both JVM test tasks must run on the
-// JUnit Platform.
-//
-// testAndroidHostTest: junit-vintage-engine (added to androidHostTest) keeps the
-// pre-existing JUnit4 tests — Robolectric and Compose UI — discoverable on that platform.
+// Kotest's runner is the JUnit5 platform engine, so the Android host test task runs on the
+// JUnit Platform; junit-vintage-engine (added to androidHostTest) keeps the pre-existing
+// JUnit4 tests (Robolectric and Compose UI) discoverable.
 // The AGP KMP plugin registers testAndroidHostTest lazily, so match it by name.
-//
-// desktopTest: no JUnit4 tests exist here, so no vintage engine is needed.
 tasks.withType<Test>().configureEach {
-    if (name == "testAndroidHostTest" || name == "desktopTest") {
+    if (name == "testAndroidHostTest") {
         useJUnitPlatform()
-    }
-    if (name == "testAndroidHostTest" || name == "desktopTest") {
         forwardKotestFilterProperties()
     }
 }
@@ -342,9 +295,6 @@ failBelowDiscoveredTestCount(
             "com.calypsan.listenup.client.di.PlaybackModuleVerifyTest",
         ),
 )
-// 62 tests across 7 specs ran green on 2026-09-09. This lane runs in CI's test-jvm job (ci.yml) and in
-// verifyLocal (root build.gradle.kts), so a silent collapse here is a real hole, not a theoretical one.
-failBelowDiscoveredTestCount("desktopTest", floor = 40)
 
 // Compose UI tooling for Android preview support
 dependencies {

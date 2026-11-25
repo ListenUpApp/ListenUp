@@ -6,8 +6,8 @@ import io.kotest.core.names.DuplicateTestNameMode
 /**
  * Kotest project configuration for the **`:app:sharedUI` `testAndroidHostTest`** run
  * (auto-discovered by Kotest as `io.kotest.provided.ProjectConfig` on this androidHostTest test
- * classpath — `ProjectConfig` is discovered per test *classpath*, so `:app:sharedUI:desktopTest`
- * and every other module's test lane each carry their own copy rather than sharing this one).
+ * classpath — `ProjectConfig` is discovered per test *classpath*, so every module's test lane
+ * carries its own copy rather than sharing this one).
  *
  * - [failOnEmptyTestSuite]: a spec that registers zero tests is almost always a mistake (a
  *   misnamed `test`, a `context` that never adds leaves) — fail instead of passing silently.

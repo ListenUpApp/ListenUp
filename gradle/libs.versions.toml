@@ -20,7 +20,6 @@ androidx-window = "1.5.1"
 androidx-lifecycle-android = "2.11.1"
 androidx-navigation3 = "1.2.2"
 androidx-graphics-shapes = "1.1.0"
-androidx-material-icons = "1.7.8"
 androidx-compose-ui-test = "1.12.1"
 androidx-core-splashscreen = "1.2.0"
 robolectric = "4.18.1"
@@ -80,12 +79,9 @@ aboutlibraries = "15.3.0"
 google-services = "4.6.0"
 firebase-messaging = "26.0.2"
 
-# Server and desktop JVM
+# Server and JVM
 logback = "1.6.8"
 jmdns = "3.6.5"
-javacpp = "1.5.14"
-ffmpeg-javacpp = "8.1.2-1.5.14"
-jnativehook = "2.2.2"
 
 # Multiplatform (JetBrains) navigation and adaptive-layout artifacts
 navigation3-multiplatform = "1.2.0"
@@ -134,7 +130,6 @@ compose-ui-tooling = { module = "org.jetbrains.compose.ui:ui-tooling", version.r
 compose-ui-tooling-preview = { module = "org.jetbrains.compose.ui:ui-tooling-preview", version.ref = "composeMultiplatform" }
 compose-components-resources = { module = "org.jetbrains.compose.components:components-resources", version.ref = "composeMultiplatform" }
 compose-components-ui-tooling-preview = { module = "org.jetbrains.compose.components:components-ui-tooling-preview", version.ref = "composeMultiplatform" }
-androidx-material-icons-extended = { module = "androidx.compose.material:material-icons-extended", version.ref = "androidx-material-icons" }
 androidx-navigation3-ui-android = { module = "androidx.navigation3:navigation3-ui-android", version.ref = "androidx-navigation3" }
 androidx-lifecycle-viewmodel-navigation3 = { module = "androidx.lifecycle:lifecycle-viewmodel-navigation3", version.ref = "androidx-lifecycle-android" }
 # Navigation 3 (JetBrains Multiplatform) - only navigation3-ui exists on Maven Central
@@ -185,7 +180,6 @@ kotlinx-rpc-krpc-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinx-coroutines" }
 kotlin-reflect = { module = "org.jetbrains.kotlin:kotlin-reflect", version.ref = "kotlin" }
-kotlinx-coroutines-swing = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-swing", version.ref = "kotlinx-coroutines" }
 kotlinx-coroutines-slf4j = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-slf4j", version.ref = "kotlinx-coroutines" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
 kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "kotlinx-datetime" }
@@ -208,10 +202,6 @@ kotlin-logging = { group = "io.github.oshai", name = "kotlin-logging", version.r
 slf4j-android = { group = "uk.uuid.slf4j", name = "slf4j-android", version.ref = "slf4j-android" }
 logback-classic = { group = "ch.qos.logback", name = "logback-classic", version.ref = "logback" }
 jmdns = { group = "org.jmdns", name = "jmdns", version.ref = "jmdns" }
-jnativehook = { module = "com.github.kwhat:jnativehook", version.ref = "jnativehook" }
-javacv = { module = "org.bytedeco:javacv", version.ref = "javacpp" }
-javacpp = { module = "org.bytedeco:javacpp", version.ref = "javacpp" }
-ffmpeg = { module = "org.bytedeco:ffmpeg", version.ref = "ffmpeg-javacpp" }
 mokkery-runtime = { group = "dev.mokkery", name = "mokkery-runtime", version.ref = "mokkery" }
 turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
 ktor-client-mock = { module = "io.ktor:ktor-client-mock", version.ref = "ktor" }

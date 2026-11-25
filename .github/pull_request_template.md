@@ -11,7 +11,6 @@ What problem does this solve? Link to issue if applicable.
 - [ ] Android
 - [ ] iOS
 - [ ] Web
-- [ ] Desktop (JVM)
 - [ ] Server
 - [ ] N/A (docs, CI, etc.)
 
