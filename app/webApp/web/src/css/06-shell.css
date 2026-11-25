@@ -68,7 +68,10 @@
 /* A flex column so the transport bar can be pushed to the bottom by an auto top margin. Without
    it, `.tport`'s `position:sticky; bottom:0` only pins once the content is tall enough to scroll —
    on a short page the bar rendered mid-screen, floating above the fold. */
-.shell-main { flex:1; min-width:0; overflow:auto; padding:var(--sp-24) 28px; display:flex; flex-direction:column; }
+/* Positioned so it holds what is absolutely positioned inside it. Otherwise a line placed out of
+   sight for a screen reader (`.sr-only`) deep in a long page is laid out against the document at that
+   depth, and the document grows to reach it: the whole app scrolls on into empty paper below. */
+.shell-main { position:relative; flex:1; min-width:0; overflow:auto; padding:var(--sp-24) 28px; display:flex; flex-direction:column; }
 /* The page's own content, one box inside the region (motion/PageArrival.kt). It exists so a page can
    rise as it arrives while the REGION never takes a transform — the cover flight measures against it.
    It reproduces the region's column, so every page lays out exactly as it did as the region's direct

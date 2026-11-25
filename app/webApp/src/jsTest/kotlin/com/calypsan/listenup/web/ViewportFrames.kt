@@ -78,7 +78,13 @@ internal class ViewportFrames {
         frame.style.cssText = "width:${width}px;height:${height}px;border:0;display:block"
         document.body!!.appendChild(frame)
 
+        // A fresh frame's about:blank document is in quirks mode, where the root element is always the
+        // viewport's height and every measurement of the document's own overflow reads zero. The app's
+        // page declares a doctype; so does the frame, so it lays out and measures as the app does.
         val frameDocument = frame.contentDocument!!
+        frameDocument.open()
+        frameDocument.write("<!doctype html><html><head></head><body></body></html>")
+        frameDocument.close()
         val style = frameDocument.createElement("style")
         style.textContent = if (pointer == Pointer.Touch) asTouchDevice(runnerCss()) else runnerCss()
         frameDocument.head!!.appendChild(style)
