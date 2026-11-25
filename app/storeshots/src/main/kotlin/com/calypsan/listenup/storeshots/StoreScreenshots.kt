@@ -127,7 +127,7 @@ class StoreScreenshots {
     }
 
     private fun openSettings() {
-        await(By.text(INITIALS), "the account menu").click()
+        await(By.desc(ACCOUNT_MENU), "the account menu").click()
         await(By.text(SETTINGS), "Settings in the account menu").click()
         await(By.text(APPEARANCE_OR_SETTINGS), "the Settings screen")
     }
@@ -167,14 +167,17 @@ class StoreScreenshots {
 
     private fun captureConnect(shots: Shots) {
         navigate(HOME)
-        await(By.text(INITIALS), "the account menu").click()
+        await(By.desc(ACCOUNT_MENU), "the account menu").click()
         await(By.text(SIGN_OUT), "Sign out in the account menu").click()
         // A confirmation, when there is one, ends with the same words.
         device.wait(Until.findObject(By.text(SIGN_OUT)), TIMEOUT_MS)?.let {
             device.findObjects(By.text(SIGN_OUT)).last().click()
         }
         // Signing out keeps the server and lands on its sign-in form; one step further back is the picker.
-        await(By.text(CHANGE_SERVER), "Change server on the sign-in form", LONG_TIMEOUT_MS).click()
+        await(By.text(FORGOT_PASSWORD), "the sign-in form", LONG_TIMEOUT_MS)
+        // Change server ends a form that scrolls on short windows: only at the end does it clear the nav bar.
+        scrollToEnd()
+        await(By.text(CHANGE_SERVER), "Change server on the sign-in form").click()
         await(By.text(ADD_SERVER_MANUALLY), "the connect screen", LONG_TIMEOUT_MS)
         settle(SLOW_SETTLE_MS)
         shots.capture("07-connect")
@@ -304,6 +307,14 @@ class StoreScreenshots {
         return await(selector, selector.toString())
     }
 
+    private fun scrollToEnd() {
+        val scrollable = largestScrollable() ?: return
+        scrollable.setGestureMargin(device.displayWidth / GESTURE_MARGIN_DIVISOR)
+        var scrolls = 0
+        while (scrollable.scroll(Direction.DOWN, 1f) && ++scrolls < MAX_SCROLLS) device.waitForIdle()
+        device.waitForIdle()
+    }
+
     /** The screen's main scrolling list: the largest scrollable on screen. */
     private fun largestScrollable(): UiObject2? =
         device
@@ -335,7 +346,7 @@ class StoreScreenshots {
             null
         } catch (failure: AssertionError) {
             println(failure.message)
-            backUntil(By.text(INITIALS))
+            backUntil(By.desc(ACCOUNT_MENU))
             failure.message ?: name
         }
 
@@ -422,8 +433,8 @@ class StoreScreenshots {
         const val SETTINGS = "Settings"
         const val SIGN_OUT = "Sign out"
 
-        /** The account menu is the main listener's avatar: Maya Okafor's initials. */
-        const val INITIALS = "MO"
+        /** The account menu is the avatar, which screen readers name "Profile" rather than by its initials. */
+        const val ACCOUNT_MENU = "Profile"
         val APPEARANCE_OR_SETTINGS: Pattern = Pattern.compile("Appearance|Settings")
         const val DYNAMIC_COLORS = "Dynamic colors"
 
