@@ -8,17 +8,22 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
@@ -132,21 +137,25 @@ private fun AuthHeroLayout(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .systemBarsPadding()
-                        .padding(start = 26.dp, end = 26.dp, top = 16.dp, bottom = 36.dp),
+                        .windowInsetsPadding(
+                            WindowInsets.systemBars.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal),
+                        ).padding(start = 26.dp, end = 26.dp, top = 16.dp, bottom = 36.dp),
             ) {
                 BrandRow(onBack = onBack, onColor = true)
                 Spacer(Modifier.height(30.dp))
                 AuthTitleBlock(title = title, subtitle = subtitle, badge = badge, onColor = true)
             }
         }
-        // Form — centered + capped so wide single-column windows stay readable.
+        // Form — centered + capped so wide single-column windows stay readable. It ends the scroll, so it
+        // carries the bottom bar's inset: on the header, that inset left the last button under the nav bar.
         Column(
             modifier =
                 Modifier
                     .widthIn(max = FormMaxWidth)
                     .fillMaxWidth()
-                    .padding(horizontal = 26.dp, vertical = 28.dp),
+                    .windowInsetsPadding(
+                        WindowInsets.systemBars.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal),
+                    ).padding(horizontal = 26.dp, vertical = 28.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp),
             content = content,
         )
