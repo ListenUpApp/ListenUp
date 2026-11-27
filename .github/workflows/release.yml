@@ -227,6 +227,31 @@ jobs:
     permissions:
       contents: write
     steps:
+      # Tag with git, not through the release API: the API refuses to create a tag with this job's token
+      # on a commit that changes workflow files ("Resource not accessible by integration", v0.9.15),
+      # while a git push of the same tag goes through, as it did for v0.9.13. The action below then
+      # publishes onto the existing tag.
+      - name: Checkout the built commit
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.set-version.outputs.sha }}
+
+      - name: Tag the built commit
+        env:
+          TAG: v${{ needs.set-version.outputs.version }}
+          SHA: ${{ needs.set-version.outputs.sha }}
+        run: |
+          set -euo pipefail
+          # An annotated tag lists its commit on the peeled ^{} line, which sorts last.
+          existing="$(git ls-remote origin "refs/tags/$TAG" "refs/tags/$TAG^{}" | tail -n 1 | cut -f1)"
+          if [ -z "$existing" ]; then
+            git tag "$TAG" "$SHA"
+            git push origin "refs/tags/$TAG"
+          elif [ "$existing" != "$SHA" ]; then
+            echo "::error::$TAG already exists on another commit; not moving it."
+            exit 1
+          fi
+
       - name: Download Android artifacts
         if: ${{ inputs.android && needs.android.result == 'success' }}
         uses: actions/download-artifact@v8
@@ -239,8 +264,8 @@ jobs:
         with:
           tag_name: v${{ needs.set-version.outputs.version }}
           name: v${{ needs.set-version.outputs.version }}
-          # The tag does not exist yet on a bumped release: this action creates it, on the commit every
-          # lane built. Tagging first (as this workflow did) left v-tags on main for releases that failed.
+          # Tagged by the step above only now, once every selected lane succeeded: tagging up front (as
+          # this workflow once did) left v-tags on main for releases that failed.
           target_commitish: ${{ needs.set-version.outputs.sha }}
           generate_release_notes: true
           files: artifacts/**/*
