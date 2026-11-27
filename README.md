@@ -79,7 +79,7 @@ the server, so they play.
 ## Getting the Beta
 
 - **iOS** — [Join the TestFlight beta](https://testflight.apple.com/join/5DJ6GZdt)
-- **Android** — via the Google Play internal track _(invite coming soon — check [Releases](https://github.com/ListenUpApp/ListenUp/releases) in the meantime)_
+- **Android** — [Get it on Google Play](https://play.google.com/store/apps/details?id=com.calypsan.listenup.client)
 - **Web** — nothing to join. [Run a server](#run-your-own-server) and open it in a browser; the web client is served at `/`.
 
 ### Connecting to a Server
